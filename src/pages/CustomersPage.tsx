@@ -170,7 +170,7 @@ const EditCustomerModal: React.FC<{
   const [form,   setForm]   = useState<EditForm>({
     first_name:                   customer.first_name,
     last_name:                    customer.last_name,
-    phone:                        customer.phone ? customer.phone.replace(/^\+/, '') : '',
+    phone:                        customer.phone ? customer.phone.replace(/^\+/, '').replace(/\s+/g, '') : '',
     nationality:                  customer.nationality     ?? '',
     id_type:                      customer.id_type         ?? '',
     id_number:                    customer.id_number       ?? '',

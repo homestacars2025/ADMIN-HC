@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
@@ -258,7 +258,7 @@ const SkeletonCard: React.FC = () => (
 // ─── Add Car Modal ────────────────────────────────────────────────────────────
 
 interface ModelGroupOption { id: number; name: string; }
-interface InvestorOption   { id: number; full_name: string; }
+interface InvestorOption   { id: string; full_name: string; }
 
 const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ onClose, onAdded }) => {
   const [modelGroups, setModelGroups]   = useState<ModelGroupOption[]>([]);
@@ -280,8 +280,8 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
       ]);
       if (cancelled) return;
       setModelGroups((mgRes.data ?? []) as ModelGroupOption[]);
-      const raw = (invRes.data ?? []) as unknown as { id: number; profiles: { full_name: string } | null }[];
-      setInvestors(raw.map(r => ({ id: r.id, full_name: r.profiles?.full_name ?? '—' })));
+      const raw = (invRes.data ?? []) as unknown as { id: string; profiles: { full_name: string } | null }[];
+      setInvestors(raw.map(r => ({ id: String(r.id), full_name: r.profiles?.full_name ?? '—' })));
       setLoadingData(false);
     })();
     return () => { cancelled = true; };
@@ -297,7 +297,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
     const { error } = await supabase.from('cars').insert({
       plate_number:    plate.trim().toUpperCase(),
       model_group_id:  Number(modelGroupId),
-      investor_id:     Number(investorId),
+      investor_id:     investorId || null,
     });
     setSaving(false);
 
@@ -539,16 +539,38 @@ const PdfUploadField: React.FC<{
   );
 };
 
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+interface ToastState { message: string; type: 'success' | 'error'; }
+const Toast: React.FC<ToastState> = ({ message, type }) =>
+  ReactDOM.createPortal(
+    <div style={{
+      position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: type === 'success' ? '#0f1117' : '#ef4444',
+      color: '#fff', borderRadius: 12, padding: '12px 20px',
+      fontSize: 14, fontWeight: 500,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+    }}>
+      {type === 'success'
+        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#4ade80" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="#4ade80" strokeWidth="1.8"/></svg>
+        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
+      }
+      {message}
+    </div>,
+    document.body,
+  );
+
 // ─── Edit Car Modal ───────────────────────────────────────────────────────────
 
-const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () => void }> = ({ carId, onClose, onSaved }) => {
+const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () => void; showToast: (message: string, type: 'success' | 'error') => void }> = ({ carId, onClose, onSaved, showToast }) => {
   const [loadingData, setLoadingData] = useState(true);
   const [saving,      setSaving]      = useState(false);
   const [formError,   setFormError]   = useState<string | null>(null);
   const [hasReg,      setHasReg]      = useState(false);
 
   const [modelGroups, setModelGroups] = useState<{ id: number; name: string }[]>([]);
-  const [investors,   setInvestors]   = useState<{ id: number; full_name: string }[]>([]);
+  const [investors,   setInvestors]   = useState<{ id: string; full_name: string }[]>([]);
 
   // Section 1
   const [plateNumber,  setPlateNumber]  = useState('');
@@ -586,9 +608,9 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
       if (cancelled) return;
 
       if (carRes.data) {
-        const c = carRes.data as { plate_number: string; investor_id: number | null; model_group_id: number | null };
+        const c = carRes.data as { plate_number: string; investor_id: string | null; model_group_id: number | null };
         setPlateNumber(c.plate_number ?? '');
-        setInvestorId(c.investor_id != null ? String(c.investor_id) : '');
+        setInvestorId(c.investor_id ?? '');
         setModelGroupId(c.model_group_id != null ? String(c.model_group_id) : '');
       }
 
@@ -607,8 +629,8 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
         setKasko((r.kasko as string) ?? '');
       }
 
-      const rawInv = (invRes.data ?? []) as unknown as { id: number; profiles: { full_name: string } | null }[];
-      setInvestors(rawInv.map(r => ({ id: r.id, full_name: r.profiles?.full_name ?? '—' })));
+      const rawInv = (invRes.data ?? []) as unknown as { id: string; profiles: { full_name: string } | null }[];
+      setInvestors(rawInv.map(r => ({ id: String(r.id), full_name: r.profiles?.full_name ?? '—' })));
       setModelGroups((mgRes.data ?? []) as { id: number; name: string }[]);
       setLoadingData(false);
     })();
@@ -622,16 +644,40 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
 
     const plate = plateNumber.trim().toUpperCase();
 
-    const { error: carErr } = await supabase
-      .from('cars')
-      .update({
-        plate_number:   plate,
-        investor_id:    investorId    ? Number(investorId)    : null,
-        model_group_id: modelGroupId  ? Number(modelGroupId)  : null,
-      })
-      .eq('id', carId);
+    const carPayload = {
+      plate_number:   plate,
+      investor_id:    investorId || null,
+      model_group_id: modelGroupId ? Number(modelGroupId) : null,
+    };
+    console.log('[EditCar] carId:', carId, 'payload:', carPayload);
 
-    if (carErr) { setSaving(false); setFormError(carErr.message); return; }
+    const { data: carData, error: carErr } = await supabase
+      .from('cars')
+      .update(carPayload)
+      .eq('id', carId)
+      .select('id, plate_number, investor_id, model_group_id');
+
+    console.log('[EditCar] update response → data:', carData, 'error:', carErr);
+
+    if (carErr) {
+      console.error('[EditCar] cars update error (raw):', carErr);
+      setSaving(false);
+      setFormError(carErr.message);
+      showToast(carErr.message, 'error');
+      return;
+    }
+
+    if (!carData || carData.length === 0) {
+      console.warn('[EditCar] update returned 0 rows — possible RLS block or wrong carId');
+      setSaving(false);
+      setFormError('Update matched no rows — check RLS or car ID.');
+      showToast('Update matched no rows — check RLS or car ID.', 'error');
+      return;
+    }
+
+    // Re-fetch to confirm DB state
+    const { data: verify } = await supabase.from('cars').select('id, investor_id').eq('id', carId).single();
+    console.log('[EditCar] post-save DB state:', verify);
 
     // Upload any pending PDF files, fall back to existing URL if none selected
     const uploadDoc = async (file: File | null, existing: string, prefix: string): Promise<string | null> => {
@@ -679,7 +725,8 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
     const { error: regErr } = await regOp;
 
     setSaving(false);
-    if (regErr) { setFormError(regErr.message); return; }
+    if (regErr) { console.error('[EditCar] registration update error:', regErr); setFormError(regErr.message); showToast(regErr.message, 'error'); return; }
+    showToast('Car saved successfully', 'success');
     onSaved();
     onClose();
   };
@@ -763,7 +810,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
                     <div>
                       <label style={labelStyle}>Investor</label>
                       <select value={investorId} onChange={e => setInvestorId(e.target.value)} style={selectStyle}>
-                        <option value="">Select investor</option>
+                        <option value="">No investor</option>
                         {investors.map(inv => <option key={inv.id} value={String(inv.id)}>{inv.full_name}</option>)}
                       </select>
                     </div>
@@ -867,6 +914,14 @@ const CarsPage: React.FC = () => {
   const [sortCol,  setSortCol]  = useState<'plate_number' | 'model' | 'year' | 'current_km' | 'status' | null>(null);
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('asc');
   const [totalCars, setTotalCars] = useState(0);
+  const [toast, setToast]       = useState<ToastState | null>(null);
+  const toastTimer              = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
 
   const handleSort = (col: 'plate_number' | 'model' | 'year' | 'current_km' | 'status') => {
     if (sortCol !== col) { setSortCol(col); setSortDir('asc'); }
@@ -1383,8 +1438,10 @@ const CarsPage: React.FC = () => {
           carId={editingCarId}
           onClose={() => setEditingCarId(null)}
           onSaved={() => { setEditingCarId(null); setRefreshKey(k => k + 1); }}
+          showToast={showToast}
         />
       )}
+      {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
   );
 };

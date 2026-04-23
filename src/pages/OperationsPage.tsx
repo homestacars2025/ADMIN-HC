@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 type OperationType =
   | 'DELIVERY' | 'PICKUP'
   | 'CAR_WASH' | 'MAINTENANCE' | 'OIL_CHANGE'
-  | 'SERVICE'  | 'RECEIVING'   | 'OTHER';
+  | 'SERVICE'  | 'RECEIVING'   | 'OTHER'; // SERVICE/RECEIVING kept for legacy DB rows
 
 type TabKey = 'dp' | 'other';
 
@@ -21,10 +21,11 @@ interface OperationRow {
   operation_time: string | null;
   type: OperationType;
   car_id: number;
-  handled_by: string | null;
+  performed_by: string | null;
   customer_id: string | null;
   current_km: number | null;
-  cleanliness_status: boolean | null;
+  fuel_level: number | null;
+  cleanliness_status: string | null;
   location_text: string | null;
   note: string | null;
   booking_id: number | null;
@@ -40,13 +41,14 @@ interface Operation {
   operation_time: string | null;
   type: OperationType;
   car_id: number;
-  handled_by: string | null;
+  performed_by: string | null;
   customer_id: string | null;
   plate_number: string;
   handler_name: string | null;
   customer_name: string | null;
   current_km: number | null;
-  cleanliness_status: boolean | null;
+  fuel_level: number | null;
+  cleanliness_status: string | null;
   location_text: string | null;
   note: string | null;
   booking_id: number | null;
@@ -62,6 +64,7 @@ interface AddOpForm {
   operation_date: string;
   operation_time: string;
   current_km: string;
+  fuel_level: string;
   cleanliness_status: 'clean' | 'not_clean' | '';
   location_text: string;
   note: string;
@@ -81,14 +84,14 @@ const TYPE_CONFIG: Record<OperationType, { label: string; color: string; bg: str
 };
 
 const ALL_OP_TYPES: OperationType[] = [
-  'DELIVERY', 'PICKUP', 'CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER',
+  'DELIVERY', 'PICKUP', 'CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER',
 ];
 
 const DP_TYPES:    OperationType[] = ['DELIVERY', 'PICKUP'];
-const OTHER_TYPES: OperationType[] = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER'];
+const OTHER_TYPES: OperationType[] = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER']; // SERVICE/RECEIVING kept so legacy rows appear in the list
 
 const DP_STAT_CARDS    = ['DELIVERY', 'PICKUP'] as const;
-const OTHER_STAT_CARDS = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER'] as const;
+const OTHER_STAT_CARDS = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER'] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,15 +119,15 @@ function opToForm(op: Operation): AddOpForm {
   return {
     type:               op.type,
     car_id:             String(op.car_id),
-    handled_by:         op.handled_by ?? '',
+    handled_by:         op.performed_by ?? '',
     customer_id:        op.customer_id ?? '',
     booking_id:         op.booking_id != null ? String(op.booking_id) : '',
     operation_date:     op.operation_date,
     operation_time:     op.operation_time ?? '',
     current_km:         op.current_km != null ? String(op.current_km) : '',
-    cleanliness_status: op.cleanliness_status === true ? 'clean'
-                      : op.cleanliness_status === false ? 'not_clean'
-                      : '',
+    fuel_level:         op.fuel_level != null ? String(op.fuel_level) : '',
+    cleanliness_status: (op.cleanliness_status === 'clean' || op.cleanliness_status === 'not_clean')
+                      ? op.cleanliness_status : '',
     location_text:      op.location_text ?? '',
     note:               op.note ?? '',
   };
@@ -148,12 +151,13 @@ function resolveOperation(row: OperationRow): Operation {
     operation_time:     row.operation_time,
     type:               row.type,
     car_id:             row.car_id,
-    handled_by:         row.handled_by,
+    performed_by:       row.performed_by,
     customer_id:        row.customer_id,
     plate_number:       car?.plate_number ?? '—',
     handler_name:       hdlr?.full_name ?? null,
     customer_name:      cust ? `${cust.first_name} ${cust.last_name}`.trim() : null,
     current_km:         row.current_km,
+    fuel_level:         row.fuel_level,
     cleanliness_status: row.cleanliness_status,
     location_text:      row.location_text,
     note:               row.note,
@@ -252,6 +256,7 @@ const EMPTY_FORM = (): AddOpForm => ({
   operation_date:     todayStr(),
   operation_time:     nowTimeStr(),
   current_km:         '',
+  fuel_level:         '',
   cleanliness_status: '',
   location_text:      '',
   note:               '',
@@ -276,6 +281,7 @@ const AddOperationModal: React.FC<{
   const [saving, setSaving]           = useState(false);
   const [saveStep, setSaveStep]       = useState<'saving' | 'uploading'>('saving');
   const [formError, setFormError]     = useState<string | null>(null);
+  const [fuelLevelError, setFuelLevelError] = useState<string | null>(null);
 
   // Refs to skip resets on initial mount when editing
   const skipCarResetRef     = useRef(isEdit);
@@ -408,6 +414,15 @@ const AddOperationModal: React.FC<{
     if (!form.type)       { setFormError('Please select an operation type.'); return; }
     if (!form.handled_by) { setFormError('Please select who handled this operation.'); return; }
 
+    if (form.fuel_level === '') {
+      setFuelLevelError('Fuel level is required.');
+      return;
+    }
+    if (Number(form.fuel_level) > 2000) {
+      setFuelLevelError('Maximum fuel level is 2000');
+      return;
+    }
+
     setSaving(true);
     setSaveStep('saving');
     setFormError(null);
@@ -418,15 +433,15 @@ const AddOperationModal: React.FC<{
       operation_date:     form.operation_date,
       operation_time:     form.operation_time || null,
       current_km:         form.current_km ? Number(form.current_km) : null,
-      cleanliness_status: form.cleanliness_status === 'clean'     ? true
-                        : form.cleanliness_status === 'not_clean' ? false
-                        : null,
+      fuel_level:         form.fuel_level !== '' ? Number(form.fuel_level) : null,
+      cleanliness_status: form.cleanliness_status || null,
       location_text:      form.location_text || null,
       note:               form.note || null,
-      handled_by:         form.handled_by,
+      performed_by:       form.handled_by || null,
       customer_id:        form.customer_id || null,
       booking_id:         form.booking_id.trim() ? Number(form.booking_id) : null,
     };
+    console.log('[Op] save payload cleanliness_status:', corePayload.cleanliness_status);
 
     // ── Edit mode ────────────────────────────────────────────────────────────
     if (isEdit) {
@@ -645,6 +660,28 @@ const AddOperationModal: React.FC<{
             <div style={fieldStyle}>
               <label style={labelStyle}>Mileage (km)</label>
               <input type="number" min="0" placeholder="e.g. 54200" value={form.current_km} onChange={set('current_km')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
+            </div>
+
+            {/* Fuel Level */}
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Fuel Level (L) <span style={{ color: '#ef4444' }}>*</span></label>
+              <input
+                type="number"
+                min="0"
+                max="2000"
+                placeholder="e.g. 45"
+                value={form.fuel_level}
+                onChange={e => {
+                  setFuelLevelError(null);
+                  setForm(f => ({ ...f, fuel_level: e.target.value }));
+                }}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                style={{ ...inputStyle, borderColor: fuelLevelError ? '#ef4444' : undefined }}
+              />
+              {fuelLevelError && (
+                <span style={{ fontSize: 12, color: '#ef4444', marginTop: 4, display: 'block' }}>{fuelLevelError}</span>
+              )}
             </div>
 
             {/* Cleanliness */}
@@ -1070,10 +1107,10 @@ const OperationsPage: React.FC = () => {
     const { data, error: fetchError } = await supabase
       .from('operations')
       .select(`
-        id, operation_date, operation_time, type, car_id, handled_by, customer_id,
-        current_km, cleanliness_status, location_text, note, booking_id, folder_url,
+        id, operation_date, operation_time, type, car_id, performed_by, customer_id,
+        current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url,
         cars!operations_car_id_fkey(plate_number),
-        handler:profiles(full_name),
+        handler:profiles!performed_by(full_name),
         customers(first_name, last_name)
       `)
       .gte('operation_date', toDateStr(getMonthStart(month)))
@@ -1082,6 +1119,7 @@ const OperationsPage: React.FC = () => {
 
     setLoading(false);
     if (fetchError) { setError(fetchError.message); return; }
+    if (data && data.length > 0) console.log('[Op] first row cleanliness_status from DB:', (data[0] as Record<string, unknown>).cleanliness_status);
     setAllOperations(((data ?? []) as unknown as OperationRow[]).map(resolveOperation));
   }, []);
 
@@ -1268,6 +1306,7 @@ const OperationsPage: React.FC = () => {
                 <Th>Handled By</Th>
                 {tab === 'dp' && <Th>Customer</Th>}
                 <Th>Mileage</Th>
+                <Th>Fuel Level</Th>
                 <Th style={{ textAlign: 'center' }}>Cleanliness</Th>
                 <Th>Notes</Th>
                 <Th style={{ textAlign: 'center' }}>Photos</Th>
@@ -1314,12 +1353,18 @@ const OperationsPage: React.FC = () => {
                       : <span style={{ color: '#d1d5db' }}>—</span>}
                   </td>
 
+                  <td style={{ ...td, fontVariantNumeric: 'tabular-nums' }}>
+                    {op.fuel_level != null
+                      ? op.fuel_level + ' L'
+                      : <span style={{ color: '#d1d5db' }}>—</span>}
+                  </td>
+
                   <td style={{ ...td, textAlign: 'center' }}>
-                    {op.cleanliness_status == null
-                      ? <span style={{ color: '#d1d5db' }}>—</span>
-                      : op.cleanliness_status
-                        ? <span title="Clean" style={{ fontSize: 16 }}>✅</span>
-                        : <span title="Not clean" style={{ fontSize: 16 }}>❌</span>
+                    {op.cleanliness_status === 'clean'
+                      ? <span title="Clean" style={{ fontSize: 16 }}>✅</span>
+                      : op.cleanliness_status === 'not_clean'
+                        ? <span title="Not clean" style={{ fontSize: 16 }}>❌</span>
+                        : <span style={{ color: '#d1d5db' }}>—</span>
                     }
                   </td>
 

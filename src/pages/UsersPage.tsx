@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type UserRole   = 'customer' | 'staff' | 'admin' | 'investor';
-type UserStatus = 'pending'  | 'active' | 'blocked' | 'inactive';
+type UserStatus = 'pending'  | 'active' | 'disabled' | 'bloked';
 
 interface UserProfile {
   id: string;
@@ -146,17 +146,19 @@ function generatePassword(): string {
   return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-// Parse phone: try to split dial code from stored phone string
+// Sorted longest-first so "+1268" matches before "+1"
+const COUNTRIES_BY_DIAL_LEN = [...COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+
 function parsePhone(phone: string | null): { dial: string; number: string } {
   if (!phone) return { dial: '+90', number: '' };
-  const country = COUNTRIES.find(c => phone.startsWith(c.dial + ' ') || phone.startsWith(c.dial));
-  if (country) {
-    const num = phone.startsWith(country.dial + ' ')
-      ? phone.slice(country.dial.length + 1)
-      : phone.slice(country.dial.length);
-    return { dial: country.dial, number: num };
+  const s = phone.trim().replace(/\s+/g, '');
+  if (!s.startsWith('+')) return { dial: '+90', number: s };
+  for (const c of COUNTRIES_BY_DIAL_LEN) {
+    if (s.startsWith(c.dial)) {
+      return { dial: c.dial, number: s.slice(c.dial.length) };
+    }
   }
-  return { dial: '+90', number: phone };
+  return { dial: '+90', number: s };
 }
 
 // ─── Badge configs ────────────────────────────────────────────────────────────
@@ -171,8 +173,8 @@ const ROLE_CFG: Record<UserRole, { label: string; color: string; bg: string }> =
 const STATUS_CFG: Record<UserStatus, { label: string; color: string; bg: string }> = {
   active:   { label: 'Active',   color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
   pending:  { label: 'Pending',  color: '#eab308', bg: 'rgba(234,179,8,0.12)'   },
-  blocked:  { label: 'Blocked',  color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
-  inactive: { label: 'Inactive', color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
+  disabled: { label: 'Disabled', color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
+  bloked:   { label: 'Blocked',  color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -395,19 +397,19 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
       // 1. Upload avatar if changed
       let avatar_url = user.avatar_url;
       if (form.avatar_file) {
-        const ext  = form.avatar_file.name.split('.').pop();
-        const path = `${user.id}/avatar.${ext}`;
+        const ext      = form.avatar_file.name.split('.').pop() ?? 'jpg';
+        const fileName = `${form.full_name.trim().replace(/\s+/g, '-').toLowerCase()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from('avatars')
-          .upload(path, form.avatar_file, { upsert: true });
+          .upload(fileName, form.avatar_file, { upsert: true });
         if (upErr) throw upErr;
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        avatar_url = urlData.publicUrl;
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        avatar_url = publicUrl;
       }
 
       // 2. Update profile row
       const phone = form.phone_number.trim()
-        ? `${form.phone_dial} ${form.phone_number.trim()}`
+        ? `${form.phone_dial}${form.phone_number.trim()}`
         : null;
 
       const { error: profileErr } = await supabase
@@ -428,24 +430,17 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
 
       if (profileErr) throw profileErr;
 
-      // 3. Update password via admin API (requires service role key)
+      // 3. Update password via service role client
       if (form.new_password.trim()) {
-        const serviceKey = process.env.REACT_APP_SUPABASE_SERVICE_KEY;
-        const supabaseUrl = process.env.REACT_APP_SUPABASE_URL!;
-        if (serviceKey) {
-          const adminClient = createClient(supabaseUrl, serviceKey);
-          const { error: pwErr } = await adminClient.auth.admin.updateUserById(
-            user.id,
-            { password: form.new_password.trim() },
-          );
-          if (pwErr) throw pwErr;
-        } else {
-          // Fallback: update own password only works for current user
-          const { error: pwErr } = await supabase.auth.updateUser({
-            password: form.new_password.trim(),
-          });
-          if (pwErr) throw pwErr;
-        }
+        const serviceClient = createClient(
+          process.env.REACT_APP_SUPABASE_URL!,
+          process.env.REACT_APP_SUPABASE_SERVICE_KEY!,
+        );
+        const { error: pwErr } = await serviceClient.auth.admin.updateUserById(
+          user.id,
+          { password: form.new_password.trim() },
+        );
+        if (pwErr) throw pwErr;
       }
 
       onSaved();
@@ -740,8 +735,8 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
               >
                 <option value="pending">Pending</option>
                 <option value="active">Active</option>
-                <option value="blocked">Blocked</option>
-                <option value="inactive">Inactive</option>
+                <option value="disabled">Disabled</option>
+                <option value="bloked">Blocked</option>
               </select>
             </div>
 
@@ -838,15 +833,282 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
   );
 };
 
+// ─── Create User Modal ───────────────────────────────────────────────────────
+
+interface CreateForm {
+  email:     string;
+  password:  string;
+  full_name: string;
+  role:      'admin' | 'staff';
+}
+
+const EMPTY_CREATE: CreateForm = { email: '', password: '', full_name: '', role: 'staff' };
+
+interface CreateModalProps {
+  onClose:  () => void;
+  onSaved:  () => void;
+  onToast:  (msg: string, type: 'success' | 'error') => void;
+}
+
+const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast }) => {
+  const [form,      setForm]      = useState<CreateForm>(EMPTY_CREATE);
+  const [saving,    setSaving]    = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [pwVisible, setPwVisible] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+
+  const set = <K extends keyof CreateForm>(key: K, value: CreateForm[K]) =>
+    setForm(f => ({ ...f, [key]: value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.email.trim() || !form.password.trim() || !form.full_name.trim()) {
+      setFormError('All fields are required.');
+      return;
+    }
+    setFormError(null);
+    setSaving(true);
+
+    try {
+      const serviceKey = process.env.REACT_APP_SUPABASE_SERVICE_KEY;
+      const supabaseUrl = process.env.REACT_APP_SUPABASE_URL!;
+      if (!serviceKey) {
+        throw new Error('Service role key not configured (REACT_APP_SUPABASE_SERVICE_KEY). Add it to your .env file.');
+      }
+
+      // Step 1: create auth user (email pre-confirmed)
+      const adminClient = createClient(supabaseUrl, serviceKey);
+      const { data, error: createErr } = await adminClient.auth.admin.createUser({
+        email:         form.email.trim(),
+        password:      form.password.trim(),
+        email_confirm: true,
+      });
+      if (createErr) throw createErr;
+      if (!data.user) throw new Error('User creation returned no user object.');
+
+      // Step 2: patch the auto-created profile row with name + role
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update({ full_name: form.full_name.trim(), role: form.role, status: 'active' })
+        .eq('id', data.user.id);
+      if (profileErr) throw profileErr;
+
+      onSaved();
+      onToast(`User ${form.email.trim()} created successfully.`, 'success');
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create user.';
+      setFormError(msg);
+      setSaving(false);
+    }
+  };
+
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, animation: 'fadeIn 150ms ease',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#fff', borderRadius: 18, width: '100%', maxWidth: 460,
+        boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+        animation: 'slideUp 180ms ease', display: 'flex', flexDirection: 'column',
+      }}>
+
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+                Add User
+              </div>
+              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+                Create a new staff or admin account
+              </div>
+            </div>
+            <button
+              type="button" onClick={onClose}
+              style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Error banner */}
+          {formError && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+              padding: '10px 14px', background: '#fef2f2',
+              borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8" />
+                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.45 }}>{formError}</span>
+            </div>
+          )}
+
+          {/* Email */}
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+              Email <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <input
+              type="email" required autoFocus
+              value={form.email}
+              onChange={e => set('email', e.target.value)}
+              placeholder="name@company.com"
+              style={FIELD_STYLE}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
+            />
+          </div>
+
+          {/* Password */}
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+              Password <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input
+                  type={pwVisible ? 'text' : 'password'} required
+                  value={form.password}
+                  onChange={e => set('password', e.target.value)}
+                  placeholder="Min. 8 characters"
+                  style={{ ...FIELD_STYLE, paddingRight: 40 }}
+                  onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+                  onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
+                />
+                <button
+                  type="button" onClick={() => setPwVisible(v => !v)}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, display: 'flex', alignItems: 'center' }}
+                >
+                  {pwVisible
+                    ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M1 1l22 22" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                    : <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>
+                  }
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => { const pw = generatePassword(); set('password', pw); setPwVisible(true); }}
+                style={{
+                  height: 40, padding: '0 14px', borderRadius: 8, flexShrink: 0,
+                  border: '1.5px solid #e5e7eb', background: '#fff',
+                  fontSize: 13, fontWeight: 600, color: '#374151',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease', whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+              >
+                Generate
+              </button>
+            </div>
+          </div>
+
+          {/* Full Name */}
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+              Full Name <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <input
+              type="text" required
+              value={form.full_name}
+              onChange={e => set('full_name', e.target.value)}
+              placeholder="First and last name"
+              style={FIELD_STYLE}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
+            />
+          </div>
+
+          {/* Role */}
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+              Role
+            </label>
+            <select
+              value={form.role}
+              onChange={e => set('role', e.target.value as 'admin' | 'staff')}
+              style={{ ...FIELD_STYLE, cursor: 'pointer' }}
+              onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}
+            >
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          {/* Footer */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6, paddingTop: 16, borderTop: '1px solid #f3f4f6' }}>
+            <button
+              type="button" onClick={onClose}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit" disabled={saving}
+              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease', display: 'flex', alignItems: 'center', gap: 7 }}
+              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            >
+              {saving ? (
+                <>
+                  <svg style={{ animation: 'spin 0.7s linear infinite' }} width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                  Creating…
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                  </svg>
+                  Create User
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const UsersPage: React.FC = () => {
-  const [users,   setUsers]   = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [search,  setSearch]  = useState('');
-  const [editing, setEditing] = useState<UserProfile | null>(null);
-  const [toast,   setToast]   = useState<ToastState | null>(null);
+  const [users,    setUsers]    = useState<UserProfile[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [search,   setSearch]   = useState('');
+  const [editing,      setEditing]      = useState<UserProfile | null>(null);
+  const [creating,     setCreating]     = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
+  const [toast,        setToast]        = useState<ToastState | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
@@ -872,6 +1134,27 @@ const UsersPage: React.FC = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      console.log('Service key loaded:', !!process.env.REACT_APP_SUPABASE_SERVICE_KEY);
+      const serviceClient = createClient(
+        process.env.REACT_APP_SUPABASE_URL!,
+        process.env.REACT_APP_SUPABASE_SERVICE_KEY!,
+      );
+      const { error } = await serviceClient.auth.admin.deleteUser(deleteTarget.id);
+      if (error) throw error;
+      setDeleteTarget(null);
+      showToast('User deleted successfully.', 'success');
+      fetchUsers();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete user.', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, showToast, fetchUsers]);
+
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
     return !q
@@ -886,6 +1169,7 @@ const UsersPage: React.FC = () => {
         @keyframes slideUpIn{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideUp  { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+        @keyframes spin     { to{transform:rotate(360deg)} }
         .user-row:hover { background: rgba(75,166,234,0.03) !important; }
       `}</style>
 
@@ -952,6 +1236,24 @@ const UsersPage: React.FC = () => {
         <div style={{ fontSize: 13, color: '#9ca3af', whiteSpace: 'nowrap' }}>
           {loading ? '…' : `${filtered.length} user${filtered.length !== 1 ? 's' : ''}`}
         </div>
+
+        <button
+          onClick={() => setCreating(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            height: 38, padding: '0 16px', borderRadius: 9, border: 'none',
+            background: '#4ba6ea', color: '#fff',
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'inherit', transition: 'background 140ms ease', whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+          </svg>
+          Add User
+        </button>
       </div>
 
       {/* Table */}
@@ -1026,11 +1328,17 @@ const UsersPage: React.FC = () => {
 
                       {/* Actions */}
                       <td style={{ padding: '10px 12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                           <ActionBtn onClick={() => setEditing(user)} title="Edit user" hoverColor="#4ba6ea">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                               <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </ActionBtn>
+                          <ActionBtn onClick={() => setDeleteTarget(user)} title="Delete user" hoverColor="#ef4444">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                             </svg>
                           </ActionBtn>
                         </div>
@@ -1053,6 +1361,15 @@ const UsersPage: React.FC = () => {
         )}
       </div>
 
+      {/* Create modal */}
+      {creating && (
+        <CreateUserModal
+          onClose={() => setCreating(false)}
+          onSaved={fetchUsers}
+          onToast={showToast}
+        />
+      )}
+
       {/* Edit modal */}
       {editing && (
         <EditUserModal
@@ -1063,6 +1380,103 @@ const UsersPage: React.FC = () => {
             showToast('User updated successfully.', 'success');
           }}
         />
+      )}
+
+      {/* Delete confirmation dialog */}
+      {deleteTarget && ReactDOM.createPortal(
+        <div
+          onClick={() => { if (!deleting) setDeleteTarget(null); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(15,17,23,0.5)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 24, animation: 'fadeIn 150ms ease',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: 18, width: '100%', maxWidth: 400,
+              boxShadow: '0 24px 80px rgba(0,0,0,0.20), 0 0 0 1px rgba(0,0,0,0.06)',
+              animation: 'slideUp 180ms ease', overflow: 'hidden',
+            }}
+          >
+            {/* Red top bar */}
+            <div style={{ height: 4, background: '#ef4444' }} />
+
+            <div style={{ padding: '24px 24px 20px' }}>
+              {/* Icon + title */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                  background: 'rgba(239,68,68,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M10 11v6M14 11v6" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', marginBottom: 5 }}>
+                    Delete User
+                  </div>
+                  <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.55 }}>
+                    Are you sure you want to delete{' '}
+                    <span style={{ fontWeight: 600, color: '#0f1117' }}>
+                      {deleteTarget.full_name || deleteTarget.email || 'this user'}
+                    </span>
+                    ? This cannot be undone.
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setDeleteTarget(null)}
+                  style={{
+                    padding: '9px 18px', borderRadius: 9,
+                    border: '1px solid #e5e7eb', background: '#fff',
+                    fontSize: 14, fontWeight: 500, color: '#6b7280',
+                    cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleDelete}
+                  style={{
+                    padding: '9px 22px', borderRadius: 9, border: 'none',
+                    background: deleting ? '#fca5a5' : '#ef4444', color: '#fff',
+                    fontSize: 14, fontWeight: 600,
+                    cursor: deleting ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', transition: 'background 150ms ease',
+                    display: 'flex', alignItems: 'center', gap: 7,
+                  }}
+                  onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#dc2626'; }}
+                  onMouseLeave={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#ef4444'; }}
+                >
+                  {deleting ? (
+                    <>
+                      <svg style={{ animation: 'spin 0.7s linear infinite' }} width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                      Deleting…
+                    </>
+                  ) : 'Delete User'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} />}

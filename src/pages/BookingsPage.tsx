@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
+import { printBookingContract } from '../lib/printContract';
+import { useCurrency } from '../lib/CurrencyContext';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -294,10 +296,11 @@ interface RowProps {
   onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onPrint: () => void;
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, isEven, onSelect, onToggle, onEdit, onDelete,
+  booking, isSelected, isEven, onSelect, onToggle, onEdit, onDelete, onPrint,
 }) => (
   <tr
     className="bk-row"
@@ -353,6 +356,13 @@ const BookingTableRow: React.FC<RowProps> = ({
     </td>
     <td style={{ padding: '9px 16px 9px 8px', textAlign: 'right' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        <ActionBtn onClick={onPrint} title="Print Contract" hoverColor="#8b5cf6">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </ActionBtn>
         <ActionBtn onClick={onEdit} title="Edit" hoverColor="#4ba6ea">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -568,6 +578,21 @@ const COUNTRIES: Country[] = [
   { code: 'ZW', name: 'Zimbabwe',                       dial: '+263',  flag: '🇿🇼' },
 ];
 
+// ─── Phone parsing helper ─────────────────────────────────────────────────────
+
+function parseStoredPhone(stored: string | null): { dial: string; local: string } {
+  if (!stored) return { dial: '+90', local: '' };
+  const s = stored.startsWith('+') ? stored : `+${stored}`;
+  // Match longest dial code first to avoid e.g. +1 matching +1868 (Trinidad)
+  const sorted = [...COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+  for (const c of sorted) {
+    if (s.startsWith(c.dial)) {
+      return { dial: c.dial, local: s.slice(c.dial.length) };
+    }
+  }
+  return { dial: '+90', local: stored };
+}
+
 // ─── Searchable dial-code picker ──────────────────────────────────────────────
 
 const DialCodePicker: React.FC<{
@@ -698,7 +723,13 @@ type BookingFormData = {
   cust_driving_license_number: string;
   cust_address: string;
   cust_birth_date: string;
+  cust_license_issue_date: string;
   cust_notes: string;
+  // Financial fields
+  fin_currency: 'TRY' | 'USD';
+  fin_rental_amount: string;
+  fin_deposit_amount: string;
+  fin_paid_amount: string;
 };
 
 const EMPTY_FORM: BookingFormData = {
@@ -709,7 +740,8 @@ const EMPTY_FORM: BookingFormData = {
   cust_phone_dial: '+90', cust_phone: '',
   cust_nationality: '', cust_driving_license: '',
   cust_driving_license_number: '', cust_address: '',
-  cust_birth_date: '', cust_notes: '',
+  cust_birth_date: '', cust_license_issue_date: '', cust_notes: '',
+  fin_currency: 'TRY', fin_rental_amount: '', fin_deposit_amount: '', fin_paid_amount: '',
 };
 
 const INPUT_STYLE: React.CSSProperties = {
@@ -841,32 +873,67 @@ interface FormModalProps {
   editCustomerId?: number;
   onClose: () => void;
   onSaved: () => void;
+  showToast: (message: string, type: 'success' | 'error') => void;
 }
 
 const BookingFormModal: React.FC<FormModalProps> = ({
-  mode, initial, editId, editCustomerId, onClose, onSaved,
+  mode, initial, editId, editCustomerId, onClose, onSaved, showToast,
 }) => {
+  const { rates } = useCurrency();
   const [form, setForm] = useState<BookingFormData>(initial);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    cust_id_number: string | null;
+    cust_id_type: string | null;
+    cust_nationality: string | null;
+    cust_phone: string | null;
+    cust_license_issue_date: string | null;
+  }>({ cust_id_number: null, cust_id_type: null, cust_nationality: null, cust_phone: null, cust_license_issue_date: null });
   const [cars, setCars] = useState<CarOption[]>([]);
   const [bookingNumLoading, setBookingNumLoading] = useState(mode === 'add');
+  const [idLookup, setIdLookup] = useState<'idle' | 'searching' | 'found' | 'not-found'>('idle');
+
+  const idNumberRef        = useRef<HTMLDivElement>(null);
+  const idTypeRef          = useRef<HTMLDivElement>(null);
+  const phoneRef           = useRef<HTMLDivElement>(null);
+  const nationalityRef     = useRef<HTMLDivElement>(null);
+  const licenseIssueDateRef = useRef<HTMLDivElement>(null);
 
   // Document uploads
-  const [docIdPhoto,        setDocIdPhoto]        = useState<File | null>(null);
-  const [docDrivingLicense, setDocDrivingLicense] = useState<File | null>(null);
-  const [docEntryStamp,     setDocEntryStamp]     = useState<File | null>(null);
-  const [existingDocUrls,   setExistingDocUrls]   = useState<{
-    id_photo_url:              string | null;
-    driving_license_photo_url: string | null;
-    entry_stamp_photo_url:     string | null;
-  }>({ id_photo_url: null, driving_license_photo_url: null, entry_stamp_photo_url: null });
+  const [docIdPhoto,            setDocIdPhoto]            = useState<File | null>(null);
+  const [docIdPhotoBack,        setDocIdPhotoBack]        = useState<File | null>(null);
+  const [docDrivingLicense,     setDocDrivingLicense]     = useState<File | null>(null);
+  const [docDrivingLicenseBack, setDocDrivingLicenseBack] = useState<File | null>(null);
+  const [docEntryStamp,         setDocEntryStamp]         = useState<File | null>(null);
+  const [existingDocUrls,       setExistingDocUrls]       = useState<{
+    id_photo_url:                  string | null;
+    id_photo_back_url:             string | null;
+    driving_license_photo_url:     string | null;
+    driving_license_back_url:      string | null;
+    entry_stamp_photo_url:         string | null;
+  }>({ id_photo_url: null, id_photo_back_url: null, driving_license_photo_url: null, driving_license_back_url: null, entry_stamp_photo_url: null });
+
+  const [existingLedger, setExistingLedger] = useState<{
+    rental:    { id: number; amount: number } | null;
+    deposit:   { id: number; amount: number } | null;
+    payment:   { id: number; amount: number } | null;
+  }>({ rental: null, deposit: null, payment: null });
 
   const uploadDoc = async (file: File, prefix: string, fullName: string): Promise<string | null> => {
     const ext  = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
     const path = `${prefix}-${fullName}.${ext}`;
     const { error } = await supabase.storage.from('customers_doc').upload(path, file, { upsert: true });
     if (error) { console.error(`[Booking] upload ${prefix} error:`, error); return null; }
+    const { data } = supabase.storage.from('customers_doc').getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const uploadDocById = async (file: File, customerId: number | string, fieldName: string): Promise<string | null> => {
+    const ext  = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+    const path = `${customerId}/${fieldName}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('customers_doc').upload(path, file, { upsert: true });
+    if (error) { console.error(`[Booking] upload ${fieldName} error:`, error); return null; }
     const { data } = supabase.storage.from('customers_doc').getPublicUrl(path);
     return data.publicUrl;
   };
@@ -931,30 +998,35 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         const c = data as {
           first_name: string; last_name: string; phone: string | null;
           nationality: string | null; id_type: string | null; id_number: string | null;
-          driving_license: string | null; driving_license_number: string | null;
-          address: string | null; birth_date: string | null; notes: string | null;
-          id_photo_url: string | null; driving_license_photo_url: string | null;
+          driving_license_number: string | null;
+          address: string | null; birth_date: string | null; license_issue_date: string | null;
+          notes: string | null;
+          id_photo_url: string | null; id_photo_back_url: string | null;
+          driving_license_photo_url: string | null; driving_license_back_url: string | null;
           entry_stamp_photo_url: string | null;
         };
         setForm(f => ({
           ...f,
           cust_first_name:             c.first_name,
           cust_last_name:              c.last_name,
-          cust_phone_dial:             '',
-          cust_phone:                  c.phone ?? '',
+          cust_phone_dial:             parseStoredPhone(c.phone).dial,
+          cust_phone:                  parseStoredPhone(c.phone).local,
           cust_nationality:            c.nationality ?? '',
           cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
           cust_id_number:              c.id_number ?? '',
-          cust_driving_license:        c.driving_license ?? '',
-          cust_driving_license_number: c.driving_license_number ?? '',
+          cust_driving_license:        c.driving_license_number ?? '',
+          cust_driving_license_number: '',
           cust_address:                c.address ?? '',
           cust_birth_date:             c.birth_date ?? '',
+          cust_license_issue_date:     c.license_issue_date ?? '',
           cust_notes:                  c.notes ?? '',
         }));
         setExistingDocUrls({
-          id_photo_url:              c.id_photo_url              ?? null,
-          driving_license_photo_url: c.driving_license_photo_url ?? null,
-          entry_stamp_photo_url:     c.entry_stamp_photo_url     ?? null,
+          id_photo_url:                  c.id_photo_url                  ?? null,
+          id_photo_back_url:             c.id_photo_back_url             ?? null,
+          driving_license_photo_url:     c.driving_license_photo_url     ?? null,
+          driving_license_back_url:      c.driving_license_back_url      ?? null,
+          entry_stamp_photo_url:         c.entry_stamp_photo_url         ?? null,
         });
       });
     return () => { active = false; };
@@ -963,9 +1035,120 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const set = <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
 
+  // ── Fetch existing ledger rows in edit mode ───────────────────────────────
+  useEffect(() => {
+    if (mode !== 'edit' || !editId) return;
+    let active = true;
+    supabase
+      .from('customer_accounting_ledger')
+      .select('id, type, amount')
+      .eq('booking_id', editId)
+      .in('type', ['rental', 'deposit', 'payment'])
+      .then(({ data }) => {
+        if (!active || !data) return;
+        const rows = data as { id: number; type: string; amount: number }[];
+        const rentalRow    = rows.find(r => r.type === 'rental')    ?? null;
+        const depositRow   = rows.find(r => r.type === 'deposit')   ?? null;
+        const paymentRow   = rows.find(r => r.type === 'payment')   ?? null;
+        setExistingLedger({
+          rental:    rentalRow    ? { id: rentalRow.id,    amount: rentalRow.amount    } : null,
+          deposit:   depositRow   ? { id: depositRow.id,   amount: depositRow.amount   } : null,
+          payment:   paymentRow   ? { id: paymentRow.id,   amount: paymentRow.amount   } : null,
+        });
+        // Pre-fill form in TRY (amounts are stored in TRY, fin_currency defaults to TRY)
+        setForm(f => ({
+          ...f,
+          fin_rental_amount:    rentalRow    ? String(rentalRow.amount)    : '',
+          fin_deposit_amount: depositRow   ? String(depositRow.amount)   : '',
+          fin_paid_amount:      paymentRow   ? String(paymentRow.amount)   : '',
+        }));
+      });
+    return () => { active = false; };
+  }, [mode, editId]);
+
+  // ── Currency toggle with live field conversion ────────────────────────────
+  const handleFinCurrencyChange = (cur: 'TRY' | 'USD') => {
+    if (cur === form.fin_currency) return;
+    const usdRate = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 0;
+    if (!usdRate) { set('fin_currency', cur); return; }
+    const toTRYFactor   = form.fin_currency === 'USD' ? usdRate : 1;
+    const fromTRYFactor = cur === 'USD' ? (1 / usdRate) : 1;
+    const cvt = (s: string) => {
+      const n = parseFloat(s);
+      if (!s || isNaN(n) || n === 0) return s;
+      return String(Math.round(n * toTRYFactor * fromTRYFactor * 100) / 100);
+    };
+    setForm(f => ({
+      ...f,
+      fin_currency:         cur,
+      fin_rental_amount:    cvt(f.fin_rental_amount),
+      fin_deposit_amount: cvt(f.fin_deposit_amount),
+      fin_paid_amount:      cvt(f.fin_paid_amount),
+    }));
+  };
+
+  // ── ID-number auto-fill (add mode only, 500 ms debounce) ─────────────────
+  useEffect(() => {
+    if (mode !== 'add') return;
+    const idNum = form.cust_id_number.trim();
+    if (!idNum) { setIdLookup('idle'); return; }
+    setIdLookup('searching');
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id_number', idNum)
+        .maybeSingle();
+      if (error || !data) { setIdLookup('not-found'); return; }
+      const c = data as {
+        first_name: string; last_name: string; phone: string | null;
+        nationality: string | null; id_type: string | null; id_number: string | null;
+        driving_license_number: string | null;
+        address: string | null; birth_date: string | null; notes: string | null;
+      };
+      setForm(f => ({
+        ...f,
+        cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
+        cust_first_name:             c.first_name,
+        cust_last_name:              c.last_name,
+        cust_phone_dial:             parseStoredPhone(c.phone).dial,
+        cust_phone:                  parseStoredPhone(c.phone).local,
+        cust_nationality:            c.nationality ?? '',
+        cust_driving_license:        c.driving_license_number ?? '',
+        cust_driving_license_number: '',
+        cust_birth_date:             c.birth_date ?? '',
+        cust_address:                c.address ?? '',
+        cust_notes:                  c.notes ?? '',
+      }));
+      setIdLookup('found');
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form.cust_id_number, mode]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
+
+    const errors = {
+      cust_id_number:          !form.cust_id_number.trim()          ? 'ID number is required'           : null,
+      cust_id_type:            !form.cust_id_type                   ? 'ID type is required'             : null,
+      cust_nationality:        !form.cust_nationality               ? 'Nationality is required'         : null,
+      cust_phone:              !form.cust_phone.trim()              ? 'Phone number is required'        : null,
+      cust_license_issue_date: !form.cust_license_issue_date.trim() ? 'License issue date is required'  : null,
+    };
+    setFieldErrors(errors);
+    const firstError = [
+      errors.cust_id_number          ? idNumberRef        : null,
+      errors.cust_id_type            ? idTypeRef          : null,
+      errors.cust_phone              ? phoneRef           : null,
+      errors.cust_nationality        ? nationalityRef     : null,
+      errors.cust_license_issue_date ? licenseIssueDateRef : null,
+    ].find(Boolean);
+    if (firstError?.current) {
+      firstError.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (Object.values(errors).some(Boolean)) return;
+
     setSaving(true);
 
     if (mode === 'add') {
@@ -983,10 +1166,10 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           last_name:           form.cust_last_name,
           phone:               phone,
           nationality:         form.cust_nationality        || null,
-          driving_license:     form.cust_driving_license    || null,
-          driving_license_number: form.cust_driving_license_number || null,
+          driving_license_number: form.cust_driving_license || null,
           address:             form.cust_address            || null,
           birth_date:          form.cust_birth_date         || null,
+          license_issue_date:  form.cust_license_issue_date || null,
           notes:               form.cust_notes              || null,
         })
         .select('id')
@@ -1003,35 +1186,73 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const fullName   = `${form.cust_first_name} ${form.cust_last_name}`.trim();
       const docUpdates: Record<string, string> = {};
 
-      const [idUrl, dlUrl, esUrl] = await Promise.all([
-        docIdPhoto        ? uploadDoc(docIdPhoto,        'ID',             fullName) : Promise.resolve(null),
-        docDrivingLicense ? uploadDoc(docDrivingLicense, 'DrivingLicense', fullName) : Promise.resolve(null),
-        docEntryStamp     ? uploadDoc(docEntryStamp,     'EntryStamp',     fullName) : Promise.resolve(null),
+      const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([
+        docIdPhoto            ? uploadDoc(docIdPhoto,            'ID',             fullName) : Promise.resolve(null),
+        docIdPhotoBack        ? uploadDocById(docIdPhotoBack,        customerId, 'id-photo-back')        : Promise.resolve(null),
+        docDrivingLicense     ? uploadDoc(docDrivingLicense,     'DrivingLicense', fullName) : Promise.resolve(null),
+        docDrivingLicenseBack ? uploadDocById(docDrivingLicenseBack, customerId, 'driving-license-back') : Promise.resolve(null),
+        docEntryStamp         ? uploadDoc(docEntryStamp,         'EntryStamp',     fullName) : Promise.resolve(null),
       ]);
-      if (idUrl) docUpdates.id_photo_url             = idUrl;
-      if (dlUrl) docUpdates.driving_license_photo_url = dlUrl;
-      if (esUrl) docUpdates.entry_stamp_photo_url     = esUrl;
+      if (idUrl)     docUpdates.id_photo_url                = idUrl;
+      if (idBackUrl) docUpdates.id_photo_back_url           = idBackUrl;
+      if (dlUrl)     docUpdates.driving_license_photo_url   = dlUrl;
+      if (dlBackUrl) docUpdates.driving_license_back_url    = dlBackUrl;
+      if (esUrl)     docUpdates.entry_stamp_photo_url       = esUrl;
       if (Object.keys(docUpdates).length > 0) {
         const { error: docErr } = await supabase.from('customers').update(docUpdates).eq('id', customerId);
         if (docErr) console.error('[Booking] customer doc update error:', docErr);
       }
 
       // Step 3: create booking with the new customer id
-      const { error: bookingError } = await supabase
+      const carId = Number(form.car_id);
+      const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert({
           booking_number: form.booking_number,
           status:         form.status,
-          car_id:         Number(form.car_id),
+          car_id:         carId,
           customer_id:    customerId,
           start_date:     form.start_date,
           end_date:       form.end_date,
           kabis_reported: false,
           invoice_issued: false,
-        });
+        })
+        .select('id')
+        .single();
+
+      if (bookingError) { setSaving(false); setFormError(bookingError.message); return; }
+
+      // Step 4: insert ledger rows (skip if amount is 0 or empty)
+      const bookingId = (bookingData as { id: number }).id;
+      const ledgerRows: {
+        booking_id: number; customer_id: number; car_id: number;
+        type: string; amount: number; direction: 'IN' | 'OUT'; description: string;
+      }[] = [];
+
+      // Determine TRY conversion multiplier
+      const usdRate = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
+      const toTRY = (n: number) => form.fin_currency === 'USD' ? Math.round(n * usdRate * 100) / 100 : n;
+
+      const rentalAmt   = parseFloat(form.fin_rental_amount);
+      const depositAmt    = parseFloat(form.fin_deposit_amount);
+      const paidAmt     = parseFloat(form.fin_paid_amount);
+
+      if (!isNaN(rentalAmt) && rentalAmt > 0)
+        ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carId, type: 'rental',    amount: toTRY(rentalAmt),  direction: 'OUT', description: 'Rental fee' });
+      if (!isNaN(depositAmt)  && depositAmt  > 0)
+        ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carId, type: 'deposit',   amount: toTRY(depositAmt), direction: 'IN',  description: 'Deposit' });
+      if (!isNaN(paidAmt)   && paidAmt   > 0)
+        ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carId, type: 'payment',   amount: toTRY(paidAmt),    direction: 'IN',  description: 'Customer payment' });
+
+      if (ledgerRows.length > 0) {
+        const { error: ledgerErr } = await supabase.from('customer_accounting_ledger').insert(ledgerRows);
+        if (ledgerErr) {
+          console.error('[Booking] ledger insert error:', ledgerErr);
+          showToast('Booking saved, but ledger entries failed', 'error');
+        }
+      }
 
       setSaving(false);
-      if (bookingError) { setFormError(bookingError.message); return; }
     } else {
       // Edit: update booking
       const { error: bookingErr } = await supabase
@@ -1051,13 +1272,15 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       if (editCustomerId) {
         const fullName = `${form.cust_first_name} ${form.cust_last_name}`.trim();
         const phone    = form.cust_phone
-          ? (form.cust_phone_dial ? `${form.cust_phone_dial}${form.cust_phone}` : form.cust_phone)
+          ? `${form.cust_phone_dial}${form.cust_phone}`
           : null;
 
-        const [idUrl, dlUrl, esUrl] = await Promise.all([
-          docIdPhoto        ? uploadDoc(docIdPhoto,        'ID',             fullName) : Promise.resolve(null),
-          docDrivingLicense ? uploadDoc(docDrivingLicense, 'DrivingLicense', fullName) : Promise.resolve(null),
-          docEntryStamp     ? uploadDoc(docEntryStamp,     'EntryStamp',     fullName) : Promise.resolve(null),
+        const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([
+          docIdPhoto            ? uploadDoc(docIdPhoto,            'ID',             fullName) : Promise.resolve(null),
+          docIdPhotoBack        ? uploadDocById(docIdPhotoBack,        editCustomerId, 'id-photo-back')        : Promise.resolve(null),
+          docDrivingLicense     ? uploadDoc(docDrivingLicense,     'DrivingLicense', fullName) : Promise.resolve(null),
+          docDrivingLicenseBack ? uploadDocById(docDrivingLicenseBack, editCustomerId, 'driving-license-back') : Promise.resolve(null),
+          docEntryStamp         ? uploadDoc(docEntryStamp,         'EntryStamp',     fullName) : Promise.resolve(null),
         ]);
 
         const { error: custErr } = await supabase
@@ -1069,18 +1292,74 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             nationality:             form.cust_nationality            || null,
             id_type:                 form.cust_id_type,
             id_number:               form.cust_id_number              || null,
-            driving_license:         form.cust_driving_license        || null,
-            driving_license_number:  form.cust_driving_license_number || null,
+            driving_license_number:  form.cust_driving_license        || null,
             address:                 form.cust_address                || null,
             birth_date:              form.cust_birth_date             || null,
+            license_issue_date:      form.cust_license_issue_date     || null,
             notes:                   form.cust_notes                  || null,
-            ...(idUrl && { id_photo_url:              idUrl }),
-            ...(dlUrl && { driving_license_photo_url: dlUrl }),
-            ...(esUrl && { entry_stamp_photo_url:     esUrl }),
+            ...(idUrl     && { id_photo_url:                idUrl     }),
+            ...(idBackUrl && { id_photo_back_url:           idBackUrl }),
+            ...(dlUrl     && { driving_license_photo_url:   dlUrl     }),
+            ...(dlBackUrl && { driving_license_back_url:    dlBackUrl }),
+            ...(esUrl     && { entry_stamp_photo_url:       esUrl     }),
           })
           .eq('id', editCustomerId);
 
         if (custErr) console.error('[Booking] customer update error:', custErr);
+      }
+
+      // Edit: upsert / delete ledger rows
+      const usdRateEdit = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
+      const toTRYEdit   = (n: number) => form.fin_currency === 'USD' ? Math.round(n * usdRateEdit * 100) / 100 : n;
+
+      type LedgerResult = { error: unknown };
+      const ledgerOps: (() => Promise<LedgerResult>)[] = [];
+
+      const processLedgerRow = (
+        type: string,
+        fieldValue: string,
+        existing: { id: number; amount: number } | null,
+        direction: 'IN' | 'OUT',
+        description: string,
+      ) => {
+        const amt = parseFloat(fieldValue);
+        const hasAmt = !isNaN(amt) && amt > 0;
+        if (existing) {
+          if (hasAmt) {
+            ledgerOps.push(() =>
+              supabase.from('customer_accounting_ledger')
+                .update({ amount: toTRYEdit(amt) })
+                .eq('id', existing.id) as unknown as Promise<LedgerResult>,
+            );
+          } else {
+            ledgerOps.push(() =>
+              supabase.from('customer_accounting_ledger')
+                .delete()
+                .eq('id', existing.id) as unknown as Promise<LedgerResult>,
+            );
+          }
+        } else if (hasAmt && editId && editCustomerId) {
+          ledgerOps.push(() =>
+            supabase.from('customer_accounting_ledger').insert({
+              booking_id:  editId,
+              customer_id: editCustomerId,
+              car_id:      Number(form.car_id),
+              type,
+              amount:      toTRYEdit(amt),
+              direction,
+              description,
+            }) as unknown as Promise<LedgerResult>,
+          );
+        }
+      };
+
+      processLedgerRow('rental',    form.fin_rental_amount,    existingLedger.rental,    'OUT', 'Rental fee');
+      processLedgerRow('deposit',   form.fin_deposit_amount, existingLedger.deposit, 'IN',  'Deposit');
+      processLedgerRow('payment',   form.fin_paid_amount,      existingLedger.payment,   'IN',  'Customer payment');
+
+      if (ledgerOps.length > 0) {
+        const results = await Promise.all(ledgerOps.map(fn => fn()));
+        if (results.some(r => r.error)) showToast('Ledger update failed', 'error');
       }
 
       setSaving(false);
@@ -1165,17 +1444,19 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               </select>
             </Field>
 
-            <Field label="Car" required>
-              <select required value={form.car_id} onChange={e => set('car_id', e.target.value)}
-                style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
-                <option value="">Select car…</option>
-                {cars.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.plate_number}{c.model ? ` — ${c.model}` : ''}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div style={{ gridColumn: 'span 2' }}>
+              <Field label="Car" required>
+                <select required value={form.car_id} onChange={e => set('car_id', e.target.value)}
+                  style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
+                  <option value="">Select car…</option>
+                  {cars.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.plate_number}{c.model ? ` — ${c.model}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
             <Field label="Start Date" required>
               <input required type="date" value={form.start_date}
@@ -1196,6 +1477,62 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
               />
 
+                {/* ID Number — first, triggers auto-fill */}
+                <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+                  <div ref={idNumberRef}>
+                    <Field label="ID Number" required>
+                      <input
+                        value={form.cust_id_number}
+                        onChange={e => { set('cust_id_number', e.target.value); setIdLookup('idle'); setFieldErrors(fe => ({ ...fe, cust_id_number: null })); }}
+                        placeholder="Passport / national ID number"
+                        style={{
+                          ...INPUT_STYLE,
+                          borderColor: fieldErrors.cust_id_number ? '#ef4444' : idLookup === 'found' ? '#16a34a' : idLookup === 'not-found' ? '#e5e7eb' : undefined,
+                          transition: 'border-color 150ms ease',
+                        }}
+                        onFocus={focusBlue}
+                        onBlur={blurGray}
+                      />
+                    </Field>
+                    {fieldErrors.cust_id_number && (
+                      <span style={{ fontSize: 12, color: '#ef4444', marginTop: 4, display: 'block' }}>{fieldErrors.cust_id_number}</span>
+                    )}
+                    {/* Lookup status badge */}
+                    {!fieldErrors.cust_id_number && idLookup === 'searching' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 12, color: '#6b7280' }}>
+                        <svg style={{ animation: 'spin 0.7s linear infinite' }} width="12" height="12" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        Searching…
+                      </div>
+                    )}
+                    {!fieldErrors.cust_id_number && idLookup === 'found' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
+                        ✅ Customer found
+                      </div>
+                    )}
+                    {!fieldErrors.cust_id_number && idLookup === 'not-found' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 12, color: '#6b7280' }}>
+                        ✏️ New customer — fill in details
+                      </div>
+                    )}
+                  </div>
+                  <div ref={idTypeRef}>
+                    <Field label="ID Type" required>
+                      <select value={form.cust_id_type}
+                        onChange={e => { set('cust_id_type', e.target.value as 'passport' | 'national_id'); setFieldErrors(fe => ({ ...fe, cust_id_type: null })); }}
+                        style={{ ...INPUT_STYLE, cursor: 'pointer', borderColor: fieldErrors.cust_id_type ? '#ef4444' : undefined }} onFocus={focusBlue} onBlur={blurGray}>
+                        <option value="passport">Passport</option>
+                        <option value="national_id">National ID</option>
+                      </select>
+                    </Field>
+                    {fieldErrors.cust_id_type && (
+                      <span style={{ fontSize: 12, color: '#ef4444', marginTop: 4, display: 'block' }}>{fieldErrors.cust_id_type}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 2: First Name | Last Name */}
                 <Field label="First Name" required>
                   <input required value={form.cust_first_name}
                     onChange={e => set('cust_first_name', e.target.value)}
@@ -1210,47 +1547,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
 
-                <Field label="ID Type">
-                  <select value={form.cust_id_type}
-                    onChange={e => set('cust_id_type', e.target.value as 'passport' | 'national_id')}
-                    style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
-                    <option value="passport">Passport</option>
-                    <option value="national_id">National ID</option>
-                  </select>
-                </Field>
-
-                <Field label="ID Number">
-                  <input value={form.cust_id_number}
-                    onChange={e => set('cust_id_number', e.target.value)}
-                    placeholder="Document number" style={INPUT_STYLE}
-                    onFocus={focusBlue} onBlur={blurGray} />
-                </Field>
-
-                <Field label="Phone">
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <DialCodePicker
-                      value={form.cust_phone_dial}
-                      onChange={dial => set('cust_phone_dial', dial)}
-                    />
-                    <input value={form.cust_phone}
-                      onChange={e => set('cust_phone', e.target.value)}
-                      placeholder="Phone number" type="tel"
-                      style={{ ...INPUT_STYLE, flex: 1 }}
-                      onFocus={focusBlue} onBlur={blurGray} />
-                  </div>
-                </Field>
-
-                <Field label="Nationality">
-                  <select value={form.cust_nationality}
-                    onChange={e => set('cust_nationality', e.target.value)}
-                    style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
-                    <option value="">Select country…</option>
-                    {COUNTRIES.map(c => (
-                      <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
-                    ))}
-                  </select>
-                </Field>
-
+                {/* Row 3: Driving License | License Issue Date */}
                 <Field label="Driving License">
                   <input value={form.cust_driving_license}
                     onChange={e => set('cust_driving_license', e.target.value)}
@@ -1258,18 +1555,81 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
 
-                <Field label="License Expiry / Mirror Number">
-                  <input value={form.cust_driving_license_number}
-                    onChange={e => set('cust_driving_license_number', e.target.value)}
-                    placeholder="Expiry date or mirror number" style={INPUT_STYLE}
-                    onFocus={focusBlue} onBlur={blurGray} />
-                </Field>
+                <div ref={licenseIssueDateRef}>
+                  <Field label="License Issue Date" required>
+                    <input type="date" value={form.cust_license_issue_date}
+                      onChange={e => { set('cust_license_issue_date', e.target.value); setFieldErrors(fe => ({ ...fe, cust_license_issue_date: null })); }}
+                      style={{ ...INPUT_STYLE, borderColor: fieldErrors.cust_license_issue_date ? '#ef4444' : undefined }}
+                      onFocus={focusBlue} onBlur={blurGray} />
+                  </Field>
+                  {fieldErrors.cust_license_issue_date && (
+                    <span style={{ fontSize: 12, color: '#ef4444', marginTop: 4, display: 'block' }}>{fieldErrors.cust_license_issue_date}</span>
+                  )}
+                  {!fieldErrors.cust_license_issue_date && form.cust_license_issue_date && (() => {
+                    const diffDays = (Date.now() - new Date(form.cust_license_issue_date).getTime()) / (1000 * 60 * 60 * 24);
+                    return diffDays < 365 ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginTop: 6, padding: '7px 10px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 7, fontSize: 12, color: '#92400e', lineHeight: 1.45 }}>
+                        <span style={{ flexShrink: 0 }}>⚠️</span>
+                        <span>Driver's license was issued less than 1 year ago.<br/>This booking may require additional review.</span>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
 
-                <Field label="Birth Date">
-                  <input type="date" value={form.cust_birth_date}
-                    onChange={e => set('cust_birth_date', e.target.value)}
-                    style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
-                </Field>
+                {/* Row 4: Phone | Nationality */}
+                <div ref={phoneRef}>
+                  <Field label="Phone" required>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <DialCodePicker
+                        value={form.cust_phone_dial}
+                        onChange={dial => set('cust_phone_dial', dial)}
+                      />
+                      <input value={form.cust_phone}
+                        onChange={e => { set('cust_phone', e.target.value); setFieldErrors(fe => ({ ...fe, cust_phone: null })); }}
+                        placeholder="Phone number" type="tel"
+                        style={{ ...INPUT_STYLE, flex: 1, borderColor: fieldErrors.cust_phone ? '#ef4444' : undefined }}
+                        onFocus={focusBlue} onBlur={blurGray} />
+                    </div>
+                  </Field>
+                  {fieldErrors.cust_phone && (
+                    <span style={{ fontSize: 12, color: '#ef4444', marginTop: 4, display: 'block' }}>{fieldErrors.cust_phone}</span>
+                  )}
+                </div>
+
+                <div ref={nationalityRef}>
+                  <Field label="Nationality" required>
+                    <select value={form.cust_nationality}
+                      onChange={e => { set('cust_nationality', e.target.value); setFieldErrors(fe => ({ ...fe, cust_nationality: null })); }}
+                      style={{ ...INPUT_STYLE, cursor: 'pointer', borderColor: fieldErrors.cust_nationality ? '#ef4444' : undefined }} onFocus={focusBlue} onBlur={blurGray}>
+                      <option value="">Select country…</option>
+                      {COUNTRIES.map(c => (
+                        <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  {fieldErrors.cust_nationality && (
+                    <span style={{ fontSize: 12, color: '#ef4444', marginTop: 4, display: 'block' }}>{fieldErrors.cust_nationality}</span>
+                  )}
+                </div>
+
+                {/* Row 5: Birth Date | Address */}
+                <div>
+                  <Field label="Birth Date">
+                    <input type="date" value={form.cust_birth_date}
+                      onChange={e => set('cust_birth_date', e.target.value)}
+                      style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
+                  </Field>
+                  {form.cust_birth_date && (() => {
+                    const diffMs = Date.now() - new Date(form.cust_birth_date).getTime();
+                    const ageYears = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+                    return ageYears < 22 ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginTop: 6, padding: '7px 10px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 7, fontSize: 12, color: '#92400e', lineHeight: 1.45 }}>
+                        <span style={{ flexShrink: 0 }}>⚠️</span>
+                        <span>Customer is under 22 years old.<br/>Young driver surcharge may apply.</span>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
 
                 <Field label="Address">
                   <input value={form.cust_address}
@@ -1278,6 +1638,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
 
+                {/* Row 6: Notes */}
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
                     Notes
@@ -1306,10 +1667,24 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 />
 
                 <DocUploadField
+                  label="ID Photo (Back)"
+                  existingUrl={existingDocUrls.id_photo_back_url}
+                  file={docIdPhotoBack}
+                  onChange={setDocIdPhotoBack}
+                />
+
+                <DocUploadField
                   label="Driving License"
                   existingUrl={existingDocUrls.driving_license_photo_url}
                   file={docDrivingLicense}
                   onChange={setDocDrivingLicense}
+                />
+
+                <DocUploadField
+                  label="Driving License (Back)"
+                  existingUrl={existingDocUrls.driving_license_back_url}
+                  file={docDrivingLicenseBack}
+                  onChange={setDocDrivingLicenseBack}
                 />
 
                 <DocUploadField
@@ -1319,6 +1694,90 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   onChange={setDocEntryStamp}
                 />
             </>
+          </div>
+
+          {/* ── Financial Information ── */}
+          <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
+              {/* Section heading + currency toggle on the same row */}
+              <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 10, borderBottom: '1.5px solid #f0f0f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#4ba6ea', display: 'flex', alignItems: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7v1m0 8v1M9 10h6M9 14h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Financial Information</span>
+                </div>
+                {/* Currency toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                  {(['TRY', 'USD'] as const).map(cur => (
+                    <button
+                      key={cur}
+                      type="button"
+                      onClick={() => handleFinCurrencyChange(cur)}
+                      style={{
+                        height: 32, padding: '0 14px',
+                        fontSize: 12, fontWeight: 700,
+                        border: 'none', cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        background: form.fin_currency === cur ? '#4ba6ea' : '#fff',
+                        color:      form.fin_currency === cur ? '#fff'    : '#6b7280',
+                        transition: 'background 140ms ease, color 140ms ease',
+                      }}
+                    >
+                      {cur === 'TRY' ? '₺ TRY' : '$ USD'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Field label={`Rental Amount${form.fin_currency === 'USD' ? ' (USD)' : ' (TRY)'}`}>
+                <input
+                  type="number" min="0" step="0.01"
+                  value={form.fin_rental_amount}
+                  onChange={e => set('fin_rental_amount', e.target.value)}
+                  placeholder="0.00"
+                  style={INPUT_STYLE}
+                  onFocus={focusBlue} onBlur={blurGray}
+                />
+              </Field>
+              <Field label={`Deposit${form.fin_currency === 'USD' ? ' (USD)' : ' (TRY)'}`}>
+                <input
+                  type="number" min="0" step="0.01"
+                  value={form.fin_deposit_amount}
+                  onChange={e => set('fin_deposit_amount', e.target.value)}
+                  placeholder="0.00"
+                  style={INPUT_STYLE}
+                  onFocus={focusBlue} onBlur={blurGray}
+                />
+              </Field>
+              <div style={{ gridColumn: 'span 2' }}>
+                <Field label={`Paid Amount${form.fin_currency === 'USD' ? ' (USD)' : ' (TRY)'}`}>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={form.fin_paid_amount}
+                    onChange={e => set('fin_paid_amount', e.target.value)}
+                    placeholder="0.00"
+                    style={{ ...INPUT_STYLE, maxWidth: 'calc(50% - 8px)' }}
+                    onFocus={focusBlue} onBlur={blurGray}
+                  />
+                </Field>
+              </div>
+
+              {/* Conversion note when USD is selected */}
+              {form.fin_currency === 'USD' && (() => {
+                const rate = rates.find(r => r.currency === 'USD')?.rate_to_try;
+                return rate ? (
+                  <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 7, background: 'rgba(75,166,234,0.07)', border: '1px solid rgba(75,166,234,0.18)' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#4ba6ea" strokeWidth="1.8"/><path d="M12 11v5M12 8h.01" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                    <span style={{ fontSize: 11.5, color: '#4ba6ea', fontWeight: 500 }}>
+                      Stored in TRY · 1 USD = ₺{rate.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ gridColumn: 'span 2', fontSize: 11.5, color: '#f97316', padding: '6px 10px', borderRadius: 7, background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.18)' }}>
+                    Exchange rate not loaded — amounts will be stored as-is
+                  </div>
+                );
+              })()}
           </div>
 
           {formError && (
@@ -1353,6 +1812,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       <style>{`
         @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        @keyframes spin    { to { transform: rotate(360deg); } }
       `}</style>
     </div>,
     document.body,
@@ -1620,7 +2080,8 @@ const BookingsPage: React.FC = () => {
     cust_phone_dial: '+90', cust_phone: '',
     cust_nationality: '', cust_driving_license: '',
     cust_driving_license_number: '', cust_address: '',
-    cust_birth_date: '', cust_notes: '',
+    cust_birth_date: '', cust_license_issue_date: '', cust_notes: '',
+    fin_currency: 'TRY', fin_rental_amount: '', fin_deposit_amount: '', fin_paid_amount: '',
   });
 
   return (
@@ -1811,6 +2272,7 @@ const BookingsPage: React.FC = () => {
                     onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}
                     onDelete={() => setDeleteTarget(booking)}
+                    onPrint={() => printBookingContract(booking)}
                   />
                 ))}
               </tbody>
@@ -1842,6 +2304,7 @@ const BookingsPage: React.FC = () => {
         <BookingFormModal
           mode="add"
           initial={EMPTY_FORM}
+          showToast={showToast}
           onClose={() => setModal(null)}
           onSaved={() => {
             showToast('Booking added successfully', 'success');
@@ -1856,6 +2319,7 @@ const BookingsPage: React.FC = () => {
           initial={editFormData(modal.booking)}
           editId={modal.booking.id}
           editCustomerId={modal.booking.customer_id}
+          showToast={showToast}
           onClose={() => setModal(null)}
           onSaved={() => {
             showToast('Booking updated', 'success');

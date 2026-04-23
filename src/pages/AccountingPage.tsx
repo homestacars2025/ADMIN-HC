@@ -1161,7 +1161,9 @@ const InvestorCarListView: React.FC<{
       .eq('investor_id', investorId)
       .then(({ data }) => {
         const raw = (data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
-        setCars(raw.map(c => ({ id: c.id, plate_number: c.plate_number, model_name: c.model_group?.name ?? '—' })));
+        setCars(raw
+          .map(c => ({ id: c.id, plate_number: c.plate_number, model_name: c.model_group?.name ?? '—' }))
+          .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number)));
         setCarsLoading(false);
       });
   }, [investorId]);
@@ -1886,21 +1888,19 @@ const InvestorSheetsTab: React.FC<{ onViewReport: (id: string) => void }> = ({ o
 // ─── Add Customer Transaction Modal ──────────────────────────────────────────
 
 interface AddCustomerTxForm {
-  date:             string;
-  type:             string;
-  description:      string;
-  amount:           string;
-  direction:        'in' | 'out';
-  transaction_type: string;
+  date:        string;
+  type:        string;
+  description: string;
+  amount:      string;
+  direction:   'in' | 'out';
 }
 
 const EMPTY_CUST_TX_FORM: AddCustomerTxForm = {
-  date:             new Date().toISOString().slice(0, 10),
-  type:             '',
-  description:      '',
-  amount:           '',
-  direction:        'in',
-  transaction_type: '',
+  date:        new Date().toISOString().slice(0, 10),
+  type:        '',
+  description: '',
+  amount:      '',
+  direction:   'in',
 };
 
 const AddCustomerTxModal: React.FC<{
@@ -1929,11 +1929,10 @@ const AddCustomerTxModal: React.FC<{
       customer_id:      customerId,
       car_id:           carId,
       created_at:       form.date,
-      type:             form.type             || null,
-      description:      form.description      || null,
+      type:        form.type        || null,
+      description: form.description || null,
       amount,
-      direction:        form.direction.toUpperCase(),
-      transaction_type: form.transaction_type || null,
+      direction:   form.direction.toUpperCase(),
     });
     setSaving(false);
     if (err) { setError(err.message); return; }
@@ -2002,32 +2001,18 @@ const AddCustomerTxModal: React.FC<{
             </div>
           </div>
 
-          {/* Type + Transaction Type row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</div>
-              <input
-                type="text"
-                placeholder="e.g. Payment, Deposit…"
-                value={form.type}
-                onChange={e => set('type', e.target.value)}
-                style={inputStyle}
-                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Transaction Type</div>
-              <input
-                type="text"
-                placeholder="e.g. cash, transfer…"
-                value={form.transaction_type}
-                onChange={e => set('transaction_type', e.target.value)}
-                style={inputStyle}
-                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-              />
-            </div>
+          {/* Type */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</div>
+            <input
+              type="text"
+              placeholder="e.g. payment, deposit, rental…"
+              value={form.type}
+              onChange={e => set('type', e.target.value)}
+              style={inputStyle}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
+            />
           </div>
 
           {/* Amount */}
@@ -2100,7 +2085,6 @@ const EditTxModal: React.FC<{
     description:      entry.description      ?? '',
     amount:           String(entry.amount),
     direction:        ((entry.direction?.toLowerCase() ?? 'in') as 'in' | 'out'),
-    transaction_type: entry.transaction_type ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
@@ -2120,11 +2104,10 @@ const EditTxModal: React.FC<{
       .from('customer_accounting_ledger')
       .update({
         created_at:       form.date,
-        type:             form.type             || null,
-        description:      form.description      || null,
+        type:        form.type        || null,
+        description: form.description || null,
         amount,
-        direction:        form.direction.toUpperCase(),
-        transaction_type: form.transaction_type || null,
+        direction:   form.direction.toUpperCase(),
       })
       .eq('id', entry.id);
     setSaving(false);
@@ -2179,20 +2162,12 @@ const EditTxModal: React.FC<{
             </div>
           </div>
 
-          {/* Type + Transaction Type */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</div>
-              <input type="text" placeholder="e.g. Payment, Deposit…" value={form.type} onChange={e => set('type', e.target.value)} style={inputStyle}
-                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Transaction Type</div>
-              <input type="text" placeholder="e.g. cash, transfer…" value={form.transaction_type} onChange={e => set('transaction_type', e.target.value)} style={inputStyle}
-                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
-            </div>
+          {/* Type */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</div>
+            <input type="text" placeholder="e.g. payment, deposit, rental…" value={form.type} onChange={e => set('type', e.target.value)} style={inputStyle}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
           </div>
 
           {/* Amount */}
@@ -2243,17 +2218,22 @@ const CustomerSheetsTab: React.FC = () => {
   const [openBookings,  setOpenBookings]  = useState<Set<string>>(new Set());
   const [addModal,      setAddModal]      = useState<{ customerId: string; customerName: string } | null>(null);
   const [editModal,     setEditModal]     = useState<CustomerLedgerEntry | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);   // entry id pending delete
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [deleting,      setDeleting]      = useState(false);
 
-  // Load cars + car→customer index at mount
+  // KPI summary state — all ledger rows (no car filter)
+  const [allLedger,    setAllLedger]    = useState<{ type: string | null; amount: number; direction: string; booking_id: number | null; customer_id: string | null }[]>([]);
+  const [kpiLoading,   setKpiLoading]   = useState(true);
+
+  // Load cars + car→customer index + KPI data at mount
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [carsRes, mgRes, ccRes] = await Promise.all([
+      const [carsRes, mgRes, ccRes, kpiRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group_id'),
         supabase.from('model_group').select('id, name'),
         supabase.from('customer_accounting_ledger').select('car_id, customers(first_name, last_name)'),
+        supabase.from('customer_accounting_ledger').select('type, amount, direction, booking_id, customer_id'),
       ]);
       if (cancelled) return;
 
@@ -2282,7 +2262,9 @@ const CustomerSheetsTab: React.FC = () => {
       tmp.forEach((names, id) => cc.set(id, Array.from(names)));
       setCarCustomers(cc);
 
+      setAllLedger((kpiRes.data ?? []) as { type: string | null; amount: number; direction: string; booking_id: number | null; customer_id: string | null }[]);
       setCarsLoading(false);
+      setKpiLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -2455,7 +2437,7 @@ const CustomerSheetsTab: React.FC = () => {
 
   const selectedCar = cars.find(c => c.id === selectedCarId);
 
-  // Filter cars list by search query (plate number OR customer name)
+  // Filter car dropdown by search (plate or customer name)
   const filteredCars = (() => {
     const q = search.trim().toLowerCase();
     if (!q) return cars;
@@ -2477,81 +2459,118 @@ const CustomerSheetsTab: React.FC = () => {
       )
     : [];
 
+  // KPI computations
+  const kpiTotalIn  = allLedger.filter(r => r.direction?.toUpperCase() === 'IN' ).reduce((s, r) => s + r.amount, 0);
+  const kpiTotalOut = allLedger.filter(r => r.direction?.toUpperCase() === 'OUT').reduce((s, r) => s + r.amount, 0);
+  const cashBalance = kpiTotalIn - kpiTotalOut;
+  const balancePositive = cashBalance >= 0;
+
   return (
     <>
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {/* Car list */}
-        <div style={{ width: 240, flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>All Cars</div>
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', overflow: 'hidden' }}>
-            {/* Search bar */}
-            {!carsLoading && cars.length > 0 && (
-              <div style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ position: 'relative' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                    <circle cx="11" cy="11" r="7" stroke="#9ca3af" strokeWidth="2"/>
-                    <path d="M20 20l-3-3" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Plate or customer…"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    style={{ width: '100%', padding: '7px 9px 7px 29px', fontSize: 12, border: '1.5px solid #e5e7eb', borderRadius: 8, outline: 'none', fontFamily: 'inherit', background: '#f9f9fb', color: '#0f1117', boxSizing: 'border-box', transition: 'border-color 140ms ease' }}
-                    onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; (e.target as HTMLInputElement).style.background = '#fff'; }}
-                    onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; (e.target as HTMLInputElement).style.background = '#f9f9fb'; }}
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch('')}
-                      style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: 4, border: 'none', background: '#e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                    >
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none">
-                        <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-            {carsLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid #f7f7f7' }}>
-                  <div style={{ height: 13, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 6 }} />
-                  <div style={{ height: 10, borderRadius: 5, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: '60%' }} />
-                </div>
-              ))
-            ) : filteredCars.length === 0 ? (
-              <div style={{ padding: '24px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>
-                {cars.length === 0 ? 'No cars found.' : 'No cars match your search.'}
+        {/* ── Section 1: Cash Balance Hero Card ── */}
+        {kpiLoading ? (
+          <div style={{ height: 140, borderRadius: 16, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        ) : (
+          <div style={{
+            background: balancePositive
+              ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+              : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            borderRadius: 16, padding: '28px 32px', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>
+                Customer Cash Balance
               </div>
-            ) : (
-              filteredCars.map((car, i) => (
-                <div
-                  key={car.id}
-                  onClick={() => setSelectedCarId(car.id === selectedCarId ? null : car.id)}
-                  style={{
-                    padding: '11px 16px', cursor: 'pointer',
-                    borderBottom: i < filteredCars.length - 1 ? '1px solid #f7f7f7' : 'none',
-                    borderLeft: `3px solid ${car.id === selectedCarId ? '#4ba6ea' : 'transparent'}`,
-                    background: car.id === selectedCarId ? 'rgba(75,166,234,0.05)' : '#fff',
-                    transition: 'all 120ms ease',
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: car.id === selectedCarId ? '#4ba6ea' : '#0f1117' }}>{car.plate_number}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{car.model_name}</div>
-                </div>
-              ))
+              <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>
+                {cashBalance < 0 ? '−' : ''}{fmt(Math.abs(cashBalance))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'right' }}>
+              <div>
+                <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total IN</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalIn)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total OUT</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalOut)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Section 2: Filter bar + transactions ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Filter bar */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {/* Search input */}
+            <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="7" stroke="#9ca3af" strokeWidth="2"/>
+                <path d="M20 20l-3-3" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by plate or customer…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ width: '100%', height: 40, padding: '0 34px 0 34px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 10, outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#0f1117', boxSizing: 'border-box', transition: 'border-color 140ms ease' }}
+                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
+              />
+              {search && (
+                <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, borderRadius: 5, border: 'none', background: '#e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                </button>
+              )}
+            </div>
+
+            {/* Car dropdown */}
+            <div style={{ position: 'relative' }}>
+              {carsLoading ? (
+                <div style={{ height: 40, width: 260, borderRadius: 10, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              ) : (
+                <>
+                  <select
+                    value={selectedCarId ?? ''}
+                    onChange={e => setSelectedCarId(e.target.value ? Number(e.target.value) : null)}
+                    style={{ appearance: 'none', WebkitAppearance: 'none', height: 40, padding: '0 36px 0 14px', fontSize: 13, fontWeight: 600, color: selectedCarId ? '#0f1117' : '#9ca3af', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', outline: 'none', minWidth: 260, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', transition: 'border-color 140ms ease' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#4ba6ea'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                  >
+                    <option value="">Select a car…</option>
+                    {filteredCars.map(car => (
+                      <option key={car.id} value={car.id}>{car.plate_number}{car.model_name !== '—' ? ` — ${car.model_name}` : ''}</option>
+                    ))}
+                  </select>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9ca3af' }}>
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </>
+              )}
+            </div>
+
+            {selectedCarId && (
+              <button
+                onClick={() => setSelectedCarId(null)}
+                style={{ height: 40, padding: '0 14px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                Clear
+              </button>
             )}
           </div>
-        </div>
 
-        {/* Ledger panel */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Transactions panel */}
           {!selectedCarId ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 220, color: '#9ca3af', fontSize: 13, background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0' }}>
-              Select a car to view customer transactions.
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, background: '#fff', borderRadius: 14, border: '1.5px dashed #e5e7eb', gap: 10 }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a1 1 0 01-1-1v-5l2.76-5.52A1 1 0 015.65 5h12.7a1 1 0 01.89.55L22 11v5a1 1 0 01-1 1h-2" stroke="#d1d5db" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="#d1d5db" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="#d1d5db" strokeWidth="1.8"/></svg>
+              <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>Select a car to view customer transactions</div>
             </div>
           ) : ledgerLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
@@ -2560,9 +2579,10 @@ const CustomerSheetsTab: React.FC = () => {
               </svg>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117' }}>
-                {selectedCar?.plate_number} — {selectedCar?.model_name}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>{selectedCar?.plate_number}</div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>{selectedCar?.model_name}</div>
               </div>
               {customerGroups.length === 0 ? (
                 <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '32px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
@@ -3139,9 +3159,705 @@ const AddFinancialTxModal: React.FC<{
   );
 };
 
+// ─── Company Expenses Tab ─────────────────────────────────────────────────────
+
+interface CompanyExpense {
+  id: number;
+  created_at: string;
+  operation_date: string | null;
+  category: string | null;
+  amount: number;
+  direction: string | null;
+  car_id: number | null;
+  handled_by: string | null;
+  notes: string | null;
+  created_by: string | null;
+  payment_receipt_url: string | null;
+}
+
+interface ExpenseFormData {
+  operation_date: string;
+  category: string;
+  amount: string;
+  direction: 'IN' | 'OUT';
+  car_id: string;
+  handled_by: string;
+  notes: string;
+}
+
+const EMPTY_EXPENSE_FORM: ExpenseFormData = {
+  operation_date: new Date().toISOString().slice(0, 10),
+  category: '', amount: '', direction: 'OUT', car_id: '', handled_by: '', notes: '',
+};
+
+const EXPENSE_CATEGORIES = [
+  'Rent', 'Utilities', 'Salaries', 'Maintenance', 'Marketing',
+  'Insurance', 'Office Supplies', 'Fuel', 'Cleaning', 'Software', 'Other',
+];
+
+const CompanyExpenseModal: React.FC<{
+  expense?: CompanyExpense;
+  cars:     { id: number; label: string }[];
+  profiles: { id: string; name: string }[];
+  onClose:  () => void;
+  onSaved:  () => void;
+}> = ({ expense, cars, profiles, onClose, onSaved }) => {
+  const isEdit = !!expense;
+  const [form, setForm] = useState<ExpenseFormData>(
+    isEdit ? {
+      operation_date: expense.operation_date ?? new Date().toISOString().slice(0, 10),
+      category:   expense.category   ?? '',
+      amount:     String(expense.amount ?? ''),
+      direction:  (expense.direction?.toUpperCase() === 'IN' ? 'IN' : 'OUT') as 'IN' | 'OUT',
+      car_id:     expense.car_id != null ? String(expense.car_id) : '',
+      handled_by: expense.handled_by ?? '',
+      notes:      expense.notes      ?? '',
+    } : EMPTY_EXPENSE_FORM,
+  );
+  const [receiptFile,    setReceiptFile]    = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [saving,         setSaving]         = useState(false);
+  const [saveStep,       setSaveStep]       = useState('');
+  const [error,          setError]          = useState<string | null>(null);
+
+  // Build blob preview URL for selected image file
+  useEffect(() => {
+    if (!receiptFile || receiptFile.type === 'application/pdf') { setReceiptPreview(null); return; }
+    const url = URL.createObjectURL(receiptFile);
+    setReceiptPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [receiptFile]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', fontSize: 13,
+    border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none',
+    fontFamily: 'inherit', color: '#0f1117', background: '#fff',
+    boxSizing: 'border-box', transition: 'border-color 140ms ease',
+  };
+  const focusB = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    { (e.target as HTMLElement).style.borderColor = '#4ba6ea'; };
+  const blurG  = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    { (e.target as HTMLElement).style.borderColor = '#e5e7eb'; };
+  const lbl: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: '#6b7280',
+    textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block',
+  };
+
+  const handleSave = async () => {
+    if (!form.operation_date) { setError('Date is required.'); return; }
+    const amount = parseFloat(form.amount);
+    if (isNaN(amount) || amount <= 0) { setError('Enter a valid amount.'); return; }
+
+    setSaving(true); setError(null);
+
+    // ── Receipt upload ────────────────────────────────────────────────────────
+    let receiptUrl: string | null = isEdit ? (expense!.payment_receipt_url ?? null) : null;
+
+    if (receiptFile) {
+      setSaveStep('Uploading receipt…');
+
+      // Build file name components
+      const handlerName = form.handled_by
+        ? (profiles.find(p => p.id === form.handled_by)?.name ?? 'unknown').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+        : 'unknown';
+
+      const [y, m] = form.operation_date.split('-').map(Number);
+      const mm = String(m).padStart(2, '0');
+      const yy = String(y).slice(-2);
+
+      // Count existing rows for same handler + month to get operation_number
+      const monthStart = `${form.operation_date.slice(0, 7)}-01`;
+      const monthEnd   = `${form.operation_date.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+      let countQuery = supabase
+        .from('company_expenses')
+        .select('id', { count: 'exact', head: true })
+        .gte('operation_date', monthStart)
+        .lte('operation_date', monthEnd);
+      if (form.handled_by) countQuery = countQuery.eq('handled_by', form.handled_by);
+      // In edit mode exclude current row from count
+      if (isEdit) countQuery = (countQuery as typeof countQuery).neq('id', expense!.id);
+      const { count } = await countQuery;
+      const opNum = (count ?? 0) + 1;
+
+      const ext = receiptFile.name.includes('.') ? receiptFile.name.split('.').pop()! : 'jpg';
+      const filePath = `${handlerName}-${mm}-${yy}-${opNum}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from('company_expenses')
+        .upload(filePath, receiptFile, { upsert: true });
+
+      if (upErr) {
+        setSaving(false); setSaveStep('');
+        setError(`Upload failed: ${upErr.message}`);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from('company_expenses').getPublicUrl(filePath);
+      receiptUrl = urlData.publicUrl;
+    }
+
+    setSaveStep('Saving…');
+    const payload = {
+      operation_date:      form.operation_date,
+      category:            form.category   || null,
+      amount,
+      direction:           form.direction,
+      car_id:              form.car_id     ? Number(form.car_id) : null,
+      handled_by:          form.handled_by || null,
+      notes:               form.notes      || null,
+      payment_receipt_url: receiptUrl,
+    };
+
+    const { error: err } = isEdit
+      ? await supabase.from('company_expenses').update(payload).eq('id', expense!.id)
+      : await supabase.from('company_expenses').insert(payload);
+
+    setSaving(false); setSaveStep('');
+    if (err) { setError(err.message); return; }
+    onSaved(); onClose();
+  };
+
+  const existingReceiptUrl = isEdit ? (expense!.payment_receipt_url ?? null) : null;
+  const existingIsPdf = existingReceiptUrl?.toLowerCase().includes('.pdf');
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
+    >
+      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 520, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
+        <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>{isEdit ? 'Edit Expense' : 'Add New Expense'}</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>company_expenses</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '22px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Date + Amount */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={lbl}>Date <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="date" value={form.operation_date} onChange={e => setForm(f => ({ ...f, operation_date: e.target.value }))} style={inp} onFocus={focusB} onBlur={blurG} />
+            </div>
+            <div>
+              <label style={lbl}>Amount (TRY) <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inp} onFocus={focusB} onBlur={blurG} />
+            </div>
+          </div>
+
+          {/* Direction */}
+          <div>
+            <label style={lbl}>Direction</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['OUT', 'IN'] as const).map(d => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, direction: d }))}
+                  style={{
+                    flex: 1, height: 40, borderRadius: 9, fontFamily: 'inherit', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 700, transition: 'all 140ms ease',
+                    border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
+                    background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
+                    color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280',
+                  }}
+                >
+                  {d === 'IN' ? '↓ IN — Income' : '↑ OUT — Expense'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label style={lbl}>Category</label>
+            <input
+              list="exp-categories"
+              placeholder="e.g. Rent, Utilities…"
+              value={form.category}
+              onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+              style={inp}
+              onFocus={focusB}
+              onBlur={blurG}
+            />
+            <datalist id="exp-categories">
+              {EXPENSE_CATEGORIES.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </div>
+
+          {/* Car + Handled By */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={lbl}>Car (optional)</label>
+              <select value={form.car_id} onChange={e => setForm(f => ({ ...f, car_id: e.target.value }))} style={{ ...inp, cursor: 'pointer' }} onFocus={focusB} onBlur={blurG}>
+                <option value="">— Not linked —</option>
+                {cars.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Handled By (optional)</label>
+              <select value={form.handled_by} onChange={e => setForm(f => ({ ...f, handled_by: e.target.value }))} style={{ ...inp, cursor: 'pointer' }} onFocus={focusB} onBlur={blurG}>
+                <option value="">— Select person —</option>
+                {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={lbl}>Notes</label>
+            <textarea
+              placeholder="Optional notes…"
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              style={{ ...inp, resize: 'vertical', minHeight: 58 }}
+              onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'; }}
+            />
+          </div>
+
+          {/* Payment Receipt */}
+          <div>
+            <label style={lbl}>Payment Receipt</label>
+
+            {/* Existing receipt (edit mode) */}
+            {existingReceiptUrl && !receiptFile && (
+              <div style={{ marginBottom: 10, borderRadius: 9, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                {existingIsPdf ? (
+                  <a
+                    href={existingReceiptUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fafafa', fontSize: 13, color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                    View existing PDF receipt
+                  </a>
+                ) : (
+                  <img src={existingReceiptUrl} alt="Current receipt" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', display: 'block' }} />
+                )}
+              </div>
+            )}
+
+            {/* New file preview */}
+            {receiptFile && receiptPreview && (
+              <div style={{ marginBottom: 10, borderRadius: 9, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                <img src={receiptPreview} alt="Receipt preview" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', display: 'block' }} />
+              </div>
+            )}
+            {receiptFile && receiptFile.type === 'application/pdf' && (
+              <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fafafa', borderRadius: 9, border: '1px solid #e5e7eb', fontSize: 13, color: '#374151' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                {receiptFile.name}
+              </div>
+            )}
+
+            {/* Upload zone */}
+            <label
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '14px', border: '1.5px dashed #d1d5db', borderRadius: 9, cursor: 'pointer', background: '#fafafa', transition: 'border-color 140ms, background 140ms' }}
+              onMouseEnter={e => { const l = e.currentTarget; l.style.borderColor = '#4ba6ea'; l.style.background = 'rgba(75,166,234,0.04)'; }}
+              onMouseLeave={e => { const l = e.currentTarget; l.style.borderColor = '#d1d5db'; l.style.background = '#fafafa'; }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af' }}>
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
+                {receiptFile ? 'Replace file' : (existingReceiptUrl ? 'Replace receipt' : 'Click to upload')}
+              </span>
+              <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WEBP or PDF</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const f = e.target.files?.[0] ?? null;
+                  setReceiptFile(f);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+
+            {receiptFile && (
+              <button
+                type="button"
+                onClick={() => setReceiptFile(null)}
+                style={{ marginTop: 6, fontSize: 11, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
+              >
+                Remove selected file
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}>
+            {saving && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
+              </svg>
+            )}
+            {saving ? saveStep || 'Saving…' : isEdit ? 'Save Changes' : 'Add Expense'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+const ExpenseDetailModal: React.FC<{
+  expense:     CompanyExpense;
+  carsMap:     Map<number, string>;
+  profilesMap: Map<string, string>;
+  onClose:     () => void;
+  onEdit:      () => void;
+}> = ({ expense, carsMap, profilesMap, onClose, onEdit }) => {
+  const { fmt } = useCurrency();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const receiptUrl = expense.payment_receipt_url;
+  const isPdf = receiptUrl?.toLowerCase().includes('.pdf') ?? false;
+
+  const row = (label: string, value: React.ReactNode) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '11px 0', borderBottom: '1px solid #f3f4f6', gap: 16 }}>
+      <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 13, color: '#0f1117', fontWeight: 500, textAlign: 'right' }}>{value}</span>
+    </div>
+  );
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
+    >
+      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 480, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
+        <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>Expense Details</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>#{expense.id} · {fmtDate(expense.operation_date)}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={onEdit}
+              style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+              onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#374151'; }}
+            >
+              Edit
+            </button>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '8px 28px 24px', overflowY: 'auto' }}>
+
+          {/* Amount hero */}
+          <div style={{ padding: '20px 0 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: 36, fontWeight: 800, color: '#ef4444', letterSpacing: '-1px' }}>{fmt(expense.amount)}</div>
+            {expense.category && (
+              <span style={{ display: 'inline-block', marginTop: 8, fontSize: 12, fontWeight: 600, color: '#374151', background: '#f3f4f6', borderRadius: 6, padding: '3px 10px' }}>{expense.category}</span>
+            )}
+          </div>
+
+          {/* Fields */}
+          <div style={{ marginTop: 12 }}>
+            {row('Date',      fmtDate(expense.operation_date))}
+            {row('Direction', <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: expense.direction?.toUpperCase() === 'IN' ? '#16a34a' : '#dc2626', background: expense.direction?.toUpperCase() === 'IN' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)' }}>{expense.direction?.toUpperCase() === 'IN' ? '↓ IN' : '↑ OUT'}</span>)}
+            {row('Handled By', expense.handled_by ? (profilesMap.get(expense.handled_by) ?? '—') : '—')}
+            {row('Car',         expense.car_id ? (carsMap.get(expense.car_id) ?? `#${expense.car_id}`) : '—')}
+            {expense.notes && row('Notes', expense.notes)}
+          </div>
+
+          {/* Payment Receipt */}
+          {receiptUrl ? (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Payment Receipt</div>
+              {isPdf ? (
+                <a
+                  href={receiptUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: '#f8f9fb', borderRadius: 10, border: '1px solid #e5e7eb', textDecoration: 'none', color: '#4ba6ea', fontSize: 13, fontWeight: 600 }}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(75,166,234,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                  </div>
+                  <div>
+                    <div>Open PDF Receipt</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400, marginTop: 1 }}>Opens in new tab</div>
+                  </div>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 'auto', flexShrink: 0 }}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </a>
+              ) : (
+                <a href={receiptUrl} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                  <img src={receiptUrl} alt="Payment receipt" style={{ width: '100%', maxHeight: 280, objectFit: 'cover', display: 'block' }} />
+                </a>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginTop: 20, padding: '16px', background: '#fafafa', borderRadius: 10, border: '1px dashed #e5e7eb', textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>
+              No payment receipt attached
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+const CompanyExpensesTab: React.FC = () => {
+  const { fmt } = useCurrency();
+  const [monthKey,        setMonthKey]        = useState(currentMonthKey());
+  const [expenses,        setExpenses]        = useState<CompanyExpense[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [cars,            setCars]            = useState<{ id: number; label: string }[]>([]);
+  const [profiles,        setProfiles]        = useState<{ id: string; name: string }[]>([]);
+  const [carsMap,         setCarsMap]         = useState<Map<number, string>>(new Map());
+  const [profilesMap,     setProfilesMap]     = useState<Map<string, string>>(new Map());
+  const [showModal,       setShowModal]       = useState(false);
+  const [editExpense,     setEditExpense]     = useState<CompanyExpense | null>(null);
+  const [detailExpense,   setDetailExpense]   = useState<CompanyExpense | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting,        setDeleting]        = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      supabase.from('cars').select('id, plate_number, model_group:model_group_id(name)'),
+      supabase.from('profiles').select('id, full_name').in('role', ['admin', 'staff']),
+    ]).then(([carsRes, profRes]) => {
+      if (cancelled) return;
+      const rawCars = (carsRes.data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
+      const carList = rawCars
+        .map(c => ({ id: c.id, plate_number: c.plate_number, model_name: c.model_group?.name ?? '', label: `${c.model_group?.name ? `${c.model_group.name} — ` : ''}${c.plate_number}` }))
+        .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number));
+      setCars(carList);
+      const cm = new Map<number, string>();
+      carList.forEach(c => cm.set(c.id, c.label));
+      setCarsMap(cm);
+
+      const rawProf = (profRes.data ?? []) as { id: string; full_name: string | null }[];
+      const profList = rawProf.map(p => ({ id: p.id, name: p.full_name ?? p.id }));
+      setProfiles(profList);
+      const pm = new Map<string, string>();
+      profList.forEach(p => pm.set(p.id, p.name));
+      setProfilesMap(pm);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const fetchExpenses = async () => {
+    setLoading(true);
+    const [y, m] = monthKey.split('-').map(Number);
+    const start = `${monthKey}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const end = `${monthKey}-${String(lastDay).padStart(2, '0')}`;
+    const { data } = await supabase
+      .from('company_expenses')
+      .select('*')
+      .gte('operation_date', start)
+      .lte('operation_date', end)
+      .order('operation_date', { ascending: false });
+    setExpenses((data ?? []) as CompanyExpense[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchExpenses(); }, [monthKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDelete = async (id: number) => {
+    if (confirmDeleteId !== id) { setConfirmDeleteId(id); return; }
+    setDeleting(true);
+    await supabase.from('company_expenses').delete().eq('id', id);
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    fetchExpenses();
+  };
+
+  const totalOut = expenses.filter(e => e.direction?.toUpperCase() !== 'IN').reduce((s, e) => s + (e.amount ?? 0), 0);
+  const totalIn  = expenses.filter(e => e.direction?.toUpperCase() === 'IN').reduce((s, e) => s + (e.amount ?? 0), 0);
+  const net      = totalIn - totalOut;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <MonthNavigator monthKey={monthKey} onChange={setMonthKey} />
+        <button
+          onClick={() => { setEditExpense(null); setShowModal(true); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(75,166,234,0.3)', transition: 'background 140ms ease' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3a95d9'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
+          Add New Expense
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        {[
+          { label: 'Total OUT',  value: loading ? '—' : fmt(totalOut), color: '#dc2626', accent: 'rgba(239,68,68,0.08)'  },
+          { label: 'Total IN',   value: loading ? '—' : fmt(totalIn),  color: '#16a34a', accent: 'rgba(34,197,94,0.08)'  },
+          { label: 'Net',        value: loading ? '—' : fmt(net),      color: net >= 0 ? '#16a34a' : '#dc2626', accent: net >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)' },
+          { label: 'Records',    value: loading ? '—' : String(expenses.length), color: '#0f1117', accent: 'transparent' },
+        ].map(s => (
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{s.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        {loading ? (
+          <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ height: 36, borderRadius: 8, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            ))}
+          </div>
+        ) : expenses.length === 0 ? (
+          <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+            No expenses found for {monthLabel(monthKey)}.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#fafafa' }}>
+                  {['Date', 'Direction', 'Category', 'Amount', 'Car', 'Handled By', 'Receipt', ''].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((exp, i) => (
+                  <tr key={exp.id} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7' }}>
+                    <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>{fmtDate(exp.operation_date)}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      {exp.direction?.toUpperCase() === 'IN'
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      {exp.category
+                        ? <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', background: '#f3f4f6', borderRadius: 6, padding: '2px 8px' }}>{exp.category}</span>
+                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: exp.direction?.toUpperCase() === 'IN' ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>{exp.direction?.toUpperCase() === 'IN' ? '+' : '-'}{fmt(exp.amount)}</td>
+                    <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>
+                      {exp.car_id ? (carsMap.get(exp.car_id) ?? `#${exp.car_id}`) : <span style={{ color: '#9ca3af' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>
+                      {exp.handled_by ? (profilesMap.get(exp.handled_by) ?? '—') : <span style={{ color: '#9ca3af' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      {exp.payment_receipt_url
+                        ? (exp.payment_receipt_url.toLowerCase().includes('.pdf')
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: '#4ba6ea', background: 'rgba(75,166,234,0.08)', borderRadius: 6, padding: '2px 8px' }}>PDF</span>
+                          : <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(34,197,94,0.08)', borderRadius: 6, padding: '2px 8px' }}>IMG</span>)
+                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {/* View Details */}
+                        <button
+                          onClick={() => setDetailExpense(exp)}
+                          style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
+                          title="View details"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/></svg>
+                        </button>
+                        <button
+                          onClick={() => { setEditExpense(exp); setShowModal(true); setConfirmDeleteId(null); }}
+                          style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(exp.id)}
+                          disabled={deleting && confirmDeleteId === exp.id}
+                          style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${confirmDeleteId === exp.id ? '#ef4444' : '#e5e7eb'}`, background: confirmDeleteId === exp.id ? '#ef4444' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: confirmDeleteId === exp.id ? '#fff' : '#9ca3af', transition: 'all 140ms ease' }}
+                          onMouseEnter={e => { if (confirmDeleteId !== exp.id) { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#ef4444'; b.style.color = '#ef4444'; } }}
+                          onMouseLeave={e => { if (confirmDeleteId !== exp.id) { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; } }}
+                        >
+                          {confirmDeleteId === exp.id
+                            ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            : <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          }
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {detailExpense && (
+        <ExpenseDetailModal
+          expense={detailExpense}
+          carsMap={carsMap}
+          profilesMap={profilesMap}
+          onClose={() => setDetailExpense(null)}
+          onEdit={() => { setEditExpense(detailExpense); setDetailExpense(null); setShowModal(true); }}
+        />
+      )}
+
+      {showModal && (
+        <CompanyExpenseModal
+          expense={editExpense ?? undefined}
+          cars={cars}
+          profiles={profiles}
+          onClose={() => { setShowModal(false); setEditExpense(null); }}
+          onSaved={() => { setShowModal(false); setEditExpense(null); fetchExpenses(); }}
+        />
+      )}
+    </div>
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type AccountingTab = 'overview' | 'investor' | 'customer';
+type AccountingTab = 'overview' | 'investor' | 'customer' | 'expenses';
 
 const AccountingPage: React.FC = () => {
   const [activeTab,        setActiveTab]        = useState<AccountingTab>('overview');
@@ -3207,9 +3923,10 @@ const AccountingPage: React.FC = () => {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 28, background: '#f3f4f6', padding: 4, borderRadius: 12, width: 'fit-content' }}>
         {([
-          { key: 'overview',  label: 'Overview'         },
-          { key: 'investor',  label: 'Investor Sheets'  },
-          { key: 'customer',  label: 'Customer Sheets'  },
+          { key: 'overview',  label: 'Overview'          },
+          { key: 'investor',  label: 'Investor Sheets'   },
+          { key: 'customer',  label: 'Customer Sheets'   },
+          { key: 'expenses',  label: 'Company Expenses'  },
         ] as { key: AccountingTab; label: string }[]).map(tab => (
           <button
             key={tab.key}
@@ -3229,9 +3946,10 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'overview'  && <OverviewTab        key={refreshKey} />}
-      {activeTab === 'investor'  && <InvestorSheetsTab  key={refreshKey} onViewReport={handleViewReport} />}
-      {activeTab === 'customer'  && <CustomerSheetsTab  key={refreshKey} />}
+      {activeTab === 'overview'  && <OverviewTab          key={refreshKey} />}
+      {activeTab === 'investor'  && <InvestorSheetsTab   key={refreshKey} onViewReport={handleViewReport} />}
+      {activeTab === 'customer'  && <CustomerSheetsTab   key={refreshKey} />}
+      {activeTab === 'expenses'  && <CompanyExpensesTab  key={refreshKey} />}
 
       {/* Global Add Transaction */}
       {showAddTx && (
