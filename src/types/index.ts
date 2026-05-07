@@ -10,6 +10,14 @@ export interface AuthState {
 
 export type CarStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
 
+export interface Car {
+  id: number;
+  plate_number: string;
+  model_group_id: number | null;
+  investor_id: number | null;
+  is_active: boolean;
+}
+
 export interface CarAvailabilityRow {
   status: CarStatus;
   [key: string]: unknown;
@@ -68,8 +76,11 @@ export interface Booking {
   customer_id: number;
   kabis_reported: boolean;
   invoice_issued: boolean;
+  is_currently_active: boolean;
   status: BookingStatus;
-  additional_service: string | null;
+  additional_services: string | null;
+  km_at_delivery: number | null;
+  fuel_at_delivery: string | null;
   // Resolved from joins
   plate_number: string;
   car_model: string;

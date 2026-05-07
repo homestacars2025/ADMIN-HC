@@ -1,0 +1,123 @@
+Print-Contract integration snippets extracted from src/pages/BookingsPage.tsx
+Line numbers refer to the original file.
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+LINE 5 — Import
+────────────────────────────────────────────────────────────────────────────────
+import { printBookingContract } from '../lib/printContract';
+
+
+────────────────────────────────────────────────────────────────────────────────
+LINES 273–297 — ActionBtn (icon button wrapper used by Print, Edit, Delete)
+────────────────────────────────────────────────────────────────────────────────
+// Action icon button
+const ActionBtn: React.FC<{
+  onClick: () => void;
+  title: string;
+  hoverColor: string;
+  children: React.ReactNode;
+}> = ({ onClick, title, hoverColor, children }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      title={title}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 30, height: 30, borderRadius: 7, border: 'none',
+        background: hovered ? `${hoverColor}18` : 'transparent',
+        color: hovered ? hoverColor : '#9ca3af',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', transition: 'all 140ms ease', flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
+
+────────────────────────────────────────────────────────────────────────────────
+LINES 301–309 — RowProps interface (onPrint prop declaration)
+────────────────────────────────────────────────────────────────────────────────
+interface RowProps {
+  booking: Booking;
+  isSelected: boolean;
+  isEven: boolean;
+  onSelect: () => void;
+  onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onPrint: () => void;   // <-- print prop
+}
+
+
+────────────────────────────────────────────────────────────────────────────────
+LINES 312–313 — BookingTableRow signature (shows onPrint destructured)
+────────────────────────────────────────────────────────────────────────────────
+const BookingTableRow: React.FC<RowProps> = ({
+  booking, isSelected, isEven, onSelect, onToggle, onEdit, onDelete, onPrint,
+}) => (
+
+
+────────────────────────────────────────────────────────────────────────────────
+LINES 377–385 — Print button inside the row's Actions cell
+────────────────────────────────────────────────────────────────────────────────
+    <td style={{ padding: '9px 16px 9px 8px', textAlign: 'right' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        <ActionBtn onClick={onPrint} title="Print Contract" hoverColor="#8b5cf6">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </ActionBtn>
+
+
+────────────────────────────────────────────────────────────────────────────────
+LINE 2606 — Call site: where printBookingContract is invoked per row
+────────────────────────────────────────────────────────────────────────────────
+                    onPrint={() => printBookingContract(booking)}
+
+// Context (lines 2596–2607):
+// {!loading && sorted.map((booking, idx) => (
+//   <BookingTableRow
+//     key={booking.id}
+//     booking={booking}
+//     isSelected={selectedIds.has(booking.id)}
+//     isEven={idx % 2 === 1}
+//     onSelect={() => toggleSelectRow(booking.id)}
+//     onToggle={handleToggle}
+//     onEdit={() => setModal({ mode: 'edit', booking })}
+//     onDelete={() => setDeleteTarget(booking)}
+//     onPrint={() => printBookingContract(booking)}   // <-- this line
+//   />
+// ))}
+
+
+────────────────────────────────────────────────────────────────────────────────
+ContractBooking type (defined in printContract.ts, not imported from types/)
+The Booking interface from src/types/index.ts is a superset of it —
+printBookingContract() accepts ContractBooking, and Booking satisfies it
+because Booking has all the same fields.
+────────────────────────────────────────────────────────────────────────────────
+// From printContract.ts lines 20–36:
+export interface ContractBooking {
+  id:                  number;
+  booking_number:      string;
+  plate_number:        string;
+  car_model:           string;
+  customer_id:         number;
+  customer_name:       string;
+  start_date:          string;
+  end_date:            string;
+  pickup_location:     string | null;
+  dropoff_location:    string | null;
+  km_at_delivery:      number | null;
+  fuel_at_delivery:    string | null;
+  insurance_type:      string | null;
+  additional_services:  string | null;
+  notes:               string | null;
+}

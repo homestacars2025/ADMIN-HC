@@ -936,26 +936,29 @@ const CarsPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [{ count, error: countError }, { data: availability, error: availError }] = await Promise.all([
-        supabase.from('cars').select('*', { count: 'exact', head: true }),
-        supabase.from('car_availability').select('status'),
+      const [activeCarsRes, { data: availabilityAll, error: availError }] = await Promise.all([
+        supabase.from('cars').select('id', { count: 'exact' }).eq('is_active', true),
+        supabase.from('car_availability').select('id, status'),
       ]);
 
       if (cancelled) return;
 
+      const countError = activeCarsRes.error;
       if (countError || availError) {
         setError((countError ?? availError)!.message);
         setLoading(false);
         return;
       }
 
-      setTotalCars(count ?? 0);
+      const activeIds = new Set((activeCarsRes.data ?? []).map(c => c.id));
+      setTotalCars(activeCarsRes.count ?? 0);
 
-      const working     = availability?.filter(c => c.status?.toLowerCase() === 'working').length     ?? 0;
-      const parking     = availability?.filter(c => c.status?.toLowerCase() === 'parking').length     ?? 0;
-      const maintenance = availability?.filter(c => c.status?.toLowerCase() === 'maintenance').length ?? 0;
-      const selling     = availability?.filter(c => c.status?.toLowerCase() === 'selling').length     ?? 0;
-      const replacement = availability?.filter(c => c.status?.toLowerCase() === 'replacement').length ?? 0;
+      const availability = (availabilityAll ?? []).filter(c => activeIds.has(c.id));
+      const working     = availability.filter(c => c.status?.toLowerCase() === 'working').length;
+      const parking     = availability.filter(c => c.status?.toLowerCase() === 'parking').length;
+      const maintenance = availability.filter(c => c.status?.toLowerCase() === 'maintenance').length;
+      const selling     = availability.filter(c => c.status?.toLowerCase() === 'selling').length;
+      const replacement = availability.filter(c => c.status?.toLowerCase() === 'replacement').length;
 
       setCounts({ working, parking, maintenance, selling, replacement });
       setLoading(false);
@@ -970,7 +973,7 @@ const CarsPage: React.FC = () => {
     (async () => {
       setCarsLoading(true);
       const [carsRes, trackingRes, registrationsRes, availabilityRes, modelGroupsRes] = await Promise.all([
-        supabase.from('cars').select('id, plate_number, model_group_id').order('id', { ascending: false }),
+        supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true).order('id', { ascending: false }),
         supabase.from('car_tracking').select('car_id, current_km, updated_at').order('updated_at', { ascending: false }),
         supabase.from('cars_registration').select('car_id, manufacture_year, purchase_contract_url, purchase_invoice_url, insurance_file_url, ruhsat_url, kasko'),
         supabase.from('car_availability').select('id, status'),

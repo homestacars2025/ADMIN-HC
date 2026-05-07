@@ -14,7 +14,6 @@ interface ExchangeRate {
 
 interface PricingTier {
   id: number;
-  car_id: number | null;
   min_days: number;
   max_days: number;
   discount_percent: number;
@@ -273,7 +272,7 @@ const AddTierModal: React.FC<{
     setErr(null);
     setSaving(true);
     const { error } = await supabase.from('car_pricing_tiers').insert({
-      car_id: null, min_days: min, max_days: max,
+      min_days: min, max_days: max,
       discount_percent: disc, is_active: true,
     });
     setSaving(false);
@@ -369,43 +368,60 @@ const AddTierModal: React.FC<{
 
 // ─── Section 2: Tier Row ──────────────────────────────────────────────────────
 
+type TierField = 'min_days' | 'max_days' | 'discount_percent';
+
 const TierRow: React.FC<{
   tier: PricingTier;
   label: string;
   isEven: boolean;
   onDeleted: () => void;
-  onUpdated: (id: number, discount: number) => void;
+  onUpdated: (id: number, patch: Partial<PricingTier>) => void;
   showToast: (msg: string, type: 'success' | 'error') => void;
 }> = ({ tier, label, isEven, onDeleted, onUpdated, showToast }) => {
-  const [editing,   setEditing]   = useState(false);
-  const [editVal,   setEditVal]   = useState(String(tier.discount_percent));
-  const [saving,    setSaving]    = useState(false);
-  const [deleting,  setDeleting]  = useState(false);
+  const [editingField, setEditingField] = useState<TierField | null>(null);
+  const [editVal,      setEditVal]      = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [toggling,     setToggling]     = useState(false);
+  const [deleting,     setDeleting]     = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editing) inputRef.current?.select();
-  }, [editing]);
+    if (editingField) inputRef.current?.select();
+  }, [editingField]);
 
-  const saveDiscount = useCallback(async () => {
-    const parsed = parseFloat(editVal);
-    if (isNaN(parsed) || parsed < 0 || parsed > 100) {
-      setEditVal(String(tier.discount_percent));
-      setEditing(false);
-      return;
-    }
-    if (parsed === tier.discount_percent) { setEditing(false); return; }
+  const startEdit = (field: TierField) => {
+    setEditVal(String(tier[field]));
+    setEditingField(field);
+  };
+
+  const saveField = useCallback(async (field: TierField, rawVal: string) => {
+    setEditingField(null);
+    const parsed = field === 'discount_percent' ? parseFloat(rawVal) : parseInt(rawVal, 10);
+    if (isNaN(parsed)) return;
+    if (field === 'discount_percent' && (parsed < 0 || parsed > 100)) return;
+    if ((field === 'min_days' || field === 'max_days') && parsed < 1) return;
+    if (parsed === tier[field]) return;
     setSaving(true);
     const { error } = await supabase
       .from('car_pricing_tiers')
-      .update({ discount_percent: parsed, updated_at: new Date().toISOString() })
+      .update({ [field]: parsed, updated_at: new Date().toISOString() })
       .eq('id', tier.id);
     setSaving(false);
-    if (error) { showToast('Failed to update tier.', 'error'); setEditing(false); return; }
-    onUpdated(tier.id, parsed);
+    if (error) { showToast('Failed to update tier.', 'error'); return; }
+    onUpdated(tier.id, { [field]: parsed });
     showToast('Tier updated.', 'success');
-    setEditing(false);
-  }, [editVal, tier, onUpdated, showToast]);
+  }, [tier, onUpdated, showToast]);
+
+  const handleToggle = async () => {
+    setToggling(true);
+    const { error } = await supabase
+      .from('car_pricing_tiers')
+      .update({ is_active: !tier.is_active, updated_at: new Date().toISOString() })
+      .eq('id', tier.id);
+    setToggling(false);
+    if (error) { showToast('Failed to update tier.', 'error'); return; }
+    onUpdated(tier.id, { is_active: !tier.is_active });
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -425,8 +441,55 @@ const TierRow: React.FC<{
   };
   const tierColor = TIER_COLORS[label] ?? { color: '#6b7280', bg: 'rgba(107,114,128,0.12)' };
 
+  const InlineNumInput: React.FC<{ field: TierField; suffix?: string; width?: number }> = ({ field, suffix, width = 72 }) =>
+    editingField === field ? (
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ position: 'relative' }}>
+          <input
+            ref={inputRef}
+            type="number"
+            min={field === 'discount_percent' ? 0 : 1}
+            max={field === 'discount_percent' ? 100 : undefined}
+            step={field === 'discount_percent' ? '0.01' : '1'}
+            value={editVal}
+            onChange={e => setEditVal(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') saveField(field, editVal);
+              if (e.key === 'Escape') setEditingField(null);
+            }}
+            onBlur={() => saveField(field, editVal)}
+            style={{
+              width, height: 30, padding: suffix ? '0 20px 0 8px' : '0 8px',
+              fontSize: 13, fontWeight: 700, color: '#0f1117',
+              background: '#fff', border: '1.5px solid #4ba6ea',
+              borderRadius: 7, outline: 'none', fontFamily: 'inherit',
+              boxSizing: 'border-box',
+            }}
+          />
+          {suffix && <span style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#9ca3af', pointerEvents: 'none' }}>{suffix}</span>}
+        </div>
+        {saving && <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid #e5e7eb', borderTopColor: '#4ba6ea', animation: 'spin 600ms linear infinite', flexShrink: 0 }} />}
+      </div>
+    ) : (
+      <span
+        onClick={() => startEdit(field)}
+        title="Click to edit"
+        style={{
+          fontSize: 13, fontWeight: field === 'discount_percent' ? 700 : 500,
+          color: field === 'discount_percent' ? '#0f1117' : '#374151',
+          cursor: 'text', padding: '2px 4px', borderRadius: 5, margin: '-2px -4px',
+          display: 'inline-block', transition: 'background 120ms ease',
+          opacity: tier.is_active ? 1 : 0.45,
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLSpanElement).style.background = '#f3f4f6'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLSpanElement).style.background = 'transparent'; }}
+      >
+        {String(tier[field])}{suffix}
+      </span>
+    );
+
   return (
-    <tr style={{ background: isEven ? '#fafafa' : '#fff', transition: 'background 100ms ease' }}
+    <tr style={{ background: isEven ? '#fafafa' : '#fff', transition: 'background 100ms ease', opacity: tier.is_active ? 1 : 0.6 }}
       onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(75,166,234,0.03)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = isEven ? '#fafafa' : '#fff'; }}>
 
@@ -442,80 +505,66 @@ const TierRow: React.FC<{
         </span>
       </td>
 
-      {/* Duration */}
+      {/* Min days — inline editable */}
       <td style={{ padding: '11px 12px' }}>
-        <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>
-          {tier.min_days} – {tier.max_days} days
-        </span>
+        <InlineNumInput field="min_days" />
+      </td>
+
+      {/* Max days — inline editable */}
+      <td style={{ padding: '11px 12px' }}>
+        <InlineNumInput field="max_days" />
       </td>
 
       {/* Discount — inline editable */}
       <td style={{ padding: '11px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {editing ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ position: 'relative' }}>
-                <input
-                  ref={inputRef}
-                  type="number" min="0" max="100" step="0.01"
-                  value={editVal}
-                  onChange={e => setEditVal(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') saveDiscount();
-                    if (e.key === 'Escape') { setEditVal(String(tier.discount_percent)); setEditing(false); }
-                  }}
-                  onBlur={saveDiscount}
-                  style={{
-                    width: 80, height: 32, padding: '0 24px 0 10px',
-                    fontSize: 13, fontWeight: 700, color: '#0f1117',
-                    background: '#fff', border: '1.5px solid #4ba6ea',
-                    borderRadius: 7, outline: 'none', fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#9ca3af', pointerEvents: 'none' }}>%</span>
-              </div>
-              {saving && <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #e5e7eb', borderTopColor: '#4ba6ea', animation: 'spin 600ms linear infinite' }} />}
-            </div>
-          ) : (
-            <>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>
-                {tier.discount_percent}%
-              </span>
-              {tier.discount_percent > 0 && (
-                <span style={{
-                  fontSize: 10.5, fontWeight: 700,
-                  color: '#22c55e', background: 'rgba(34,197,94,0.10)',
-                  borderRadius: 20, padding: '2px 8px',
-                }}>
-                  Save {tier.discount_percent}%
-                </span>
-              )}
-            </>
+          <InlineNumInput field="discount_percent" suffix="%" width={80} />
+          {editingField !== 'discount_percent' && tier.discount_percent > 0 && tier.is_active && (
+            <span style={{
+              fontSize: 10.5, fontWeight: 700,
+              color: '#22c55e', background: 'rgba(34,197,94,0.10)',
+              borderRadius: 20, padding: '2px 8px',
+            }}>
+              Save {tier.discount_percent}%
+            </span>
           )}
         </div>
       </td>
 
+      {/* Active toggle */}
+      <td style={{ padding: '11px 12px' }}>
+        <button
+          onClick={handleToggle}
+          disabled={toggling}
+          title={tier.is_active ? 'Disable tier' : 'Enable tier'}
+          style={{
+            width: 36, height: 20, borderRadius: 10, border: 'none',
+            background: tier.is_active ? '#4ba6ea' : '#d1d5db',
+            position: 'relative', cursor: toggling ? 'not-allowed' : 'pointer',
+            transition: 'background 200ms ease', flexShrink: 0, padding: 0,
+            opacity: toggling ? 0.6 : 1,
+          }}
+        >
+          <span style={{
+            position: 'absolute', top: 2,
+            left: tier.is_active ? 18 : 2,
+            width: 16, height: 16, borderRadius: '50%',
+            background: '#fff', transition: 'left 200ms ease',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        </button>
+      </td>
+
       {/* Actions */}
       <td style={{ padding: '11px 16px 11px 12px', textAlign: 'right' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-          {!editing && (
-            <ActionIconBtn onClick={() => { setEditVal(String(tier.discount_percent)); setEditing(true); }} title="Edit discount" hoverColor="#4ba6ea">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <ActionIconBtn onClick={handleDelete} title="Delete tier" hoverColor="#ef4444" disabled={deleting}>
+          {deleting
+            ? <div style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid #e5e7eb', borderTopColor: '#ef4444', animation: 'spin 600ms linear infinite' }} />
+            : <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <path d="M3 6h18M19 6l-1 14H6L5 6M10 6V4h4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </ActionIconBtn>
-          )}
-          <ActionIconBtn onClick={handleDelete} title="Delete tier" hoverColor="#ef4444" disabled={deleting}>
-            {deleting
-              ? <div style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid #e5e7eb', borderTopColor: '#ef4444', animation: 'spin 600ms linear infinite' }} />
-              : <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                  <path d="M3 6h18M19 6l-1 14H6L5 6M10 6V4h4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-            }
-          </ActionIconBtn>
-        </div>
+          }
+        </ActionIconBtn>
       </td>
     </tr>
   );
@@ -840,7 +889,7 @@ const PricingPage: React.FC = () => {
     setLoadingTiers(true);
     const { data, error: err } = await supabase
       .from('car_pricing_tiers')
-      .select('id, car_id, min_days, max_days, discount_percent, is_active, created_at, updated_at')
+      .select('*')
       .order('min_days', { ascending: true });
     if (err) { setError(err.message); setLoadingTiers(false); return; }
     setTiers((data as PricingTier[]) ?? []);
@@ -1010,10 +1059,12 @@ const PricingPage: React.FC = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <Th style={{ width: 60 }}>Tier</Th>
-                  <Th>Duration Range</Th>
+                  <Th style={{ width: 52 }}>Tier</Th>
+                  <Th>Min Days</Th>
+                  <Th>Max Days</Th>
                   <Th>Discount</Th>
-                  <Th style={{ textAlign: 'right' }}>Actions</Th>
+                  <Th>Active</Th>
+                  <Th style={{ textAlign: 'right' }}>Delete</Th>
                 </tr>
               </thead>
               <tbody>
@@ -1024,7 +1075,7 @@ const PricingPage: React.FC = () => {
                     label={TIER_LABELS[idx] ?? String(idx + 1)}
                     isEven={idx % 2 !== 0}
                     onDeleted={fetchTiers}
-                    onUpdated={(id, disc) => setTiers(prev => prev.map(t => t.id === id ? { ...t, discount_percent: disc } : t))}
+                    onUpdated={(id, patch) => setTiers(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))}
                     showToast={showToast}
                   />
                 ))}

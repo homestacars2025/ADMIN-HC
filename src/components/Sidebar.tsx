@@ -403,7 +403,41 @@ const Sidebar: React.FC = () => {
             Main
           </div>
         ) : null}
-        {renderNavItems(mainItems)}
+        {renderNavItems([mainItems[0]])}
+        {!collapsed && (() => {
+          const isActive = location.pathname === '/dashboard/bookings/active';
+          return (
+            <NavLink
+              to="/dashboard/bookings/active"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '7px 12px 7px 38px',
+                borderRadius: 9, textDecoration: 'none',
+                fontSize: 13, fontWeight: isActive ? 600 : 450,
+                color: isActive ? '#4ba6ea' : '#6b7280',
+                background: isActive
+                  ? 'linear-gradient(135deg, rgba(75,166,234,0.1) 0%, rgba(75,166,234,0.06) 100%)'
+                  : 'transparent',
+                transition: 'all 140ms ease',
+                position: 'relative',
+                whiteSpace: 'nowrap', overflow: 'hidden',
+              }}
+            >
+              {isActive && (
+                <div style={{
+                  position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+                  width: 3, height: 14, borderRadius: '0 3px 3px 0', background: '#4ba6ea',
+                }} />
+              )}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: isActive ? '#4ba6ea' : '#9ca3af' }}>
+                <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.7" />
+                <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.8" />
+              </svg>
+              Active Bookings
+            </NavLink>
+          );
+        })()}
+        {renderNavItems(mainItems.slice(1))}
 
         {/* Fleet section */}
         {!collapsed ? (

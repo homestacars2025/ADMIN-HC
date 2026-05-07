@@ -87,23 +87,26 @@ interface CarWithModelGroup {
 
 const fetchModelNames = async (
   plates: string[]
-): Promise<Map<string, string>> => {
+): Promise<{ plateToModel: Map<string, string>; activePlates: Set<string> }> => {
   const plateToModel = new Map<string, string>();
-  if (plates.length === 0) return plateToModel;
+  const activePlates = new Set<string>();
+  if (plates.length === 0) return { plateToModel, activePlates };
 
   const { data } = await supabase
     .from('cars')
     .select('plate_number, model_group(name)')
-    .in('plate_number', plates);
+    .in('plate_number', plates)
+    .eq('is_active', true);
 
   const cars = (data ?? []) as unknown as CarWithModelGroup[];
   for (const car of cars) {
+    activePlates.add(car.plate_number);
     const mg = car.model_group;
     const name = Array.isArray(mg) ? (mg[0]?.name ?? '—') : (mg as { name: string } | null)?.name ?? '—';
     plateToModel.set(car.plate_number, name);
   }
 
-  return plateToModel;
+  return { plateToModel, activePlates };
 };
 
 // ---------------------------------------------------------------------------
@@ -361,11 +364,15 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
         raw.map(r => String(r['plate_number'] ?? r['plate'] ?? '')).filter(Boolean)
       ));
 
-      const plateToModel = await fetchModelNames(plates);
+      const { plateToModel, activePlates } = await fetchModelNames(plates);
       if (cancelled) return;
 
-      // 3 — Map final rows
+      // 3 — Map final rows (only include active cars)
       const mapped: AlertRow[] = raw
+        .filter(row => {
+          const plate = String(row['plate_number'] ?? row['plate'] ?? '');
+          return activePlates.has(plate);
+        })
         .map(row => {
           const plate = String(row['plate_number'] ?? row['plate'] ?? '—');
 

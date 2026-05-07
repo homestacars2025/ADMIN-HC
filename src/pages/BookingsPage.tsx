@@ -27,6 +27,13 @@ interface BookingRow {
   end_date: string;
   kabis_reported: boolean;
   invoice_issued: boolean;
+  is_currently_active: boolean;
+  pickup_location: string | null;
+  dropoff_location: string | null;
+  km_at_delivery: number | null;
+  fuel_at_delivery: string | null;
+  insurance_type: string | null;
+  additional_services: string | null;
   cars: CarJoin | CarJoin[] | null;
   customers: CustomerJoin | CustomerJoin[] | null;
 }
@@ -89,17 +96,20 @@ function resolveBooking(row: BookingRow): Booking {
     car_id: row.car_id,
     start_date: row.start_date,
     end_date: row.end_date,
-    insurance_type: null,
+    insurance_type: row.insurance_type ?? null,
     notes: null,
-    pickup_location: null,
-    dropoff_location: null,
     booking_number: row.booking_number,
     additional_driver: null,
     customer_id: row.customer_id,
     kabis_reported: row.kabis_reported,
     invoice_issued: row.invoice_issued,
+    is_currently_active: row.is_currently_active,
     status: row.status,
-    additional_service: null,
+    additional_services: row.additional_services ?? null,
+    pickup_location: row.pickup_location ?? null,
+    dropoff_location: row.dropoff_location ?? null,
+    km_at_delivery: row.km_at_delivery ?? null,
+    fuel_at_delivery: row.fuel_at_delivery ?? null,
     plate_number: carJoin?.plate_number ?? '—',
     car_model,
     customer_name,
@@ -183,7 +193,7 @@ const StatusBadge: React.FC<{ status: BookingStatus }> = ({ status }) => {
 // Skeleton row
 const SkeletonRow: React.FC = () => (
   <tr>
-    {[44, 100, 90, 120, 80, 130, 80, 80, 44, 44, 60].map((w, i) => (
+    {[44, 100, 30, 90, 120, 80, 130, 80, 80, 44, 44, 60].map((w, i) => (
       <td key={i} style={{ padding: '9px 12px' }}>
         <div style={{ height: 13, width: w, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
       </td>
@@ -313,6 +323,16 @@ const BookingTableRow: React.FC<RowProps> = ({
     <td style={{ padding: '9px 12px' }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', letterSpacing: '0.1px' }}>
         {booking.booking_number}
+      </span>
+    </td>
+    <td style={{ padding: '9px 12px', textAlign: 'center' }}>
+      <span title={booking.is_currently_active ? 'Active' : 'Inactive'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+          background: booking.is_currently_active ? '#16a34a' : '#d1d5db',
+          boxShadow: booking.is_currently_active ? '0 0 0 2px rgba(22,163,74,0.2)' : 'none',
+          display: 'inline-block',
+        }} />
       </span>
     </td>
     <td style={{ padding: '9px 12px' }}>
@@ -704,6 +724,53 @@ const DialCodePicker: React.FC<{
 
 // ─── Booking form modal ───────────────────────────────────────────────────────
 
+const LOCATION_PRESETS = [
+  'Şişli Branch',
+  'Kayaşehir Branch',
+  'Istanbul Airport (IST)',
+  'Sabiha Gökçen Airport (SAW)',
+  'Other',
+] as const;
+
+function resolveLocationSelect(saved: string | null): { select: string; custom: string } {
+  if (!saved) return { select: '', custom: '' };
+  if ((LOCATION_PRESETS as readonly string[]).includes(saved) && saved !== 'Other')
+    return { select: saved, custom: '' };
+  return { select: 'Other', custom: saved };
+}
+
+const INSURANCE_PRESETS = ['Korumasız', 'Kısmi Koruma', 'Orta Koruma', 'Tam Koruma'] as const;
+const ADDITIONAL_SERVICE_PRESETS = ['Çocuk Koltuğu', 'Yedek Sürücü', 'Ek Kilometre'] as const;
+
+function resolveInsuranceSelect(saved: string | null): { select: string; custom: string } {
+  if (!saved) return { select: '', custom: '' };
+  if ((INSURANCE_PRESETS as readonly string[]).includes(saved as typeof INSURANCE_PRESETS[number]))
+    return { select: saved, custom: '' };
+  return { select: 'Diğer', custom: saved };
+}
+
+function parseAdditionalServices(saved: string | null): string[] {
+  if (!saved) return [];
+  const parts = saved.split(',').map(s => s.trim()).filter(Boolean);
+  const selected: string[] = [];
+  let hasCustom = false;
+  for (const part of parts) {
+    if ((ADDITIONAL_SERVICE_PRESETS as readonly string[]).includes(part as typeof ADDITIONAL_SERVICE_PRESETS[number])) {
+      selected.push(part);
+    } else {
+      hasCustom = true;
+    }
+  }
+  if (hasCustom) selected.push('Diğer');
+  return selected;
+}
+
+function parseAdditionalServicesCustom(saved: string | null): string {
+  if (!saved) return '';
+  const parts = saved.split(',').map(s => s.trim()).filter(Boolean);
+  return parts.filter(p => !(ADDITIONAL_SERVICE_PRESETS as readonly string[]).includes(p as typeof ADDITIONAL_SERVICE_PRESETS[number])).join(', ');
+}
+
 type BookingFormData = {
   // Booking fields
   booking_number: string;
@@ -711,6 +778,21 @@ type BookingFormData = {
   car_id: string;
   start_date: string;
   end_date: string;
+  is_currently_active: boolean;
+  // Vehicle condition at delivery
+  pickup_location: string;
+  pickup_location_select: string;
+  pickup_location_custom: string;
+  dropoff_location: string;
+  dropoff_location_select: string;
+  dropoff_location_custom: string;
+  km_at_delivery: string;
+  fuel_at_delivery: string;
+  // Insurance & additional services
+  insurance_type_select: string;
+  insurance_type_custom: string;
+  additional_services_selected: string[];
+  additional_services_custom: string;
   // Customer fields (add mode only)
   cust_id_type: 'passport' | 'national_id';
   cust_id_number: string;
@@ -734,7 +816,12 @@ type BookingFormData = {
 
 const EMPTY_FORM: BookingFormData = {
   booking_number: '', status: 'pending', car_id: '',
-  start_date: '', end_date: '',
+  start_date: '', end_date: '', is_currently_active: false,
+  pickup_location: '', pickup_location_select: '', pickup_location_custom: '',
+  dropoff_location: '', dropoff_location_select: '', dropoff_location_custom: '',
+  km_at_delivery: '', fuel_at_delivery: '',
+  insurance_type_select: '', insurance_type_custom: '',
+  additional_services_selected: [], additional_services_custom: '',
   cust_id_type: 'passport', cust_id_number: '',
   cust_first_name: '', cust_last_name: '',
   cust_phone_dial: '+90', cust_phone: '',
@@ -951,7 +1038,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     (async () => {
       // Cars — sorted by model name
       const { data: carsData } = await supabase
-        .from('cars').select('id, plate_number, model_group(name)');
+        .from('cars').select('id, plate_number, model_group(name)').eq('is_active', true);
       if (!active) return;
       const carOpts: CarOption[] = ((carsData ?? []) as Array<{
         id: number;
@@ -1208,14 +1295,18 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert({
-          booking_number: form.booking_number,
-          status:         form.status,
-          car_id:         carId,
-          customer_id:    customerId,
-          start_date:     form.start_date,
-          end_date:       form.end_date,
-          kabis_reported: false,
-          invoice_issued: false,
+          booking_number:   form.booking_number,
+          status:           form.status,
+          car_id:           carId,
+          customer_id:      customerId,
+          start_date:       form.start_date,
+          end_date:         form.end_date,
+          kabis_reported:   false,
+          invoice_issued:   false,
+          pickup_location:  form.pickup_location  || null,
+          dropoff_location: form.dropoff_location || null,
+          km_at_delivery:   form.km_at_delivery   ? Number(form.km_at_delivery)  : null,
+          fuel_at_delivery: form.fuel_at_delivery || null,
         })
         .select('id')
         .single();
@@ -1255,14 +1346,32 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       setSaving(false);
     } else {
       // Edit: update booking
+      const insuranceValue = form.insurance_type_select === 'Diğer'
+        ? (form.insurance_type_custom.trim() || null)
+        : (form.insurance_type_select || null);
+      const additionalServicesArr = [
+        ...form.additional_services_selected.filter(s => s !== 'Diğer'),
+        ...(form.additional_services_selected.includes('Diğer') && form.additional_services_custom.trim()
+          ? [form.additional_services_custom.trim()]
+          : []),
+      ];
+      const additionalServicesValue = additionalServicesArr.length > 0 ? additionalServicesArr.join(', ') : null;
+
       const { error: bookingErr } = await supabase
         .from('bookings')
         .update({
-          booking_number: form.booking_number,
-          status:         form.status,
-          car_id:         Number(form.car_id),
-          start_date:     form.start_date,
-          end_date:       form.end_date,
+          booking_number:      form.booking_number,
+          status:              form.status,
+          car_id:              Number(form.car_id),
+          start_date:          form.start_date,
+          end_date:            form.end_date,
+          is_currently_active: form.is_currently_active,
+          pickup_location:     form.pickup_location  || null,
+          dropoff_location:    form.dropoff_location || null,
+          km_at_delivery:      form.km_at_delivery   ? Number(form.km_at_delivery)  : null,
+          fuel_at_delivery:    form.fuel_at_delivery || null,
+          insurance_type:      insuranceValue,
+          additional_services: additionalServicesValue,
         })
         .eq('id', editId!);
 
@@ -1469,6 +1578,212 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 onChange={e => set('end_date', e.target.value)}
                 style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
             </Field>
+
+            {mode === 'edit' && (
+              <div style={{ gridColumn: 'span 2' }}>
+                <Field label="Currently Active">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, height: 40 }}>
+                    <ToggleSwitch
+                      checked={form.is_currently_active}
+                      onChange={() => set('is_currently_active', !form.is_currently_active)}
+                    />
+                    <span style={{
+                      fontSize: 13, fontWeight: 600,
+                      color: form.is_currently_active ? '#16a34a' : '#6b7280',
+                    }}>
+                      {form.is_currently_active ? 'Yes — booking is active' : 'No — booking is inactive'}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>
+                      Manual override
+                    </span>
+                  </div>
+                </Field>
+              </div>
+            )}
+
+            {/* ── Vehicle Condition at Delivery ── */}
+            <SectionHeading
+              title="Vehicle Condition at Delivery"
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 11l2-6h14l2 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><rect x="1" y="11" width="22" height="7" rx="2" stroke="currentColor" strokeWidth="1.8"/><circle cx="7" cy="18" r="2" stroke="currentColor" strokeWidth="1.8"/><circle cx="17" cy="18" r="2" stroke="currentColor" strokeWidth="1.8"/></svg>}
+            />
+
+            <div>
+              <Field label="Pickup Location">
+                <select
+                  value={form.pickup_location_select}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === 'Other') {
+                      setForm(f => ({ ...f, pickup_location_select: 'Other', pickup_location_custom: '', pickup_location: '' }));
+                    } else {
+                      setForm(f => ({ ...f, pickup_location_select: v, pickup_location_custom: '', pickup_location: v }));
+                    }
+                  }}
+                  style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                >
+                  <option value="">Select location…</option>
+                  {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </Field>
+              {form.pickup_location_select === 'Other' && (
+                <input
+                  type="text"
+                  value={form.pickup_location_custom}
+                  onChange={e => setForm(f => ({ ...f, pickup_location_custom: e.target.value, pickup_location: e.target.value }))}
+                  placeholder="Enter custom location"
+                  style={{ ...INPUT_STYLE, marginTop: 6 }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                />
+              )}
+            </div>
+
+            <div>
+              <Field label="Drop-off Location">
+                <select
+                  value={form.dropoff_location_select}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === 'Other') {
+                      setForm(f => ({ ...f, dropoff_location_select: 'Other', dropoff_location_custom: '', dropoff_location: '' }));
+                    } else {
+                      setForm(f => ({ ...f, dropoff_location_select: v, dropoff_location_custom: '', dropoff_location: v }));
+                    }
+                  }}
+                  style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                >
+                  <option value="">Select location…</option>
+                  {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </Field>
+              {form.dropoff_location_select === 'Other' && (
+                <input
+                  type="text"
+                  value={form.dropoff_location_custom}
+                  onChange={e => setForm(f => ({ ...f, dropoff_location_custom: e.target.value, dropoff_location: e.target.value }))}
+                  placeholder="Enter custom location"
+                  style={{ ...INPUT_STYLE, marginTop: 6 }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                />
+              )}
+            </div>
+
+            <Field label="KM at Delivery">
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={form.km_at_delivery}
+                onChange={e => set('km_at_delivery', e.target.value)}
+                placeholder="e.g. 45230"
+                style={INPUT_STYLE}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              />
+            </Field>
+
+            <div>
+              <Field label="Fuel at Delivery">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={form.fuel_at_delivery}
+                  onChange={e => set('fuel_at_delivery', e.target.value)}
+                  placeholder="e.g. 75"
+                  style={INPUT_STYLE}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                />
+              </Field>
+              <span style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, display: 'block' }}>
+                Enter percentage (0–100)
+              </span>
+            </div>
+
+            {/* ── Insurance & Additional Services ── */}
+            <SectionHeading
+              title="Sigorta ve Ek Hizmetler"
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4v5c0 4.4-3.4 8.5-8 9.5C7.4 20.5 4 16.4 4 12V7l8-4z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+
+            <div>
+              <Field label="Insurance Type">
+                <select
+                  value={form.insurance_type_select}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setForm(f => ({ ...f, insurance_type_select: v, insurance_type_custom: v !== 'Diğer' ? '' : f.insurance_type_custom }));
+                  }}
+                  style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                >
+                  <option value="">Select insurance type…</option>
+                  {INSURANCE_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+                  <option value="Diğer">Diğer</option>
+                </select>
+              </Field>
+              {form.insurance_type_select === 'Diğer' && (
+                <input
+                  type="text"
+                  value={form.insurance_type_custom}
+                  onChange={e => setForm(f => ({ ...f, insurance_type_custom: e.target.value }))}
+                  placeholder="Enter custom insurance type"
+                  style={{ ...INPUT_STYLE, marginTop: 6 }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                />
+              )}
+            </div>
+
+            <div>
+              <Field label="Additional Services">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
+                  {([...ADDITIONAL_SERVICE_PRESETS, 'Diğer'] as string[]).map(service => (
+                    <label key={service} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#374151', minHeight: 28 }}>
+                      <input
+                        type="checkbox"
+                        checked={form.additional_services_selected.includes(service)}
+                        onChange={e => {
+                          setForm(f => {
+                            const next = e.target.checked
+                              ? [...f.additional_services_selected, service]
+                              : f.additional_services_selected.filter(s => s !== service);
+                            return {
+                              ...f,
+                              additional_services_selected: next,
+                              additional_services_custom: (!e.target.checked && service === 'Diğer') ? '' : f.additional_services_custom,
+                            };
+                          });
+                        }}
+                        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#4ba6ea', flexShrink: 0 }}
+                      />
+                      {service}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+              {form.additional_services_selected.includes('Diğer') && (
+                <input
+                  type="text"
+                  value={form.additional_services_custom}
+                  onChange={e => setForm(f => ({ ...f, additional_services_custom: e.target.value }))}
+                  placeholder="Enter custom service"
+                  style={{ ...INPUT_STYLE, marginTop: 6 }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                />
+              )}
+            </div>
 
             {/* ── Customer Information ── */}
             <>
@@ -1945,7 +2260,9 @@ const BookingsPage: React.FC = () => {
       .from('bookings')
       .select(`
         id, booking_number, status, car_id, customer_id,
-        start_date, end_date, kabis_reported, invoice_issued,
+        start_date, end_date, kabis_reported, invoice_issued, is_currently_active,
+        pickup_location, dropoff_location, km_at_delivery, fuel_at_delivery,
+        insurance_type, additional_services,
         cars(plate_number, model_group(name)),
         customers(first_name, last_name)
       `)
@@ -2069,11 +2386,24 @@ const BookingsPage: React.FC = () => {
 
   // ── Edit form initial data ──────────────────────────────────────────────────
   const editFormData = (b: Booking): BookingFormData => ({
-    booking_number: b.booking_number,
-    status:         b.status,
-    car_id:         String(b.car_id),
-    start_date:     b.start_date,
-    end_date:       b.end_date,
+    booking_number:      b.booking_number,
+    status:              b.status,
+    car_id:              String(b.car_id),
+    start_date:          b.start_date,
+    end_date:            b.end_date,
+    is_currently_active: b.is_currently_active,
+    pickup_location:        b.pickup_location  ?? '',
+    pickup_location_select: resolveLocationSelect(b.pickup_location).select,
+    pickup_location_custom: resolveLocationSelect(b.pickup_location).custom,
+    dropoff_location:        b.dropoff_location ?? '',
+    dropoff_location_select: resolveLocationSelect(b.dropoff_location).select,
+    dropoff_location_custom: resolveLocationSelect(b.dropoff_location).custom,
+    km_at_delivery:      b.km_at_delivery   != null ? String(b.km_at_delivery) : '',
+    fuel_at_delivery:    b.fuel_at_delivery ?? '',
+    insurance_type_select:        resolveInsuranceSelect(b.insurance_type).select,
+    insurance_type_custom:        resolveInsuranceSelect(b.insurance_type).custom,
+    additional_services_selected: parseAdditionalServices(b.additional_services),
+    additional_services_custom:   parseAdditionalServicesCustom(b.additional_services),
     // Customer fields unused in edit mode — provide empty defaults
     cust_id_type: 'passport', cust_id_number: '',
     cust_first_name: '', cust_last_name: '',
@@ -2232,6 +2562,7 @@ const BookingsPage: React.FC = () => {
                       Booking # {sortIcon('booking_number')}
                     </span>
                   </Th>
+                  <Th style={{ textAlign: 'center' }}>Active</Th>
                   <Th style={{ minWidth: 120 }}>Status</Th>
                   <Th>Car</Th>
                   <Th>Plate</Th>
@@ -2256,7 +2587,7 @@ const BookingsPage: React.FC = () => {
 
                 {!loading && sorted.length === 0 && (
                   <tr>
-                    <td colSpan={11} style={{ padding: '60px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+                    <td colSpan={12} style={{ padding: '60px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
                       {search || statusFilter ? 'No bookings match your filters.' : 'No bookings for this month.'}
                     </td>
                   </tr>

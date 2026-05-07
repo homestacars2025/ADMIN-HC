@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 
@@ -61,6 +61,34 @@ interface CarInfo {
 }
 
 type PanelKey = 'company' | 'personal' | 'buy_sell' | `car:${number}`;
+
+interface InternalFinanceRow {
+  id: number;
+  created_at: string;
+  operation_date: string;
+  amount: number;
+  direction: 'IN' | 'OUT';
+  category: string | null;
+  employee_id: string | null;
+  notes: string | null;
+  receipt_url: string | null;
+}
+
+interface ProfileRow {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
+interface AddIfTxForm {
+  date:          string;
+  direction:     'IN' | 'OUT';
+  amount:        string;
+  inputCurrency: 'TRY' | 'USD';
+  category:      string;
+  employee_id:   string;
+  note:          string;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -186,7 +214,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
 
   useEffect(() => {
     let cancelled = false;
-    supabase.from('cars').select('id, plate_number, model_group(name)').then(({ data }) => {
+    supabase.from('cars').select('id, plate_number, model_group(name)').eq('is_active', true).then(({ data }) => {
       if (cancelled || !data) return;
       const m = new Map<number, { plate: string; model: string }>();
       (data as any[]).forEach(c => {
@@ -1159,6 +1187,7 @@ const InvestorCarListView: React.FC<{
       .from('cars')
       .select('id, plate_number, model_group:model_group_id(name)')
       .eq('investor_id', investorId)
+      .eq('is_active', true)
       .then(({ data }) => {
         const raw = (data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
         setCars(raw
@@ -1181,7 +1210,7 @@ const InvestorCarListView: React.FC<{
       total: carTxs.filter(t => t.car_id === car.id).reduce((s, t) => t.direction?.toUpperCase() === 'IN' ? s + Number(t.amount) : s - Number(t.amount), 0),
       count: carTxs.filter(t => t.car_id === car.id).length,
     }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.total - a.total);
 
   // Summary bar totals
   const totalIncome   = carsWithStats.reduce((s, c) => s + c.total, 0);
@@ -1307,7 +1336,7 @@ const InvestorSummaryView: React.FC<{
     setLoading(true);
     Promise.all([
       supabase.from('financial_transactions').select('*').eq('investor_id', investorId).eq('month_key', monthKey),
-      supabase.from('cars').select('id', { count: 'exact', head: true }).eq('investor_id', investorId),
+      supabase.from('cars').select('id', { count: 'exact', head: true }).eq('investor_id', investorId).eq('is_active', true),
       supabase.from('investors').select('commission_rate').eq('id', investorId).single(),
     ]).then(([txRes, carsRes, invRes]) => {
       if (cancelled) return;
@@ -1756,6 +1785,28 @@ const InvestorSummaryView: React.FC<{
 
 // ─── Tab 1: Overview ──────────────────────────────────────────────────────────
 
+// ─── Internal Finance Overview ────────────────────────────────────────────────
+
+const IF_EXPENSE_CATS = ['salaries', 'rent', 'operations', 'marketing', 'maintenance', 'emergency', 'fines', 'other'] as const;
+const IF_CAT_LABELS: Record<string, string> = {
+  salaries: 'Salaries', rent: 'Rent', operations: 'Operations',
+  marketing: 'Marketing', maintenance: 'Maintenance', emergency: 'Emergency',
+  fines: 'Fines', other: 'Other',
+};
+const IF_CAT_ICONS: Record<string, string> = {
+  salaries: '👥', rent: '🏢', operations: '⚙️', marketing: '📣',
+  maintenance: '🔧', emergency: '🚨', fines: '⚖️', other: '📦',
+};
+
+function monthDateRange(monthKey: string): { start: string; end: string } {
+  const [y, m] = monthKey.split('-').map(Number);
+  const endDate = new Date(y, m, 1);
+  return {
+    start: `${y}-${String(m).padStart(2, '0')}-01`,
+    end: `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-01`,
+  };
+}
+
 const OverviewTab: React.FC = () => {
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const [txs, setTxs]           = useState<FinancialTransaction[]>([]);
@@ -1887,9 +1938,21 @@ const InvestorSheetsTab: React.FC<{ onViewReport: (id: string) => void }> = ({ o
 
 // ─── Add Customer Transaction Modal ──────────────────────────────────────────
 
+const TX_TYPE_PRESETS = ['deposit', 'rental', 'payment', 'hgs', 'delivery'] as const;
+type TxTypePreset = typeof TX_TYPE_PRESETS[number];
+
+const TX_TYPE_DIRECTION: Record<TxTypePreset, 'in' | 'out'> = {
+  deposit:  'in',
+  rental:   'out',
+  payment:  'in',
+  hgs:      'out',
+  delivery: 'out',
+};
+
 interface AddCustomerTxForm {
   date:        string;
-  type:        string;
+  typePreset:  string;  // '' | TxTypePreset | 'other'
+  typeCustom:  string;  // used when typePreset === 'other'
   description: string;
   amount:      string;
   direction:   'in' | 'out';
@@ -1897,7 +1960,8 @@ interface AddCustomerTxForm {
 
 const EMPTY_CUST_TX_FORM: AddCustomerTxForm = {
   date:        new Date().toISOString().slice(0, 10),
-  type:        '',
+  typePreset:  '',
+  typeCustom:  '',
   description: '',
   amount:      '',
   direction:   'in',
@@ -1917,8 +1981,14 @@ const AddCustomerTxModal: React.FC<{
   const set = (k: keyof AddCustomerTxForm, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
+  const handleTypePresetChange = (preset: string) => {
+    const dir = TX_TYPE_DIRECTION[preset as TxTypePreset];
+    setForm(prev => ({ ...prev, typePreset: preset, direction: dir ?? prev.direction }));
+  };
+
   const handleSave = async () => {
-    const amount = parseFloat(form.amount);
+    const amount    = parseFloat(form.amount);
+    const typeValue = form.typePreset === 'other' ? (form.typeCustom.trim() || null) : (form.typePreset || null);
     if (!form.date || isNaN(amount) || amount <= 0) {
       setError('Date and a valid amount are required.');
       return;
@@ -1926,13 +1996,13 @@ const AddCustomerTxModal: React.FC<{
     setSaving(true);
     setError(null);
     const { error: err } = await supabase.from('customer_accounting_ledger').insert({
-      customer_id:      customerId,
-      car_id:           carId,
-      created_at:       form.date,
-      type:        form.type        || null,
-      description: form.description || null,
+      customer_id:  customerId,
+      car_id:       carId,
+      created_at:   form.date,
+      type:         typeValue,
+      description:  form.description || null,
       amount,
-      direction:   form.direction.toUpperCase(),
+      direction:    form.direction.toUpperCase(),
     });
     setSaving(false);
     if (err) { setError(err.message); return; }
@@ -1946,6 +2016,7 @@ const AddCustomerTxModal: React.FC<{
     fontFamily: 'inherit', color: '#0f1117', background: '#fff',
     boxSizing: 'border-box', transition: 'border-color 140ms ease',
   };
+  const selectArrow = `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`;
 
   return ReactDOM.createPortal(
     <div
@@ -1970,30 +2041,21 @@ const AddCustomerTxModal: React.FC<{
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</div>
-              <input
-                type="date"
-                value={form.date}
-                onChange={e => set('date', e.target.value)}
-                style={inputStyle}
+              <input type="date" value={form.date} onChange={e => set('date', e.target.value)} style={inputStyle}
                 onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-              />
+                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
             </div>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Direction</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['in', 'out'] as const).map(d => (
-                  <button
-                    key={d}
-                    onClick={() => set('direction', d)}
-                    style={{
-                      flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${form.direction === d ? (d === 'in' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
-                      background: form.direction === d ? (d === 'in' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
-                      color: form.direction === d ? (d === 'in' ? '#16a34a' : '#dc2626') : '#6b7280',
-                      fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                      transition: 'all 140ms ease',
-                    }}
-                  >
+                  <button key={d} onClick={() => set('direction', d)} style={{
+                    flex: 1, height: 38, borderRadius: 9,
+                    border: `1.5px solid ${form.direction === d ? (d === 'in' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
+                    background: form.direction === d ? (d === 'in' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
+                    color: form.direction === d ? (d === 'in' ? '#16a34a' : '#dc2626') : '#6b7280',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                  }}>
                     {d === 'in' ? '↓ IN' : '↑ OUT'}
                   </button>
                 ))}
@@ -2004,66 +2066,58 @@ const AddCustomerTxModal: React.FC<{
           {/* Type */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</div>
-            <input
-              type="text"
-              placeholder="e.g. payment, deposit, rental…"
-              value={form.type}
-              onChange={e => set('type', e.target.value)}
-              style={inputStyle}
-              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-            />
+            <select
+              value={form.typePreset}
+              onChange={e => handleTypePresetChange(e.target.value)}
+              style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' as React.CSSProperties['appearance'], backgroundImage: selectArrow, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: 32, color: form.typePreset ? '#0f1117' : '#9ca3af' }}
+              onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}
+            >
+              <option value="" disabled>Select transaction type...</option>
+              <option value="deposit">Deposit</option>
+              <option value="rental">Rental</option>
+              <option value="payment">Payment</option>
+              <option value="hgs">HGS</option>
+              <option value="delivery">Delivery</option>
+              <option value="other">Other</option>
+            </select>
+            {form.typePreset === 'other' && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Custom type</div>
+                <input type="text" placeholder="Enter custom type…" value={form.typeCustom} onChange={e => set('typeCustom', e.target.value)} style={inputStyle}
+                  onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+                  onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
+              </div>
+            )}
           </div>
 
           {/* Amount */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount (TRY)</div>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={form.amount}
-              onChange={e => set('amount', e.target.value)}
-              style={inputStyle}
+            <input type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} style={inputStyle}
               onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-            />
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
           </div>
 
           {/* Description */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</div>
-            <textarea
-              placeholder="Optional note…"
-              value={form.description}
-              onChange={e => set('description', e.target.value)}
-              rows={2}
+            <textarea placeholder="Optional note…" value={form.description} onChange={e => set('description', e.target.value)} rows={2}
               style={{ ...inputStyle, resize: 'vertical', minHeight: 60 }}
               onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#4ba6ea'; }}
-              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'; }}
-            />
+              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'; }} />
           </div>
 
           {error && (
-            <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>
-              {error}
-            </div>
+            <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
           )}
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button
-              onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
+            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
               Cancel
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
-            >
+            <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
               {saving ? 'Saving…' : 'Add Transaction'}
             </button>
           </div>
@@ -2079,12 +2133,17 @@ const EditTxModal: React.FC<{
   onClose: () => void;
   onSaved: () => void;
 }> = ({ entry, onClose, onSaved }) => {
+  const savedType    = entry.type ?? '';
+  const initPreset   = (TX_TYPE_PRESETS as readonly string[]).includes(savedType) ? savedType : (savedType ? 'other' : '');
+  const initCustom   = initPreset === 'other' ? savedType : '';
+
   const [form,   setForm]   = useState<AddCustomerTxForm>({
-    date:             entry.created_at.slice(0, 10),
-    type:             entry.type             ?? '',
-    description:      entry.description      ?? '',
-    amount:           String(entry.amount),
-    direction:        ((entry.direction?.toLowerCase() ?? 'in') as 'in' | 'out'),
+    date:        entry.created_at.slice(0, 10),
+    typePreset:  initPreset,
+    typeCustom:  initCustom,
+    description: entry.description ?? '',
+    amount:      String(entry.amount),
+    direction:   (entry.direction?.toLowerCase() ?? 'in') as 'in' | 'out',
   });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
@@ -2092,8 +2151,14 @@ const EditTxModal: React.FC<{
   const set = (k: keyof AddCustomerTxForm, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
+  const handleTypePresetChange = (preset: string) => {
+    const dir = TX_TYPE_DIRECTION[preset as TxTypePreset];
+    setForm(prev => ({ ...prev, typePreset: preset, direction: dir ?? prev.direction }));
+  };
+
   const handleSave = async () => {
-    const amount = parseFloat(form.amount);
+    const amount    = parseFloat(form.amount);
+    const typeValue = form.typePreset === 'other' ? (form.typeCustom.trim() || null) : (form.typePreset || null);
     if (!form.date || isNaN(amount) || amount <= 0) {
       setError('Date and a valid amount are required.');
       return;
@@ -2103,8 +2168,8 @@ const EditTxModal: React.FC<{
     const { error: err } = await supabase
       .from('customer_accounting_ledger')
       .update({
-        created_at:       form.date,
-        type:        form.type        || null,
+        created_at:  form.date,
+        type:        typeValue,
         description: form.description || null,
         amount,
         direction:   form.direction.toUpperCase(),
@@ -2122,6 +2187,7 @@ const EditTxModal: React.FC<{
     fontFamily: 'inherit', color: '#0f1117', background: '#fff',
     boxSizing: 'border-box', transition: 'border-color 140ms ease',
   };
+  const selectArrow = `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`;
 
   return ReactDOM.createPortal(
     <div
@@ -2154,7 +2220,13 @@ const EditTxModal: React.FC<{
               <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Direction</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['in', 'out'] as const).map(d => (
-                  <button key={d} onClick={() => set('direction', d)} style={{ flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${form.direction === d ? (d === 'in' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`, background: form.direction === d ? (d === 'in' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff', color: form.direction === d ? (d === 'in' ? '#16a34a' : '#dc2626') : '#6b7280', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}>
+                  <button key={d} onClick={() => set('direction', d)} style={{
+                    flex: 1, height: 38, borderRadius: 9,
+                    border: `1.5px solid ${form.direction === d ? (d === 'in' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
+                    background: form.direction === d ? (d === 'in' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
+                    color: form.direction === d ? (d === 'in' ? '#16a34a' : '#dc2626') : '#6b7280',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                  }}>
                     {d === 'in' ? '↓ IN' : '↑ OUT'}
                   </button>
                 ))}
@@ -2165,9 +2237,29 @@ const EditTxModal: React.FC<{
           {/* Type */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</div>
-            <input type="text" placeholder="e.g. payment, deposit, rental…" value={form.type} onChange={e => set('type', e.target.value)} style={inputStyle}
-              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
+            <select
+              value={form.typePreset}
+              onChange={e => handleTypePresetChange(e.target.value)}
+              style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' as React.CSSProperties['appearance'], backgroundImage: selectArrow, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: 32, color: form.typePreset ? '#0f1117' : '#9ca3af' }}
+              onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}
+            >
+              <option value="" disabled>Select transaction type...</option>
+              <option value="deposit">Deposit</option>
+              <option value="rental">Rental</option>
+              <option value="payment">Payment</option>
+              <option value="hgs">HGS</option>
+              <option value="delivery">Delivery</option>
+              <option value="other">Other</option>
+            </select>
+            {form.typePreset === 'other' && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Custom type</div>
+                <input type="text" placeholder="Enter custom type…" value={form.typeCustom} onChange={e => set('typeCustom', e.target.value)} style={inputStyle}
+                  onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+                  onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
+              </div>
+            )}
           </div>
 
           {/* Amount */}
@@ -2207,115 +2299,336 @@ const EditTxModal: React.FC<{
 // ─── Tab 3: Customer Sheets ───────────────────────────────────────────────────
 
 const CustomerSheetsTab: React.FC = () => {
-  const { fmt } = useCurrency();
+  const { fmt }  = useCurrency();
+  const navigate = useNavigate();
+
+  // ── Data ──────────────────────────────────────────────────────────────────
   const [cars,          setCars]          = useState<CarInfo[]>([]);
   const [carsLoading,   setCarsLoading]   = useState(true);
-  const [search,        setSearch]        = useState('');
-  const [carCustomers,  setCarCustomers]  = useState<Map<number, string[]>>(new Map());
-  const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
+  const [allLedger,     setAllLedger]     = useState<CustomerLedgerEntry[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(true);
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+  const [search, setSearch] = useState('');
+
+  // ── Load all data on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [carsRes, modelsRes, ledgerRes] = await Promise.all([
+        supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true),
+        supabase.from('model_group').select('id, name'),
+        supabase
+          .from('customer_accounting_ledger')
+          .select('customer_id, car_id, direction, amount, customers(first_name, last_name)')
+          .order('created_at', { ascending: false }),
+      ]);
+      if (cancelled) return;
+
+      const models  = (modelsRes.data ?? []) as { id: number; name: string }[];
+      const rawCars = (carsRes.data  ?? []) as { id: number; plate_number: string; model_group_id: number | null }[];
+      setCars(rawCars.map(c => ({
+        id: c.id, plate_number: c.plate_number,
+        model_name: models.find(m => m.id === c.model_group_id)?.name ?? '—',
+      })));
+      setAllLedger((ledgerRes.data ?? []) as unknown as CustomerLedgerEntry[]);
+      setCarsLoading(false);
+      setLedgerLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const ledgerByCar = useMemo(() => {
+    const map = new Map<number, CustomerLedgerEntry[]>();
+    for (const e of allLedger) {
+      if (e.car_id == null) continue;
+      if (!map.has(e.car_id)) map.set(e.car_id, []);
+      map.get(e.car_id)!.push(e);
+    }
+    return map;
+  }, [allLedger]);
+
+  const carSummaries = useMemo(() =>
+    cars.map(car => {
+      const entries  = ledgerByCar.get(car.id) ?? [];
+      const totalIn  = entries.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + e.amount, 0);
+      const totalOut = entries.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + e.amount, 0);
+      const custIds  = new Set(entries.map(e => e.customer_id).filter(Boolean));
+      return { ...car, totalIn, totalOut, netBalance: totalIn - totalOut, customerCount: custIds.size, entries };
+    }).sort((a, b) =>
+      b.netBalance !== a.netBalance
+        ? b.netBalance - a.netBalance
+        : a.plate_number.localeCompare(b.plate_number),
+    ),
+  [cars, ledgerByCar]);
+
+  const kpiTotalIn  = useMemo(() => allLedger.filter(r => r.direction?.toUpperCase() === 'IN' ).reduce((s, r) => s + r.amount, 0), [allLedger]);
+  const kpiTotalOut = useMemo(() => allLedger.filter(r => r.direction?.toUpperCase() === 'OUT').reduce((s, r) => s + r.amount, 0), [allLedger]);
+  const cashBalance     = kpiTotalIn - kpiTotalOut;
+  const balancePositive = cashBalance >= 0;
+
+  const filteredSummaries = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return carSummaries;
+    return carSummaries.filter(car =>
+      car.plate_number.toLowerCase().includes(q) ||
+      car.model_name.toLowerCase().includes(q) ||
+      car.entries.some(e => {
+        const c = e.customers;
+        return c ? `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) : false;
+      }),
+    );
+  }, [carSummaries, search]);
+
+  // ── JSX ───────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+      {/* ── Hero KPI ── */}
+      {carsLoading && ledgerLoading ? (
+        <div style={{ height: 140, borderRadius: 16, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      ) : (
+        <div style={{
+          background: balancePositive
+            ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+            : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+          borderRadius: 16, padding: '28px 32px', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>
+              Customer Cash Balance
+            </div>
+            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>
+              {cashBalance < 0 ? '\u2212' : ''}{fmt(Math.abs(cashBalance))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 28, textAlign: 'right' }}>
+            <div>
+              <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total IN</div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalIn)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total OUT</div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalOut)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Search bar ── */}
+      <div style={{ position: 'relative', maxWidth: 400 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+          <circle cx="11" cy="11" r="7" stroke="#9ca3af" strokeWidth="2"/>
+          <path d="M20 20l-3-3" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search by plate, model or customer…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ width: '100%', height: 40, padding: '0 34px 0 34px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 10, outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#0f1117', boxSizing: 'border-box', transition: 'border-color 140ms ease' }}
+          onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+          onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, borderRadius: 5, border: 'none', background: '#e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round"/></svg>
+          </button>
+        )}
+      </div>
+
+      {/* ── Car cards grid ── */}
+      {carsLoading || ledgerLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ height: 110, borderRadius: 16, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          ))}
+        </div>
+      ) : filteredSummaries.length === 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 180, background: '#fff', borderRadius: 14, border: '1.5px dashed #e5e7eb', gap: 10 }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#d1d5db" strokeWidth="1.8"/><path d="M20 20l-3-3" stroke="#d1d5db" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>No matching cars or customers</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+          {filteredSummaries.map(car => (
+            <div
+              key={car.id}
+              onClick={() => navigate(`/dashboard/accounting/customer-sheet/${car.id}`)}
+              style={{
+                background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden', cursor: 'pointer',
+                transition: 'box-shadow 180ms ease, border-color 180ms ease, transform 140ms ease',
+              }}
+              onMouseEnter={e => {
+                const d = e.currentTarget as HTMLDivElement;
+                d.style.boxShadow = '0 6px 24px rgba(75,166,234,0.13)';
+                d.style.borderColor = '#4ba6ea';
+                d.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={e => {
+                const d = e.currentTarget as HTMLDivElement;
+                d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)';
+                d.style.borderColor = '#e5e7eb';
+                d.style.transform = 'translateY(0)';
+              }}
+            >
+              {/* Plate + customer count */}
+              <div style={{ padding: '14px 16px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px', lineHeight: 1.15 }}>{car.plate_number}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{car.model_name}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 2 }}>
+                  <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                    {car.customerCount} customer{car.customerCount !== 1 ? 's' : ''}
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af', flexShrink: 0 }}>
+                    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+              {/* Balance */}
+              <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 12, padding: '10px 0 14px', textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 5 }}>Balance</div>
+                <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px', color: car.netBalance >= 0 ? '#16a34a' : '#dc2626' }}>
+                  {car.netBalance < 0 ? '\u2212' : ''}{fmt(Math.abs(car.netBalance))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Investor Report Page (routed: /dashboard/accounting/report?investor_id=X) ─
+
+export const InvestorReportPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate       = useNavigate();
+  const investorId     = String(searchParams.get('investor_id') ?? '');
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+      <InvestorSummaryView
+        investorId={investorId}
+        onBack={() => navigate('/dashboard/accounting')}
+      />
+      <style>{`
+        @keyframes pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+        @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin    { to { transform: rotate(360deg); } }
+      `}</style>
+    </div>
+  );
+};
+
+// ─── Car Customer Sheet Detail Page ──────────────────────────────────────────
+
+interface CustGroup {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  nationality: string | null;
+  id_number: string | null;
+  entries: CustomerLedgerEntry[];
+  totalIn: number;
+  totalOut: number;
+  balance: number;
+}
+
+export const CarCustomerSheetPage: React.FC = () => {
+  const { carId: carIdParam } = useParams<{ carId: string }>();
+  const carId    = Number(carIdParam);
+  const navigate = useNavigate();
+  const { fmt }  = useCurrency();
+
+  type CustomerRow = { id: string; first_name: string; last_name: string; phone: string | null; nationality: string | null; id_number: string | null };
+
+  const [car,           setCar]           = useState<CarInfo | null>(null);
   const [ledger,        setLedger]        = useState<CustomerLedgerEntry[]>([]);
-  const [ledgerLoading, setLedgerLoading] = useState(false);
-  const [openBookings,  setOpenBookings]  = useState<Set<string>>(new Set());
+  const [customers,     setCustomers]     = useState<CustomerRow[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [openCusts,     setOpenCusts]     = useState<Set<string>>(new Set());
   const [addModal,      setAddModal]      = useState<{ customerId: string; customerName: string } | null>(null);
   const [editModal,     setEditModal]     = useState<CustomerLedgerEntry | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [deleting,      setDeleting]      = useState(false);
 
-  // KPI summary state — all ledger rows (no car filter)
-  const [allLedger,    setAllLedger]    = useState<{ type: string | null; amount: number; direction: string; booking_id: number | null; customer_id: string | null }[]>([]);
-  const [kpiLoading,   setKpiLoading]   = useState(true);
+  const loadData = async () => {
+    const [carRes, ledgerRes] = await Promise.all([
+      supabase.from('cars')
+        .select('id, plate_number, model_group:model_group_id(name)')
+        .eq('id', carId)
+        .single(),
+      supabase.from('customer_accounting_ledger')
+        .select('*, bookings(id, booking_number, start_date, end_date)')
+        .eq('car_id', carId)
+        .order('created_at', { ascending: false }),
+    ]);
+    const raw = carRes.data as any;
+    const mg  = raw?.model_group;
+    setCar({ id: raw?.id ?? carId, plate_number: raw?.plate_number ?? '—', model_name: Array.isArray(mg) ? (mg[0]?.name ?? '—') : (mg?.name ?? '—') });
 
-  // Load cars + car→customer index + KPI data at mount
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [carsRes, mgRes, ccRes, kpiRes] = await Promise.all([
-        supabase.from('cars').select('id, plate_number, model_group_id'),
-        supabase.from('model_group').select('id, name'),
-        supabase.from('customer_accounting_ledger').select('car_id, customers(first_name, last_name)'),
-        supabase.from('customer_accounting_ledger').select('type, amount, direction, booking_id, customer_id'),
-      ]);
-      if (cancelled) return;
+    const entries = (ledgerRes.data ?? []) as CustomerLedgerEntry[];
+    setLedger(entries);
 
-      const models  = (mgRes.data   ?? []) as { id: number; name: string }[];
-      const rawCars = (carsRes.data ?? []) as { id: number; plate_number: string; model_group_id: number | null }[];
-      const sorted  = rawCars
-        .map(c => ({
-          id:           c.id,
-          plate_number: c.plate_number,
-          model_name:   models.find(m => m.id === c.model_group_id)?.name ?? '—',
-        }))
-        .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number));
-      setCars(sorted);
-
-      // Build car_id → unique customer names index for search
-      const tmp = new Map<number, Set<string>>();
-      (ccRes.data ?? []).forEach((row: { car_id: number | null; customers: { first_name: string; last_name: string }[] | { first_name: string; last_name: string } | null }) => {
-        if (!row.car_id || !row.customers) return;
-        const cust = Array.isArray(row.customers) ? row.customers[0] : row.customers;
-        if (!cust) return;
-        const name = `${cust.first_name} ${cust.last_name}`.trim().toLowerCase();
-        if (!tmp.has(row.car_id)) tmp.set(row.car_id, new Set());
-        tmp.get(row.car_id)!.add(name);
-      });
-      const cc = new Map<number, string[]>();
-      tmp.forEach((names, id) => cc.set(id, Array.from(names)));
-      setCarCustomers(cc);
-
-      setAllLedger((kpiRes.data ?? []) as { type: string | null; amount: number; direction: string; booking_id: number | null; customer_id: string | null }[]);
-      setCarsLoading(false);
-      setKpiLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const fetchLedger = (carId: number) => {
-    let cancelled = false;
-    setLedgerLoading(true);
-    supabase
-      .from('customer_accounting_ledger')
-      .select('*, customers(id, first_name, last_name, phone, nationality, id_number), bookings(id, booking_number, start_date, end_date)')
-      .eq('car_id', carId)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (cancelled) return;
-        setLedger((data ?? []) as CustomerLedgerEntry[]);
-        setLedgerLoading(false);
-      });
-    return () => { cancelled = true; };
+    const custIds = [...new Set(entries.map(e => e.customer_id).filter((id): id is string => id != null))];
+    if (custIds.length > 0) {
+      const { data: custData } = await supabase
+        .from('customers')
+        .select('id, first_name, last_name, phone, nationality, id_number')
+        .in('id', custIds);
+      setCustomers((custData ?? []) as CustomerRow[]);
+    } else {
+      setCustomers([]);
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
-    if (!selectedCarId) return;
-    return fetchLedger(selectedCarId);
-  }, [selectedCarId]); // eslint-disable-line react-hooks/exhaustive-deps
+    setLoading(true);
+    loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carId]);
 
-  const toggleBooking = (key: string) =>
-    setOpenBookings(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
+  const customerGroups = useMemo((): CustGroup[] =>
+    customers.map(c => {
+      const entries  = ledger.filter(e => e.customer_id === c.id);
+      const totalIn  = entries.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + Number(e.amount), 0);
+      const totalOut = entries.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + Number(e.amount), 0);
+      return { ...c, entries, totalIn, totalOut, balance: totalIn - totalOut };
+    }).sort((a, b) => b.balance - a.balance),
+  [customers, ledger]);
+
+  const heroTotalIn  = useMemo(() => ledger.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + e.amount, 0), [ledger]);
+  const heroTotalOut = useMemo(() => ledger.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + e.amount, 0), [ledger]);
+  const heroBalance  = heroTotalIn - heroTotalOut;
+
+  const toggleCust = (id: string) =>
+    setOpenCusts(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const handleDelete = async (id: number) => {
     setDeleting(true);
     await supabase.from('customer_accounting_ledger').delete().eq('id', id);
     setDeleting(false);
     setDeleteConfirm(null);
-    if (selectedCarId) fetchLedger(selectedCarId);
+    await loadData();
   };
 
-  const printInvoice = (_customerIdStr: string, entries: CustomerLedgerEntry[]) => {
-    const info    = entries[0]?.customers ?? null;
-    const car     = selectedCar;
-    const invNum  = `HC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
-    const today   = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-
-    const totalCharged = entries.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + e.amount, 0);
-    const totalPaid    = entries.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + e.amount, 0);
+  const printInvoice = (cust: CustGroup) => {
+    const invNum = `HC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+    const today  = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const totalCharged = cust.totalOut;
+    const totalPaid    = cust.totalIn;
     const balance      = totalCharged - totalPaid;
-
-    const rows = entries.map(e => `
+    const rows = cust.entries.map(e => `
       <tr>
         <td>${e.created_at.slice(0, 10)}</td>
         <td>${e.type ?? '—'}</td>
@@ -2323,7 +2636,6 @@ const CustomerSheetsTab: React.FC = () => {
         <td><span class="${e.direction?.toUpperCase() === 'IN' ? 'badge-in' : 'badge-out'}">${e.direction?.toUpperCase() === 'IN' ? '↓ IN' : '↑ OUT'}</span></td>
         <td>${fmt(e.amount)}</td>
       </tr>`).join('');
-
     const html = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8">
@@ -2369,11 +2681,7 @@ const CustomerSheetsTab: React.FC = () => {
   .footer{padding:22px 48px;background:#f8f9fb;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f0f0f0}
   .footer-brand{font-size:14px;font-weight:800;color:#0f1117}
   .footer-info{font-size:11px;color:#9ca3af;line-height:1.9;text-align:right}
-  @media print{
-    body{background:#fff}
-    .page{box-shadow:none;border-radius:0;margin:0;max-width:100%}
-    .print-bar{display:none}
-  }
+  @media print{body{background:#fff}.page{box-shadow:none;border-radius:0;margin:0;max-width:100%}.print-bar{display:none}}
 </style>
 </head>
 <body>
@@ -2395,16 +2703,16 @@ const CustomerSheetsTab: React.FC = () => {
     <div class="info-grid">
       <div class="info-section">
         <h4>Billed To</h4>
-        <div class="info-row"><span class="info-key">Full Name</span><span class="info-val">${info ? `${info.first_name} ${info.last_name}`.trim() : '—'}</span></div>
-        ${info?.nationality ? `<div class="info-row"><span class="info-key">Nationality</span><span class="info-val">${info.nationality}</span></div>` : ''}
-        ${info?.id_number   ? `<div class="info-row"><span class="info-key">ID / Passport</span><span class="info-val">${info.id_number}</span></div>` : ''}
-        ${info?.phone       ? `<div class="info-row"><span class="info-key">Phone</span><span class="info-val">${info.phone}</span></div>` : ''}
+        <div class="info-row"><span class="info-key">Full Name</span><span class="info-val">${`${cust.first_name} ${cust.last_name}`.trim()}</span></div>
+        ${cust.nationality ? `<div class="info-row"><span class="info-key">Nationality</span><span class="info-val">${cust.nationality}</span></div>` : ''}
+        ${cust.id_number   ? `<div class="info-row"><span class="info-key">ID / Passport</span><span class="info-val">${cust.id_number}</span></div>` : ''}
+        ${cust.phone       ? `<div class="info-row"><span class="info-key">Phone</span><span class="info-val">${cust.phone}</span></div>` : ''}
       </div>
       <div class="info-section">
         <h4>Vehicle</h4>
         <div class="info-row"><span class="info-key">Plate Number</span><span class="info-val">${car?.plate_number ?? '—'}</span></div>
         <div class="info-row"><span class="info-key">Model</span><span class="info-val">${car?.model_name ?? '—'}</span></div>
-        <div class="info-row"><span class="info-key">Transactions</span><span class="info-val">${entries.length} item${entries.length !== 1 ? 's' : ''}</span></div>
+        <div class="info-row"><span class="info-key">Transactions</span><span class="info-val">${cust.entries.length} item${cust.entries.length !== 1 ? 's' : ''}</span></div>
       </div>
     </div>
     <div class="sec-title">Transaction Details</div>
@@ -2430,412 +2738,248 @@ const CustomerSheetsTab: React.FC = () => {
   </div>
 </div>
 </body></html>`;
-
     const win = window.open('', '_blank', 'width=920,height=780');
     if (win) { win.document.write(html); win.document.close(); }
   };
 
-  const selectedCar = cars.find(c => c.id === selectedCarId);
+  const btnBase: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6,
+    height: 32, padding: '0 12px', borderRadius: 8,
+    border: '1.5px solid #e5e7eb', background: '#fff',
+    fontSize: 12, fontWeight: 600, color: '#374151',
+    cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+    transition: 'all 140ms ease',
+  };
 
-  // Filter car dropdown by search (plate or customer name)
-  const filteredCars = (() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return cars;
-    return cars.filter(car => {
-      if (car.plate_number.toLowerCase().includes(q)) return true;
-      return (carCustomers.get(car.id) ?? []).some(name => name.includes(q));
-    });
-  })();
-
-  // Group ledger by customer_id
-  const customerGroups: [string, CustomerLedgerEntry[]][] = selectedCarId
-    ? Object.entries(
-        ledger.reduce<Record<string, CustomerLedgerEntry[]>>((acc, entry) => {
-          const key = String(entry.customer_id ?? 'unknown');
-          if (!acc[key]) acc[key] = [];
-          acc[key].push(entry);
-          return acc;
-        }, {}),
-      )
-    : [];
-
-  // KPI computations
-  const kpiTotalIn  = allLedger.filter(r => r.direction?.toUpperCase() === 'IN' ).reduce((s, r) => s + r.amount, 0);
-  const kpiTotalOut = allLedger.filter(r => r.direction?.toUpperCase() === 'OUT').reduce((s, r) => s + r.amount, 0);
-  const cashBalance = kpiTotalIn - kpiTotalOut;
-  const balancePositive = cashBalance >= 0;
-
-  return (
-    <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-        {/* ── Section 1: Cash Balance Hero Card ── */}
-        {kpiLoading ? (
-          <div style={{ height: 140, borderRadius: 16, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-        ) : (
-          <div style={{
-            background: balancePositive
-              ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
-              : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-            borderRadius: 16, padding: '28px 32px', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>
-                Customer Cash Balance
-              </div>
-              <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>
-                {cashBalance < 0 ? '−' : ''}{fmt(Math.abs(cashBalance))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'right' }}>
-              <div>
-                <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total IN</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalIn)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total OUT</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalOut)}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Section 2: Filter bar + transactions ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Filter bar */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            {/* Search input */}
-            <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                <circle cx="11" cy="11" r="7" stroke="#9ca3af" strokeWidth="2"/>
-                <path d="M20 20l-3-3" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-              <input
-                type="text"
-                placeholder="Search by plate or customer…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ width: '100%', height: 40, padding: '0 34px 0 34px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 10, outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#0f1117', boxSizing: 'border-box', transition: 'border-color 140ms ease' }}
-                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-              />
-              {search && (
-                <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, borderRadius: 5, border: 'none', background: '#e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                </button>
-              )}
-            </div>
-
-            {/* Car dropdown */}
-            <div style={{ position: 'relative' }}>
-              {carsLoading ? (
-                <div style={{ height: 40, width: 260, borderRadius: 10, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-              ) : (
-                <>
-                  <select
-                    value={selectedCarId ?? ''}
-                    onChange={e => setSelectedCarId(e.target.value ? Number(e.target.value) : null)}
-                    style={{ appearance: 'none', WebkitAppearance: 'none', height: 40, padding: '0 36px 0 14px', fontSize: 13, fontWeight: 600, color: selectedCarId ? '#0f1117' : '#9ca3af', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', outline: 'none', minWidth: 260, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', transition: 'border-color 140ms ease' }}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#4ba6ea'; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
-                  >
-                    <option value="">Select a car…</option>
-                    {filteredCars.map(car => (
-                      <option key={car.id} value={car.id}>{car.plate_number}{car.model_name !== '—' ? ` — ${car.model_name}` : ''}</option>
-                    ))}
-                  </select>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#9ca3af' }}>
-                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </>
-              )}
-            </div>
-
-            {selectedCarId && (
-              <button
-                onClick={() => setSelectedCarId(null)}
-                style={{ height: 40, padding: '0 14px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                Clear
-              </button>
-            )}
-          </div>
-
-          {/* Transactions panel */}
-          {!selectedCarId ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, background: '#fff', borderRadius: 14, border: '1.5px dashed #e5e7eb', gap: 10 }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a1 1 0 01-1-1v-5l2.76-5.52A1 1 0 015.65 5h12.7a1 1 0 01.89.55L22 11v5a1 1 0 01-1 1h-2" stroke="#d1d5db" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="#d1d5db" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="#d1d5db" strokeWidth="1.8"/></svg>
-              <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>Select a car to view customer transactions</div>
-            </div>
-          ) : ledgerLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
-              </svg>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>{selectedCar?.plate_number}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>{selectedCar?.model_name}</div>
-              </div>
-              {customerGroups.length === 0 ? (
-                <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '32px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                  No customer transactions for this car.
-                </div>
-              ) : (
-                customerGroups.map(([customerIdStr, entries]) => {
-                  const joinedCustomer = entries[0]?.customers ?? null;
-                  const customerName   = joinedCustomer
-                    ? `${joinedCustomer.first_name} ${joinedCustomer.last_name}`.trim()
-                    : customerIdStr === 'unknown' ? 'Unknown Customer' : `Customer #${customerIdStr.slice(0, 8)}`;
-
-                  // Sub-group entries by booking_id
-                  const bookingGroups = Object.entries(
-                    entries.reduce<Record<string, CustomerLedgerEntry[]>>((acc, e) => {
-                      const k = String(e.booking_id ?? 'none');
-                      if (!acc[k]) acc[k] = [];
-                      acc[k].push(e);
-                      return acc;
-                    }, {}),
-                  );
-
-                  const btnBase: React.CSSProperties = {
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    height: 32, padding: '0 12px', borderRadius: 8,
-                    border: '1.5px solid #e5e7eb', background: '#fff',
-                    fontSize: 12, fontWeight: 600, color: '#374151',
-                    cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-                    transition: 'all 140ms ease',
-                  };
-
-                  return (
-                    <div key={customerIdStr} style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', overflow: 'hidden' }}>
-                      {/* Customer group header */}
-                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                              <circle cx="12" cy="8" r="4" stroke="#4ba6ea" strokeWidth="1.8"/>
-                              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/>
-                            </svg>
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{customerName}</div>
-                            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
-                              {entries.length} transaction{entries.length !== 1 ? 's' : ''} · {bookingGroups.length} booking{bookingGroups.length !== 1 ? 's' : ''}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                          {/* Print Invoice */}
-                          <button
-                            onClick={() => printInvoice(customerIdStr, entries)}
-                            style={btnBase}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                              <path d="M6 9V3h12v6M6 18H4a1 1 0 01-1-1v-6a1 1 0 011-1h16a1 1 0 011 1v6a1 1 0 01-1 1h-2M6 14h12v7H6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            Invoice
-                          </button>
-
-                          {/* Add Transaction */}
-                          <button
-                            onClick={() => customerIdStr !== 'unknown' && setAddModal({ customerId: customerIdStr, customerName })}
-                            style={btnBase}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
-                            </svg>
-                            Add Transaction
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Booking sub-groups (collapsible) */}
-                      {bookingGroups.map(([bookingKey, bookingEntries]) => {
-                        const collapseKey = `${customerIdStr}|${bookingKey}`;
-                        const isOpen      = openBookings.has(collapseKey);
-                        const bookingRef   = bookingEntries[0]?.bookings?.booking_number;
-                        const bookingLabel = bookingKey === 'none' ? 'No Booking'
-                          : bookingRef ? `Booking ${bookingRef}` : `Booking #${bookingKey}`;
-                        const dates        = bookingEntries.map(e => e.created_at.slice(0, 10)).sort();
-                        const firstDate    = dates[0];
-                        const lastDate     = dates[dates.length - 1];
-                        const netTotal     = bookingEntries.reduce((s, e) => s + (e.direction?.toUpperCase() === 'IN' ? e.amount : -e.amount), 0);
-
-                        return (
-                          <div key={bookingKey} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                            {/* Toggle header */}
-                            <div
-                              onClick={() => toggleBooking(collapseKey)}
-                              style={{ padding: '9px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: isOpen ? 'rgba(75,166,234,0.03)' : '#fafafa', transition: 'background 120ms ease', userSelect: 'none' }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ transition: 'transform 200ms ease', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>
-                                  <path d="M9 18l6-6-6-6" stroke="#9ca3af" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: isOpen ? '#4ba6ea' : '#374151' }}>{bookingLabel}</span>
-                                <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                                  {firstDate === lastDate ? firstDate : `${firstDate} – ${lastDate}`}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ fontSize: 11, color: '#9ca3af' }}>{bookingEntries.length} tx</span>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: netTotal >= 0 ? '#16a34a' : '#dc2626' }}>
-                                  {netTotal >= 0 ? '+' : ''}{fmt(netTotal)}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Transactions table */}
-                            {isOpen && (
-                              <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
-                                  <thead>
-                                    <tr>
-                                      {['Date', 'Type', 'Description', 'Amount', 'Direction', ''].map((h, hi) => (
-                                        <th key={hi} style={{ padding: '8px 14px', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: h === '' ? 'right' : 'left', borderBottom: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {bookingEntries.map((e, i) => {
-                                      const isPendingDelete = deleteConfirm === e.id;
-                                      return (
-                                        <tr key={e.id} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7', background: isPendingDelete ? 'rgba(239,68,68,0.03)' : undefined }}>
-                                          <td style={{ padding: '9px 14px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>{e.created_at.slice(0, 10)}</td>
-                                          <td style={{ padding: '9px 14px', fontSize: 12, color: '#374151' }}>{e.type ?? '—'}</td>
-                                          <td style={{ padding: '9px 14px', fontSize: 12, color: '#6b7280', maxWidth: 200 }}>{e.description ?? '—'}</td>
-                                          <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>{fmt(e.amount)}</td>
-                                          <td style={{ padding: '9px 14px' }}>
-                                            {e.direction?.toUpperCase() === 'IN'
-                                              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span>
-                                              : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>
-                                            }
-                                          </td>
-                                          <td style={{ padding: '6px 12px', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                                            {isPendingDelete ? (
-                                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                                <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>Delete?</span>
-                                                <button
-                                                  onClick={() => handleDelete(e.id)}
-                                                  disabled={deleting}
-                                                  style={{ height: 26, padding: '0 10px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
-                                                >
-                                                  {deleting ? '…' : 'Yes'}
-                                                </button>
-                                                <button
-                                                  onClick={() => setDeleteConfirm(null)}
-                                                  style={{ height: 26, padding: '0 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-                                                >
-                                                  No
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                                {/* Edit */}
-                                                <button
-                                                  onClick={() => setEditModal(e)}
-                                                  title="Edit"
-                                                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', transition: 'all 140ms ease' }}
-                                                  onMouseEnter={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.06)'; }}
-                                                  onMouseLeave={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e2.currentTarget as HTMLButtonElement).style.color = '#6b7280'; (e2.currentTarget as HTMLButtonElement).style.background = '#fff'; }}
-                                                >
-                                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                                                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                  </svg>
-                                                </button>
-                                                {/* Delete */}
-                                                <button
-                                                  onClick={() => setDeleteConfirm(e.id)}
-                                                  title="Delete"
-                                                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', transition: 'all 140ms ease' }}
-                                                  onMouseEnter={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#fca5a5'; (e2.currentTarget as HTMLButtonElement).style.color = '#dc2626'; (e2.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.06)'; }}
-                                                  onMouseLeave={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e2.currentTarget as HTMLButtonElement).style.color = '#6b7280'; (e2.currentTarget as HTMLButtonElement).style.background = '#fff'; }}
-                                                >
-                                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                                                    <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                    <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                  </svg>
-                                                </button>
-                                              </div>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
+  if (loading) {
+    return (
+      <div style={{ padding: '40px' }}>
+        <div style={{ height: 56, borderRadius: 12, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 24 }} />
+        <div style={{ height: 110, borderRadius: 14, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 20 }} />
+        {[0, 1, 2].map(i => <div key={i} style={{ height: 72, borderRadius: 12, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 12 }} />)}
+        <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.45}}`}</style>
       </div>
-
-      {/* Add Transaction Modal */}
-      {addModal && selectedCarId && (
-        <AddCustomerTxModal
-          customerName={addModal.customerName}
-          customerId={addModal.customerId}
-          carId={selectedCarId}
-          onClose={() => setAddModal(null)}
-          onSaved={() => { if (selectedCarId) fetchLedger(selectedCarId); }}
-        />
-      )}
-
-      {/* Edit Transaction Modal */}
-      {editModal && (
-        <EditTxModal
-          entry={editModal}
-          onClose={() => setEditModal(null)}
-          onSaved={() => { setEditModal(null); if (selectedCarId) fetchLedger(selectedCarId); }}
-        />
-      )}
-    </>
-  );
-};
-
-// ─── Investor Report Page (routed: /dashboard/accounting/report?investor_id=X) ─
-
-export const InvestorReportPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const navigate       = useNavigate();
-  const investorId     = String(searchParams.get('investor_id') ?? '');
+    );
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
-      <InvestorSummaryView
-        investorId={investorId}
-        onBack={() => navigate('/dashboard/accounting')}
-      />
+    <div style={{ padding: '40px 40px 60px' }}>
       <style>{`
         @keyframes pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
         @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes spin    { to { transform: rotate(360deg); } }
       `}</style>
+
+      {/* ── Page header ── */}
+      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <button
+          onClick={() => navigate('/dashboard/accounting')}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, transition: 'all 140ms ease' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          Customer Sheets
+        </button>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.6px', margin: 0, lineHeight: 1.1 }}>{car?.plate_number}</h1>
+          <p style={{ fontSize: 13, color: '#9ca3af', margin: '3px 0 0' }}>{car?.model_name}</p>
+        </div>
+      </div>
+
+      {/* ── Hero stats ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 28 }}>
+        {[
+          { label: 'Total IN',  value: heroTotalIn,  color: '#16a34a', signed: false },
+          { label: 'Total OUT', value: heroTotalOut, color: '#dc2626', signed: false },
+          { label: 'Balance',   value: heroBalance,  color: heroBalance >= 0 ? '#16a34a' : '#dc2626', signed: true },
+        ].map(stat => (
+          <div key={stat.label} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{stat.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, letterSpacing: '-0.5px' }}>
+              {stat.signed && stat.value < 0 ? '−' : ''}{fmt(Math.abs(stat.value))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Customer list ── */}
+      {customerGroups.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af', fontSize: 14, background: '#fff', borderRadius: 14, border: '1.5px dashed #e5e7eb' }}>
+          No customer transactions recorded for this car yet.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {customerGroups.map(cust => {
+            const isOpen    = openCusts.has(cust.id);
+            const custName  = `${cust.first_name} ${cust.last_name}`.trim();
+
+            return (
+              <div key={cust.id} style={{
+                background: '#fff', borderRadius: 14,
+                border: isOpen ? '1.5px solid #4ba6ea' : '1px solid #e5e7eb',
+                boxShadow: isOpen ? '0 4px 20px rgba(75,166,234,0.1)' : '0 1px 4px rgba(0,0,0,0.06)',
+                overflow: 'hidden', transition: 'box-shadow 180ms ease, border-color 180ms ease',
+              }}>
+                {/* Customer header (clickable) */}
+                <div
+                  onClick={() => toggleCust(cust.id)}
+                  style={{ padding: '16px 20px', cursor: 'pointer', userSelect: 'none' }}
+                  onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = ''; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                    {/* Name + phone */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="8" r="4" stroke="#4ba6ea" strokeWidth="1.8"/>
+                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px' }}>{custName.toUpperCase()}</div>
+                        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{cust.phone ?? '—'}</div>
+                      </div>
+                    </div>
+
+                    {/* Stats + chevron */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: 14, textAlign: 'right' }}>
+                        <div>
+                          <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>IN</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#16a34a' }}>{fmt(cust.totalIn)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>OUT</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }}>{fmt(cust.totalOut)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Balance</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: cust.balance >= 0 ? '#16a34a' : '#dc2626' }}>
+                            {cust.balance < 0 ? '−' : ''}{fmt(Math.abs(cust.balance))}
+                          </div>
+                        </div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        style={{ transition: 'transform 200ms ease', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: isOpen ? '#4ba6ea' : '#9ca3af', flexShrink: 0 }}>
+                        <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded: actions + transactions */}
+                {isOpen && (
+                  <div style={{ borderTop: '1px solid #f0f0f0' }}>
+                    {/* Action buttons */}
+                    <div style={{ padding: '10px 20px', display: 'flex', gap: 8, borderBottom: '1px solid #f5f5f5' }}>
+                      <button
+                        onClick={() => printInvoice(cust)}
+                        style={btnBase}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 18H4a1 1 0 01-1-1v-6a1 1 0 011-1h16a1 1 0 011 1v6a1 1 0 01-1 1h-2M6 14h12v7H6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Invoice
+                      </button>
+                      <button
+                        onClick={() => setAddModal({ customerId: cust.id, customerName: custName })}
+                        style={btnBase}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+                        Add Transaction
+                      </button>
+                    </div>
+
+                    {/* Transactions */}
+                    {cust.entries.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No transactions yet.</div>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+                          <thead>
+                            <tr>
+                              {['Date', 'Type', 'Description', 'Amount', ''].map((h, hi) => (
+                                <th key={hi} style={{ padding: '9px 16px', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: h === '' ? 'right' : 'left', borderBottom: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cust.entries.map((e, i) => {
+                              const isPendingDelete = deleteConfirm === e.id;
+                              const isIn = e.direction?.toUpperCase() === 'IN';
+                              return (
+                                <tr key={e.id} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7', background: isPendingDelete ? 'rgba(239,68,68,0.03)' : undefined }}>
+                                  <td style={{ padding: '10px 16px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>{fmtDate(e.created_at.slice(0, 10))}</td>
+                                  <td style={{ padding: '10px 16px', fontSize: 12 }}>
+                                    {e.type
+                                      ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', background: '#f3f4f6', color: '#374151' }}>{e.type}</span>
+                                      : <span style={{ color: '#d1d5db' }}>—</span>}
+                                  </td>
+                                  <td style={{ padding: '10px 16px', fontSize: 12, color: '#6b7280', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description ?? '—'}</td>
+                                  <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', color: isIn ? '#16a34a' : '#dc2626' }}>
+                                    {isIn ? '+' : '−'}{fmt(e.amount)}
+                                  </td>
+                                  <td style={{ padding: '7px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                    {isPendingDelete ? (
+                                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                        <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>Delete?</span>
+                                        <button onClick={() => handleDelete(e.id)} disabled={deleting} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                                          {deleting ? '…' : 'Yes'}
+                                        </button>
+                                        <button onClick={() => setDeleteConfirm(null)} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                          No
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                        <button onClick={() => setEditModal(e)} title="Edit" style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', transition: 'all 140ms ease' }}
+                                          onMouseEnter={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.06)'; }}
+                                          onMouseLeave={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e2.currentTarget as HTMLButtonElement).style.color = '#6b7280'; (e2.currentTarget as HTMLButtonElement).style.background = '#fff'; }}>
+                                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                        </button>
+                                        <button onClick={() => setDeleteConfirm(e.id)} title="Delete" style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', transition: 'all 140ms ease' }}
+                                          onMouseEnter={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#fca5a5'; (e2.currentTarget as HTMLButtonElement).style.color = '#dc2626'; (e2.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.06)'; }}
+                                          onMouseLeave={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e2.currentTarget as HTMLButtonElement).style.color = '#6b7280'; (e2.currentTarget as HTMLButtonElement).style.background = '#fff'; }}>
+                                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {addModal && (
+        <AddCustomerTxModal
+          customerName={addModal.customerName}
+          customerId={addModal.customerId}
+          carId={carId}
+          onClose={() => setAddModal(null)}
+          onSaved={() => { setAddModal(null); loadData(); }}
+        />
+      )}
+      {editModal && (
+        <EditTxModal
+          entry={editModal}
+          onClose={() => setEditModal(null)}
+          onSaved={() => { setEditModal(null); loadData(); }}
+        />
+      )}
     </div>
   );
 };
@@ -2916,7 +3060,7 @@ const AddFinancialTxModal: React.FC<{
     setForm(prev => ({ ...prev, sheet_target: '', category: '' }));
     Promise.all([
       supabase.from('investors').select('commission_rate').eq('id', form.investor_id).single(),
-      supabase.from('cars').select('id, plate_number, model_group:model_group_id(name)').eq('investor_id', form.investor_id),
+      supabase.from('cars').select('id, plate_number, model_group:model_group_id(name)').eq('investor_id', form.investor_id).eq('is_active', true),
     ]).then(([invRes, carsRes]) => {
       setCommissionRate((invRes.data as { commission_rate: number | null } | null)?.commission_rate ?? null);
       const raw = (carsRes.data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
@@ -3636,77 +3780,430 @@ const ExpenseDetailModal: React.FC<{
   );
 };
 
+// ─── Internal Finance: Add Transaction Modal ─────────────────────────────────
+
+const IF_TX_CATEGORIES = [
+  { value: 'operations',       label: 'Operations'       },
+  { value: 'maintenance',      label: 'Maintenance'      },
+  { value: 'emergency',        label: 'Emergency'        },
+  { value: 'salaries',         label: 'Salaries'         },
+  { value: 'rent',             label: 'Rent'             },
+  { value: 'fines',            label: 'Fines'            },
+  { value: 'marketing',        label: 'Marketing'        },
+  { value: 'employee_account', label: 'Employee Account' },
+  { value: 'other',            label: 'Other'            },
+] as const;
+
+const AddInternalFinanceTxModal: React.FC<{
+  profiles: ProfileRow[];
+  onClose:  () => void;
+  onSaved:  () => void;
+}> = ({ profiles, onClose, onSaved }) => {
+  const { rates } = useCurrency();
+  const [form, setForm] = useState<AddIfTxForm>(() => ({
+    date:          new Date().toISOString().slice(0, 10),
+    direction:     'OUT',
+    amount:        '',
+    inputCurrency: 'TRY',
+    category:      '',
+    employee_id:   '',
+    note:          '',
+  }));
+  const [receiptFile,    setReceiptFile]    = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [saving,         setSaving]         = useState(false);
+  const [saveStep,       setSaveStep]       = useState('');
+  const [error,          setError]          = useState<string | null>(null);
+  const [toast,          setToast]          = useState<string | null>(null);
+  const [empSearch,      setEmpSearch]      = useState('');
+  const [empOpen,        setEmpOpen]        = useState(false);
+  const empDropRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!receiptFile || receiptFile.type === 'application/pdf') { setReceiptPreview(null); return; }
+    const url = URL.createObjectURL(receiptFile);
+    setReceiptPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [receiptFile]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!empOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (empDropRef.current && !empDropRef.current.contains(e.target as Node)) setEmpOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [empOpen]);
+
+  const set = <K extends keyof AddIfTxForm>(k: K, v: AddIfTxForm[K]) =>
+    setForm(prev => ({ ...prev, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.date)     { setError('Date is required.');      return; }
+    if (!form.category) { setError('Category is required.');  return; }
+    const rawAmount = parseFloat(form.amount);
+    if (isNaN(rawAmount) || rawAmount <= 0) { setError('Enter a valid positive amount.'); return; }
+    if (form.category === 'employee_account' && !form.employee_id) {
+      setError('Employee is required for the Employee Account category.');
+      return;
+    }
+
+    setSaving(true); setError(null);
+
+    // Convert to TRY if entry was in USD
+    let amountTRY = rawAmount;
+    if (form.inputCurrency === 'USD') {
+      const usdRate = rates.find(r => r.currency === 'USD')?.rate_to_try;
+      if (!usdRate) { setSaving(false); setError('USD exchange rate unavailable — try again.'); return; }
+      amountTRY = rawAmount * usdRate;
+    }
+
+    // Receipt upload
+    let receiptUrl: string | null = null;
+    if (receiptFile) {
+      setSaveStep('Uploading receipt…');
+
+      // Build filename: {category}-{DD-MM-YY}-{seq}.{ext}
+      const cat = (form.category || 'general').replace(/[^a-zA-Z0-9_]/g, '_');
+      const [y, m, d] = form.date.split('-').map(Number);
+      const dd  = String(d).padStart(2, '0');
+      const mm  = String(m).padStart(2, '0');
+      const yy  = String(y).slice(-2);
+      const prefix = `${cat}-${dd}-${mm}-${yy}`;
+
+      // Count existing files with this prefix to get seq
+      const { data: existingFiles } = await supabase.storage
+        .from('internal_finance')
+        .list('', { search: prefix });
+      const seq = (existingFiles?.length ?? 0) + 1;
+
+      const ext = receiptFile.name.includes('.') ? receiptFile.name.split('.').pop()!.toLowerCase() : 'jpg';
+      const filePath = `${prefix}-${seq}.${ext}`;
+      console.log('[internal_finance] uploading receipt as:', filePath);
+
+      const { error: upErr } = await supabase.storage
+        .from('internal_finance')
+        .upload(filePath, receiptFile, { upsert: true });
+
+      if (upErr) {
+        console.error('[internal_finance] upload error:', upErr);
+        setSaving(false); setSaveStep('');
+        setToast(`Upload failed: ${upErr.message}`);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('internal_finance').getPublicUrl(filePath);
+      receiptUrl = urlData.publicUrl;
+      console.log('[internal_finance] receipt public URL:', receiptUrl);
+    }
+
+    setSaveStep('Saving…');
+    const payload = {
+      operation_date: form.date,
+      direction:      form.direction,
+      amount:         amountTRY,
+      category:       form.category    || null,
+      employee_id:    form.employee_id || null,
+      notes:          form.note        || null,
+      receipt_url:    receiptUrl,
+    };
+    console.log('[internal_finance] inserting payload:', payload);
+    const { error: err } = await supabase.from('internal_finance').insert(payload);
+    setSaving(false); setSaveStep('');
+    if (err) { console.error('[internal_finance] insert error:', err); setError(err.message); return; }
+    setToast('Transaction saved!');
+    setTimeout(() => { onSaved(); onClose(); }, 800);
+  };
+
+  const usdRate    = rates.find(r => r.currency === 'USD')?.rate_to_try;
+  const previewTRY = form.inputCurrency === 'USD' && usdRate && !isNaN(parseFloat(form.amount))
+    ? parseFloat(form.amount) * usdRate : null;
+
+  const filteredProfiles = profiles.filter(p =>
+    (p.full_name ?? '').toLowerCase().includes(empSearch.toLowerCase())
+  );
+  const selectedEmpName = profiles.find(p => p.id === form.employee_id)?.full_name ?? '';
+
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', fontSize: 13,
+    border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none',
+    fontFamily: 'inherit', color: '#0f1117', background: '#fff',
+    boxSizing: 'border-box', transition: 'border-color 140ms ease',
+  };
+  const focusB = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    { (e.target as HTMLElement).style.borderColor = '#4ba6ea'; };
+  const blurG  = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    { (e.target as HTMLElement).style.borderColor = '#e5e7eb'; };
+  const lbl: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: '#6b7280',
+    textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block',
+  };
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
+    >
+      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 520, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
+        <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>New Transaction</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>internal_finance</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '22px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Date + Direction */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={lbl}>Date <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="date" value={form.date} onChange={e => set('date', e.target.value)} style={inp} onFocus={focusB} onBlur={blurG} />
+            </div>
+            <div>
+              <label style={lbl}>Direction <span style={{ color: '#ef4444' }}>*</span></label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['IN', 'OUT'] as const).map(d => (
+                  <button key={d} onClick={() => set('direction', d)} style={{
+                    flex: 1, height: 38, borderRadius: 9,
+                    border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
+                    background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
+                    color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                  }}>
+                    {d === 'IN' ? '↓ IN' : '↑ OUT'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Amount + Currency toggle */}
+          <div>
+            <label style={lbl}>Amount <span style={{ color: '#ef4444' }}>*</span></label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="number" min="0" step="0.01" placeholder="0.00"
+                value={form.amount} onChange={e => set('amount', e.target.value)}
+                style={{ ...inp, flex: 1 }} onFocus={focusB} onBlur={blurG}
+              />
+              <div style={{ display: 'flex', border: '1.5px solid #e5e7eb', borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
+                {(['TRY', 'USD'] as const).map(c => (
+                  <button key={c} onClick={() => set('inputCurrency', c)} style={{
+                    padding: '0 14px', height: 38, border: 'none',
+                    background: form.inputCurrency === c ? '#4ba6ea' : '#fff',
+                    color: form.inputCurrency === c ? '#fff' : '#6b7280',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                  }}>
+                    {c === 'TRY' ? '₺ TRY' : '$ USD'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {previewTRY !== null && (
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 5 }}>
+                ≈ ₺{previewTRY.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} will be stored
+              </div>
+            )}
+          </div>
+
+          {/* Category */}
+          <div>
+            <label style={lbl}>Category <span style={{ color: '#ef4444' }}>*</span></label>
+            <select
+              value={form.category}
+              onChange={e => { set('category', e.target.value); if (e.target.value !== 'employee_account') set('employee_id', ''); }}
+              style={inp} onFocus={focusB} onBlur={blurG}
+            >
+              <option value="">— Select category —</option>
+              {IF_TX_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+
+          {/* Employee — searchable dropdown */}
+          <div>
+            <label style={lbl}>
+              Employee
+              {form.category === 'employee_account'
+                ? <span style={{ color: '#ef4444' }}> *</span>
+                : <span style={{ color: '#9ca3af', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> (optional)</span>
+              }
+            </label>
+            <div ref={empDropRef} style={{ position: 'relative' }}>
+              <div
+                onClick={() => setEmpOpen(o => !o)}
+                style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderColor: empOpen ? '#4ba6ea' : '#e5e7eb', userSelect: 'none' }}
+              >
+                <span style={{ color: form.employee_id ? '#0f1117' : '#9ca3af' }}>
+                  {form.employee_id ? selectedEmpName : 'Search employee…'}
+                </span>
+                {form.employee_id
+                  ? <span onClick={e => { e.stopPropagation(); set('employee_id', ''); setEmpSearch(''); }} style={{ color: '#9ca3af', cursor: 'pointer', fontSize: 16, lineHeight: 1, marginLeft: 4 }}>×</span>
+                  : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: '#9ca3af' }}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                }
+              </div>
+              {empOpen && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 20, overflow: 'hidden' }}>
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid #f0f0f0' }}>
+                    <input
+                      autoFocus type="text" placeholder="Search…"
+                      value={empSearch} onChange={e => setEmpSearch(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      style={{ ...inp, padding: '6px 10px', fontSize: 12 }}
+                      onFocus={focusB} onBlur={blurG}
+                    />
+                  </div>
+                  <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                    {filteredProfiles.length === 0
+                      ? <div style={{ padding: '12px 14px', color: '#9ca3af', fontSize: 12 }}>No employees found</div>
+                      : filteredProfiles.map(p => (
+                          <div
+                            key={p.id}
+                            onClick={() => { set('employee_id', p.id); setEmpOpen(false); setEmpSearch(''); }}
+                            style={{
+                              padding: '10px 14px', fontSize: 13, cursor: 'pointer',
+                              background: form.employee_id === p.id ? 'rgba(75,166,234,0.06)' : '#fff',
+                              color: form.employee_id === p.id ? '#4ba6ea' : '#0f1117',
+                              fontWeight: form.employee_id === p.id ? 600 : 400,
+                            }}
+                            onMouseEnter={e => { if (form.employee_id !== p.id) (e.currentTarget as HTMLDivElement).style.background = '#f9fafb'; }}
+                            onMouseLeave={e => { if (form.employee_id !== p.id) (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
+                          >
+                            {p.full_name ?? p.id}
+                          </div>
+                        ))
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Receipt upload */}
+          <div>
+            <label style={lbl}>Receipt (image or PDF)</label>
+            <label
+              style={{ display: 'block', border: '1.5px dashed #e5e7eb', borderRadius: 10, padding: receiptFile ? '12px 14px' : '20px 14px', cursor: 'pointer', textAlign: 'center', transition: 'border-color 140ms ease' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLLabelElement).style.borderColor = '#4ba6ea'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLLabelElement).style.borderColor = '#e5e7eb'; }}
+            >
+              <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display: 'none' }} onChange={e => setReceiptFile(e.target.files?.[0] ?? null)} />
+              {receiptFile ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {receiptPreview
+                    ? <img src={receiptPreview} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} />
+                    : <div style={{ width: 48, height: 48, borderRadius: 6, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>PDF</div>
+                  }
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117' }}>{receiptFile.name}</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{(receiptFile.size / 1024).toFixed(0)} KB · Click to change</div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>Click to upload receipt</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, or PDF</div>
+                </>
+              )}
+            </label>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={lbl}>Notes</label>
+            <textarea
+              placeholder="Optional note…"
+              value={form.note} onChange={e => set('note', e.target.value)}
+              rows={2} style={{ ...inp, resize: 'vertical', minHeight: 60 }}
+              onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'; }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleSave} disabled={saving}
+            style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', minWidth: 140, transition: 'background 140ms ease' }}
+            onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#3a95d9'; }}
+            onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+          >
+            {saving ? (saveStep || 'Saving…') : 'Save Transaction'}
+          </button>
+        </div>
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: '#16a34a', color: '#fff', padding: '10px 22px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', zIndex: 1100, animation: 'slideUp 200ms ease', whiteSpace: 'nowrap' }}>
+          {toast}
+        </div>
+      )}
+    </div>,
+    document.body,
+  );
+};
+
 const CompanyExpensesTab: React.FC = () => {
   const { fmt } = useCurrency();
-  const [monthKey,        setMonthKey]        = useState(currentMonthKey());
-  const [expenses,        setExpenses]        = useState<CompanyExpense[]>([]);
-  const [loading,         setLoading]         = useState(true);
-  const [cars,            setCars]            = useState<{ id: number; label: string }[]>([]);
-  const [profiles,        setProfiles]        = useState<{ id: string; name: string }[]>([]);
-  const [carsMap,         setCarsMap]         = useState<Map<number, string>>(new Map());
-  const [profilesMap,     setProfilesMap]     = useState<Map<string, string>>(new Map());
-  const [showModal,       setShowModal]       = useState(false);
-  const [editExpense,     setEditExpense]     = useState<CompanyExpense | null>(null);
-  const [detailExpense,   setDetailExpense]   = useState<CompanyExpense | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  const [deleting,        setDeleting]        = useState(false);
+  const [monthKey,       setMonthKey]       = useState(currentMonthKey());
+  const [refreshKey,     setRefreshKey]     = useState(0);
+  const [showAddTx,      setShowAddTx]      = useState(false);
+  const [ifMonthData,    setIfMonthData]    = useState<InternalFinanceRow[]>([]);
+  const [ifMonthLoading, setIfMonthLoading] = useState(true);
+  const [ifWalletData,   setIfWalletData]   = useState<Pick<InternalFinanceRow, 'employee_id' | 'amount' | 'direction'>[]>([]);
+  const [walletProfiles, setWalletProfiles] = useState<ProfileRow[]>([]);
+  const [walletsLoading, setWalletsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    setWalletsLoading(true);
     Promise.all([
-      supabase.from('cars').select('id, plate_number, model_group:model_group_id(name)'),
-      supabase.from('profiles').select('id, full_name').in('role', ['admin', 'staff']),
-    ]).then(([carsRes, profRes]) => {
+      supabase.from('profiles').select('id, full_name, avatar_url').in('role', ['admin', 'staff']),
+      supabase.from('internal_finance').select('employee_id, amount, direction').not('employee_id', 'is', null),
+    ]).then(([walletProfRes, walletDataRes]) => {
       if (cancelled) return;
-      const rawCars = (carsRes.data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
-      const carList = rawCars
-        .map(c => ({ id: c.id, plate_number: c.plate_number, model_name: c.model_group?.name ?? '', label: `${c.model_group?.name ? `${c.model_group.name} — ` : ''}${c.plate_number}` }))
-        .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number));
-      setCars(carList);
-      const cm = new Map<number, string>();
-      carList.forEach(c => cm.set(c.id, c.label));
-      setCarsMap(cm);
-
-      const rawProf = (profRes.data ?? []) as { id: string; full_name: string | null }[];
-      const profList = rawProf.map(p => ({ id: p.id, name: p.full_name ?? p.id }));
-      setProfiles(profList);
-      const pm = new Map<string, string>();
-      profList.forEach(p => pm.set(p.id, p.name));
-      setProfilesMap(pm);
+      setWalletProfiles((walletProfRes.data ?? []) as ProfileRow[]);
+      setIfWalletData((walletDataRes.data ?? []) as Pick<InternalFinanceRow, 'employee_id' | 'amount' | 'direction'>[]);
+      setWalletsLoading(false);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchExpenses = async () => {
-    setLoading(true);
-    const [y, m] = monthKey.split('-').map(Number);
-    const start = `${monthKey}-01`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const end = `${monthKey}-${String(lastDay).padStart(2, '0')}`;
-    const { data } = await supabase
-      .from('company_expenses')
-      .select('*')
-      .gte('operation_date', start)
-      .lte('operation_date', end)
-      .order('operation_date', { ascending: false });
-    setExpenses((data ?? []) as CompanyExpense[]);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchExpenses(); }, [monthKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleDelete = async (id: number) => {
-    if (confirmDeleteId !== id) { setConfirmDeleteId(id); return; }
-    setDeleting(true);
-    await supabase.from('company_expenses').delete().eq('id', id);
-    setDeleting(false);
-    setConfirmDeleteId(null);
-    fetchExpenses();
-  };
-
-  const totalOut = expenses.filter(e => e.direction?.toUpperCase() !== 'IN').reduce((s, e) => s + (e.amount ?? 0), 0);
-  const totalIn  = expenses.filter(e => e.direction?.toUpperCase() === 'IN').reduce((s, e) => s + (e.amount ?? 0), 0);
-  const net      = totalIn - totalOut;
+  useEffect(() => {
+    let cancelled = false;
+    setIfMonthLoading(true);
+    const { start, end } = monthDateRange(monthKey);
+    supabase.from('internal_finance').select('*').gte('operation_date', start).lt('operation_date', end)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setIfMonthData((data ?? []) as InternalFinanceRow[]);
+        setIfMonthLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [monthKey, refreshKey]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -3715,140 +4212,151 @@ const CompanyExpensesTab: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <MonthNavigator monthKey={monthKey} onChange={setMonthKey} />
         <button
-          onClick={() => { setEditExpense(null); setShowModal(true); }}
+          onClick={() => setShowAddTx(true)}
           style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(75,166,234,0.3)', transition: 'background 140ms ease' }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3a95d9'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
-          Add New Expense
+          Add Transaction
         </button>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-        {[
-          { label: 'Total OUT',  value: loading ? '—' : fmt(totalOut), color: '#dc2626', accent: 'rgba(239,68,68,0.08)'  },
-          { label: 'Total IN',   value: loading ? '—' : fmt(totalIn),  color: '#16a34a', accent: 'rgba(34,197,94,0.08)'  },
-          { label: 'Net',        value: loading ? '—' : fmt(net),      color: net >= 0 ? '#16a34a' : '#dc2626', accent: net >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)' },
-          { label: 'Records',    value: loading ? '—' : String(expenses.length), color: '#0f1117', accent: 'transparent' },
-        ].map(s => (
-          <div key={s.label} style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{s.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
+      {/* ── Internal Finance: Section 1 — Hero summary card ────────────── */}
+      {(() => {
+        const ifIncome   = ifMonthData.filter(r => r.direction === 'IN').reduce((a, r) => a + (r.amount ?? 0), 0);
+        const ifExpenses = ifMonthData.filter(r => r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
+        const ifNet      = ifIncome - ifExpenses;
+        const ifPositive = ifNet >= 0;
+        const shimmer = { borderRadius: 8, background: 'rgba(255,255,255,0.25)', animation: 'pulse 1.5s ease-in-out infinite' } as React.CSSProperties;
+        return (
+          <div style={{
+            borderRadius: 20,
+            background: ifPositive
+              ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
+              : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+            padding: '32px 36px',
+            boxShadow: ifPositive
+              ? '0 8px 32px rgba(22,163,74,0.28)'
+              : '0 8px 32px rgba(220,38,38,0.28)',
+            color: '#fff',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>
+                {monthLabel(monthKey)}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.7, background: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: '3px 12px' }}>
+                Internal Finance
+              </div>
+            </div>
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Net</div>
+              {ifMonthLoading
+                ? <div style={{ ...shimmer, height: 52, width: 220 }} />
+                : <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: '-1.5px', lineHeight: 1 }}>
+                    {ifNet < 0 ? '-' : ''}{fmt(Math.abs(ifNet))}
+                  </div>
+              }
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: '16px 20px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Total Income</div>
+                {ifMonthLoading
+                  ? <div style={{ ...shimmer, height: 28, width: 120 }} />
+                  : <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px' }}>{fmt(ifIncome)}</div>
+                }
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: '16px 20px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Total Expenses</div>
+                {ifMonthLoading
+                  ? <div style={{ ...shimmer, height: 28, width: 120 }} />
+                  : <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px' }}>{fmt(ifExpenses)}</div>
+                }
+              </div>
+            </div>
           </div>
-        ))}
+        );
+      })()}
+
+      {/* ── Internal Finance: Section 2 — Category breakdown ────────────── */}
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
+          Expenses by Category
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+          {IF_EXPENSE_CATS.map(cat => {
+            const total = ifMonthData.filter(r => r.category === cat && r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
+            return (
+              <div key={cat} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <span style={{ fontSize: 18 }}>{IF_CAT_ICONS[cat]}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{IF_CAT_LABELS[cat]}</span>
+                </div>
+                {ifMonthLoading
+                  ? <div style={{ height: 26, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                  : <div style={{ fontSize: 22, fontWeight: 800, color: total > 0 ? '#0f1117' : '#d1d5db', letterSpacing: '-0.5px' }}>{fmt(total)}</div>
+                }
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-        {loading ? (
-          <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} style={{ height: 36, borderRadius: 8, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      {/* ── Internal Finance: Section 3 — Employee Wallets ──────────────── */}
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
+          Employee Wallets
+        </div>
+        {walletsLoading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                  <div style={{ height: 14, width: 100, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                </div>
+                <div style={{ height: 26, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              </div>
             ))}
           </div>
-        ) : expenses.length === 0 ? (
-          <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-            No expenses found for {monthLabel(monthKey)}.
-          </div>
+        ) : walletProfiles.length === 0 ? (
+          <div style={{ color: '#9ca3af', fontSize: 14, padding: '32px 0', textAlign: 'center' }}>No employees found.</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#fafafa' }}>
-                  {['Date', 'Direction', 'Category', 'Amount', 'Car', 'Handled By', 'Receipt', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left', borderBottom: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((exp, i) => (
-                  <tr key={exp.id} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7' }}>
-                    <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>{fmtDate(exp.operation_date)}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      {exp.direction?.toUpperCase() === 'IN'
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span>
-                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>}
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      {exp.category
-                        ? <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', background: '#f3f4f6', borderRadius: 6, padding: '2px 8px' }}>{exp.category}</span>
-                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
-                    </td>
-                    <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: exp.direction?.toUpperCase() === 'IN' ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>{exp.direction?.toUpperCase() === 'IN' ? '+' : '-'}{fmt(exp.amount)}</td>
-                    <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>
-                      {exp.car_id ? (carsMap.get(exp.car_id) ?? `#${exp.car_id}`) : <span style={{ color: '#9ca3af' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>
-                      {exp.handled_by ? (profilesMap.get(exp.handled_by) ?? '—') : <span style={{ color: '#9ca3af' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      {exp.payment_receipt_url
-                        ? (exp.payment_receipt_url.toLowerCase().includes('.pdf')
-                          ? <span style={{ fontSize: 11, fontWeight: 600, color: '#4ba6ea', background: 'rgba(75,166,234,0.08)', borderRadius: 6, padding: '2px 8px' }}>PDF</span>
-                          : <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(34,197,94,0.08)', borderRadius: 6, padding: '2px 8px' }}>IMG</span>)
-                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {/* View Details */}
-                        <button
-                          onClick={() => setDetailExpense(exp)}
-                          style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
-                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
-                          title="View details"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/></svg>
-                        </button>
-                        <button
-                          onClick={() => { setEditExpense(exp); setShowModal(true); setConfirmDeleteId(null); }}
-                          style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
-                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
-                        >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(exp.id)}
-                          disabled={deleting && confirmDeleteId === exp.id}
-                          style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${confirmDeleteId === exp.id ? '#ef4444' : '#e5e7eb'}`, background: confirmDeleteId === exp.id ? '#ef4444' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: confirmDeleteId === exp.id ? '#fff' : '#9ca3af', transition: 'all 140ms ease' }}
-                          onMouseEnter={e => { if (confirmDeleteId !== exp.id) { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#ef4444'; b.style.color = '#ef4444'; } }}
-                          onMouseLeave={e => { if (confirmDeleteId !== exp.id) { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; } }}
-                        >
-                          {confirmDeleteId === exp.id
-                            ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            : <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          }
-                        </button>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
+            {walletProfiles.map(emp => {
+              const rows = ifWalletData.filter(r => r.employee_id === emp.id);
+              const bal = rows.filter(r => r.direction === 'IN').reduce((a, r) => a + (r.amount ?? 0), 0)
+                        - rows.filter(r => r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
+              const balColor = bal > 0 ? '#16a34a' : bal < 0 ? '#dc2626' : '#9ca3af';
+              const initials = (emp.full_name ?? '?').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <div key={emp.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                    {emp.avatar_url ? (
+                      <img src={emp.avatar_url} alt={emp.full_name ?? ''} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: '#4ba6ea', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                        {initials}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', lineHeight: 1.3 }}>{emp.full_name ?? '—'}</div>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Balance</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: balColor, letterSpacing: '-0.5px' }}>
+                    {bal < 0 ? '-' : ''}{fmt(Math.abs(bal))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {detailExpense && (
-        <ExpenseDetailModal
-          expense={detailExpense}
-          carsMap={carsMap}
-          profilesMap={profilesMap}
-          onClose={() => setDetailExpense(null)}
-          onEdit={() => { setEditExpense(detailExpense); setDetailExpense(null); setShowModal(true); }}
-        />
-      )}
-
-      {showModal && (
-        <CompanyExpenseModal
-          expense={editExpense ?? undefined}
-          cars={cars}
-          profiles={profiles}
-          onClose={() => { setShowModal(false); setEditExpense(null); }}
-          onSaved={() => { setShowModal(false); setEditExpense(null); fetchExpenses(); }}
+      {showAddTx && (
+        <AddInternalFinanceTxModal
+          profiles={walletProfiles}
+          onClose={() => setShowAddTx(false)}
+          onSaved={() => { setShowAddTx(false); setRefreshKey(k => k + 1); }}
         />
       )}
     </div>

@@ -12,8 +12,9 @@ import FinesPage from './pages/FinesPage';
 import UsersPage from './pages/UsersPage';
 import InvestorsPage from './pages/InvestorsPage';
 import PricingPage from './pages/PricingPage';
-import AccountingPage, { InvestorReportPage } from './pages/AccountingPage';
+import AccountingPage, { InvestorReportPage, CarCustomerSheetPage } from './pages/AccountingPage';
 import CarTrackingPage from './pages/CarTrackingPage';
+import ActiveBookingsPage from './pages/ActiveBookingsPage';
 import CustomersPage from './pages/CustomersPage';
 import OperationsPage from './pages/OperationsPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -38,6 +39,7 @@ const App: React.FC = () => {
           <Route path="model-groups" element={<ModelGroupsPage />} />
           <Route path="kgm" element={<KGMPage />} />
           <Route path="bookings" element={<BookingsPage />} />
+          <Route path="bookings/active" element={<ActiveBookingsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="fines" element={<FinesPage />} />
           <Route path="users" element={<UsersPage />} />
@@ -45,6 +47,7 @@ const App: React.FC = () => {
           <Route path="pricing" element={<PricingPage />} />
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="accounting/report" element={<InvestorReportPage />} />
+          <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="operations" element={<OperationsPage />} />
         </Route>
