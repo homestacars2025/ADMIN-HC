@@ -56,6 +56,20 @@ const fleetItems = [
   },
 ];
 
+const acquisitionsItems = [
+  {
+    label: 'Sourcing',
+    path: '/dashboard/sourcing',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+];
+
 const managementItems = [
   {
     label: 'Customers',
@@ -489,6 +503,23 @@ const Sidebar: React.FC = () => {
           );
         })()}
         {renderNavItems(fleetItems.slice(1))}
+
+        {/* Acquisitions section */}
+        {!collapsed ? (
+          <div style={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            color: '#c0c4cc',
+            letterSpacing: '0.8px',
+            textTransform: 'uppercase',
+            padding: '16px 10px 8px',
+          }}>
+            Acquisitions
+          </div>
+        ) : (
+          <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
+        )}
+        {renderNavItems(acquisitionsItems)}
 
         {/* Management section */}
         {!collapsed ? (

@@ -17,6 +17,7 @@ import CarTrackingPage from './pages/CarTrackingPage';
 import ActiveBookingsPage from './pages/ActiveBookingsPage';
 import CustomersPage from './pages/CustomersPage';
 import OperationsPage from './pages/OperationsPage';
+import SourcingPage from './pages/SourcingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -50,6 +51,7 @@ const App: React.FC = () => {
           <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="operations" element={<OperationsPage />} />
+          <Route path="sourcing" element={<SourcingPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
