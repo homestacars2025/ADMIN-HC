@@ -1,19 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
 
+  // Show access-denied message when redirected from ProtectedRoute
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate('/dashboard', { replace: true });
-    });
+    if (searchParams.get('error') === 'access_denied') {
+      setError('Access denied. This portal is restricted to administrators only.');
+    }
+  }, [searchParams]);
+
+  // If already signed in, verify admin role before redirecting
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || cancelled) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (cancelled) return;
+
+      if (profile?.role === 'admin') {
+        navigate('/dashboard', { replace: true });
+      } else {
+        await supabase.auth.signOut();
+      }
+    })();
+    return () => { cancelled = true; };
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -21,10 +47,31 @@ const LoginPage: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
       setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    const userId = signInData.session?.user.id;
+    if (!userId) {
+      setError('Authentication failed. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profile?.role !== 'admin') {
+      console.warn('[HomestaCars] Login denied for:', email, '— role:', profile?.role ?? 'missing');
+      await supabase.auth.signOut();
+      setError('Access denied. This portal is restricted to administrators only.');
       setLoading(false);
       return;
     }
