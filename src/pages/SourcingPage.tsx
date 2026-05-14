@@ -6,7 +6,8 @@ import { supabase } from '../lib/supabase';
 
 type ListingStatus = 'Active' | 'Sold';
 type LeadStatus    = 'New' | 'Contacted' | 'Offer Sent' | 'Rejected' | 'Ignored';
-type Transmission  = 'Automatic' | 'Manual' | 'Hybrid' | 'Electric';
+type Transmission  = 'Automatic' | 'Manual';
+type FuelType      = 'Petrol' | 'Diesel' | 'Hybrid' | 'Electric' | 'LPG';
 type DamageRecord  = 'Heavy Damage' | 'No Damage' | 'Damage Value';
 
 interface SourcingRow {
@@ -20,6 +21,7 @@ interface SourcingRow {
   model_year: number | null;
   mileage_km: number | null;
   transmission: Transmission | null;
+  fuel_type: FuelType | null;
   damage_record: DamageRecord | null;
   damage_value: number | null;
   paint_sections_count: number | null;
@@ -44,6 +46,7 @@ interface SourcingForm {
   model_year: string;
   mileage_km: string;
   transmission: string;
+  fuel_type: string;
   trim_package: string;
   damage_record: string;
   damage_value: string;
@@ -74,8 +77,14 @@ const LEAD_CFG: Record<LeadStatus, { color: string; bg: string }> = {
 const TRANS_CFG: Record<Transmission, { color: string; bg: string }> = {
   'Automatic': { color: '#4ba6ea', bg: 'rgba(75,166,234,0.1)'  },
   'Manual':    { color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
-  'Hybrid':    { color: '#16a34a', bg: 'rgba(34,197,94,0.1)'   },
-  'Electric':  { color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)'  },
+};
+
+const FUEL_CFG: Record<FuelType, { color: string; bg: string }> = {
+  'Petrol':   { color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+  'Diesel':   { color: '#374151', bg: 'rgba(55,65,81,0.1)'    },
+  'Hybrid':   { color: '#16a34a', bg: 'rgba(34,197,94,0.1)'   },
+  'Electric': { color: '#4ba6ea', bg: 'rgba(75,166,234,0.1)'  },
+  'LPG':      { color: '#ca8a04', bg: 'rgba(234,179,8,0.1)'   },
 };
 
 const DAMAGE_CFG: Record<DamageRecord, { color: string }> = {
@@ -98,7 +107,7 @@ const EMPTY_FORM: SourcingForm = {
   source_platform: '', source_platform_custom: '',
   listing_url: '', listed_on: new Date().toISOString().slice(0, 10),
   model_group_id: '', model_year: '', mileage_km: '', transmission: '',
-  trim_package: '', damage_record: '', damage_value: '',
+  fuel_type: '', trim_package: '', damage_record: '', damage_value: '',
   paint_sections_count: '', asking_price: '', target_price: '',
   lead_status: 'New', listing_status: 'Active', notes: '',
 };
@@ -172,7 +181,7 @@ const LeadBadge: React.FC<{ status: LeadStatus }> = ({ status }) => {
 
 const TransBadge: React.FC<{ t: Transmission | null }> = ({ t }) => {
   if (!t) return <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>;
-  const cfg = TRANS_CFG[t];
+  const cfg = TRANS_CFG[t] ?? { color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
@@ -180,6 +189,20 @@ const TransBadge: React.FC<{ t: Transmission | null }> = ({ t }) => {
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
       {t}
+    </span>
+  );
+};
+
+const FuelBadge: React.FC<{ f: FuelType | null }> = ({ f }) => {
+  if (!f) return <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>;
+  const cfg = FUEL_CFG[f] ?? { color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg,
+      borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
+    }}>
+      {f}
     </span>
   );
 };
@@ -436,6 +459,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
       model_year: editRow.model_year != null ? String(editRow.model_year) : '',
       mileage_km: editRow.mileage_km != null ? String(editRow.mileage_km) : '',
       transmission: editRow.transmission ?? '',
+      fuel_type: editRow.fuel_type ?? '',
       trim_package: editRow.trim_package ?? '',
       damage_record: editRow.damage_record ?? '',
       damage_value: editRow.damage_value != null ? String(editRow.damage_value) : '',
@@ -481,6 +505,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
       model_year: Number(form.model_year),
       mileage_km: form.mileage_km !== '' ? Number(form.mileage_km) : null,
       transmission: form.transmission || null,
+      fuel_type: form.fuel_type || null,
       trim_package: form.trim_package.trim() || null,
       damage_record: form.damage_record || null,
       damage_value: form.damage_record === 'Damage Value' && form.damage_value !== '' ? Number(form.damage_value) : null,
@@ -643,19 +668,29 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
                   <label style={lbl}>Transmission</label>
                   <select value={form.transmission} onChange={e => set('transmission', e.target.value)} style={sel}>
                     <option value="">Select…</option>
-                    {(['Automatic', 'Manual', 'Hybrid', 'Electric'] as Transmission[]).map(t =>
-                      <option key={t} value={t}>{t}</option>
-                    )}
+                    <option value="Automatic">Automatic</option>
+                    <option value="Manual">Manual</option>
                   </select>
                 </div>
                 <div>
-                  <label style={lbl}>Trim / Package</label>
-                  <input type="text" value={form.trim_package} onChange={e => set('trim_package', e.target.value)}
-                    placeholder="e.g. Premium, Sport…" style={inp}
-                    onFocus={e => (e.target.style.borderColor = '#4ba6ea')}
-                    onBlur={e => (e.target.style.borderColor = '#e5e7eb')}
-                  />
+                  <label style={lbl}>Fuel Type</label>
+                  <select value={form.fuel_type} onChange={e => set('fuel_type', e.target.value)} style={sel}>
+                    <option value="">Select…</option>
+                    <option value="Petrol">Petrol</option>
+                    <option value="Diesel">Diesel</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Electric">Electric</option>
+                    <option value="LPG">LPG</option>
+                  </select>
                 </div>
+              </div>
+              <div>
+                <label style={lbl}>Trim / Package</label>
+                <input type="text" value={form.trim_package} onChange={e => set('trim_package', e.target.value)}
+                  placeholder="e.g. Premium, Sport…" style={inp}
+                  onFocus={e => (e.target.style.borderColor = '#4ba6ea')}
+                  onBlur={e => (e.target.style.borderColor = '#e5e7eb')}
+                />
               </div>
             </div>
           </ModalSection>
@@ -1128,7 +1163,7 @@ const SourcingPage: React.FC = () => {
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1300 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1420 }}>
             <thead>
               <tr>
                 <PlainTh>Source</PlainTh>
@@ -1136,6 +1171,7 @@ const SourcingPage: React.FC = () => {
                 <SortTh col="model_year"   activeCol={sortCol} dir={sortDir} onSort={handleSort}>Year</SortTh>
                 <SortTh col="mileage_km"   activeCol={sortCol} dir={sortDir} onSort={handleSort}>Mileage</SortTh>
                 <PlainTh>Trans.</PlainTh>
+                <PlainTh>Fuel</PlainTh>
                 <PlainTh>Damage</PlainTh>
                 <PlainTh style={{ textAlign: 'center' }}>Paint</PlainTh>
                 <PlainTh>Trim</PlainTh>
@@ -1151,16 +1187,16 @@ const SourcingPage: React.FC = () => {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 14 }).map((__, j) => (
+                    {Array.from({ length: 15 }).map((__, j) => (
                       <td key={j} style={{ padding: '12px 12px' }}>
-                        <div style={{ height: 13, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: [80, 100, 40, 70, 60, 70, 30, 80, 70, 80, 80, 70, 55, 60][j] }} />
+                        <div style={{ height: 13, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: [80, 100, 40, 70, 60, 55, 70, 30, 80, 70, 80, 80, 70, 55, 60][j] }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={14} style={{ padding: '56px 20px', textAlign: 'center' }}>
+                  <td colSpan={15} style={{ padding: '56px 20px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
                       <div style={{ width: 64, height: 64, borderRadius: 18, background: 'rgba(75,166,234,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
@@ -1232,6 +1268,9 @@ const SourcingPage: React.FC = () => {
 
                     {/* Transmission */}
                     <td style={tdBase}><TransBadge t={row.transmission} /></td>
+
+                    {/* Fuel */}
+                    <td style={tdBase}><FuelBadge f={row.fuel_type} /></td>
 
                     {/* Damage */}
                     <td style={tdBase}>
