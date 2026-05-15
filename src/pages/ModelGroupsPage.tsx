@@ -3,6 +3,7 @@ import { useCurrency } from '../lib/CurrencyContext';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { ModelGroup, ModelGroupFormData } from '../types';
+import { CATEGORIES } from '../constants/categories';
 
 // ---------------------------------------------------------------------------
 // Constants & helpers
@@ -243,7 +244,7 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
               <label style={LBL}>Category</label>
               <select value={form.category} onChange={e => setField('category', e.target.value)}
                 onFocus={onFocus} onBlur={onBlur} style={{ ...F, cursor: 'pointer' }}>
-                {['Economy', 'Middle', 'Luxury', 'SUV', 'Van', 'Electric'].map(o => <option key={o}>{o}</option>)}
+                {CATEGORIES.map(o => <option key={o}>{o}</option>)}
               </select>
             </div>
 
@@ -447,13 +448,87 @@ const SkeletonRow: React.FC = () => (
 interface RowProps {
   group: ModelGroup;
   onEdit: () => void;
+  onImageUpdated: (id: number, newUrl: string) => void;
+  showToast: (message: string, type: 'success' | 'error') => void;
 }
 
-const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit }) => {
+const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, showToast }) => {
   const { fmtUSD } = useCurrency();
   const [hovered, setHovered] = useState(false);
+  const [imgHovered, setImgHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(group.image_url ?? null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const cat = categoryStyle(group.category);
+
+  const resolveFilename = (newFile: File): string => {
+    const newExt = newFile.name.includes('.') ? newFile.name.split('.').pop()! : 'jpg';
+    if (currentImageUrl) {
+      try {
+        const pathname = new URL(currentImageUrl.split('?')[0]).pathname;
+        const existing = pathname.split('/').pop() ?? '';
+        const base = existing.replace(/\.[^.]+$/, '');
+        if (base) return `${base}.${newExt}`;
+      } catch { /* fallthrough */ }
+    }
+    const slug = group.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return `${slug}.${newExt}`;
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file.', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5 MB.', 'error');
+      return;
+    }
+
+    setImageUploading(true);
+    const filename = resolveFilename(file);
+
+    const { error: uploadError } = await supabase.storage
+      .from('model-group')
+      .upload(`model-groups/${filename}`, file, {
+        upsert: true,
+        cacheControl: '3600',
+        contentType: file.type,
+      });
+
+    if (uploadError) {
+      setImageUploading(false);
+      showToast(`Upload failed: ${uploadError.message}`, 'error');
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('model-group')
+      .getPublicUrl(`model-groups/${filename}`);
+    const cacheBustedUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+
+    const { error: dbError } = await supabase
+      .from('model_group')
+      .update({ image_url: cacheBustedUrl })
+      .eq('id', group.id);
+
+    setImageUploading(false);
+
+    if (dbError) {
+      showToast(`Failed to save: ${dbError.message}`, 'error');
+      return;
+    }
+
+    setCurrentImageUrl(cacheBustedUrl);
+    setImgError(false);
+    onImageUpdated(group.id, cacheBustedUrl);
+    showToast('Image updated', 'success');
+  };
 
   const specs = [
     group.seats != null ? `${group.seats} seats` : null,
@@ -476,24 +551,64 @@ const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit }) => {
         transition: 'background 120ms ease',
       }}
     >
-      {/* Image */}
-      {group.image_url && !imgError ? (
-        <img
-          src={group.image_url}
-          alt={group.name}
-          onError={() => setImgError(true)}
-          style={{ width: 160, height: 96, objectFit: 'contain', objectPosition: 'center', flexShrink: 0, display: 'block' }}
-        />
-      ) : (
-        <div style={{ width: 160, height: 96, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-            <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="9" y="11" width="14" height="10" rx="2" stroke="#d1d5db" strokeWidth="1.5"/>
-            <circle cx="12" cy="16" r="1" fill="#d1d5db"/>
-            <circle cx="20" cy="16" r="1" fill="#d1d5db"/>
-          </svg>
+      {/* Image — clickable upload zone */}
+      <div
+        style={{ position: 'relative', width: 160, height: 96, flexShrink: 0, cursor: 'pointer', borderRadius: 8, overflow: 'hidden' }}
+        onMouseEnter={() => setImgHovered(true)}
+        onMouseLeave={() => setImgHovered(false)}
+        onClick={() => !imageUploading && fileInputRef.current?.click()}
+        title="Click to change image"
+      >
+        {currentImageUrl && !imgError ? (
+          <img
+            src={currentImageUrl}
+            alt={group.name}
+            onError={() => setImgError(true)}
+            style={{ width: 160, height: 96, objectFit: 'contain', objectPosition: 'center', display: 'block' }}
+          />
+        ) : (
+          <div style={{ width: 160, height: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <rect x="9" y="11" width="14" height="10" rx="2" stroke="#d1d5db" strokeWidth="1.5"/>
+              <circle cx="12" cy="16" r="1" fill="#d1d5db"/>
+              <circle cx="20" cy="16" r="1" fill="#d1d5db"/>
+            </svg>
+          </div>
+        )}
+
+        {/* Hover / loading overlay */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(0,0,0,0.48)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
+          opacity: imgHovered || imageUploading ? 1 : 0,
+          transition: 'opacity 150ms ease',
+          pointerEvents: 'none',
+        }}>
+          {imageUploading ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
+              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2.5" strokeDasharray="28 56"/>
+            </svg>
+          ) : (
+            <>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="1.8"/>
+              </svg>
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#fff', letterSpacing: '0.3px' }}>Change image</span>
+            </>
+          )}
         </div>
-      )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+      </div>
 
       {/* Identity */}
       <div style={{ flex: '0 0 210px', minWidth: 0 }}>
@@ -568,7 +683,7 @@ const ModelGroupsPage: React.FC = () => {
   const [groups, setGroups]         = useState<ModelGroup[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
-  const [modal, setModal]           = useState<null | { mode: 'add' } | { mode: 'edit'; group: ModelGroup }>(null);
+  const [modal, setModal]           = useState<null | { mode: 'add'; category?: string } | { mode: 'edit'; group: ModelGroup }>(null);
   const [toast, setToast]           = useState<null | { message: string; type: 'success' | 'error' }>(null);
   const toastTimer                  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -608,6 +723,10 @@ const ModelGroupsPage: React.FC = () => {
   const handleSaved = () => {
     showToast(modal?.mode === 'add' ? 'Model group added successfully' : 'Changes saved', 'success');
     fetchGroups();
+  };
+
+  const handleImageUpdated = (id: number, newUrl: string) => {
+    setGroups(prev => prev.map(g => g.id === id ? { ...g, image_url: newUrl } : g));
   };
 
   return (
@@ -669,17 +788,11 @@ const ModelGroupsPage: React.FC = () => {
         </div>
       )}
 
-      {!loading && !error && groups.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '64px 0', color: '#9ca3af', fontSize: 15 }}>
-          No model groups yet. Click "Add Model Group" to create one.
-        </div>
-      )}
-
-      {!loading && !error && (['Economy', 'Middle', 'SUV'] as const).map(category => {
+      {!loading && !error && CATEGORIES.map(category => {
         const section = groups
           .filter(g => g.category === category)
           .sort((a, b) => a.name.localeCompare(b.name));
-        if (section.length === 0) return null;
+        const isEmpty = section.length === 0;
         const cat = categoryStyle(category);
         return (
           <div key={category} style={{ marginBottom: 28 }}>
@@ -698,26 +811,62 @@ const ModelGroupsPage: React.FC = () => {
               }}>
                 {category}
               </span>
-              <span style={{ fontSize: 12.5, color: '#c0c4cc' }}>{section.length} model{section.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontSize: 12.5, color: isEmpty ? '#d1d5db' : '#c0c4cc' }}>
+                {section.length} model{section.length !== 1 ? 's' : ''}
+              </span>
               <div style={{ flex: 1, height: 1, background: '#ebebeb' }} />
             </div>
-            {/* Rows container */}
-            <div style={{
-              background: '#fff',
-              borderRadius: 16,
-              border: '1px solid #f0f0f0',
-              overflow: 'hidden',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-            }}>
-              {section.map((group, idx) => (
-                <div key={group.id} style={{ borderBottom: idx < section.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
-                  <ModelGroupRow
-                    group={group}
-                    onEdit={() => setModal({ mode: 'edit', group })}
-                  />
-                </div>
-              ))}
-            </div>
+
+            {isEmpty ? (
+              /* Empty state */
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: 10, padding: '32px 20px',
+                border: '1.5px dashed #e5e7eb', borderRadius: 16,
+                background: '#fafafa',
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <rect x="2" y="7" width="20" height="14" rx="2" stroke="#d1d5db" strokeWidth="1.6"/>
+                  <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#d1d5db" strokeWidth="1.6" strokeLinecap="round"/>
+                  <path d="M12 12v4M10 14h4" stroke="#d1d5db" strokeWidth="1.6" strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize: 13, color: '#9ca3af' }}>No models in this category yet</span>
+                <button
+                  onClick={() => setModal({ mode: 'add', category })}
+                  style={{
+                    marginTop: 2, padding: '6px 16px',
+                    fontSize: 12.5, fontWeight: 600, color: '#4ba6ea',
+                    background: 'rgba(75,166,234,0.08)', border: '1px solid rgba(75,166,234,0.25)',
+                    borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'background 140ms ease, border-color 140ms ease',
+                  }}
+                  onMouseEnter={e => { const b = e.currentTarget; b.style.background = 'rgba(75,166,234,0.14)'; b.style.borderColor = 'rgba(75,166,234,0.5)'; }}
+                  onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'rgba(75,166,234,0.08)'; b.style.borderColor = 'rgba(75,166,234,0.25)'; }}
+                >
+                  + Add a model
+                </button>
+              </div>
+            ) : (
+              /* Rows container */
+              <div style={{
+                background: '#fff',
+                borderRadius: 16,
+                border: '1px solid #f0f0f0',
+                overflow: 'hidden',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+              }}>
+                {section.map((group, idx) => (
+                  <div key={group.id} style={{ borderBottom: idx < section.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
+                    <ModelGroupRow
+                      group={group}
+                      onEdit={() => setModal({ mode: 'edit', group })}
+                      onImageUpdated={handleImageUpdated}
+                      showToast={showToast}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -726,7 +875,7 @@ const ModelGroupsPage: React.FC = () => {
       {modal && (
         <FormModal
           mode={modal.mode}
-          initial={modal.mode === 'edit' ? { ...modal.group } : EMPTY_FORM}
+          initial={modal.mode === 'edit' ? { ...modal.group } : { ...EMPTY_FORM, ...(modal.category ? { category: modal.category } : {}) }}
           editId={modal.mode === 'edit' ? modal.group.id : undefined}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
