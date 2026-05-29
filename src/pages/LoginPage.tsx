@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import Logo from '../components/shared/Logo';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -136,27 +137,7 @@ const LoginPage: React.FC = () => {
         }} />
 
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            background: 'var(--brand)',
-            borderRadius: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="11" width="14" height="10" rx="2" stroke="white" strokeWidth="2"/>
-              <circle cx="12" cy="16" r="1" fill="white"/>
-            </svg>
-          </div>
-          <span style={{ color: 'white', fontWeight: 700, fontSize: 18, letterSpacing: '-0.3px' }}>
-            HomestaCars
-          </span>
-        </div>
+        <Logo size={38} wordmark onDark />
 
         {/* Middle content */}
         <div>
@@ -223,31 +204,12 @@ const LoginPage: React.FC = () => {
         background: 'var(--surface)',
         boxShadow: '-1px 0 0 var(--border)',
       }}>
-        {/* Mobile logo */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          marginBottom: 48,
-        }}
-        className="login-mobile-logo"
+        {/* Logo — centered above form, hidden on desktop (left panel handles it) */}
+        <div
+          style={{ display: 'flex', justifyContent: 'center', marginBottom: 48 }}
+          className="login-mobile-logo"
         >
-          <div style={{
-            width: 36,
-            height: 36,
-            background: 'var(--brand)',
-            borderRadius: 9,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="11" width="14" height="10" rx="2" stroke="white" strokeWidth="2"/>
-              <circle cx="12" cy="16" r="1" fill="white"/>
-            </svg>
-          </div>
-          <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: '-0.3px' }}>HomestaCars</span>
+          <Logo size={40} wordmark />
         </div>
 
         <div style={{ marginBottom: 36 }}>

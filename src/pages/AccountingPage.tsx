@@ -211,6 +211,7 @@ const SheetCard: React.FC<{
 const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; monthKey: string }> = ({ txs, loading, monthKey }) => {
   const { fmt } = useCurrency();
   const [carsMap, setCarsMap] = useState<Map<number, { plate: string; model: string }>>(new Map());
+  const [ifData,  setIfData]  = useState<Pick<InternalFinanceRow, 'amount' | 'direction'>[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,6 +228,21 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
     return () => { cancelled = true; };
   }, []);
 
+  // Fetch internal_finance for this month — same source as CompanyExpensesTab
+  useEffect(() => {
+    let cancelled = false;
+    const { start, end } = monthDateRange(monthKey);
+    supabase.from('internal_finance')
+      .select('amount, direction')
+      .gte('operation_date', start)
+      .lt('operation_date', end)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setIfData((data ?? []) as Pick<InternalFinanceRow, 'amount' | 'direction'>[]);
+      });
+    return () => { cancelled = true; };
+  }, [monthKey]);
+
   // ── Calculations ──────────────────────────────────────────────────────────
   const income      = sumTx(txs, t => t.direction?.toLowerCase() === 'in');
   const expenses    = sumTx(txs, t => t.direction?.toLowerCase() === 'out');
@@ -240,6 +256,16 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
   const maint       = sumTx(txs, t => t.category === 'Maintenance'      && t.direction?.toLowerCase() === 'out');
   const companyExp  = sumTx(txs, t => t.category === 'Company Expenses' && t.direction?.toLowerCase() === 'out');
   const personalExp = sumTx(txs, t => t.category === 'Personal'         && t.direction?.toLowerCase() === 'out');
+
+  // ── Treasury values ───────────────────────────────────────────────────────
+  // Green card: commission — positive income value
+  const homestaCommission = commission;
+  // Red card: same query as CompanyExpensesTab (internal_finance OUT rows) — positive display value
+  const homestaExpenses = ifData.filter(r => r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
+  // Hero: signed sum — expenses are outflows so carry a negative sign;
+  // adding the signed value avoids any hardcoded +/− on the card values themselves
+  const homestaExpensesSigned = -homestaExpenses;
+  const treasuryTotal = homestaCommission + homestaExpensesSigned;
 
   const expenseTotal = expenses;
   const other = Math.max(0, expenses - (fuel + oil + wash + maint));
@@ -275,21 +301,23 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
 
   const metrics = [
     {
-      label: 'Cars Rental Income', value: rentIncome,
+      label: 'Homesta Commission Total',
+      value: homestaCommission,
       color: '#22c55e', iconBg: 'rgba(34,197,94,0.08)',
-      badge: 'Income', badgeColor: '#16a34a', badgeBg: 'rgba(34,197,94,0.1)',
+      badge: 'Commission', badgeColor: '#16a34a', badgeBg: 'rgba(34,197,94,0.1)',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M5 17H3a1 1 0 01-1-1v-5l2.76-5.52A1 1 0 015.65 5h12.7a1 1 0 01.89.55L22 11v5a1 1 0 01-1 1h-2" stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          <circle cx="7.5" cy="17.5" r="2.5" stroke="#22c55e" strokeWidth="1.8"/>
-          <circle cx="16.5" cy="17.5" r="2.5" stroke="#22c55e" strokeWidth="1.8"/>
+          <rect x="2" y="5" width="20" height="14" rx="2" stroke="#22c55e" strokeWidth="1.8"/>
+          <path d="M2 10h20" stroke="#22c55e" strokeWidth="1.8"/>
+          <circle cx="12" cy="15" r="2" stroke="#22c55e" strokeWidth="1.6"/>
         </svg>
       ),
     },
     {
-      label: 'Total Expenses', value: expenses,
+      label: 'Homesta Expenses Total',
+      value: homestaExpenses,
       color: '#ef4444', iconBg: 'rgba(239,68,68,0.08)',
-      badge: 'Expense', badgeColor: '#dc2626', badgeBg: 'rgba(239,68,68,0.1)',
+      badge: 'Expenses', badgeColor: '#dc2626', badgeBg: 'rgba(239,68,68,0.1)',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -333,8 +361,8 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
       ) : (
         <div style={{ background: 'linear-gradient(135deg, #4ba6ea 0%, #2e8fd4 100%)', borderRadius: 16, padding: '28px 32px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>HomestaCars Commission · {monthLabel(monthKey)}</div>
-            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>{fmt(commission)}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>Treasury Total - {monthLabel(monthKey)}</div>
+            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>{fmt(treasuryTotal)}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'right' }}>
             <div>
@@ -1357,7 +1385,7 @@ const InvestorSummaryView: React.FC<{
   const personalExpenses = sumBy('personal_expenses');
   const buySell          = sumBy('buy_sell');
 
-  const netProfit = carsRentalIncome + buySell;
+  const totalTreasury = carsRentalIncome + companyExpenses + personalExpenses + buySell;
 
   const fuelTotal = Math.abs(txs
     .filter(t => t.category === 'Petrol')
@@ -1592,16 +1620,16 @@ const InvestorSummaryView: React.FC<{
           color: '#fff',
           position: 'relative',
           overflow: 'hidden',
-          boxShadow: netProfit >= 0
+          boxShadow: totalTreasury >= 0
             ? '0 20px 60px rgba(22,163,74,0.18), 0 4px 20px rgba(0,0,0,0.28)'
             : '0 20px 60px rgba(220,38,38,0.18), 0 4px 20px rgba(0,0,0,0.28)',
-          border: `1px solid ${netProfit >= 0 ? 'rgba(34,197,94,0.14)' : 'rgba(239,68,68,0.14)'}`,
+          border: `1px solid ${totalTreasury >= 0 ? 'rgba(34,197,94,0.14)' : 'rgba(239,68,68,0.14)'}`,
         }}>
           {/* Radial glow — top right */}
           <div style={{
             position: 'absolute', top: -100, right: -80, width: 380, height: 380,
             borderRadius: '50%',
-            background: netProfit >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+            background: totalTreasury >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
             filter: 'blur(80px)', pointerEvents: 'none',
           }} />
           {/* Radial glow — bottom left */}
@@ -1619,23 +1647,28 @@ const InvestorSummaryView: React.FC<{
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <div style={{
                   width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                  background: netProfit >= 0 ? '#22c55e' : '#ef4444',
-                  boxShadow: `0 0 10px ${netProfit >= 0 ? 'rgba(34,197,94,0.9)' : 'rgba(239,68,68,0.9)'}`,
+                  background: totalTreasury >= 0 ? '#22c55e' : '#ef4444',
+                  boxShadow: `0 0 10px ${totalTreasury >= 0 ? 'rgba(34,197,94,0.9)' : 'rgba(239,68,68,0.9)'}`,
                 }} />
-                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.42)' }}>
-                  Net {netProfit >= 0 ? 'Profit' : 'Loss'}
-                </span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.42)' }}>
+                    Total Treasury
+                  </div>
+                  <div style={{ fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.26)', letterSpacing: '0.3px', marginTop: 3 }}>
+                    Toplam Kasa · إجمالي الخزينة
+                  </div>
+                </div>
               </div>
               <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-2.5px', lineHeight: 1, color: '#fff' }}>
-                {netProfit < 0 ? '-' : ''}{fmt(netProfit)}
+                {totalTreasury < 0 ? '-' : ''}{fmt(totalTreasury)}
               </div>
               <div style={{ marginTop: 18 }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   fontSize: 12, fontWeight: 600, padding: '5px 13px', borderRadius: 20,
-                  background: netProfit >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                  color: netProfit >= 0 ? '#4ade80' : '#f87171',
-                  border: `1px solid ${netProfit >= 0 ? 'rgba(34,197,94,0.28)' : 'rgba(239,68,68,0.28)'}`,
+                  background: totalTreasury >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                  color: totalTreasury >= 0 ? '#4ade80' : '#f87171',
+                  border: `1px solid ${totalTreasury >= 0 ? 'rgba(34,197,94,0.28)' : 'rgba(239,68,68,0.28)'}`,
                 }}>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
                     <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
@@ -3103,12 +3136,16 @@ const AddFinancialTxModal: React.FC<{
       note:        form.note || null,
     };
 
-    const rows = isRentCollection && commissionRate != null
+    const commissionAmount = isRentCollection && commissionRate != null
+      ? parseFloat((amount * (commissionRate / 100)).toFixed(2))
+      : 0;
+
+    const rows = isRentCollection && commissionRate != null && commissionAmount > 0
       ? [
           // Row 1 — Rent Collection as entered
           { ...baseRow, direction: form.direction, category: 'Rent Collection', amount },
-          // Row 2 — Commission auto-generated
-          { ...baseRow, direction: 'OUT', category: 'Commission', amount: parseFloat((amount * (commissionRate / 100)).toFixed(2)), note: 'Homesta COM' },
+          // Row 2 — Commission auto-generated (only when commission > 0)
+          { ...baseRow, direction: 'OUT', category: 'Commission', amount: commissionAmount, note: 'Homesta COM' },
         ]
       : [
           { ...baseRow, direction: form.direction, category: form.category || null, amount },
@@ -3250,26 +3287,34 @@ const AddFinancialTxModal: React.FC<{
               form.category === 'Rent Collection' &&
               commissionRate != null;
             if (!isCarRentCollection) return null;
-            const amt      = parseFloat(form.amount);
-            const hasAmt   = !isNaN(amt) && amt > 0;
-            const commAmt  = hasAmt ? parseFloat((amt * (commissionRate / 100)).toFixed(2)) : null;
+            const amt     = parseFloat(form.amount);
+            const hasAmt  = !isNaN(amt) && amt > 0;
+            const commAmt = hasAmt ? parseFloat((amt * (commissionRate / 100)).toFixed(2)) : null;
+            const isZero  = commissionRate === 0;
             return (
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: 10,
                 padding: '11px 14px', borderRadius: 10,
-                background: 'rgba(75,166,234,0.07)', border: '1.5px solid rgba(75,166,234,0.25)',
+                background: isZero ? 'rgba(107,114,128,0.07)' : 'rgba(75,166,234,0.07)',
+                border: isZero ? '1.5px solid rgba(107,114,128,0.2)' : '1.5px solid rgba(75,166,234,0.25)',
                 animation: 'fadeIn 180ms ease',
               }}>
-                <span style={{ fontSize: 15, lineHeight: 1, marginTop: 1 }}>⚡</span>
-                <div style={{ fontSize: 12.5, color: '#1d6fa8', lineHeight: 1.55 }}>
-                  <span style={{ fontWeight: 700 }}>Commission will be auto-deducted: </span>
-                  <span style={{ fontWeight: 600 }}>{commissionRate}%</span>
-                  {commAmt !== null && (
-                    <span> = <span style={{ fontWeight: 700 }}>{commAmt.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TRY</span></span>
+                <span style={{ fontSize: 15, lineHeight: 1, marginTop: 1 }}>{isZero ? 'ℹ️' : '⚡'}</span>
+                <div style={{ fontSize: 12.5, color: isZero ? '#6b7280' : '#1d6fa8', lineHeight: 1.55 }}>
+                  {isZero ? (
+                    <span style={{ fontWeight: 500 }}>No commission for this investor (0%) — only the main transaction row will be inserted.</span>
+                  ) : (
+                    <>
+                      <span style={{ fontWeight: 700 }}>Commission will be auto-deducted: </span>
+                      <span style={{ fontWeight: 600 }}>{commissionRate}%</span>
+                      {commAmt !== null && (
+                        <span> = <span style={{ fontWeight: 700 }}>{commAmt.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TRY</span></span>
+                      )}
+                      <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 3, fontWeight: 500 }}>
+                        A separate Commission row will be inserted automatically.
+                      </div>
+                    </>
                   )}
-                  <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 3, fontWeight: 500 }}>
-                    A separate Commission row will be inserted automatically.
-                  </div>
                 </div>
               </div>
             );

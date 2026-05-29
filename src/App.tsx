@@ -15,10 +15,26 @@ import PricingPage from './pages/PricingPage';
 import AccountingPage, { InvestorReportPage, CarCustomerSheetPage } from './pages/AccountingPage';
 import CarTrackingPage from './pages/CarTrackingPage';
 import ActiveBookingsPage from './pages/ActiveBookingsPage';
+import PendingInvoicesPage from './pages/PendingInvoicesPage';
 import CustomersPage from './pages/CustomersPage';
 import OperationsPage from './pages/OperationsPage';
 import SourcingPage from './pages/SourcingPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import MarketingLayout from './pages/marketing/MarketingLayout';
+import MarketingOverviewPage from './pages/marketing/MarketingOverviewPage';
+import MarketingChatPage from './pages/marketing/MarketingChatPage';
+import MarketingApprovalsPage from './pages/marketing/MarketingApprovalsPage';
+import MarketingConstitutionsPage from './pages/marketing/MarketingConstitutionsPage';
+import MarketingCalendarPage from './pages/marketing/MarketingCalendarPage';
+import MarketingSocialPostsPage from './pages/marketing/MarketingSocialPostsPage';
+import MarketingBlogPostsPage from './pages/marketing/MarketingBlogPostsPage';
+import MarketingDesignsPage from './pages/marketing/MarketingDesignsPage';
+import MarketingCampaignsPage from './pages/marketing/MarketingCampaignsPage';
+import MarketingCompetitorsPage from './pages/marketing/MarketingCompetitorsPage';
+import MarketingPerformancePage from './pages/marketing/MarketingPerformancePage';
+import MarketingDecisionsPage from './pages/marketing/MarketingDecisionsPage';
+import MarketingSettingsPage from './pages/marketing/MarketingSettingsPage';
+import MarketingPlaceholderPage from './pages/marketing/MarketingPlaceholderPage';
 
 const App: React.FC = () => {
   return (
@@ -41,6 +57,7 @@ const App: React.FC = () => {
           <Route path="kgm" element={<KGMPage />} />
           <Route path="bookings" element={<BookingsPage />} />
           <Route path="bookings/active" element={<ActiveBookingsPage />} />
+          <Route path="pending-invoices" element={<PendingInvoicesPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="fines" element={<FinesPage />} />
           <Route path="users" element={<UsersPage />} />
@@ -52,6 +69,23 @@ const App: React.FC = () => {
           <Route path="customers" element={<CustomersPage />} />
           <Route path="operations" element={<OperationsPage />} />
           <Route path="sourcing" element={<SourcingPage />} />
+
+          {/* ── Marketing ─────────────────────────────────── */}
+          <Route path="marketing" element={<MarketingLayout />}>
+            <Route index element={<MarketingOverviewPage />} />
+            <Route path="chat"          element={<MarketingChatPage />} />
+            <Route path="bots"          element={<MarketingConstitutionsPage />} />
+            <Route path="approvals"     element={<MarketingApprovalsPage />} />
+            <Route path="calendar"      element={<MarketingCalendarPage />} />
+            <Route path="social-posts"  element={<MarketingSocialPostsPage />} />
+            <Route path="blog-posts"    element={<MarketingBlogPostsPage />} />
+            <Route path="designs"       element={<MarketingDesignsPage />} />
+            <Route path="campaigns"     element={<MarketingCampaignsPage />} />
+            <Route path="competitors"   element={<MarketingCompetitorsPage />} />
+            <Route path="performance"   element={<MarketingPerformancePage />} />
+            <Route path="decisions"     element={<MarketingDecisionsPage />} />
+            <Route path="settings"      element={<MarketingSettingsPage />} />
+          </Route>
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

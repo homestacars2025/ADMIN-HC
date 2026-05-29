@@ -477,6 +477,51 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
   );
 };
 
+// ─── Car Photo Types ──────────────────────────────────────────────────────────
+
+interface CarPhotoEntry {
+  url: string;
+  name: string;
+  uploaded_at: string;
+}
+
+// ─── Photo Thumbnail ──────────────────────────────────────────────────────────
+
+const PhotoThumbnail: React.FC<{ photo: CarPhotoEntry; onDelete: () => void }> = ({ photo, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      style={{ position: 'relative', borderRadius: 9, overflow: 'hidden', aspectRatio: '4/3', background: '#f3f4f6', cursor: 'pointer' }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <img
+        src={photo.url}
+        alt={photo.name}
+        onClick={() => window.open(photo.url, '_blank', 'noopener')}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 200ms ease', transform: hov ? 'scale(1.05)' : 'scale(1)' }}
+      />
+      <div style={{ position: 'absolute', inset: 0, background: hov ? 'rgba(0,0,0,0.2)' : 'transparent', transition: 'background 200ms ease', pointerEvents: 'none' }} />
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(); }}
+        title="Delete photo"
+        style={{
+          position: 'absolute', top: 5, right: 5,
+          width: 26, height: 26, borderRadius: 6,
+          border: 'none', background: hov ? '#ef4444' : 'rgba(0,0,0,0.42)',
+          color: '#fff', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: hov ? 1 : 0.55, transition: 'background 180ms ease, opacity 180ms ease',
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  );
+};
+
 // ─── PDF Upload Field ─────────────────────────────────────────────────────────
 
 const PdfUploadField: React.FC<{
@@ -596,11 +641,17 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
   const [ruhsatFile,    setRuhsatFile]    = useState<File | null>(null);
   const [kaskoFile,     setKaskoFile]     = useState<File | null>(null);
 
+  // Photo gallery (immediate-persist, independent of Save Changes)
+  const [photos,            setPhotos]           = useState<CarPhotoEntry[]>([]);
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
+  const [photoErrors,       setPhotoErrors]       = useState<string[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const [carRes, regRes, invRes, mgRes] = await Promise.all([
-        supabase.from('cars').select('id, plate_number, investor_id, model_group_id').eq('id', carId).single(),
+        supabase.from('cars').select('id, plate_number, investor_id, model_group_id, car_photo_urls').eq('id', carId).single(),
         supabase.from('cars_registration').select('*').eq('car_id', carId).maybeSingle(),
         supabase.from('investors').select('id, profiles!fk_investor_profile(full_name)'),
         supabase.from('model_group').select('id, name').order('name'),
@@ -608,10 +659,11 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
       if (cancelled) return;
 
       if (carRes.data) {
-        const c = carRes.data as { plate_number: string; investor_id: string | null; model_group_id: number | null };
+        const c = carRes.data as { plate_number: string; investor_id: string | null; model_group_id: number | null; car_photo_urls: CarPhotoEntry[] | null };
         setPlateNumber(c.plate_number ?? '');
         setInvestorId(c.investor_id ?? '');
         setModelGroupId(c.model_group_id != null ? String(c.model_group_id) : '');
+        setPhotos(c.car_photo_urls ?? []);
       }
 
       if (regRes.data) {
@@ -636,6 +688,54 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
     })();
     return () => { cancelled = true; };
   }, [carId]);
+
+  // ── Photo helpers ──────────────────────────────────────────────────────────
+
+  const sanitizeFilename = (name: string) =>
+    name.replace(/[^\w.\-]/g, '_').replace(/_+/g, '_');
+
+  const handleAddPhotos = async (files: FileList) => {
+    const plate = plateNumber.trim().toUpperCase() || 'UNKNOWN';
+    const modelName = modelGroups.find(mg => String(mg.id) === modelGroupId)?.name ?? 'Unknown';
+    const folder = `${plate} - ${modelName}`;
+    setPhotoErrors([]);
+    const errors: string[] = [];
+    let current = [...photos];
+
+    for (const file of Array.from(files)) {
+      setUploadingFileName(file.name);
+      const path = `${folder}/${Date.now()}_${sanitizeFilename(file.name)}`;
+      const { error: upErr } = await supabase.storage.from('cars-photos').upload(path, file, { upsert: false });
+      if (upErr) { errors.push(`${file.name}: ${upErr.message}`); continue; }
+      const { data: urlData } = supabase.storage.from('cars-photos').getPublicUrl(path);
+      const entry: CarPhotoEntry = { url: urlData.publicUrl, name: file.name, uploaded_at: new Date().toISOString() };
+      current = [...current, entry];
+      setPhotos(current);
+      await supabase.from('cars').update({ car_photo_urls: current }).eq('id', carId);
+    }
+
+    setUploadingFileName(null);
+    if (errors.length) setPhotoErrors(errors);
+  };
+
+  const handleDeletePhoto = async (idx: number) => {
+    const photo = photos[idx];
+    const optimistic = photos.filter((_, i) => i !== idx);
+    setPhotos(optimistic); // optimistic remove
+
+    const marker = '/storage/v1/object/public/cars-photos/';
+    const mi = photo.url.indexOf(marker);
+    if (mi !== -1) {
+      const storagePath = decodeURIComponent(photo.url.slice(mi + marker.length));
+      await supabase.storage.from('cars-photos').remove([storagePath]);
+    }
+
+    const { error } = await supabase.from('cars').update({ car_photo_urls: optimistic }).eq('id', carId);
+    if (error) {
+      setPhotos(photos); // rollback
+      showToast('Failed to delete photo: ' + error.message, 'error');
+    }
+  };
 
   const handleSave = async () => {
     setFormError(null);
@@ -859,6 +959,93 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
                     <PdfUploadField label="Kasko"  existingUrl={kasko}     file={kaskoFile}  onFileChange={setKaskoFile}  />
                   </div>
                 </div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: '#f0f0f0' }} />
+
+              {/* Section 3: Car Photos */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Car Photos</span>
+                  <span style={{ fontSize: 10, fontWeight: 500, color: '#d1d5db', textTransform: 'none', letterSpacing: 0 }}>
+                    {photos.length} photo{photos.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Thumbnail grid */}
+                {photos.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+                    {photos.map((photo, idx) => (
+                      <PhotoThumbnail key={photo.url + idx} photo={photo} onDelete={() => handleDeletePhoto(idx)} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {photos.length === 0 && !uploadingFileName && (
+                  <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 9, padding: '22px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, background: '#fafafa', marginBottom: 12 }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ color: '#d1d5db' }}>
+                      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.6"/>
+                      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                      <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>No photos yet</span>
+                  </div>
+                )}
+
+                {/* Upload progress */}
+                {uploadingFileName && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(75,166,234,0.06)', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 8, marginBottom: 10, fontSize: 12, color: '#374151' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea', flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
+                    </svg>
+                    Uploading {uploadingFileName}…
+                  </div>
+                )}
+
+                {/* Per-file errors */}
+                {photoErrors.map((err, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 6, fontSize: 12, color: '#dc2626' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+                      <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    </svg>
+                    {err}
+                  </div>
+                ))}
+
+                {/* Add Photos button */}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={e => { if (e.target.files?.length) handleAddPhotos(e.target.files); e.target.value = ''; }}
+                />
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={!!uploadingFileName}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 7,
+                    padding: '8px 14px', borderRadius: 9,
+                    border: '1.5px solid #e5e7eb',
+                    background: uploadingFileName ? '#f9fafb' : '#fff',
+                    fontSize: 13, fontWeight: 600,
+                    color: uploadingFileName ? '#9ca3af' : '#374151',
+                    cursor: uploadingFileName ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', transition: 'all 140ms ease',
+                  }}
+                  onMouseEnter={e => { if (!uploadingFileName) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; } }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = uploadingFileName ? '#9ca3af' : '#374151'; }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  {uploadingFileName ? 'Uploading…' : 'Add Photos'}
+                </button>
               </div>
 
               {/* Error */}
