@@ -233,20 +233,39 @@ const OnlineUsersPage: React.FC = () => {
     const channel = supabase.channel(PRESENCE_CHANNEL);
     channelRef.current = channel;
 
-    const sync = () => {
+    const readState = () => {
       const state = channel.presenceState<PresenceUser>();
+      console.log('[OnlineUsers] presenceState():', JSON.stringify(state));
       const flat: PresenceUser[] = [];
       Object.values(state).forEach(arr => arr.forEach(u => flat.push(u)));
+      console.log('[OnlineUsers] flat users:', flat.length, flat.map(u => u.email));
       setPresentUsers(flat);
     };
 
     channel
-      .on('presence', { event: 'sync' },  sync)
-      .on('presence', { event: 'join' },  sync)
-      .on('presence', { event: 'leave' }, sync)
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        console.log('[OnlineUsers] presence sync event fired');
+        readState();
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('[OnlineUsers] presence join — key:', key, 'presences:', newPresences);
+        readState();
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('[OnlineUsers] presence leave — key:', key, 'presences:', leftPresences);
+        readState();
+      })
+      .subscribe((status) => {
+        console.log('[OnlineUsers] channel status:', status);
+        // After subscribe succeeds, read whatever state already exists on the server
+        if (status === 'SUBSCRIBED') {
+          console.log('[OnlineUsers] subscribed — reading initial state');
+          readState();
+        }
+      });
 
     return () => {
+      console.log('[OnlineUsers] cleanup — removing channel');
       supabase.removeChannel(channel);
       channelRef.current = null;
     };

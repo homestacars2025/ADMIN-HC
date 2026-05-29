@@ -430,11 +430,13 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
 
       if (profileErr) throw profileErr;
 
-      // 3. Update password via service role client
+      // 3. Update password via service role client (persistSession:false keeps it
+      //    out of localStorage so it doesn't trigger GoTrueClient warnings)
       if (form.new_password.trim()) {
         const serviceClient = createClient(
           process.env.REACT_APP_SUPABASE_URL!,
           process.env.REACT_APP_SUPABASE_SERVICE_KEY!,
+          { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
         );
         const { error: pwErr } = await serviceClient.auth.admin.updateUserById(
           user.id,
@@ -884,7 +886,9 @@ const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast
       }
 
       // Step 1: create auth user (email pre-confirmed)
-      const adminClient = createClient(supabaseUrl, serviceKey);
+      const adminClient = createClient(supabaseUrl, serviceKey, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
       const { data, error: createErr } = await adminClient.auth.admin.createUser({
         email:         form.email.trim(),
         password:      form.password.trim(),
@@ -1138,10 +1142,10 @@ const UsersPage: React.FC = () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      console.log('Service key loaded:', !!process.env.REACT_APP_SUPABASE_SERVICE_KEY);
       const serviceClient = createClient(
         process.env.REACT_APP_SUPABASE_URL!,
         process.env.REACT_APP_SUPABASE_SERVICE_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
       );
       const { error } = await serviceClient.auth.admin.deleteUser(deleteTarget.id);
       if (error) throw error;
