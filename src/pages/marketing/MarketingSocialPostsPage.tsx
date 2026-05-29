@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { socialFrom } from '../../lib/socialClient';
+import { supabase } from '../../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,16 @@ interface ContentPost {
   review_note: string | null;
   created_by: string | null;
   created_at: string;
+  // Image generation fields
+  generated_images: { url: string; order: number }[] | null;
+  base_car_photo_url: string | null;
+  used_car_id: number | null;
+  used_model_group_id: number | null;
+  image_status: string | null;
+  image_review_note: string | null;
+  image_time_mood: string | null;
+  image_environment: string | null;
+  image_generated_at: string | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -112,6 +123,358 @@ const LangBadge: React.FC<{ lang: string | null }> = ({ lang }) => {
       {lang.toUpperCase()}
     </span>
   );
+};
+
+// ─── Image Section ────────────────────────────────────────────────────────────
+
+const ImageSection: React.FC<{
+  post: ContentPost;
+  onUpdated: (updated: ContentPost) => void;
+  showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+}> = ({ post, onUpdated, showToast }) => {
+  const imageStatus = post.image_status ?? 'not_started';
+  const generatedUrl = post.generated_images?.[0]?.url ?? null;
+
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [rejectMode, setRejectMode] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
+  const [rejectBusy, setRejectBusy] = useState(false);
+  const [modelGroupName, setModelGroupName] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Reset local state when post changes
+  useEffect(() => {
+    setGenError(null);
+    setRejectMode(false);
+    setRejectNote('');
+  }, [post.id]);
+
+  // Fetch model group name for display
+  useEffect(() => {
+    if (!post.used_model_group_id) { setModelGroupName(null); return; }
+    supabase
+      .from('model_group')
+      .select('brand, model')
+      .eq('id', post.used_model_group_id)
+      .single()
+      .then(({ data }) => {
+        setModelGroupName(data ? `${data.brand} ${data.model}` : null);
+      });
+  }, [post.used_model_group_id]);
+
+  // Poll DB every 3s while status is 'generating'
+  useEffect(() => {
+    if (imageStatus !== 'generating') {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 50) { clearInterval(pollRef.current!); pollRef.current = null; return; }
+      const { data } = await socialFrom('sm_content_social').select('*').eq('id', post.id).single();
+      if (data && data.image_status !== 'generating') {
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        onUpdated(data as ContentPost);
+      }
+    }, 3000);
+    return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  }, [imageStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const triggerGenerate = async (mode: 'create' | 'regenerate') => {
+    setGenerating(true);
+    setGenError(null);
+    // Optimistically set status to 'generating' so polling starts if user navigates away
+    onUpdated({ ...post, image_status: 'generating' });
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-image', {
+        body: { content_id: post.id, mode },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok) throw new Error(data?.error ?? 'Unknown error from image generator');
+      // Fetch the fresh row
+      const { data: fresh } = await socialFrom('sm_content_social').select('*').eq('id', post.id).single();
+      if (fresh) onUpdated(fresh as ContentPost);
+      showToast('Image generated successfully', 'success');
+    } catch (err: any) {
+      const msg = String(err?.message ?? err);
+      setGenError(msg);
+      showToast('Image generation failed', 'error');
+      // Revert optimistic status
+      const { data: fresh } = await socialFrom('sm_content_social').select('*').eq('id', post.id).single();
+      if (fresh) onUpdated(fresh as ContentPost);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleApproveImage = async () => {
+    const { data, error } = await socialFrom('sm_content_social')
+      .update({ image_status: 'image_approved' })
+      .eq('id', post.id)
+      .select()
+      .single();
+    if (error) { showToast('Failed to approve: ' + error.message, 'error'); return; }
+    showToast('Image approved', 'success');
+    onUpdated(data as ContentPost);
+  };
+
+  const handleRejectSubmit = async () => {
+    if (!rejectNote.trim()) { showToast('Please describe what to fix', 'error'); return; }
+    setRejectBusy(true);
+    await socialFrom('sm_content_social')
+      .update({ image_review_note: rejectNote.trim() })
+      .eq('id', post.id);
+    setRejectMode(false);
+    await triggerGenerate('regenerate');
+    setRejectBusy(false);
+  };
+
+  const inp: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box', padding: '9px 12px',
+    fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9,
+    fontFamily: 'inherit', outline: 'none', color: '#0f1117',
+    transition: 'border-color 140ms ease', background: '#fff',
+  };
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10.5, fontWeight: 700, color: '#9ca3af',
+    textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 6,
+  };
+
+  // ── Lightbox portal ─────────────────────────────────────────────────────────
+  const lightbox = lightboxOpen && generatedUrl ? ReactDOM.createPortal(
+    <div
+      onClick={() => setLightboxOpen(false)}
+      style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
+    >
+      <img src={generatedUrl} alt="Generated poster" style={{ maxHeight: '92vh', maxWidth: '92vw', borderRadius: 12, boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }} />
+    </div>,
+    document.body
+  ) : null;
+
+  // ── not_started ─────────────────────────────────────────────────────────────
+  if (imageStatus === 'not_started') {
+    return (
+      <div>
+        <div style={sectionLabel}>Image Generation</div>
+        <div style={{ background: '#f9fafb', border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '28px 20px', textAlign: 'center' }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 10px', display: 'block', color: '#9ca3af' }}>
+            <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+            <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>No image generated yet for this post.</p>
+          {genError && (
+            <div style={{ marginBottom: 14, padding: '10px 13px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 9, fontSize: 12, color: '#b91c1c', textAlign: 'left', wordBreak: 'break-word' }}>
+              <strong>Error:</strong> {genError}
+            </div>
+          )}
+          <button
+            onClick={() => triggerGenerate('create')}
+            disabled={generating}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '11px 24px', borderRadius: 10, border: 'none',
+              background: generating ? '#e5e7eb' : '#4ba6ea',
+              color: generating ? '#9ca3af' : '#fff',
+              fontSize: 14, fontWeight: 700, cursor: generating ? 'not-allowed' : 'pointer',
+              transition: 'background 140ms ease',
+            }}
+          >
+            {generating ? (
+              <>
+                <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', animation: 'spSpin 0.8s linear infinite' }} />
+                Generating…
+              </>
+            ) : (
+              <>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>
+                Generate Image
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── generating ──────────────────────────────────────────────────────────────
+  if (imageStatus === 'generating') {
+    return (
+      <div>
+        <div style={sectionLabel}>Image Generation</div>
+        <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 12, padding: '28px 20px', textAlign: 'center' }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid #fbbf24', borderTopColor: 'transparent', animation: 'spSpin 0.9s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>Generating image…</div>
+          <div style={{ fontSize: 12, color: '#b45309' }}>Gemini is compositing the scene. This takes 15–30 seconds.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── pending_image_review ─────────────────────────────────────────────────────
+  if (imageStatus === 'pending_image_review' || imageStatus === 'image_rejected') {
+    return (
+      <div>
+        {lightbox}
+        <div style={sectionLabel}>Image Review</div>
+
+        {imageStatus === 'image_rejected' && (
+          <div style={{ marginBottom: 12, padding: '10px 13px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 9, fontSize: 12, color: '#b91c1c' }}>
+            Previously rejected — regenerate to get a new version.
+          </div>
+        )}
+
+        {/* Generated image */}
+        {generatedUrl ? (
+          <div style={{ marginBottom: 14 }}>
+            <img
+              src={generatedUrl}
+              alt="Generated poster"
+              onClick={() => setLightboxOpen(true)}
+              style={{ width: '100%', borderRadius: 12, border: '1.5px solid #f0f0f0', cursor: 'zoom-in', display: 'block' }}
+            />
+          </div>
+        ) : (
+          <div style={{ background: '#f3f4f6', borderRadius: 10, padding: 20, marginBottom: 14, fontSize: 13, color: '#9ca3af', textAlign: 'center' }}>No image URL found</div>
+        )}
+
+        {/* Meta row */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+          {modelGroupName && (
+            <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(75,166,234,0.08)', color: '#4ba6ea', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>
+              {modelGroupName}
+            </span>
+          )}
+          {post.image_environment && (
+            <span style={{ fontSize: 11, fontWeight: 600, background: '#f3f4f6', color: '#6b7280', borderRadius: 6, padding: '3px 9px', textTransform: 'capitalize' }}>
+              {post.image_environment.replace(/_/g, ' ')}
+            </span>
+          )}
+          {post.image_time_mood && (
+            <span style={{ fontSize: 11, fontWeight: 600, background: '#f3f4f6', color: '#6b7280', borderRadius: 6, padding: '3px 9px', textTransform: 'capitalize' }}>
+              {post.image_time_mood.replace(/_/g, ' ')}
+            </span>
+          )}
+          {post.base_car_photo_url && (
+            <a
+              href={post.base_car_photo_url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 11, fontWeight: 600, background: '#f3f4f6', color: '#6b7280', borderRadius: 6, padding: '3px 9px', textDecoration: 'none' }}
+            >
+              View source photo ↗
+            </a>
+          )}
+        </div>
+
+        {/* Reject note textarea */}
+        {rejectMode ? (
+          <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: 14, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10, animation: 'spFadeIn 150ms ease' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>What should be fixed?</div>
+            <textarea
+              value={rejectNote}
+              onChange={e => setRejectNote(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder="e.g. The sky is too dark. Make it golden hour. Move the car lower in frame."
+              style={{ ...inp, borderColor: '#fca5a5', resize: 'vertical', lineHeight: 1.6 }}
+              onFocus={e => (e.target.style.borderColor = '#ef4444')}
+              onBlur={e => (e.target.style.borderColor = '#fca5a5')}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setRejectMode(false)} style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: 'pointer' }}>Cancel</button>
+              <button
+                onClick={handleRejectSubmit}
+                disabled={rejectBusy || generating || !rejectNote.trim()}
+                style={{ flex: 2, padding: '9px 0', borderRadius: 8, border: 'none', background: (!rejectNote.trim() || rejectBusy || generating) ? '#f3f4f6' : '#dc2626', color: (!rejectNote.trim() || rejectBusy || generating) ? '#9ca3af' : '#fff', fontSize: 13, fontWeight: 600, cursor: (!rejectNote.trim() || rejectBusy || generating) ? 'not-allowed' : 'pointer' }}
+              >
+                {(rejectBusy || generating) ? 'Regenerating…' : 'Regenerate with this note'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleApproveImage}
+              style={{ flex: 2, padding: '11px 0', borderRadius: 10, border: 'none', background: '#059669', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="#fff" strokeWidth="1.8"/></svg>
+              Approve Image
+            </button>
+            <button
+              onClick={() => setRejectMode(true)}
+              style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1.5px solid #fca5a5', background: '#fff', color: '#dc2626', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Reject &amp; Redo
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── image_approved ───────────────────────────────────────────────────────────
+  if (imageStatus === 'image_approved') {
+    return (
+      <div>
+        {lightbox}
+        <div style={sectionLabel}>Image</div>
+
+        {generatedUrl && (
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <img
+              src={generatedUrl}
+              alt="Approved poster"
+              onClick={() => setLightboxOpen(true)}
+              style={{ width: '100%', borderRadius: 12, border: '2px solid #6ee7b7', cursor: 'zoom-in', display: 'block' }}
+            />
+            <span style={{ position: 'absolute', top: 10, right: 10, background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+              ✓ Approved
+            </span>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          {modelGroupName && (
+            <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(75,166,234,0.08)', color: '#4ba6ea', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>
+              {modelGroupName}
+            </span>
+          )}
+          {post.image_environment && (
+            <span style={{ fontSize: 11, color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '3px 9px', textTransform: 'capitalize' }}>
+              {post.image_environment.replace(/_/g, ' ')}
+            </span>
+          )}
+          {post.image_time_mood && (
+            <span style={{ fontSize: 11, color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '3px 9px', textTransform: 'capitalize' }}>
+              {post.image_time_mood.replace(/_/g, ' ')}
+            </span>
+          )}
+          {post.base_car_photo_url && (
+            <a href={post.base_car_photo_url} target="_blank" rel="noreferrer"
+              style={{ fontSize: 11, color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '3px 9px', textDecoration: 'none' }}>
+              Source photo ↗
+            </a>
+          )}
+        </div>
+
+        <button
+          onClick={() => triggerGenerate('create')}
+          disabled={generating}
+          style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: generating ? 'not-allowed' : 'pointer' }}
+        >
+          {generating ? 'Regenerating…' : 'Regenerate anyway'}
+        </button>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 // ─── Detail Drawer ────────────────────────────────────────────────────────────
@@ -406,6 +769,11 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
               ))}
             </div>
           </div>
+
+          {/* Image generation section — only for approved content */}
+          {post.status === 'approved' && mode === 'view' && (
+            <ImageSection post={post} onUpdated={onUpdated} showToast={showToast} />
+          )}
 
           {/* Existing rejection note (view mode) */}
           {post.status === 'rejected' && post.review_note && mode === 'view' && (

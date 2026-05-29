@@ -118,6 +118,20 @@ const financeItems = [
   },
 ];
 
+const adminToolItems = [
+  {
+    label: 'Online Users',
+    path: '/dashboard/online-users',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="19" cy="7" r="2" fill="#10b981"/>
+      </svg>
+    ),
+  },
+];
+
 const marketingItems = [
   {
     label: 'Overview',
@@ -720,6 +734,23 @@ const Sidebar: React.FC = () => {
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
         {renderNavItems(operationsItems)}
+
+        {/* Admin Tools section */}
+        {!collapsed ? (
+          <div style={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            color: '#c0c4cc',
+            letterSpacing: '0.8px',
+            textTransform: 'uppercase',
+            padding: '16px 10px 8px',
+          }}>
+            Admin Tools
+          </div>
+        ) : (
+          <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
+        )}
+        {renderNavItems(adminToolItems)}
 
         {/* Marketing section */}
         {!collapsed ? (

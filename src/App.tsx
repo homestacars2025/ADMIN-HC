@@ -35,6 +35,7 @@ import MarketingPerformancePage from './pages/marketing/MarketingPerformancePage
 import MarketingDecisionsPage from './pages/marketing/MarketingDecisionsPage';
 import MarketingSettingsPage from './pages/marketing/MarketingSettingsPage';
 import MarketingPlaceholderPage from './pages/marketing/MarketingPlaceholderPage';
+import OnlineUsersPage from './pages/OnlineUsersPage';
 
 const App: React.FC = () => {
   return (
@@ -69,6 +70,7 @@ const App: React.FC = () => {
           <Route path="customers" element={<CustomersPage />} />
           <Route path="operations" element={<OperationsPage />} />
           <Route path="sourcing" element={<SourcingPage />} />
+          <Route path="online-users" element={<OnlineUsersPage />} />
 
           {/* ── Marketing ─────────────────────────────────── */}
           <Route path="marketing" element={<MarketingLayout />}>

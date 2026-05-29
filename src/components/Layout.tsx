@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
+import { usePresence } from '../hooks/usePresence';
 
 // ─── Inactivity Warning Modal ─────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
 
 const Layout: React.FC = () => {
   const { showWarning, stayLoggedIn } = useInactivityTimeout();
+  usePresence(); // broadcast this admin's presence to the shared "online-users" channel
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-secondary)' }}>
