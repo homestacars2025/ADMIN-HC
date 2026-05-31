@@ -33,8 +33,16 @@ interface SourcingRow {
   asking_price: number | null;
   target_price: number | null;
   notes: string | null;
-  // client-joined
+  // Geo — id type is left wide (bigint or uuid) so existing rows never crash.
+  city_id: string | number | null;
+  district_id: string | number | null;
+  // Embedded join rows from PostgREST (geo_cities(name) / geo_districts(name)).
+  geo_cities?: { name: string } | null;
+  geo_districts?: { name: string } | null;
+  // client-joined / flattened
   model_name: string | null;
+  city_name: string | null;
+  district_name: string | null;
 }
 
 interface SourcingForm {
@@ -53,12 +61,17 @@ interface SourcingForm {
   paint_sections_count: string;
   asking_price: string;
   target_price: string;
+  city_id: string;
+  district_id: string;
   lead_status: LeadStatus;
   listing_status: ListingStatus;
   notes: string;
 }
 
 interface ModelGroupOption { id: number; name: string; }
+
+// Geo dropdown option — id kept as a string so it works for bigint or uuid PKs.
+interface GeoOption { id: string; name: string; }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -97,7 +110,7 @@ const CURRENT_YEAR   = new Date().getFullYear();
 const YEAR_OPTIONS   = Array.from({ length: CURRENT_YEAR - 2019 }, (_, i) => CURRENT_YEAR - i);
 const LEAD_STATUSES: LeadStatus[] = ['New', 'Contacted', 'Offer Sent', 'Rejected', 'Ignored'];
 
-type SortCol = 'model_year' | 'mileage_km' | 'asking_price' | 'listed_on' | 'lead_status';
+type SortCol = 'model_year' | 'mileage_km' | 'asking_price' | 'listed_on' | 'lead_status' | 'city_name' | 'district_name';
 
 const LEAD_ORDER: Record<LeadStatus, number> = {
   'New': 0, 'Contacted': 1, 'Offer Sent': 2, 'Rejected': 3, 'Ignored': 4,
@@ -109,8 +122,30 @@ const EMPTY_FORM: SourcingForm = {
   model_group_id: '', model_year: '', mileage_km: '', transmission: '',
   fuel_type: '', trim_package: '', damage_record: '', damage_value: '',
   paint_sections_count: '', asking_price: '', target_price: '',
+  city_id: '', district_id: '',
   lead_status: 'New', listing_status: 'Active', notes: '',
 };
+
+// Pins İstanbul to the top of a city list; everything else keeps its A→Z order.
+// Only affects the dropdown order — table column sorting stays purely alphabetical.
+function pinIstanbul(cities: GeoOption[]): GeoOption[] {
+  const idx = cities.findIndex(c => c.name === 'İstanbul');
+  if (idx <= 0) return cities;
+  const copy = [...cities];
+  const [ist] = copy.splice(idx, 1);
+  return [ist, ...copy];
+}
+
+// Loads active districts for a city, name-sorted. Returns [] for no city.
+async function fetchDistricts(cityId: string): Promise<GeoOption[]> {
+  const { data } = await supabase
+    .from('geo_districts')
+    .select('id, name')
+    .eq('city_id', cityId)
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+  return (data ?? []).map(d => ({ id: String(d.id), name: d.name as string }));
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -423,6 +458,110 @@ const PlainTh: React.FC<{ children: React.ReactNode; style?: React.CSSProperties
   </th>
 );
 
+// ─── Searchable single-select (typeahead) ───────────────────────────────────────
+// Shared by the City / District pickers in the modal and the toolbar filters so
+// they stay visually consistent with the modal inputs.
+
+const SearchableSelect: React.FC<{
+  value: string;
+  onChange: (id: string) => void;
+  options: GeoOption[];
+  placeholder: string;
+  disabled?: boolean;
+  disabledPlaceholder?: string;
+  height?: number;
+}> = ({ value, onChange, options, placeholder, disabled = false, disabledPlaceholder, height = 40 }) => {
+  const [open, setOpen]     = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = options.find(o => o.id === value) ?? null;
+  const filtered = search.trim()
+    ? options.filter(o => o.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setSearch(''); }
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  const shownPlaceholder = disabled ? (disabledPlaceholder ?? placeholder) : placeholder;
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => { if (!disabled) { setOpen(o => !o); setSearch(''); } }}
+        style={{
+          width: '100%', height, padding: '0 12px', boxSizing: 'border-box',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          border: '1.5px solid #e5e7eb', borderRadius: 8, fontFamily: 'inherit',
+          fontSize: height >= 40 ? 14 : 13, textAlign: 'left',
+          background: disabled ? '#f9fafb' : '#fff',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          color: selected ? '#0f1117' : '#9ca3af',
+          transition: 'border-color 150ms ease',
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected ? selected.name : shownPlaceholder}
+        </span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M6 9l6 6 6-6" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {open && !disabled && (
+        <div style={{
+          position: 'absolute', top: height + 4, left: 0, right: 0, zIndex: 200,
+          background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
+          boxShadow: '0 8px 28px rgba(0,0,0,0.12)', overflow: 'hidden',
+        }}>
+          <div style={{ padding: '8px 8px 6px' }}>
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search…"
+              style={{
+                width: '100%', height: 34, padding: '0 10px', fontSize: 13,
+                border: '1.5px solid #e5e7eb', borderRadius: 7, outline: 'none',
+                fontFamily: 'inherit', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {filtered.map(o => (
+              <button
+                key={o.id || '__all__'}
+                type="button"
+                onClick={() => { onChange(o.id); setOpen(false); setSearch(''); }}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none',
+                  background: o.id === value ? 'rgba(75,166,234,0.08)' : 'none',
+                  cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: '#374151',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f7f8fa'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = o.id === value ? 'rgba(75,166,234,0.08)' : 'none'; }}
+              >
+                {o.name}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div style={{ padding: 12, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No results</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Modal section header ───────────────────────────────────────────────────────
 
 const ModalSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
@@ -443,11 +582,12 @@ const ModalSection: React.FC<{ title: string; icon: React.ReactNode; children: R
 interface SourcingModalProps {
   editRow: SourcingRow | null;
   modelGroups: ModelGroupOption[];
+  cities: GeoOption[];
   onClose: () => void;
   onSaved: (msg: string) => void;
 }
 
-const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onClose, onSaved }) => {
+const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cities, onClose, onSaved }) => {
   const isEdit = editRow !== null;
   const [form, setForm] = useState<SourcingForm>(
     editRow ? {
@@ -466,6 +606,8 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
       paint_sections_count: editRow.paint_sections_count != null ? String(editRow.paint_sections_count) : '',
       asking_price: editRow.asking_price != null ? String(editRow.asking_price) : '',
       target_price: editRow.target_price != null ? String(editRow.target_price) : '',
+      city_id: editRow.city_id != null ? String(editRow.city_id) : '',
+      district_id: editRow.district_id != null ? String(editRow.district_id) : '',
       lead_status: editRow.lead_status,
       listing_status: editRow.listing_status,
       notes: editRow.notes ?? '',
@@ -474,6 +616,20 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
 
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Districts depend on the selected city. Reloaded whenever city_id changes.
+  // On edit, the initial city_id triggers a load and the prefilled district survives.
+  const [districts, setDistricts] = useState<GeoOption[]>([]);
+  useEffect(() => {
+    if (!form.city_id) { setDistricts([]); return; }
+    let active = true;
+    fetchDistricts(form.city_id).then(d => { if (active) setDistricts(d); });
+    return () => { active = false; };
+  }, [form.city_id]);
+
+  // Changing city resets the district selection (controlled dependent pattern).
+  const handleCityChange = (id: string) =>
+    setForm(f => ({ ...f, city_id: id, district_id: '' }));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -491,6 +647,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
     if (!form.source_platform) { setFormError('Source platform is required.'); return; }
     if (!form.model_group_id)  { setFormError('Model group is required.'); return; }
     if (!form.model_year)      { setFormError('Year is required.'); return; }
+    if (!form.city_id)         { setFormError('City is required.'); return; }
 
     setSaving(true);
 
@@ -512,6 +669,9 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
       paint_sections_count: form.paint_sections_count !== '' ? Number(form.paint_sections_count) : null,
       asking_price: form.asking_price !== '' ? Number(form.asking_price) : null,
       target_price: form.target_price !== '' ? Number(form.target_price) : null,
+      // Sent as the raw selected id (string) — Postgres coerces to bigint/uuid as needed.
+      city_id: form.city_id || null,
+      district_id: form.district_id || null,
       lead_status: form.lead_status,
       listing_status: form.listing_status,
       notes: form.notes.trim() || null,
@@ -526,7 +686,15 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
     }
 
     setSaving(false);
-    if (error) { setFormError(error.message); return; }
+    if (error) {
+      // The DB trigger that checks district↔city belonging raises an exception;
+      // surface a friendly message instead of the raw Postgres text.
+      const friendly = /district/i.test(error.message) && /city/i.test(error.message)
+        ? 'The selected district does not belong to the selected city.'
+        : error.message;
+      setFormError(friendly);
+      return;
+    }
     onSaved(isEdit ? 'Listing updated successfully' : 'Listing added successfully');
     onClose();
   };
@@ -690,6 +858,35 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
                   placeholder="e.g. Premium, Sport…" style={inp}
                   onFocus={e => (e.target.style.borderColor = '#4ba6ea')}
                   onBlur={e => (e.target.style.borderColor = '#e5e7eb')}
+                />
+              </div>
+            </div>
+          </ModalSection>
+
+          {/* Section 2b — Location */}
+          <ModalSection
+            title="Location"
+            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>}
+          >
+            <div style={row2}>
+              <div>
+                <label style={lbl}>City <span style={{ color: '#ef4444' }}>*</span></label>
+                <SearchableSelect
+                  value={form.city_id}
+                  onChange={handleCityChange}
+                  options={cities}
+                  placeholder="Select city..."
+                />
+              </div>
+              <div>
+                <label style={lbl}>District</label>
+                <SearchableSelect
+                  value={form.district_id}
+                  onChange={id => set('district_id', id)}
+                  options={districts}
+                  placeholder="Select district..."
+                  disabled={!form.city_id}
+                  disabledPlaceholder="Select city first"
                 />
               </div>
             </div>
@@ -859,6 +1056,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, onC
 const SourcingPage: React.FC = () => {
   const [rows,        setRows]        = useState<SourcingRow[]>([]);
   const [modelGroups, setModelGroups] = useState<ModelGroupOption[]>([]);
+  const [cities,      setCities]      = useState<GeoOption[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
   const [toast,       setToast]       = useState<ToastState | null>(null);
@@ -874,6 +1072,19 @@ const SourcingPage: React.FC = () => {
   const [leadFilter,      setLeadFilter]      = useState('');
   const [yearFrom,        setYearFrom]        = useState('');
   const [yearTo,          setYearTo]          = useState('');
+  const [cityFilter,      setCityFilter]      = useState('');
+  const [districtFilter,  setDistrictFilter]  = useState('');
+  const [filterDistricts, setFilterDistricts] = useState<GeoOption[]>([]);
+
+  // Toolbar district filter depends on the chosen filter city (same dependent pattern).
+  useEffect(() => {
+    if (!cityFilter) { setFilterDistricts([]); return; }
+    let active = true;
+    fetchDistricts(cityFilter).then(d => { if (active) setFilterDistricts(d); });
+    return () => { active = false; };
+  }, [cityFilter]);
+
+  const handleFilterCityChange = (id: string) => { setCityFilter(id); setDistrictFilter(''); };
 
   // Sort — default Listed On desc
   const [sortCol, setSortCol] = useState<SortCol>('listed_on');
@@ -886,15 +1097,19 @@ const SourcingPage: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [srcRes, mgRes] = await Promise.all([
-      supabase.from('sourcing').select('*').order('listed_on', { ascending: false }),
+    const [srcRes, mgRes, cityRes] = await Promise.all([
+      // Joined names pulled via the geo_cities / geo_districts foreign-key embeds.
+      supabase.from('sourcing').select('*, geo_cities(name), geo_districts(name)').order('listed_on', { ascending: false }),
       supabase.from('model_group').select('id, name').order('name'),
+      supabase.from('geo_cities').select('id, name').eq('is_active', true).order('name', { ascending: true }),
     ]);
 
     if (srcRes.error) { setError(srcRes.error.message); setLoading(false); return; }
 
     const mgData = (mgRes.data ?? []) as ModelGroupOption[];
     setModelGroups(mgData);
+    // Fetched A→Z, then İstanbul is lifted to the top for the dropdowns.
+    setCities(pinIstanbul((cityRes.data ?? []).map((c: { id: string | number; name: string }) => ({ id: String(c.id), name: c.name }))));
     const modelMap = new Map<number, string>(mgData.map(m => [m.id, m.name]));
 
     setRows(
@@ -903,6 +1118,8 @@ const SourcingPage: React.FC = () => {
         return {
           ...row,
           model_name: row.model_group_id != null ? (modelMap.get(row.model_group_id) ?? null) : null,
+          city_name:     row.geo_cities?.name     ?? null,
+          district_name: row.geo_districts?.name  ?? null,
         };
       })
     );
@@ -931,11 +1148,24 @@ const SourcingPage: React.FC = () => {
     if (leadFilter && row.lead_status !== leadFilter) return false;
     if (yearFrom && (row.model_year ?? 0) < Number(yearFrom)) return false;
     if (yearTo   && (row.model_year ?? 9999) > Number(yearTo)) return false;
+    if (cityFilter && String(row.city_id ?? '') !== cityFilter) return false;
+    if (districtFilter && String(row.district_id ?? '') !== districtFilter) return false;
     return true;
   });
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
+    // Locale-aware string columns (City / District). NULLs always sink to the
+    // bottom regardless of direction; the rest compare with Turkish collation.
+    if (sortCol === 'city_name' || sortCol === 'district_name') {
+      const an = sortCol === 'city_name' ? a.city_name : a.district_name;
+      const bn = sortCol === 'city_name' ? b.city_name : b.district_name;
+      if (!an && !bn) return 0;
+      if (!an) return 1;
+      if (!bn) return -1;
+      return an.localeCompare(bn, 'tr') * (sortDir === 'asc' ? 1 : -1);
+    }
+
     let av: number | string;
     let bv: number | string;
     switch (sortCol) {
@@ -971,10 +1201,11 @@ const SourcingPage: React.FC = () => {
   const openEdit = (row: SourcingRow) => { setEditRow(row); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditRow(null); };
 
-  const hasFilters = !!(search || platformFilter.length || statusFilter !== 'All' || leadFilter || yearFrom || yearTo);
+  const hasFilters = !!(search || platformFilter.length || statusFilter !== 'All' || leadFilter || yearFrom || yearTo || cityFilter || districtFilter);
   const resetFilters = () => {
     setSearch(''); setPlatformFilter([]); setStatusFilter('All');
     setLeadFilter(''); setYearFrom(''); setYearTo('');
+    setCityFilter(''); setDistrictFilter('');
   };
 
   const filterSel: React.CSSProperties = {
@@ -1120,6 +1351,30 @@ const SourcingPage: React.FC = () => {
           {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
+        {/* City filter */}
+        <div style={{ width: 150, flexShrink: 0 }}>
+          <SearchableSelect
+            value={cityFilter}
+            onChange={handleFilterCityChange}
+            options={[{ id: '', name: 'All Cities' }, ...cities]}
+            placeholder="All Cities"
+            height={38}
+          />
+        </div>
+
+        {/* District filter — enabled once a city is picked */}
+        <div style={{ width: 150, flexShrink: 0 }}>
+          <SearchableSelect
+            value={districtFilter}
+            onChange={setDistrictFilter}
+            options={[{ id: '', name: 'All Districts' }, ...filterDistricts]}
+            placeholder="All Districts"
+            disabled={!cityFilter}
+            disabledPlaceholder="District"
+            height={38}
+          />
+        </div>
+
         {/* Year range */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input
@@ -1163,13 +1418,15 @@ const SourcingPage: React.FC = () => {
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1420 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1560 }}>
             <thead>
               <tr>
                 <PlainTh>Source</PlainTh>
                 <PlainTh>Model</PlainTh>
                 <SortTh col="model_year"   activeCol={sortCol} dir={sortDir} onSort={handleSort}>Year</SortTh>
                 <SortTh col="mileage_km"   activeCol={sortCol} dir={sortDir} onSort={handleSort}>Mileage</SortTh>
+                <SortTh col="city_name"     activeCol={sortCol} dir={sortDir} onSort={handleSort}>City</SortTh>
+                <SortTh col="district_name" activeCol={sortCol} dir={sortDir} onSort={handleSort}>District</SortTh>
                 <PlainTh>Trans.</PlainTh>
                 <PlainTh>Fuel</PlainTh>
                 <PlainTh>Damage</PlainTh>
@@ -1187,16 +1444,16 @@ const SourcingPage: React.FC = () => {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 15 }).map((__, j) => (
+                    {Array.from({ length: 17 }).map((__, j) => (
                       <td key={j} style={{ padding: '12px 12px' }}>
-                        <div style={{ height: 13, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: [80, 100, 40, 70, 60, 55, 70, 30, 80, 70, 80, 80, 70, 55, 60][j] }} />
+                        <div style={{ height: 13, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: [80, 100, 40, 70, 70, 70, 60, 55, 70, 30, 80, 70, 80, 80, 70, 55, 60][j] }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={15} style={{ padding: '56px 20px', textAlign: 'center' }}>
+                  <td colSpan={17} style={{ padding: '56px 20px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
                       <div style={{ width: 64, height: 64, borderRadius: 18, background: 'rgba(75,166,234,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
@@ -1264,6 +1521,20 @@ const SourcingPage: React.FC = () => {
                       <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: '#374151', whiteSpace: 'nowrap' }}>
                         {fmtMileage(row.mileage_km)}
                       </span>
+                    </td>
+
+                    {/* City */}
+                    <td style={tdBase}>
+                      {row.city_name
+                        ? <span style={{ fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{row.city_name}</span>
+                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
+                    </td>
+
+                    {/* District */}
+                    <td style={tdBase}>
+                      {row.district_name
+                        ? <span style={{ fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{row.district_name}</span>
+                        : <span style={{ color: '#9ca3af', fontSize: 12 }}>—</span>}
                     </td>
 
                     {/* Transmission */}
@@ -1400,6 +1671,7 @@ const SourcingPage: React.FC = () => {
         <SourcingModal
           editRow={editRow}
           modelGroups={modelGroups}
+          cities={cities}
           onClose={closeModal}
           onSaved={(msg) => { showToast(msg, 'success'); fetchData(); }}
         />

@@ -1024,8 +1024,22 @@ const CustomersPage: React.FC = () => {
 
   const filtered = customers.filter(c => {
     if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.phone ?? '').toLowerCase().includes(q);
+    const q = search.toLowerCase().trim();
+    // Strip spaces, dashes, plus signs and parentheses so "905364" matches "+90 (536) 4…"
+    const digits = (s: string) => s.replace(/[\s\-+()]/g, '');
+    const qDigits = digits(q);
+
+    const first = (c.first_name ?? '').toLowerCase();
+    const last  = (c.last_name  ?? '').toLowerCase();
+
+    return (
+      `${first} ${last}`.includes(q) ||                                  // full name
+      first.includes(q) ||                                               // first name alone
+      last.includes(q) ||                                                // last name alone
+      (qDigits !== '' && digits((c.phone ?? '').toLowerCase()).includes(qDigits)) || // phone (digits only)
+      (c.id_number ?? '').toLowerCase().includes(q) ||                   // ID number
+      (c.nationality ?? '').toLowerCase().includes(q)                    // nationality
+    );
   });
 
   // Nationality breakdown
@@ -1160,7 +1174,7 @@ const CustomersPage: React.FC = () => {
           </svg>
           <input
             type="text"
-            placeholder="Search by name or phone…"
+            placeholder="Search by name, phone, ID number, or nationality..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ width: '100%', padding: '10px 14px 10px 38px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 11, outline: 'none', fontFamily: 'inherit', color: '#0f1117', background: '#fff', boxSizing: 'border-box', transition: 'border-color 140ms ease, box-shadow 140ms ease' }}
