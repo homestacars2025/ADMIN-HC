@@ -981,6 +981,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const [bookingNumLoading, setBookingNumLoading] = useState(mode === 'add');
   const [idLookup, setIdLookup] = useState<'idle' | 'searching' | 'found' | 'not-found'>('idle');
 
+  // True only when a pointer press *starts* on the backdrop itself, so that a
+  // click/drag that begins inside the modal (or gets retargeted to the backdrop
+  // by a scroll-into-view or re-render between mousedown and mouseup) never
+  // dismisses the modal. Protects every field, not just the ID number input.
+  const backdropPressRef   = useRef(false);
+
   const idNumberRef        = useRef<HTMLDivElement>(null);
   const idTypeRef          = useRef<HTMLDivElement>(null);
   const phoneRef           = useRef<HTMLDivElement>(null);
@@ -1480,7 +1486,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
   return ReactDOM.createPortal(
     <div
-      onClick={onClose}
+      onMouseDown={e => { backdropPressRef.current = e.target === e.currentTarget; }}
+      onClick={e => {
+        // Only dismiss when the press both started and ended on the backdrop.
+        if (e.target === e.currentTarget && backdropPressRef.current) onClose();
+        backdropPressRef.current = false;
+      }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
@@ -1694,7 +1705,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   type="number"
                   inputMode="numeric"
                   min="0"
-                  max="100"
                   step="1"
                   value={form.fuel_at_delivery}
                   onChange={e => set('fuel_at_delivery', e.target.value)}
@@ -1705,7 +1715,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 />
               </Field>
               <span style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, display: 'block' }}>
-                Enter percentage (0–100)
+                Enter any value (0 or higher)
               </span>
             </div>
 
@@ -2154,6 +2164,8 @@ const DeleteConfirm: React.FC<{
   onConfirm: () => void;
   onClose: () => void;
 }> = ({ booking, deleting, onConfirm, onClose }) => {
+  const backdropPressRef = useRef(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -2164,7 +2176,11 @@ const DeleteConfirm: React.FC<{
 
   return ReactDOM.createPortal(
     <div
-      onClick={onClose}
+      onMouseDown={e => { backdropPressRef.current = e.target === e.currentTarget; }}
+      onClick={e => {
+        if (e.target === e.currentTarget && backdropPressRef.current) onClose();
+        backdropPressRef.current = false;
+      }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',

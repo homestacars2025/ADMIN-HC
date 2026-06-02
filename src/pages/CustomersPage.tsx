@@ -12,7 +12,7 @@ interface Customer {
   nationality: string | null;
   id_type: string | null;
   id_number: string | null;
-  driving_license: string | null;
+  driving_license_number: string | null;
   address: string | null;
   birth_date: string | null;
   notes: string | null;
@@ -594,7 +594,7 @@ const EditCustomerModal: React.FC<{
     nationality:                  customer.nationality             ?? '',
     id_type:                      customer.id_type                 ?? '',
     id_number:                    customer.id_number               ?? '',
-    driving_license:              customer.driving_license         ?? '',
+    driving_license_number:       customer.driving_license_number  ?? '',
     address:                      customer.address                 ?? '',
     birth_date:                   customer.birth_date              ?? '',
     notes:                        customer.notes                   ?? '',
@@ -647,7 +647,7 @@ const EditCustomerModal: React.FC<{
         nationality:     form.nationality?.trim()     || null,
         id_type:         form.id_type?.trim()         || null,
         id_number:       form.id_number?.trim()       || null,
-        driving_license: form.driving_license?.trim() || null,
+        driving_license_number: form.driving_license_number?.trim() || null,
         address:         form.address?.trim()         || null,
         birth_date:      form.birth_date             || null,
         notes:           form.notes?.trim()           || null,
@@ -758,7 +758,7 @@ const EditCustomerModal: React.FC<{
           <div style={g2}>
             <div>
               <label style={lbl}>Driving License</label>
-              <input value={form.driving_license ?? ''} onChange={e => set('driving_license', e.target.value)} style={inp} onFocus={focusBlue} onBlur={blurGray} />
+              <input value={form.driving_license_number ?? ''} onChange={e => set('driving_license_number', e.target.value)} style={inp} onFocus={focusBlue} onBlur={blurGray} />
             </div>
             <div>
               <label style={lbl}>Birth Date</label>
@@ -890,7 +890,7 @@ const CustomerDetailView: React.FC<{
           <InfoField label="Nationality"     value={cust.nationality} />
           <InfoField label="ID Type"         value={cust.id_type} />
           <InfoField label="ID Number"       value={cust.id_number} />
-          <InfoField label="Driving License" value={cust.driving_license} />
+          <InfoField label="Driving License" value={cust.driving_license_number} />
           <InfoField label="Birth Date"      value={cust.birth_date ? fmtDate(cust.birth_date) : null} />
           <InfoField label="Address"         value={cust.address} />
         </div>
@@ -1238,7 +1238,7 @@ const CustomersPage: React.FC = () => {
                       <td style={{ padding: '10px 16px', fontSize: 13, color: c.phone ? '#6b7280' : '#d1d5db' }}>{c.phone || '—'}</td>
                       <td style={{ padding: '10px 16px', fontSize: 13, color: c.nationality ? '#374151' : '#d1d5db' }}>{c.nationality || '—'}</td>
                       <td style={{ padding: '10px 16px', fontSize: 12, fontFamily: 'monospace', color: c.id_number ? '#374151' : '#d1d5db' }}>{c.id_number || '—'}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, fontFamily: 'monospace', color: c.driving_license ? '#374151' : '#d1d5db' }}>{c.driving_license || '—'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, fontFamily: 'monospace', color: c.driving_license_number ? '#374151' : '#d1d5db' }}>{c.driving_license_number || '—'}</td>
                       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
                         <button
                           onClick={e => { e.stopPropagation(); setEditModal(c); }}
