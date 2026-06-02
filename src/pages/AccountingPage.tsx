@@ -2000,16 +2000,51 @@ const EMPTY_CUST_TX_FORM: AddCustomerTxForm = {
   direction:   'in',
 };
 
+// Bookings this customer has on the current car — every ledger row must reference one.
+interface CustBookingOption {
+  id:             number;
+  booking_number: string;
+  start_date:     string | null;
+  end_date:       string | null;
+  car_id:         number;
+}
+
 const AddCustomerTxModal: React.FC<{
   customerName: string;
   customerId:   string;
   carId:        number;
+  carPlate?:    string;
   onClose:      () => void;
   onSaved:      () => void;
-}> = ({ customerName, customerId, carId, onClose, onSaved }) => {
+}> = ({ customerName, customerId, carId, carPlate, onClose, onSaved }) => {
   const [form,   setForm]   = useState<AddCustomerTxForm>(EMPTY_CUST_TX_FORM);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
+
+  // booking_id is NOT NULL on customer_accounting_ledger, so a transaction can only
+  // be added against an existing booking. Load the customer's bookings on this car;
+  // car_id is then derived from whichever booking the user picks.
+  const [bookings,        setBookings]        = useState<CustBookingOption[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingId,       setBookingId]       = useState<number | ''>('');
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from('bookings')
+      .select('id, booking_number, start_date, end_date, car_id')
+      .eq('customer_id', customerId)
+      .eq('car_id', carId)
+      .order('start_date', { ascending: false })
+      .then(({ data }) => {
+        if (!active) return;
+        const rows = (data ?? []) as CustBookingOption[];
+        setBookings(rows);
+        if (rows.length === 1) setBookingId(rows[0].id); // only one option → preselect
+        setBookingsLoading(false);
+      });
+    return () => { active = false; };
+  }, [customerId, carId]);
 
   const set = (k: keyof AddCustomerTxForm, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
@@ -2019,23 +2054,33 @@ const AddCustomerTxModal: React.FC<{
     setForm(prev => ({ ...prev, typePreset: preset, direction: dir ?? prev.direction }));
   };
 
+  const canSave = !saving && bookings.length > 0 && bookingId !== '';
+
   const handleSave = async () => {
     const amount    = parseFloat(form.amount);
     const typeValue = form.typePreset === 'other' ? (form.typeCustom.trim() || null) : (form.typePreset || null);
+    const booking   = bookings.find(b => b.id === bookingId);
+    if (!booking) {
+      setError('Please select the booking this transaction belongs to.');
+      return;
+    }
     if (!form.date || isNaN(amount) || amount <= 0) {
       setError('Date and a valid amount are required.');
       return;
     }
     setSaving(true);
     setError(null);
+    const { data: { user } } = await supabase.auth.getUser();
     const { error: err } = await supabase.from('customer_accounting_ledger').insert({
+      booking_id:   booking.id,
       customer_id:  customerId,
-      car_id:       carId,
-      created_at:   form.date,
+      car_id:       booking.car_id,           // derived from the chosen booking
       type:         typeValue,
-      description:  form.description || null,
       amount,
       direction:    form.direction.toUpperCase(),
+      description:  form.description || null,
+      created_at:   form.date,                // date column on this table
+      created_by:   user?.id ?? null,
     });
     setSaving(false);
     if (err) { setError(err.message); return; }
@@ -2070,6 +2115,35 @@ const AddCustomerTxModal: React.FC<{
 
         {/* Form */}
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Booking (required — every transaction is tied to a booking) */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Booking</div>
+            {bookingsLoading ? (
+              <div style={{ fontSize: 12, color: '#9ca3af', padding: '9px 2px' }}>Loading bookings…</div>
+            ) : bookings.length === 0 ? (
+              <div style={{ fontSize: 12, color: '#b45309', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8, padding: '8px 12px' }}>
+                This customer has no bookings on this car yet — create one first.
+              </div>
+            ) : (
+              <select
+                value={bookingId === '' ? '' : String(bookingId)}
+                onChange={e => setBookingId(e.target.value ? Number(e.target.value) : '')}
+                style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' as React.CSSProperties['appearance'], backgroundImage: selectArrow, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: 32, color: bookingId === '' ? '#9ca3af' : '#0f1117' }}
+                onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
+                onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}
+              >
+                <option value="" disabled>Select booking…</option>
+                {bookings.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.booking_number}
+                    {carPlate ? ` · ${carPlate}` : ''}
+                    {b.start_date ? ` · ${b.start_date}${b.end_date ? ` → ${b.end_date}` : ''}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
           {/* Date + Direction row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -2150,7 +2224,7 @@ const AddCustomerTxModal: React.FC<{
             <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={handleSave} disabled={!canSave} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: canSave ? '#4ba6ea' : '#d1d5db', color: '#fff', fontSize: 13, fontWeight: 600, cursor: canSave ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
               {saving ? 'Saving…' : 'Add Transaction'}
             </button>
           </div>
@@ -3002,6 +3076,7 @@ export const CarCustomerSheetPage: React.FC = () => {
           customerName={addModal.customerName}
           customerId={addModal.customerId}
           carId={carId}
+          carPlate={car?.plate_number}
           onClose={() => setAddModal(null)}
           onSaved={() => { setAddModal(null); loadData(); }}
         />
