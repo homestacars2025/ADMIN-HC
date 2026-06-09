@@ -52,7 +52,11 @@ export default async function handler(req: Request): Promise<Response> {
   let stage = 'init';
   let extra: unknown = null;
   let contentId: string | undefined;
-  let socialSupa: SupabaseClient | undefined;
+  // Typed as `any`: the Supabase JS client's default types only know the
+  // `public` schema, so a `{ schema: 'social' }` client isn't assignable to
+  // SupabaseClient. The schema exists at runtime — type-tightness isn't useful
+  // here. This also clears the spurious "possibly undefined" at call sites.
+  let socialSupa: any;
 
   try {
     // ── 0. Env + clients ────────────────────────────────────────────────────────
