@@ -7,11 +7,18 @@
 // (no CORS, no separate deploy). It is a direct port of the former Supabase
 // Edge Function — same logic, different runtime.
 //
+// Uses the canonical Vercel Node signature `(req, res)` (NOT the web-standard
+// Request/Response form, which @vercel/node may not invoke correctly for a
+// non-Next /api function — that produced FUNCTION_INVOCATION_FAILED). req/res
+// are typed loosely as `any` to avoid pulling in the @vercel/node types as a
+// dependency. All clients are lazy-initialised inside the handler so missing
+// env vars surface as readable JSON instead of crashing the function.
+//
 // Runtime: Node.js (default — required; Edge has payload size limits that break
 // large base64 image uploads). maxDuration raised for slower Gemini responses.
 export const config = { maxDuration: 120 };
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 const MOODS = ['daylight', 'golden_hour', 'blue_hour_night', 'overcast'] as const;
 const ENVS = ['city', 'coastal', 'mountains', 'forest', 'highway', 'architecture'] as const;
@@ -30,11 +37,26 @@ function pickEnv(recentEnvs: string[]): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+// Vercel auto-parses JSON bodies into req.body, but be defensive about string /
+// Buffer bodies too.
+function parseBody(req: any): any {
+  const b = req?.body;
+  if (!b) return {};
+  if (typeof b === 'string') {
+    try {
+      return JSON.parse(b);
+    } catch {
+      return {};
+    }
+  }
+  if (Buffer.isBuffer(b)) {
+    try {
+      return JSON.parse(b.toString('utf8'));
+    } catch {
+      return {};
+    }
+  }
+  return b;
 }
 
 type CarRow = {
@@ -43,49 +65,42 @@ type CarRow = {
   car_photo_urls: { url: string; name: string; uploaded_at: string }[] | null;
 };
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: any, res: any): Promise<void> {
   if (req.method !== 'POST') {
-    return json({ ok: false, error: 'Method not allowed' }, 405);
+    res.status(405).json({ ok: false, error: 'Method not allowed' });
+    return;
   }
 
   // Stage tracking + extra context for the unified error response below.
   let stage = 'init';
   let extra: unknown = null;
   let contentId: string | undefined;
-  // Typed as `any`: the Supabase JS client's default types only know the
-  // `public` schema, so a `{ schema: 'social' }` client isn't assignable to
-  // SupabaseClient. The schema exists at runtime — type-tightness isn't useful
-  // here. This also clears the spurious "possibly undefined" at call sites.
   let socialSupa: any;
 
   try {
     // ── 0. Env + clients ────────────────────────────────────────────────────────
-    stage = 'env';
+    stage = 'init_supabase';
     const supabaseUrl = process.env.SUPABASE_URL ?? process.env.REACT_APP_SUPABASE_URL;
     const serviceKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.REACT_APP_SUPABASE_SERVICE_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
 
-    if (!supabaseUrl || !serviceKey) {
-      throw new Error('Supabase URL or service role key not configured on the server.');
+    if (!supabaseUrl) throw new Error('Missing SUPABASE_URL (or REACT_APP_SUPABASE_URL) env var');
+    if (!serviceKey) {
+      throw new Error(
+        'Missing SUPABASE_SERVICE_ROLE_KEY (or REACT_APP_SUPABASE_SERVICE_KEY) env var',
+      );
     }
-    if (!geminiKey) {
-      throw new Error('GEMINI_API_KEY is not set on the server (add it to Vercel env vars).');
-    }
+    if (!geminiKey) throw new Error('Missing GEMINI_API_KEY env var');
 
     const publicSupa = createClient(supabaseUrl, serviceKey);
     socialSupa = createClient(supabaseUrl, serviceKey, { db: { schema: 'social' } });
 
     // ── Parse body ──────────────────────────────────────────────────────────────
     stage = 'parse_body';
-    let mode: 'create' | 'regenerate';
-    try {
-      const body = await req.json();
-      contentId = body.content_id;
-      mode = body.mode === 'regenerate' ? 'regenerate' : 'create';
-    } catch {
-      throw new Error('Invalid JSON body');
-    }
+    const body = parseBody(req);
+    contentId = body.content_id;
+    const mode: 'create' | 'regenerate' = body.mode === 'regenerate' ? 'regenerate' : 'create';
     if (!contentId) {
       throw new Error('content_id is required');
     }
@@ -338,7 +353,7 @@ ${imageConstitution}`;
     // ── 14. Return ───────────────────────────────────────────────────────────────
     stage = 'done';
     console.log('[generate-image] stage:done', { image_url: publicUrl });
-    return json({
+    res.status(200).json({
       ok: true,
       image_url: publicUrl,
       model_used: 'gemini-2.5-flash-image',
@@ -348,22 +363,19 @@ ${imageConstitution}`;
   } catch (err) {
     const e = err as { message?: string; stack?: string };
     console.error(`[generate-image] FAILED at stage:${stage}`, e?.message, e?.stack);
-    return json(
-      {
-        ok: false,
-        stage,
-        error_message: e?.message ?? String(err),
-        error_stack_first_500: (e?.stack ?? '').slice(0, 500),
-        extra,
-      },
-      500,
-    );
+    res.status(500).json({
+      ok: false,
+      stage,
+      error_message: e?.message ?? String(err),
+      error_stack_first_500: (e?.stack ?? '').slice(0, 500),
+      extra,
+    });
   }
 }
 
 // Best-effort revert of a row stuck in 'generating' back to 'not_started' so the
 // admin can retry. Swallows its own errors — the caller is already failing.
-async function revertGenerating(client: SupabaseClient, contentId: string): Promise<void> {
+async function revertGenerating(client: any, contentId: string): Promise<void> {
   try {
     await client
       .from('sm_content_social')
