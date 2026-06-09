@@ -190,11 +190,15 @@ const ImageSection: React.FC<{
     // Optimistically set status to 'generating' so polling starts if user navigates away
     onUpdated({ ...post, image_status: 'generating' });
     try {
-      const { data, error } = await supabase.functions.invoke('generate-image', {
-        body: { content_id: post.id, mode },
+      const res = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: post.id, mode }),
       });
-      if (error) throw new Error(error.message);
-      if (!data?.ok) throw new Error(data?.error ?? 'Unknown error from image generator');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error ?? `Image generator failed (HTTP ${res.status})`);
+      }
       // Fetch the fresh row
       const { data: fresh } = await socialFrom('sm_content_social').select('*').eq('id', post.id).single();
       if (fresh) onUpdated(fresh as ContentPost);
