@@ -11,7 +11,7 @@
 // large base64 image uploads). maxDuration raised for slower Gemini responses.
 export const config = { maxDuration: 120 };
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const MOODS = ['daylight', 'golden_hour', 'blue_hour_night', 'overcast'] as const;
 const ENVS = ['city', 'coastal', 'mountains', 'forest', 'highway', 'architecture'] as const;
@@ -48,62 +48,77 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ ok: false, error: 'Method not allowed' }, 405);
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.REACT_APP_SUPABASE_URL;
-  const serviceKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.REACT_APP_SUPABASE_SERVICE_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    return json(
-      { ok: false, error: 'Supabase URL or service role key not configured on the server.' },
-      500,
-    );
-  }
-  if (!geminiKey) {
-    return json(
-      { ok: false, error: 'GEMINI_API_KEY is not set on the server (add it to Vercel env vars).' },
-      500,
-    );
-  }
-
-  const publicSupa = createClient(supabaseUrl, serviceKey);
-  const socialSupa = createClient(supabaseUrl, serviceKey, { db: { schema: 'social' } });
-
-  // ── Parse body ──────────────────────────────────────────────────────────────
-  let contentId: string;
-  let mode: 'create' | 'regenerate';
-  try {
-    const body = await req.json();
-    contentId = body.content_id;
-    mode = body.mode === 'regenerate' ? 'regenerate' : 'create';
-  } catch {
-    return json({ ok: false, error: 'Invalid JSON body' }, 400);
-  }
-  if (!contentId) {
-    return json({ ok: false, error: 'content_id is required' }, 400);
-  }
+  // Stage tracking + extra context for the unified error response below.
+  let stage = 'init';
+  let extra: unknown = null;
+  let contentId: string | undefined;
+  let socialSupa: SupabaseClient | undefined;
 
   try {
+    // ── 0. Env + clients ────────────────────────────────────────────────────────
+    stage = 'env';
+    const supabaseUrl = process.env.SUPABASE_URL ?? process.env.REACT_APP_SUPABASE_URL;
+    const serviceKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.REACT_APP_SUPABASE_SERVICE_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error('Supabase URL or service role key not configured on the server.');
+    }
+    if (!geminiKey) {
+      throw new Error('GEMINI_API_KEY is not set on the server (add it to Vercel env vars).');
+    }
+
+    const publicSupa = createClient(supabaseUrl, serviceKey);
+    socialSupa = createClient(supabaseUrl, serviceKey, { db: { schema: 'social' } });
+
+    // ── Parse body ──────────────────────────────────────────────────────────────
+    stage = 'parse_body';
+    let mode: 'create' | 'regenerate';
+    try {
+      const body = await req.json();
+      contentId = body.content_id;
+      mode = body.mode === 'regenerate' ? 'regenerate' : 'create';
+    } catch {
+      throw new Error('Invalid JSON body');
+    }
+    if (!contentId) {
+      throw new Error('content_id is required');
+    }
+
     // ── 1. Read the content row ─────────────────────────────────────────────────
+    stage = 'read_row';
+    console.log('[generate-image] stage:read_row', { content_id: contentId });
     const { data: post, error: postErr } = await socialSupa
       .from('sm_content_social')
       .select('*')
       .eq('id', contentId)
       .single();
 
-    if (postErr || !post) {
-      return json({ ok: false, error: 'Content row not found' }, 404);
+    if (postErr) {
+      extra = postErr;
+      throw new Error(`read_row failed: ${postErr.message}`);
+    }
+    if (!post) {
+      throw new Error('Content row not found');
     }
     if (post.status !== 'approved') {
-      return json({ ok: false, error: 'Text not approved yet — approve the content first.' }, 400);
+      throw new Error('Text not approved yet — approve the content first.');
     }
 
     // ── 2. Read constitutions ───────────────────────────────────────────────────
-    const { data: bots } = await socialSupa
+    stage = 'read_bots';
+    console.log('[generate-image] stage:read_bots', { content_id: contentId });
+    const { data: bots, error: botsErr } = await socialSupa
       .from('sm_bots')
       .select('bot_name, constitution')
       .in('bot_name', ['general', 'image_generator'])
       .eq('is_active', true);
+
+    if (botsErr) {
+      extra = botsErr;
+      throw new Error(`read_bots failed: ${botsErr.message}`);
+    }
 
     const generalConstitution =
       bots?.find((b: { bot_name: string }) => b.bot_name === 'general')?.constitution ?? '';
@@ -126,20 +141,24 @@ export default async function handler(req: Request): Promise<Response> {
       .filter(Boolean) as string[];
 
     // ── 4. Pick a car with photos ───────────────────────────────────────────────
-    const { data: allCars } = await publicSupa
+    stage = 'pick_car';
+    const { data: allCars, error: carsErr } = await publicSupa
       .from('cars')
       .select('id, model_group_id, car_photo_urls')
       .eq('is_active', true);
 
+    if (carsErr) {
+      extra = carsErr;
+      throw new Error(`pick_car query failed: ${carsErr.message}`);
+    }
+
     const carsWithPhotos: CarRow[] = ((allCars ?? []) as CarRow[]).filter(
       (c) => Array.isArray(c.car_photo_urls) && c.car_photo_urls.length > 0,
     );
+    console.log('[generate-image] stage:pick_car', { candidates_count: carsWithPhotos.length });
 
     if (carsWithPhotos.length === 0) {
-      return json(
-        { ok: false, error: 'No active cars with photos found. Upload car photos first.' },
-        422,
-      );
+      throw new Error('No active cars with photos found. Upload car photos first.');
     }
 
     const preferredCars = carsWithPhotos.filter((c) => !recentModelGroups.includes(c.model_group_id!));
@@ -152,9 +171,11 @@ export default async function handler(req: Request): Promise<Response> {
     const photoUrl = chosenPhoto.url;
 
     // ── 6. Download photo → base64 ──────────────────────────────────────────────
+    stage = 'download_photo';
+    console.log('[generate-image] stage:download_photo', { photo_url: photoUrl });
     const photoRes = await fetch(photoUrl);
     if (!photoRes.ok) {
-      return json({ ok: false, error: `Failed to download car photo: HTTP ${photoRes.status}` }, 500);
+      throw new Error(`Failed to download car photo: HTTP ${photoRes.status}`);
     }
     const photoBuffer = Buffer.from(await photoRes.arrayBuffer());
     const photoBase64 = photoBuffer.toString('base64');
@@ -196,6 +217,11 @@ ${imageConstitution}`;
       .eq('id', contentId);
 
     // ── 10. Call Gemini ─────────────────────────────────────────────────────────
+    stage = 'gemini_call';
+    console.log('[generate-image] stage:gemini_call', {
+      prompt_length: prompt.length,
+      base64_size_kb: Math.round(photoBase64.length / 1024),
+    });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 90_000);
 
@@ -225,30 +251,24 @@ ${imageConstitution}`;
         },
       );
     } catch (fetchErr) {
-      await socialSupa
-        .from('sm_content_social')
-        .update({ image_status: 'not_started' })
-        .eq('id', contentId);
-      return json({ ok: false, error: `Gemini request failed: ${String(fetchErr)}` }, 502);
+      await revertGenerating(socialSupa, contentId);
+      extra = String(fetchErr);
+      throw new Error(`Gemini request failed: ${String(fetchErr)}`);
     } finally {
       clearTimeout(timeout);
     }
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      await socialSupa
-        .from('sm_content_social')
-        .update({ image_status: 'not_started' })
-        .eq('id', contentId);
-      return json(
-        { ok: false, error: `Gemini API error ${geminiRes.status}: ${errText.slice(0, 200)}` },
-        502,
-      );
+      await revertGenerating(socialSupa, contentId);
+      extra = errText.slice(0, 500);
+      throw new Error(`Gemini API error ${geminiRes.status}`);
     }
 
     const geminiData = await geminiRes.json();
 
     // ── 11. Extract the image ────────────────────────────────────────────────────
+    stage = 'extract_image';
     const parts = geminiData?.candidates?.[0]?.content?.parts ?? [];
     let imageBase64: string | null = null;
     for (const part of parts) {
@@ -260,20 +280,17 @@ ${imageConstitution}`;
     }
 
     if (!imageBase64) {
-      await socialSupa
-        .from('sm_content_social')
-        .update({ image_status: 'not_started' })
-        .eq('id', contentId);
+      await revertGenerating(socialSupa, contentId);
       const textPart = parts.find((p: { text?: string }) => p.text)?.text ?? '';
-      return json(
-        { ok: false, error: `Gemini returned no image. Model response: ${textPart.slice(0, 200)}` },
-        502,
-      );
+      extra = textPart.slice(0, 500);
+      throw new Error('Gemini returned no image');
     }
 
     // ── 12. Upload to storage ────────────────────────────────────────────────────
+    stage = 'upload';
     const imgBytes = Buffer.from(imageBase64, 'base64');
     const storagePath = `poster_${contentId}_${Date.now()}.png`;
+    console.log('[generate-image] stage:upload', { path: storagePath });
 
     const { error: uploadErr } = await publicSupa.storage
       .from('generated-images')
@@ -283,11 +300,9 @@ ${imageConstitution}`;
       });
 
     if (uploadErr) {
-      await socialSupa
-        .from('sm_content_social')
-        .update({ image_status: 'not_started' })
-        .eq('id', contentId);
-      return json({ ok: false, error: `Storage upload failed: ${uploadErr.message}` }, 500);
+      await revertGenerating(socialSupa, contentId);
+      extra = uploadErr;
+      throw new Error(`Storage upload failed: ${uploadErr.message}`);
     }
 
     const {
@@ -295,7 +310,8 @@ ${imageConstitution}`;
     } = publicSupa.storage.from('generated-images').getPublicUrl(storagePath);
 
     // ── 13. Update the row ───────────────────────────────────────────────────────
-    await socialSupa
+    stage = 'update_row';
+    const { error: updateErr } = await socialSupa
       .from('sm_content_social')
       .update({
         generated_images: [{ url: publicUrl, order: 1 }],
@@ -310,7 +326,14 @@ ${imageConstitution}`;
       })
       .eq('id', contentId);
 
+    if (updateErr) {
+      extra = updateErr;
+      throw new Error(`update_row failed: ${updateErr.message}`);
+    }
+
     // ── 14. Return ───────────────────────────────────────────────────────────────
+    stage = 'done';
+    console.log('[generate-image] stage:done', { image_url: publicUrl });
     return json({
       ok: true,
       image_url: publicUrl,
@@ -319,6 +342,30 @@ ${imageConstitution}`;
       mood: chosenMood,
     });
   } catch (err) {
-    return json({ ok: false, error: String(err) }, 500);
+    const e = err as { message?: string; stack?: string };
+    console.error(`[generate-image] FAILED at stage:${stage}`, e?.message, e?.stack);
+    return json(
+      {
+        ok: false,
+        stage,
+        error_message: e?.message ?? String(err),
+        error_stack_first_500: (e?.stack ?? '').slice(0, 500),
+        extra,
+      },
+      500,
+    );
+  }
+}
+
+// Best-effort revert of a row stuck in 'generating' back to 'not_started' so the
+// admin can retry. Swallows its own errors — the caller is already failing.
+async function revertGenerating(client: SupabaseClient, contentId: string): Promise<void> {
+  try {
+    await client
+      .from('sm_content_social')
+      .update({ image_status: 'not_started' })
+      .eq('id', contentId);
+  } catch {
+    /* ignore */
   }
 }

@@ -195,9 +195,14 @@ const ImageSection: React.FC<{
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content_id: post.id, mode }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('[image-gen] server error:', res.status, text);
+        throw new Error(`Image generator failed (HTTP ${res.status}): ${text.slice(0, 400)}`);
+      }
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error ?? `Image generator failed (HTTP ${res.status})`);
+      if (!data?.ok) {
+        throw new Error(data?.error ?? 'Image generator returned an unexpected response');
       }
       // Fetch the fresh row
       const { data: fresh } = await socialFrom('sm_content_social').select('*').eq('id', post.id).single();
