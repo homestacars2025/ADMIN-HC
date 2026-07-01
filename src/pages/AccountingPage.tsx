@@ -62,16 +62,25 @@ interface CarInfo {
 
 type PanelKey = 'company' | 'personal' | 'buy_sell' | `car:${number}`;
 
-interface InternalFinanceRow {
+interface CompanyExpenseRow {
   id: number;
   created_at: string;
-  operation_date: string;
-  amount: number;
+  expense_date: string;
   direction: 'IN' | 'OUT';
   category: string | null;
-  employee_id: string | null;
-  notes: string | null;
+  amount: number;
+  description: string | null;
   receipt_url: string | null;
+  car_id: number | null;
+  created_by: string | null;
+}
+
+interface EmployeeWalletBalance {
+  employee_id: string;
+  full_name: string | null;
+  total_in: number;
+  total_out: number;
+  balance: number;
 }
 
 interface ProfileRow {
@@ -211,7 +220,7 @@ const SheetCard: React.FC<{
 const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; monthKey: string }> = ({ txs, loading, monthKey }) => {
   const { fmt } = useCurrency();
   const [carsMap, setCarsMap] = useState<Map<number, { plate: string; model: string }>>(new Map());
-  const [ifData,  setIfData]  = useState<Pick<InternalFinanceRow, 'amount' | 'direction'>[]>([]);
+  const [ifData,  setIfData]  = useState<Pick<CompanyExpenseRow, 'amount' | 'direction'>[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,17 +237,17 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch internal_finance for this month — same source as CompanyExpensesTab
+  // Fetch company_expenses for this month — same source as CompanyExpensesTab
   useEffect(() => {
     let cancelled = false;
     const { start, end } = monthDateRange(monthKey);
-    supabase.from('internal_finance')
+    supabase.from('company_expenses')
       .select('amount, direction')
-      .gte('operation_date', start)
-      .lt('operation_date', end)
+      .gte('expense_date', start)
+      .lt('expense_date', end)
       .then(({ data }) => {
         if (cancelled) return;
-        setIfData((data ?? []) as Pick<InternalFinanceRow, 'amount' | 'direction'>[]);
+        setIfData((data ?? []) as Pick<CompanyExpenseRow, 'amount' | 'direction'>[]);
       });
     return () => { cancelled = true; };
   }, [monthKey]);
@@ -260,7 +269,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
   // ── Treasury values ───────────────────────────────────────────────────────
   // Green card: commission — positive income value
   const homestaCommission = commission;
-  // Red card: same query as CompanyExpensesTab (internal_finance OUT rows) — positive display value
+  // Red card: same query as CompanyExpensesTab (company_expenses OUT rows) — positive display value
   const homestaExpenses = ifData.filter(r => r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
   // Hero: signed sum — expenses are outflows so carry a negative sign;
   // adding the signed value avoids any hardcoded +/− on the card values themselves
@@ -1655,7 +1664,7 @@ const InvestorSummaryView: React.FC<{
                     Total Treasury
                   </div>
                   <div style={{ fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.26)', letterSpacing: '0.3px', marginTop: 3 }}>
-                    Toplam Kasa · إجمالي الخزينة
+                    All sheets combined
                   </div>
                 </div>
               </div>
@@ -1820,16 +1829,16 @@ const InvestorSummaryView: React.FC<{
 
 // ─── Internal Finance Overview ────────────────────────────────────────────────
 
-const IF_EXPENSE_CATS = ['salaries', 'rent', 'operations', 'marketing', 'maintenance', 'emergency', 'fines', 'other'] as const;
-const IF_CAT_LABELS: Record<string, string> = {
-  salaries: 'Salaries', rent: 'Rent', operations: 'Operations',
-  marketing: 'Marketing', maintenance: 'Maintenance', emergency: 'Emergency',
-  fines: 'Fines', other: 'Other',
-};
-const IF_CAT_ICONS: Record<string, string> = {
-  salaries: '👥', rent: '🏢', operations: '⚙️', marketing: '📣',
-  maintenance: '🔧', emergency: '🚨', fines: '⚖️', other: '📦',
-};
+// Company-expense categories. Stored as free text in company_expenses.category —
+// these are suggested presets shown in the UI, not a rigid DB enum.
+const COMPANY_EXPENSE_CATEGORIES = [
+  { value: 'marketing',   label: 'Marketing',   icon: '📣' },
+  { value: 'operations',  label: 'Operations',  icon: '⚙️' },
+  { value: 'branch',      label: 'Branch',      icon: '🏢' },
+  { value: 'maintenance', label: 'Maintenance', icon: '🔧' },
+  { value: 'food',        label: 'Food',        icon: '🍽️' },
+  { value: 'other',       label: 'Other',       icon: '📦' },
+] as const;
 
 function monthDateRange(monthKey: string): { start: string; end: string } {
   const [y, m] = monthKey.split('-').map(Number);
@@ -3200,35 +3209,24 @@ const AddFinancialTxModal: React.FC<{
     const sheet_type = isCarSheet ? 'car' : form.sheet_target;
     const car_id     = isCarSheet ? parseInt(form.sheet_target.replace('car:', ''), 10) : null;
 
-    const isRentCollection = sheet_type === 'car' && form.category === 'Rent Collection';
-
-    const baseRow = {
+    // Insert only the main transaction row. For car-sheet Rent Collection entries
+    // the database trigger automatically creates the matching commission row, so
+    // the frontend must not insert it (would double up).
+    const row = {
       investor_id: form.investor_id,
       sheet_type,
       car_id:      car_id ?? null,
       month_key,
       date:        form.date,
       note:        form.note || null,
+      direction:   form.direction,
+      category:    form.category || null,
+      amount,
     };
-
-    const commissionAmount = isRentCollection && commissionRate != null
-      ? parseFloat((amount * (commissionRate / 100)).toFixed(2))
-      : 0;
-
-    const rows = isRentCollection && commissionRate != null && commissionAmount > 0
-      ? [
-          // Row 1 — Rent Collection as entered
-          { ...baseRow, direction: form.direction, category: 'Rent Collection', amount },
-          // Row 2 — Commission auto-generated (only when commission > 0)
-          { ...baseRow, direction: 'OUT', category: 'Commission', amount: commissionAmount, note: 'Homesta COM' },
-        ]
-      : [
-          { ...baseRow, direction: form.direction, category: form.category || null, amount },
-        ];
 
     setSaving(true);
     setError(null);
-    const { error: err } = await supabase.from('financial_transactions').insert(rows);
+    const { error: err } = await supabase.from('financial_transactions').insert(row);
     setSaving(false);
     if (err) { setError(err.message); return; }
     onSaved();
@@ -3423,496 +3421,15 @@ const AddFinancialTxModal: React.FC<{
   );
 };
 
-// ─── Company Expenses Tab ─────────────────────────────────────────────────────
-
-interface CompanyExpense {
-  id: number;
-  created_at: string;
-  operation_date: string | null;
-  category: string | null;
-  amount: number;
-  direction: string | null;
-  car_id: number | null;
-  handled_by: string | null;
-  notes: string | null;
-  created_by: string | null;
-  payment_receipt_url: string | null;
-}
-
-interface ExpenseFormData {
-  operation_date: string;
-  category: string;
-  amount: string;
-  direction: 'IN' | 'OUT';
-  car_id: string;
-  handled_by: string;
-  notes: string;
-}
-
-const EMPTY_EXPENSE_FORM: ExpenseFormData = {
-  operation_date: new Date().toISOString().slice(0, 10),
-  category: '', amount: '', direction: 'OUT', car_id: '', handled_by: '', notes: '',
-};
-
-const EXPENSE_CATEGORIES = [
-  'Rent', 'Utilities', 'Salaries', 'Maintenance', 'Marketing',
-  'Insurance', 'Office Supplies', 'Fuel', 'Cleaning', 'Software', 'Other',
-];
-
-const CompanyExpenseModal: React.FC<{
-  expense?: CompanyExpense;
-  cars:     { id: number; label: string }[];
-  profiles: { id: string; name: string }[];
-  onClose:  () => void;
-  onSaved:  () => void;
-}> = ({ expense, cars, profiles, onClose, onSaved }) => {
-  const isEdit = !!expense;
-  const [form, setForm] = useState<ExpenseFormData>(
-    isEdit ? {
-      operation_date: expense.operation_date ?? new Date().toISOString().slice(0, 10),
-      category:   expense.category   ?? '',
-      amount:     String(expense.amount ?? ''),
-      direction:  (expense.direction?.toUpperCase() === 'IN' ? 'IN' : 'OUT') as 'IN' | 'OUT',
-      car_id:     expense.car_id != null ? String(expense.car_id) : '',
-      handled_by: expense.handled_by ?? '',
-      notes:      expense.notes      ?? '',
-    } : EMPTY_EXPENSE_FORM,
-  );
-  const [receiptFile,    setReceiptFile]    = useState<File | null>(null);
-  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
-  const [saving,         setSaving]         = useState(false);
-  const [saveStep,       setSaveStep]       = useState('');
-  const [error,          setError]          = useState<string | null>(null);
-
-  // Build blob preview URL for selected image file
-  useEffect(() => {
-    if (!receiptFile || receiptFile.type === 'application/pdf') { setReceiptPreview(null); return; }
-    const url = URL.createObjectURL(receiptFile);
-    setReceiptPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [receiptFile]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const inp: React.CSSProperties = {
-    width: '100%', padding: '9px 12px', fontSize: 13,
-    border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none',
-    fontFamily: 'inherit', color: '#0f1117', background: '#fff',
-    boxSizing: 'border-box', transition: 'border-color 140ms ease',
-  };
-  const focusB = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    { (e.target as HTMLElement).style.borderColor = '#4ba6ea'; };
-  const blurG  = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    { (e.target as HTMLElement).style.borderColor = '#e5e7eb'; };
-  const lbl: React.CSSProperties = {
-    fontSize: 11, fontWeight: 600, color: '#6b7280',
-    textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block',
-  };
-
-  const handleSave = async () => {
-    if (!form.operation_date) { setError('Date is required.'); return; }
-    const amount = parseFloat(form.amount);
-    if (isNaN(amount) || amount <= 0) { setError('Enter a valid amount.'); return; }
-
-    setSaving(true); setError(null);
-
-    // ── Receipt upload ────────────────────────────────────────────────────────
-    let receiptUrl: string | null = isEdit ? (expense!.payment_receipt_url ?? null) : null;
-
-    if (receiptFile) {
-      setSaveStep('Uploading receipt…');
-
-      // Build file name components
-      const handlerName = form.handled_by
-        ? (profiles.find(p => p.id === form.handled_by)?.name ?? 'unknown').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
-        : 'unknown';
-
-      const [y, m] = form.operation_date.split('-').map(Number);
-      const mm = String(m).padStart(2, '0');
-      const yy = String(y).slice(-2);
-
-      // Count existing rows for same handler + month to get operation_number
-      const monthStart = `${form.operation_date.slice(0, 7)}-01`;
-      const monthEnd   = `${form.operation_date.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
-      let countQuery = supabase
-        .from('company_expenses')
-        .select('id', { count: 'exact', head: true })
-        .gte('operation_date', monthStart)
-        .lte('operation_date', monthEnd);
-      if (form.handled_by) countQuery = countQuery.eq('handled_by', form.handled_by);
-      // In edit mode exclude current row from count
-      if (isEdit) countQuery = (countQuery as typeof countQuery).neq('id', expense!.id);
-      const { count } = await countQuery;
-      const opNum = (count ?? 0) + 1;
-
-      const ext = receiptFile.name.includes('.') ? receiptFile.name.split('.').pop()! : 'jpg';
-      const filePath = `${handlerName}-${mm}-${yy}-${opNum}.${ext}`;
-
-      const { error: upErr } = await supabase.storage
-        .from('company_expenses')
-        .upload(filePath, receiptFile, { upsert: true });
-
-      if (upErr) {
-        setSaving(false); setSaveStep('');
-        setError(`Upload failed: ${upErr.message}`);
-        return;
-      }
-      const { data: urlData } = supabase.storage.from('company_expenses').getPublicUrl(filePath);
-      receiptUrl = urlData.publicUrl;
-    }
-
-    setSaveStep('Saving…');
-    const payload = {
-      operation_date:      form.operation_date,
-      category:            form.category   || null,
-      amount,
-      direction:           form.direction,
-      car_id:              form.car_id     ? Number(form.car_id) : null,
-      handled_by:          form.handled_by || null,
-      notes:               form.notes      || null,
-      payment_receipt_url: receiptUrl,
-    };
-
-    const { error: err } = isEdit
-      ? await supabase.from('company_expenses').update(payload).eq('id', expense!.id)
-      : await supabase.from('company_expenses').insert(payload);
-
-    setSaving(false); setSaveStep('');
-    if (err) { setError(err.message); return; }
-    onSaved(); onClose();
-  };
-
-  const existingReceiptUrl = isEdit ? (expense!.payment_receipt_url ?? null) : null;
-  const existingIsPdf = existingReceiptUrl?.toLowerCase().includes('.pdf');
-
-  return ReactDOM.createPortal(
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
-    >
-      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 520, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-
-        {/* Header */}
-        <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>{isEdit ? 'Edit Expense' : 'Add New Expense'}</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>company_expenses</div>
-          </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
-          </button>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '22px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Date + Amount */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={lbl}>Date <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="date" value={form.operation_date} onChange={e => setForm(f => ({ ...f, operation_date: e.target.value }))} style={inp} onFocus={focusB} onBlur={blurG} />
-            </div>
-            <div>
-              <label style={lbl}>Amount (TRY) <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inp} onFocus={focusB} onBlur={blurG} />
-            </div>
-          </div>
-
-          {/* Direction */}
-          <div>
-            <label style={lbl}>Direction</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {(['OUT', 'IN'] as const).map(d => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, direction: d }))}
-                  style={{
-                    flex: 1, height: 40, borderRadius: 9, fontFamily: 'inherit', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 700, transition: 'all 140ms ease',
-                    border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
-                    background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
-                    color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280',
-                  }}
-                >
-                  {d === 'IN' ? '↓ IN — Income' : '↑ OUT — Expense'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Category */}
-          <div>
-            <label style={lbl}>Category</label>
-            <input
-              list="exp-categories"
-              placeholder="e.g. Rent, Utilities…"
-              value={form.category}
-              onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-              style={inp}
-              onFocus={focusB}
-              onBlur={blurG}
-            />
-            <datalist id="exp-categories">
-              {EXPENSE_CATEGORIES.map(c => <option key={c} value={c} />)}
-            </datalist>
-          </div>
-
-          {/* Car + Handled By */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={lbl}>Car (optional)</label>
-              <select value={form.car_id} onChange={e => setForm(f => ({ ...f, car_id: e.target.value }))} style={{ ...inp, cursor: 'pointer' }} onFocus={focusB} onBlur={blurG}>
-                <option value="">— Not linked —</option>
-                {cars.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={lbl}>Handled By (optional)</label>
-              <select value={form.handled_by} onChange={e => setForm(f => ({ ...f, handled_by: e.target.value }))} style={{ ...inp, cursor: 'pointer' }} onFocus={focusB} onBlur={blurG}>
-                <option value="">— Select person —</option>
-                {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label style={lbl}>Notes</label>
-            <textarea
-              placeholder="Optional notes…"
-              value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              rows={2}
-              style={{ ...inp, resize: 'vertical', minHeight: 58 }}
-              onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#4ba6ea'; }}
-              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'; }}
-            />
-          </div>
-
-          {/* Payment Receipt */}
-          <div>
-            <label style={lbl}>Payment Receipt</label>
-
-            {/* Existing receipt (edit mode) */}
-            {existingReceiptUrl && !receiptFile && (
-              <div style={{ marginBottom: 10, borderRadius: 9, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                {existingIsPdf ? (
-                  <a
-                    href={existingReceiptUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fafafa', fontSize: 13, color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                    View existing PDF receipt
-                  </a>
-                ) : (
-                  <img src={existingReceiptUrl} alt="Current receipt" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', display: 'block' }} />
-                )}
-              </div>
-            )}
-
-            {/* New file preview */}
-            {receiptFile && receiptPreview && (
-              <div style={{ marginBottom: 10, borderRadius: 9, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                <img src={receiptPreview} alt="Receipt preview" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', display: 'block' }} />
-              </div>
-            )}
-            {receiptFile && receiptFile.type === 'application/pdf' && (
-              <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fafafa', borderRadius: 9, border: '1px solid #e5e7eb', fontSize: 13, color: '#374151' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                {receiptFile.name}
-              </div>
-            )}
-
-            {/* Upload zone */}
-            <label
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '14px', border: '1.5px dashed #d1d5db', borderRadius: 9, cursor: 'pointer', background: '#fafafa', transition: 'border-color 140ms, background 140ms' }}
-              onMouseEnter={e => { const l = e.currentTarget; l.style.borderColor = '#4ba6ea'; l.style.background = 'rgba(75,166,234,0.04)'; }}
-              onMouseLeave={e => { const l = e.currentTarget; l.style.borderColor = '#d1d5db'; l.style.background = '#fafafa'; }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af' }}>
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
-                {receiptFile ? 'Replace file' : (existingReceiptUrl ? 'Replace receipt' : 'Click to upload')}
-              </span>
-              <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WEBP or PDF</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                style={{ display: 'none' }}
-                onChange={e => {
-                  const f = e.target.files?.[0] ?? null;
-                  setReceiptFile(f);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-
-            {receiptFile && (
-              <button
-                type="button"
-                onClick={() => setReceiptFile(null)}
-                style={{ marginTop: 6, fontSize: 11, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
-              >
-                Remove selected file
-              </button>
-            )}
-          </div>
-
-          {error && (
-            <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}>
-            {saving && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', flexShrink: 0 }}>
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
-              </svg>
-            )}
-            {saving ? saveStep || 'Saving…' : isEdit ? 'Save Changes' : 'Add Expense'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
-
-const ExpenseDetailModal: React.FC<{
-  expense:     CompanyExpense;
-  carsMap:     Map<number, string>;
-  profilesMap: Map<string, string>;
-  onClose:     () => void;
-  onEdit:      () => void;
-}> = ({ expense, carsMap, profilesMap, onClose, onEdit }) => {
-  const { fmt } = useCurrency();
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const receiptUrl = expense.payment_receipt_url;
-  const isPdf = receiptUrl?.toLowerCase().includes('.pdf') ?? false;
-
-  const row = (label: string, value: React.ReactNode) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '11px 0', borderBottom: '1px solid #f3f4f6', gap: 16 }}>
-      <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 13, color: '#0f1117', fontWeight: 500, textAlign: 'right' }}>{value}</span>
-    </div>
-  );
-
-  return ReactDOM.createPortal(
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
-    >
-      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 480, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-
-        {/* Header */}
-        <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>Expense Details</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>#{expense.id} · {fmtDate(expense.operation_date)}</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={onEdit}
-              style={{ height: 32, padding: '0 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
-              onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
-              onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#374151'; }}
-            >
-              Edit
-            </button>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '8px 28px 24px', overflowY: 'auto' }}>
-
-          {/* Amount hero */}
-          <div style={{ padding: '20px 0 4px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, fontWeight: 800, color: '#ef4444', letterSpacing: '-1px' }}>{fmt(expense.amount)}</div>
-            {expense.category && (
-              <span style={{ display: 'inline-block', marginTop: 8, fontSize: 12, fontWeight: 600, color: '#374151', background: '#f3f4f6', borderRadius: 6, padding: '3px 10px' }}>{expense.category}</span>
-            )}
-          </div>
-
-          {/* Fields */}
-          <div style={{ marginTop: 12 }}>
-            {row('Date',      fmtDate(expense.operation_date))}
-            {row('Direction', <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: expense.direction?.toUpperCase() === 'IN' ? '#16a34a' : '#dc2626', background: expense.direction?.toUpperCase() === 'IN' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)' }}>{expense.direction?.toUpperCase() === 'IN' ? '↓ IN' : '↑ OUT'}</span>)}
-            {row('Handled By', expense.handled_by ? (profilesMap.get(expense.handled_by) ?? '—') : '—')}
-            {row('Car',         expense.car_id ? (carsMap.get(expense.car_id) ?? `#${expense.car_id}`) : '—')}
-            {expense.notes && row('Notes', expense.notes)}
-          </div>
-
-          {/* Payment Receipt */}
-          {receiptUrl ? (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Payment Receipt</div>
-              {isPdf ? (
-                <a
-                  href={receiptUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: '#f8f9fb', borderRadius: 10, border: '1px solid #e5e7eb', textDecoration: 'none', color: '#4ba6ea', fontSize: 13, fontWeight: 600 }}
-                >
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(75,166,234,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                  </div>
-                  <div>
-                    <div>Open PDF Receipt</div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400, marginTop: 1 }}>Opens in new tab</div>
-                  </div>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 'auto', flexShrink: 0 }}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </a>
-              ) : (
-                <a href={receiptUrl} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                  <img src={receiptUrl} alt="Payment receipt" style={{ width: '100%', maxHeight: 280, objectFit: 'cover', display: 'block' }} />
-                </a>
-              )}
-            </div>
-          ) : (
-            <div style={{ marginTop: 20, padding: '16px', background: '#fafafa', borderRadius: 10, border: '1px dashed #e5e7eb', textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>
-              No payment receipt attached
-            </div>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
 
 // ─── Internal Finance: Add Transaction Modal ─────────────────────────────────
 
-const IF_TX_CATEGORIES = [
-  { value: 'operations',       label: 'Operations'       },
-  { value: 'maintenance',      label: 'Maintenance'      },
-  { value: 'emergency',        label: 'Emergency'        },
-  { value: 'salaries',         label: 'Salaries'         },
-  { value: 'rent',             label: 'Rent'             },
-  { value: 'fines',            label: 'Fines'            },
-  { value: 'marketing',        label: 'Marketing'        },
-  { value: 'employee_account', label: 'Employee Account' },
-  { value: 'other',            label: 'Other'            },
-] as const;
+// Company-expense category presets + a special "Employee Wallet" option that
+// routes the transaction to the employee_wallets table instead.
+const IF_TX_CATEGORIES: { value: string; label: string }[] = [
+  ...COMPANY_EXPENSE_CATEGORIES.map(c => ({ value: c.value, label: c.label })),
+  { value: 'employee_account', label: 'Employee Wallet' },
+];
 
 const AddInternalFinanceTxModal: React.FC<{
   profiles: ProfileRow[];
@@ -3969,8 +3486,10 @@ const AddInternalFinanceTxModal: React.FC<{
     if (!form.category) { setError('Category is required.');  return; }
     const rawAmount = parseFloat(form.amount);
     if (isNaN(rawAmount) || rawAmount <= 0) { setError('Enter a valid positive amount.'); return; }
-    if (form.category === 'employee_account' && !form.employee_id) {
-      setError('Employee is required for the Employee Account category.');
+
+    const isWallet = form.category === 'employee_account';
+    if (isWallet && !form.employee_id) {
+      setError('Employee is required for an Employee Wallet transaction.');
       return;
     }
 
@@ -3984,7 +3503,8 @@ const AddInternalFinanceTxModal: React.FC<{
       amountTRY = rawAmount * usdRate;
     }
 
-    // Receipt upload
+    // Receipt upload — bucket matches the target table
+    const bucket = isWallet ? 'employee_wallets' : 'company_expenses';
     let receiptUrl: string | null = null;
     if (receiptFile) {
       setSaveStep('Uploading receipt…');
@@ -3999,44 +3519,49 @@ const AddInternalFinanceTxModal: React.FC<{
 
       // Count existing files with this prefix to get seq
       const { data: existingFiles } = await supabase.storage
-        .from('internal_finance')
+        .from(bucket)
         .list('', { search: prefix });
       const seq = (existingFiles?.length ?? 0) + 1;
 
       const ext = receiptFile.name.includes('.') ? receiptFile.name.split('.').pop()!.toLowerCase() : 'jpg';
       const filePath = `${prefix}-${seq}.${ext}`;
-      console.log('[internal_finance] uploading receipt as:', filePath);
 
       const { error: upErr } = await supabase.storage
-        .from('internal_finance')
+        .from(bucket)
         .upload(filePath, receiptFile, { upsert: true });
 
       if (upErr) {
-        console.error('[internal_finance] upload error:', upErr);
         setSaving(false); setSaveStep('');
         setToast(`Upload failed: ${upErr.message}`);
         return;
       }
 
-      const { data: urlData } = supabase.storage.from('internal_finance').getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
       receiptUrl = urlData.publicUrl;
-      console.log('[internal_finance] receipt public URL:', receiptUrl);
     }
 
     setSaveStep('Saving…');
-    const payload = {
-      operation_date: form.date,
-      direction:      form.direction,
-      amount:         amountTRY,
-      category:       form.category    || null,
-      employee_id:    form.employee_id || null,
-      notes:          form.note        || null,
-      receipt_url:    receiptUrl,
-    };
-    console.log('[internal_finance] inserting payload:', payload);
-    const { error: err } = await supabase.from('internal_finance').insert(payload);
+    const { error: err } = isWallet
+      ? await supabase.from('employee_wallets').insert({
+          employee_id:      form.employee_id,
+          transaction_date: form.date,
+          direction:        form.direction,
+          category:         null,
+          amount:           amountTRY,
+          description:      form.note || null,
+          receipt_url:      receiptUrl,
+        })
+      : await supabase.from('company_expenses').insert({
+          expense_date: form.date,
+          direction:    form.direction,
+          category:     form.category || null,
+          amount:       amountTRY,
+          description:  form.note || null,
+          receipt_url:  receiptUrl,
+          car_id:       null,
+        });
     setSaving(false); setSaveStep('');
-    if (err) { console.error('[internal_finance] insert error:', err); setError(err.message); return; }
+    if (err) { setError(err.message); return; }
     setToast('Transaction saved!');
     setTimeout(() => { onSaved(); onClose(); }, 800);
   };
@@ -4076,7 +3601,7 @@ const AddInternalFinanceTxModal: React.FC<{
         <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>New Transaction</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>internal_finance</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{form.category === 'employee_account' ? 'employee_wallets' : 'company_expenses'}</div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
@@ -4286,29 +3811,211 @@ const AddInternalFinanceTxModal: React.FC<{
   );
 };
 
+// ─── Transaction List Modal (category expenses / wallet history) ─────────────
+
+interface TxDisplayRow {
+  id:          number | string;
+  date:        string;
+  direction:   string;
+  amount:      number;
+  category?:   string | null;
+  description: string | null;
+  receipt_url: string | null;
+}
+
+interface EmployeeWalletRow {
+  id:               number;
+  transaction_date: string;
+  direction:        string;
+  category:         string | null;
+  amount:           number;
+  description:      string | null;
+  receipt_url:      string | null;
+}
+
+const DirBadge: React.FC<{ dir: string }> = ({ dir }) => {
+  const isIn = dir?.toUpperCase() === 'IN';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+      color: isIn ? '#16a34a' : '#dc2626',
+      background: isIn ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+    }}>
+      {isIn ? '↓ IN' : '↑ OUT'}
+    </span>
+  );
+};
+
+const TransactionListModal: React.FC<{
+  title:       string;
+  subtitle?:   string;
+  statLabel:   string;
+  statValue:   number;
+  showCategory: boolean;
+  loading?:    boolean;
+  rows:        TxDisplayRow[];
+  onClose:     () => void;
+}> = ({ title, subtitle, statLabel, statValue, showCategory, loading = false, rows, onClose }) => {
+  const { fmt } = useCurrency();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const sorted    = [...rows].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const statColor = statValue > 0 ? '#16a34a' : statValue < 0 ? '#dc2626' : '#6b7280';
+
+  const th: React.CSSProperties = { padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left', whiteSpace: 'nowrap', borderBottom: '1px solid #f0f0f0' };
+  const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, color: '#374151', verticalAlign: 'middle' };
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
+    >
+      <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 680, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
+        <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>{title}</div>
+            {subtitle && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{subtitle}</div>}
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        {/* Running total */}
+        <div style={{ padding: '16px 28px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{statLabel}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: statColor }}>
+            {statValue < 0 ? '-' : ''}{fmt(Math.abs(statValue))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: 'auto' }}>
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
+              </svg>
+            </div>
+          ) : sorted.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 24px', color: '#9ca3af', fontSize: 13 }}>No transactions</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={th}>Date</th>
+                  <th style={th}>Direction</th>
+                  {showCategory && <th style={th}>Category</th>}
+                  <th style={th}>Amount</th>
+                  <th style={th}>Description</th>
+                  <th style={th}>Receipt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((r, i) => {
+                  const isIn = r.direction?.toUpperCase() === 'IN';
+                  return (
+                    <tr key={r.id} style={{ borderBottom: i < sorted.length - 1 ? '1px solid #f7f7f7' : 'none' }}>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
+                      <td style={td}><DirBadge dir={r.direction} /></td>
+                      {showCategory && <td style={{ ...td, textTransform: 'capitalize' }}>{r.category || '—'}</td>}
+                      <td style={{ ...td, fontWeight: 700, color: isIn ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
+                        {isIn ? '+' : '-'}{fmt(r.amount ?? 0)}
+                      </td>
+                      <td style={{ ...td, color: r.description ? '#374151' : '#d1d5db', maxWidth: 220 }}>{r.description || '—'}</td>
+                      <td style={td}>
+                        {r.receipt_url
+                          ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none', fontSize: 12 }}>View</a>
+                          : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+// Wallet history — fetches all-time employee_wallets rows for one employee.
+const WalletHistoryModal: React.FC<{
+  employeeId: string;
+  name:       string;
+  onClose:    () => void;
+}> = ({ employeeId, name, onClose }) => {
+  const [rows,    setRows]    = useState<EmployeeWalletRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    supabase.from('employee_wallets')
+      .select('id, transaction_date, direction, category, amount, description, receipt_url')
+      .eq('employee_id', employeeId)
+      .order('transaction_date', { ascending: false })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRows((data ?? []) as EmployeeWalletRow[]);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [employeeId]);
+
+  const totalIn  = rows.filter(r => r.direction?.toUpperCase() === 'IN' ).reduce((a, r) => a + (r.amount ?? 0), 0);
+  const totalOut = rows.filter(r => r.direction?.toUpperCase() === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
+
+  return (
+    <TransactionListModal
+      title={name}
+      subtitle="Employee wallet history · all time"
+      statLabel="Running Balance"
+      statValue={totalIn - totalOut}
+      showCategory
+      loading={loading}
+      rows={rows.map(r => ({
+        id: r.id, date: r.transaction_date, direction: r.direction,
+        amount: r.amount, category: r.category, description: r.description, receipt_url: r.receipt_url,
+      }))}
+      onClose={onClose}
+    />
+  );
+};
+
 const CompanyExpensesTab: React.FC = () => {
   const { fmt } = useCurrency();
   const [monthKey,       setMonthKey]       = useState(currentMonthKey());
   const [refreshKey,     setRefreshKey]     = useState(0);
   const [showAddTx,      setShowAddTx]      = useState(false);
-  const [ifMonthData,    setIfMonthData]    = useState<InternalFinanceRow[]>([]);
+  const [ifMonthData,    setIfMonthData]    = useState<CompanyExpenseRow[]>([]);
   const [ifMonthLoading, setIfMonthLoading] = useState(true);
-  const [ifWalletData,   setIfWalletData]   = useState<Pick<InternalFinanceRow, 'employee_id' | 'amount' | 'direction'>[]>([]);
-  const [walletProfiles, setWalletProfiles] = useState<ProfileRow[]>([]);
+  const [wallets,        setWallets]        = useState<EmployeeWalletBalance[]>([]);
   const [walletsLoading, setWalletsLoading] = useState(true);
+  const [openCategory,   setOpenCategory]   = useState<{ value: string; label: string } | null>(null);
+  const [openWallet,     setOpenWallet]     = useState<{ employee_id: string; full_name: string | null } | null>(null);
 
+  // employee_wallet_balances is already scoped to role='staff' — one card per row.
   useEffect(() => {
     let cancelled = false;
     setWalletsLoading(true);
-    Promise.all([
-      supabase.from('profiles').select('id, full_name, avatar_url').in('role', ['admin', 'staff']),
-      supabase.from('internal_finance').select('employee_id, amount, direction').not('employee_id', 'is', null),
-    ]).then(([walletProfRes, walletDataRes]) => {
-      if (cancelled) return;
-      setWalletProfiles((walletProfRes.data ?? []) as ProfileRow[]);
-      setIfWalletData((walletDataRes.data ?? []) as Pick<InternalFinanceRow, 'employee_id' | 'amount' | 'direction'>[]);
-      setWalletsLoading(false);
-    });
+    supabase.from('employee_wallet_balances')
+      .select('employee_id, full_name, total_in, total_out, balance')
+      .then(({ data }) => {
+        if (cancelled) return;
+        setWallets((data ?? []) as EmployeeWalletBalance[]);
+        setWalletsLoading(false);
+      });
     return () => { cancelled = true; };
   }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4316,10 +4023,10 @@ const CompanyExpensesTab: React.FC = () => {
     let cancelled = false;
     setIfMonthLoading(true);
     const { start, end } = monthDateRange(monthKey);
-    supabase.from('internal_finance').select('*').gte('operation_date', start).lt('operation_date', end)
+    supabase.from('company_expenses').select('*').gte('expense_date', start).lt('expense_date', end)
       .then(({ data }) => {
         if (cancelled) return;
-        setIfMonthData((data ?? []) as InternalFinanceRow[]);
+        setIfMonthData((data ?? []) as CompanyExpenseRow[]);
         setIfMonthLoading(false);
       });
     return () => { cancelled = true; };
@@ -4342,7 +4049,7 @@ const CompanyExpensesTab: React.FC = () => {
         </button>
       </div>
 
-      {/* ── Internal Finance: Section 1 — Hero summary card ────────────── */}
+      {/* ── Company Expenses: Section 1 — Hero summary card ────────────── */}
       {(() => {
         const ifIncome   = ifMonthData.filter(r => r.direction === 'IN').reduce((a, r) => a + (r.amount ?? 0), 0);
         const ifExpenses = ifMonthData.filter(r => r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
@@ -4366,7 +4073,7 @@ const CompanyExpensesTab: React.FC = () => {
                 {monthLabel(monthKey)}
               </div>
               <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.7, background: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: '3px 12px' }}>
-                Internal Finance
+                Company Expenses
               </div>
             </div>
             <div style={{ marginBottom: 28 }}>
@@ -4398,19 +4105,25 @@ const CompanyExpensesTab: React.FC = () => {
         );
       })()}
 
-      {/* ── Internal Finance: Section 2 — Category breakdown ────────────── */}
+      {/* ── Company Expenses: Section 2 — Category breakdown ────────────── */}
       <div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
           Expenses by Category
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
-          {IF_EXPENSE_CATS.map(cat => {
-            const total = ifMonthData.filter(r => r.category === cat && r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
+          {COMPANY_EXPENSE_CATEGORIES.map(cat => {
+            const total = ifMonthData.filter(r => r.category === cat.value && r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
             return (
-              <div key={cat} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <div
+                key={cat.value}
+                onClick={() => setOpenCategory({ value: cat.value, label: cat.label })}
+                style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease' }}
+                onMouseEnter={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 6px 20px rgba(75,166,234,0.13)'; d.style.borderColor = '#4ba6ea'; d.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = '#f0f0f0'; d.style.transform = 'translateY(0)'; }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <span style={{ fontSize: 18 }}>{IF_CAT_ICONS[cat]}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{IF_CAT_LABELS[cat]}</span>
+                  <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{cat.label}</span>
                 </div>
                 {ifMonthLoading
                   ? <div style={{ height: 26, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
@@ -4422,7 +4135,7 @@ const CompanyExpensesTab: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Internal Finance: Section 3 — Employee Wallets ──────────────── */}
+      {/* ── Company Expenses: Section 3 — Employee Wallets ──────────────── */}
       <div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
           Employee Wallets
@@ -4439,26 +4152,26 @@ const CompanyExpensesTab: React.FC = () => {
               </div>
             ))}
           </div>
-        ) : walletProfiles.length === 0 ? (
+        ) : wallets.length === 0 ? (
           <div style={{ color: '#9ca3af', fontSize: 14, padding: '32px 0', textAlign: 'center' }}>No employees found.</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-            {walletProfiles.map(emp => {
-              const rows = ifWalletData.filter(r => r.employee_id === emp.id);
-              const bal = rows.filter(r => r.direction === 'IN').reduce((a, r) => a + (r.amount ?? 0), 0)
-                        - rows.filter(r => r.direction === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
+            {wallets.map(emp => {
+              const bal = Number(emp.balance ?? 0);
               const balColor = bal > 0 ? '#16a34a' : bal < 0 ? '#dc2626' : '#9ca3af';
               const initials = (emp.full_name ?? '?').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
               return (
-                <div key={emp.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <div
+                  key={emp.employee_id}
+                  onClick={() => setOpenWallet({ employee_id: emp.employee_id, full_name: emp.full_name })}
+                  style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease' }}
+                  onMouseEnter={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 6px 20px rgba(75,166,234,0.13)'; d.style.borderColor = '#4ba6ea'; d.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = '#f0f0f0'; d.style.transform = 'translateY(0)'; }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    {emp.avatar_url ? (
-                      <img src={emp.avatar_url} alt={emp.full_name ?? ''} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: '#4ba6ea', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
-                        {initials}
-                      </div>
-                    )}
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: '#4ba6ea', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                      {initials}
+                    </div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', lineHeight: 1.3 }}>{emp.full_name ?? '—'}</div>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Balance</div>
@@ -4474,9 +4187,39 @@ const CompanyExpensesTab: React.FC = () => {
 
       {showAddTx && (
         <AddInternalFinanceTxModal
-          profiles={walletProfiles}
+          profiles={wallets.map(w => ({ id: w.employee_id, full_name: w.full_name, avatar_url: null }))}
           onClose={() => setShowAddTx(false)}
           onSaved={() => { setShowAddTx(false); setRefreshKey(k => k + 1); }}
+        />
+      )}
+
+      {/* Category detail — current month, from already-loaded rows */}
+      {openCategory && (() => {
+        const catRows = ifMonthData.filter(r => r.category === openCategory.value);
+        const net = catRows.reduce((a, r) => a + (r.direction?.toUpperCase() === 'IN' ? (r.amount ?? 0) : -(r.amount ?? 0)), 0);
+        return (
+          <TransactionListModal
+            title={openCategory.label}
+            subtitle={`${monthLabel(monthKey)} · Company expenses`}
+            statLabel="Net Total"
+            statValue={net}
+            showCategory={false}
+            loading={ifMonthLoading}
+            rows={catRows.map(r => ({
+              id: r.id, date: r.expense_date, direction: r.direction,
+              amount: r.amount, description: r.description, receipt_url: r.receipt_url,
+            }))}
+            onClose={() => setOpenCategory(null)}
+          />
+        );
+      })()}
+
+      {/* Employee wallet history — all time */}
+      {openWallet && (
+        <WalletHistoryModal
+          employeeId={openWallet.employee_id}
+          name={openWallet.full_name ?? '—'}
+          onClose={() => setOpenWallet(null)}
         />
       )}
     </div>

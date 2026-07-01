@@ -130,6 +130,17 @@ const adminToolItems = [
       </svg>
     ),
   },
+  {
+    label: 'Team',
+    path: '/dashboard/team',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
 ];
 
 const marketingItems = [
