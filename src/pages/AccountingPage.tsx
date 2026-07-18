@@ -2009,51 +2009,19 @@ const EMPTY_CUST_TX_FORM: AddCustomerTxForm = {
   direction:   'in',
 };
 
-// Bookings this customer has on the current car — every ledger row must reference one.
-interface CustBookingOption {
-  id:             number;
-  booking_number: string;
-  start_date:     string | null;
-  end_date:       string | null;
-  car_id:         number;
-}
-
 const AddCustomerTxModal: React.FC<{
   customerName: string;
   customerId:   string;
   carId:        number;
+  bookingId:    number;
+  bookingLabel?: string;
   carPlate?:    string;
   onClose:      () => void;
   onSaved:      () => void;
-}> = ({ customerName, customerId, carId, carPlate, onClose, onSaved }) => {
+}> = ({ customerName, customerId, carId, bookingId, bookingLabel, carPlate, onClose, onSaved }) => {
   const [form,   setForm]   = useState<AddCustomerTxForm>(EMPTY_CUST_TX_FORM);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
-
-  // booking_id is NOT NULL on customer_accounting_ledger, so a transaction can only
-  // be added against an existing booking. Load the customer's bookings on this car;
-  // car_id is then derived from whichever booking the user picks.
-  const [bookings,        setBookings]        = useState<CustBookingOption[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [bookingId,       setBookingId]       = useState<number | ''>('');
-
-  useEffect(() => {
-    let active = true;
-    supabase
-      .from('bookings')
-      .select('id, booking_number, start_date, end_date, car_id')
-      .eq('customer_id', customerId)
-      .eq('car_id', carId)
-      .order('start_date', { ascending: false })
-      .then(({ data }) => {
-        if (!active) return;
-        const rows = (data ?? []) as CustBookingOption[];
-        setBookings(rows);
-        if (rows.length === 1) setBookingId(rows[0].id); // only one option → preselect
-        setBookingsLoading(false);
-      });
-    return () => { active = false; };
-  }, [customerId, carId]);
 
   const set = (k: keyof AddCustomerTxForm, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
@@ -2063,16 +2031,11 @@ const AddCustomerTxModal: React.FC<{
     setForm(prev => ({ ...prev, typePreset: preset, direction: dir ?? prev.direction }));
   };
 
-  const canSave = !saving && bookings.length > 0 && bookingId !== '';
+  const canSave = !saving;
 
   const handleSave = async () => {
     const amount    = parseFloat(form.amount);
     const typeValue = form.typePreset === 'other' ? (form.typeCustom.trim() || null) : (form.typePreset || null);
-    const booking   = bookings.find(b => b.id === bookingId);
-    if (!booking) {
-      setError('Please select the booking this transaction belongs to.');
-      return;
-    }
     if (!form.date || isNaN(amount) || amount <= 0) {
       setError('Date and a valid amount are required.');
       return;
@@ -2080,10 +2043,12 @@ const AddCustomerTxModal: React.FC<{
     setSaving(true);
     setError(null);
     const { data: { user } } = await supabase.auth.getUser();
+    // booking_id, customer_id and car_id are all NOT NULL on customer_accounting_ledger
+    // and come straight from the booking this sheet represents — no manual picking.
     const { error: err } = await supabase.from('customer_accounting_ledger').insert({
-      booking_id:   booking.id,
+      booking_id:   bookingId,
       customer_id:  customerId,
-      car_id:       booking.car_id,           // derived from the chosen booking
+      car_id:       carId,
       type:         typeValue,
       amount,
       direction:    form.direction.toUpperCase(),
@@ -2124,33 +2089,13 @@ const AddCustomerTxModal: React.FC<{
 
         {/* Form */}
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Booking (required — every transaction is tied to a booking) */}
+          {/* Booking context (auto-filled from the sheet — not editable) */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Booking</div>
-            {bookingsLoading ? (
-              <div style={{ fontSize: 12, color: '#9ca3af', padding: '9px 2px' }}>Loading bookings…</div>
-            ) : bookings.length === 0 ? (
-              <div style={{ fontSize: 12, color: '#b45309', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8, padding: '8px 12px' }}>
-                This customer has no bookings on this car yet — create one first.
-              </div>
-            ) : (
-              <select
-                value={bookingId === '' ? '' : String(bookingId)}
-                onChange={e => setBookingId(e.target.value ? Number(e.target.value) : '')}
-                style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' as React.CSSProperties['appearance'], backgroundImage: selectArrow, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: 32, color: bookingId === '' ? '#9ca3af' : '#0f1117' }}
-                onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}
-              >
-                <option value="" disabled>Select booking…</option>
-                {bookings.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.booking_number}
-                    {carPlate ? ` · ${carPlate}` : ''}
-                    {b.start_date ? ` · ${b.start_date}${b.end_date ? ` → ${b.end_date}` : ''}` : ''}
-                  </option>
-                ))}
-              </select>
-            )}
+            <div style={{ fontSize: 12, color: '#374151', background: '#f8f9fb', border: '1px solid #eef0f2', borderRadius: 8, padding: '9px 12px' }}>
+              {bookingLabel ?? '—'}
+              {carPlate ? <span style={{ color: '#9ca3af' }}>{` · ${carPlate}`}</span> : null}
+            </div>
           </div>
 
           {/* Date + Direction row */}
@@ -2414,15 +2359,24 @@ const EditTxModal: React.FC<{
 
 // ─── Tab 3: Customer Sheets ───────────────────────────────────────────────────
 
+// Lightweight booking row used to build the per-car customer list from bookings.
+interface TabBookingRow {
+  id:          number;
+  car_id:      number | null;
+  customer_id: string | null;
+  customers:   { first_name: string; last_name: string } | null;
+}
+
 const CustomerSheetsTab: React.FC = () => {
   const { fmt }  = useCurrency();
   const navigate = useNavigate();
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const [cars,          setCars]          = useState<CarInfo[]>([]);
-  const [carsLoading,   setCarsLoading]   = useState(true);
-  const [allLedger,     setAllLedger]     = useState<CustomerLedgerEntry[]>([]);
-  const [ledgerLoading, setLedgerLoading] = useState(true);
+  const [cars,            setCars]            = useState<CarInfo[]>([]);
+  const [carsLoading,     setCarsLoading]     = useState(true);
+  const [allLedger,       setAllLedger]       = useState<CustomerLedgerEntry[]>([]);
+  const [allBookings,     setAllBookings]     = useState<TabBookingRow[]>([]);
+  const [ledgerLoading,   setLedgerLoading]   = useState(true);
 
   // ── UI ────────────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -2431,13 +2385,19 @@ const CustomerSheetsTab: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [carsRes, modelsRes, ledgerRes] = await Promise.all([
+      const [carsRes, modelsRes, ledgerRes, bookingsRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true),
         supabase.from('model_group').select('id, name'),
         supabase
           .from('customer_accounting_ledger')
           .select('customer_id, car_id, direction, amount, customers(first_name, last_name)')
           .order('created_at', { ascending: false }),
+        // Customer sheets are driven by BOOKINGS, not by ledger rows — a customer
+        // shows up under a car because they booked it, even with no transactions yet.
+        supabase
+          .from('bookings')
+          .select('id, car_id, customer_id, customers(first_name, last_name)')
+          .not('customer_id', 'is', null),
       ]);
       if (cancelled) return;
 
@@ -2448,6 +2408,7 @@ const CustomerSheetsTab: React.FC = () => {
         model_name: models.find(m => m.id === c.model_group_id)?.name ?? '—',
       })));
       setAllLedger((ledgerRes.data ?? []) as unknown as CustomerLedgerEntry[]);
+      setAllBookings((bookingsRes.data ?? []) as unknown as TabBookingRow[]);
       setCarsLoading(false);
       setLedgerLoading(false);
     })();
@@ -2465,19 +2426,31 @@ const CustomerSheetsTab: React.FC = () => {
     return map;
   }, [allLedger]);
 
+  const bookingsByCar = useMemo(() => {
+    const map = new Map<number, TabBookingRow[]>();
+    for (const b of allBookings) {
+      if (b.car_id == null) continue;
+      if (!map.has(b.car_id)) map.set(b.car_id, []);
+      map.get(b.car_id)!.push(b);
+    }
+    return map;
+  }, [allBookings]);
+
   const carSummaries = useMemo(() =>
     cars.map(car => {
       const entries  = ledgerByCar.get(car.id) ?? [];
+      const bookings = bookingsByCar.get(car.id) ?? [];
       const totalIn  = entries.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + e.amount, 0);
       const totalOut = entries.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + e.amount, 0);
-      const custIds  = new Set(entries.map(e => e.customer_id).filter(Boolean));
-      return { ...car, totalIn, totalOut, netBalance: totalIn - totalOut, customerCount: custIds.size, entries };
+      // One sheet per booking → the count reflects bookings, not ledger rows.
+      const customerNames = bookings.map(b => b.customers ? `${b.customers.first_name} ${b.customers.last_name}` : '');
+      return { ...car, totalIn, totalOut, netBalance: totalIn - totalOut, customerCount: bookings.length, customerNames };
     }).sort((a, b) =>
       b.netBalance !== a.netBalance
         ? b.netBalance - a.netBalance
         : a.plate_number.localeCompare(b.plate_number),
     ),
-  [cars, ledgerByCar]);
+  [cars, ledgerByCar, bookingsByCar]);
 
   const kpiTotalIn  = useMemo(() => allLedger.filter(r => r.direction?.toUpperCase() === 'IN' ).reduce((s, r) => s + r.amount, 0), [allLedger]);
   const kpiTotalOut = useMemo(() => allLedger.filter(r => r.direction?.toUpperCase() === 'OUT').reduce((s, r) => s + r.amount, 0), [allLedger]);
@@ -2490,10 +2463,7 @@ const CustomerSheetsTab: React.FC = () => {
     return carSummaries.filter(car =>
       car.plate_number.toLowerCase().includes(q) ||
       car.model_name.toLowerCase().includes(q) ||
-      car.entries.some(e => {
-        const c = e.customers;
-        return c ? `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) : false;
-      }),
+      car.customerNames.some(n => n.toLowerCase().includes(q)),
     );
   }, [carSummaries, search]);
 
@@ -2646,17 +2616,43 @@ export const InvestorReportPage: React.FC = () => {
 
 // ─── Car Customer Sheet Detail Page ──────────────────────────────────────────
 
-interface CustGroup {
-  id: string;
-  first_name: string;
-  last_name: string;
-  phone: string | null;
-  nationality: string | null;
-  id_number: string | null;
-  entries: CustomerLedgerEntry[];
-  totalIn: number;
-  totalOut: number;
-  balance: number;
+// One sheet per booking: the same customer can rent the same car more than once,
+// and each rental is a separate sheet keyed by booking_id.
+interface BookingGroup {
+  bookingId:     number;
+  bookingNumber: string;
+  startDate:     string | null;
+  endDate:       string | null;
+  status:        string | null;
+  customerId:    string;
+  first_name:    string;
+  last_name:     string;
+  phone:         string | null;
+  nationality:   string | null;
+  id_number:     string | null;
+  entries:       CustomerLedgerEntry[];
+  totalIn:       number;
+  totalOut:      number;
+  balance:       number;
+}
+
+// A booking joined with its customer, as fetched from the bookings table.
+interface CarBookingRow {
+  id:             number;
+  booking_number: string;
+  customer_id:    string | null;
+  car_id:         number | null;
+  start_date:     string | null;
+  end_date:       string | null;
+  status:         string | null;
+  customers: {
+    id:          string;
+    first_name:  string;
+    last_name:   string;
+    phone:       string | null;
+    nationality: string | null;
+    id_number:   string | null;
+  } | null;
 }
 
 export const CarCustomerSheetPage: React.FC = () => {
@@ -2665,26 +2661,30 @@ export const CarCustomerSheetPage: React.FC = () => {
   const navigate = useNavigate();
   const { fmt }  = useCurrency();
 
-  type CustomerRow = { id: string; first_name: string; last_name: string; phone: string | null; nationality: string | null; id_number: string | null };
-
   const [car,           setCar]           = useState<CarInfo | null>(null);
   const [ledger,        setLedger]        = useState<CustomerLedgerEntry[]>([]);
-  const [customers,     setCustomers]     = useState<CustomerRow[]>([]);
+  const [bookings,      setBookings]      = useState<CarBookingRow[]>([]);
   const [loading,       setLoading]       = useState(true);
-  const [openCusts,     setOpenCusts]     = useState<Set<string>>(new Set());
-  const [addModal,      setAddModal]      = useState<{ customerId: string; customerName: string } | null>(null);
+  const [openBookings,  setOpenBookings]  = useState<Set<number>>(new Set());
+  const [addModal,      setAddModal]      = useState<{ bookingId: number; customerId: string; customerName: string; bookingLabel: string } | null>(null);
   const [editModal,     setEditModal]     = useState<CustomerLedgerEntry | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [deleting,      setDeleting]      = useState(false);
 
   const loadData = async () => {
-    const [carRes, ledgerRes] = await Promise.all([
+    const [carRes, bookingsRes, ledgerRes] = await Promise.all([
       supabase.from('cars')
         .select('id, plate_number, model_group:model_group_id(name)')
         .eq('id', carId)
         .single(),
+      // Customers appear because they BOOKED this car — regardless of any transactions.
+      supabase.from('bookings')
+        .select('id, booking_number, customer_id, car_id, start_date, end_date, status, customers(id, first_name, last_name, phone, nationality, id_number)')
+        .eq('car_id', carId)
+        .not('customer_id', 'is', null)
+        .order('start_date', { ascending: false }),
       supabase.from('customer_accounting_ledger')
-        .select('*, bookings(id, booking_number, start_date, end_date)')
+        .select('*')
         .eq('car_id', carId)
         .order('created_at', { ascending: false }),
     ]);
@@ -2692,19 +2692,8 @@ export const CarCustomerSheetPage: React.FC = () => {
     const mg  = raw?.model_group;
     setCar({ id: raw?.id ?? carId, plate_number: raw?.plate_number ?? '—', model_name: Array.isArray(mg) ? (mg[0]?.name ?? '—') : (mg?.name ?? '—') });
 
-    const entries = (ledgerRes.data ?? []) as CustomerLedgerEntry[];
-    setLedger(entries);
-
-    const custIds = [...new Set(entries.map(e => e.customer_id).filter((id): id is string => id != null))];
-    if (custIds.length > 0) {
-      const { data: custData } = await supabase
-        .from('customers')
-        .select('id, first_name, last_name, phone, nationality, id_number')
-        .in('id', custIds);
-      setCustomers((custData ?? []) as CustomerRow[]);
-    } else {
-      setCustomers([]);
-    }
+    setLedger((ledgerRes.data ?? []) as CustomerLedgerEntry[]);
+    setBookings((bookingsRes.data ?? []) as unknown as CarBookingRow[]);
     setLoading(false);
   };
 
@@ -2714,21 +2703,37 @@ export const CarCustomerSheetPage: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carId]);
 
-  const customerGroups = useMemo((): CustGroup[] =>
-    customers.map(c => {
-      const entries  = ledger.filter(e => e.customer_id === c.id);
+  // Build one group per booking; attach the ledger entries whose booking_id matches.
+  // Bookings with no ledger entries still appear as an empty, openable sheet.
+  const bookingGroups = useMemo((): BookingGroup[] =>
+    bookings.map(b => {
+      const entries  = ledger.filter(e => e.booking_id === b.id);
       const totalIn  = entries.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + Number(e.amount), 0);
       const totalOut = entries.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + Number(e.amount), 0);
-      return { ...c, entries, totalIn, totalOut, balance: totalIn - totalOut };
-    }).sort((a, b) => b.balance - a.balance),
-  [customers, ledger]);
+      const c = b.customers;
+      return {
+        bookingId:     b.id,
+        bookingNumber: b.booking_number,
+        startDate:     b.start_date,
+        endDate:       b.end_date,
+        status:        b.status,
+        customerId:    b.customer_id as string,
+        first_name:    c?.first_name  ?? '',
+        last_name:     c?.last_name   ?? '',
+        phone:         c?.phone       ?? null,
+        nationality:   c?.nationality ?? null,
+        id_number:     c?.id_number   ?? null,
+        entries, totalIn, totalOut, balance: totalIn - totalOut,
+      };
+    }),
+  [bookings, ledger]);
 
   const heroTotalIn  = useMemo(() => ledger.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + e.amount, 0), [ledger]);
   const heroTotalOut = useMemo(() => ledger.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + e.amount, 0), [ledger]);
   const heroBalance  = heroTotalIn - heroTotalOut;
 
-  const toggleCust = (id: string) =>
-    setOpenCusts(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleBooking = (id: number) =>
+    setOpenBookings(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const handleDelete = async (id: number) => {
     setDeleting(true);
@@ -2738,7 +2743,7 @@ export const CarCustomerSheetPage: React.FC = () => {
     await loadData();
   };
 
-  const printInvoice = (cust: CustGroup) => {
+  const printInvoice = (cust: BookingGroup) => {
     const invNum = `HC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
     const today  = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
     const totalCharged = cust.totalOut;
@@ -2828,6 +2833,7 @@ export const CarCustomerSheetPage: React.FC = () => {
         <h4>Vehicle</h4>
         <div class="info-row"><span class="info-key">Plate Number</span><span class="info-val">${car?.plate_number ?? '—'}</span></div>
         <div class="info-row"><span class="info-key">Model</span><span class="info-val">${car?.model_name ?? '—'}</span></div>
+        <div class="info-row"><span class="info-key">Booking</span><span class="info-val">${cust.bookingNumber}</span></div>
         <div class="info-row"><span class="info-key">Transactions</span><span class="info-val">${cust.entries.length} item${cust.entries.length !== 1 ? 's' : ''}</span></div>
       </div>
     </div>
@@ -2919,33 +2925,35 @@ export const CarCustomerSheetPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ── Customer list ── */}
-      {customerGroups.length === 0 ? (
+      {/* ── Booking sheets list ── */}
+      {bookingGroups.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af', fontSize: 14, background: '#fff', borderRadius: 14, border: '1.5px dashed #e5e7eb' }}>
-          No customer transactions recorded for this car yet.
+          No bookings for this car yet.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {customerGroups.map(cust => {
-            const isOpen    = openCusts.has(cust.id);
-            const custName  = `${cust.first_name} ${cust.last_name}`.trim();
+          {bookingGroups.map(cust => {
+            const isOpen      = openBookings.has(cust.bookingId);
+            const custName    = `${cust.first_name} ${cust.last_name}`.trim() || 'Unnamed customer';
+            const dateRange   = cust.startDate ? `${fmtDate(cust.startDate)}${cust.endDate ? ` → ${fmtDate(cust.endDate)}` : ''}` : '';
+            const bookingLine = [cust.bookingNumber, dateRange].filter(Boolean).join(' · ');
 
             return (
-              <div key={cust.id} style={{
+              <div key={cust.bookingId} style={{
                 background: '#fff', borderRadius: 14,
                 border: isOpen ? '1.5px solid #4ba6ea' : '1px solid #e5e7eb',
                 boxShadow: isOpen ? '0 4px 20px rgba(75,166,234,0.1)' : '0 1px 4px rgba(0,0,0,0.06)',
                 overflow: 'hidden', transition: 'box-shadow 180ms ease, border-color 180ms ease',
               }}>
-                {/* Customer header (clickable) */}
+                {/* Booking header (clickable) */}
                 <div
-                  onClick={() => toggleCust(cust.id)}
+                  onClick={() => toggleBooking(cust.bookingId)}
                   style={{ padding: '16px 20px', cursor: 'pointer', userSelect: 'none' }}
                   onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = ''; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    {/* Name + phone */}
+                    {/* Name + booking */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                       <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -2955,7 +2963,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px' }}>{custName.toUpperCase()}</div>
-                        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{cust.phone ?? '—'}</div>
+                        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bookingLine || (cust.phone ?? '—')}</div>
                       </div>
                     </div>
 
@@ -3000,7 +3008,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                         Invoice
                       </button>
                       <button
-                        onClick={() => setAddModal({ customerId: cust.id, customerName: custName })}
+                        onClick={() => setAddModal({ bookingId: cust.bookingId, customerId: cust.customerId, customerName: custName, bookingLabel: bookingLine })}
                         style={btnBase}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
@@ -3085,6 +3093,8 @@ export const CarCustomerSheetPage: React.FC = () => {
           customerName={addModal.customerName}
           customerId={addModal.customerId}
           carId={carId}
+          bookingId={addModal.bookingId}
+          bookingLabel={addModal.bookingLabel}
           carPlate={car?.plate_number}
           onClose={() => setAddModal(null)}
           onSaved={() => { setAddModal(null); loadData(); }}
