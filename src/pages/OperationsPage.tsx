@@ -1041,6 +1041,246 @@ const PhotosModal: React.FC<{ folderUrl: string; onClose: () => void }> = ({ fol
   );
 };
 
+// ─── Pickup Report Modal ──────────────────────────────────────────────────────
+
+type MatchMethod = 'booking' | 'fallback';
+
+interface DeliveryMatch {
+  id: number;
+  operation_date: string;
+  operation_time: string | null;
+  current_km: number | null;
+  fuel_level: number | null;
+  cleanliness_status: string | null;
+  method: MatchMethod;
+}
+
+const DELIVERY_MATCH_COLUMNS = 'id, operation_date, operation_time, current_km, fuel_level, cleanliness_status';
+
+const cleanlinessLabel = (s: string | null): string =>
+  s === 'clean' ? 'Clean' : s === 'not_clean' ? 'Not clean' : '—';
+
+const MetricCard: React.FC<{
+  label: string;
+  value: React.ReactNode;
+  raw: React.ReactNode;
+  incomplete: boolean;
+}> = ({ label, value, raw, incomplete }) => (
+  <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px', background: '#fafafa' }}>
+    <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
+      {label}
+    </div>
+    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.6px', lineHeight: 1.1 }}>{value}</div>
+    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>{raw}</div>
+    {incomplete && (
+      <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, fontWeight: 600 }}>Incomplete data</div>
+    )}
+  </div>
+);
+
+const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = ({ pickup, onClose }) => {
+  const [delivery, setDelivery] = useState<DeliveryMatch | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    let active = true;
+
+    const findDelivery = async (): Promise<void> => {
+      // 1. Primary match — same booking_id
+      if (pickup.booking_id != null) {
+        const { data, error: bookingError } = await supabase
+          .from('operations')
+          .select(DELIVERY_MATCH_COLUMNS)
+          .eq('type', 'DELIVERY')
+          .eq('booking_id', pickup.booking_id)
+          .order('operation_date', { ascending: false })
+          .limit(1);
+
+        if (!active) return;
+        if (bookingError) { setError(bookingError.message); setLoading(false); return; }
+        if (data && data.length > 0) {
+          setDelivery({ ...(data[0] as Omit<DeliveryMatch, 'method'>), method: 'booking' });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Fallback match — latest delivery for the same car on/before the pickup date
+      const { data, error: fallbackError } = await supabase
+        .from('operations')
+        .select(DELIVERY_MATCH_COLUMNS)
+        .eq('type', 'DELIVERY')
+        .eq('car_id', pickup.car_id)
+        .lte('operation_date', pickup.operation_date)
+        .order('operation_date', { ascending: false })
+        .order('operation_time', { ascending: false, nullsFirst: false })
+        .limit(1);
+
+      if (!active) return;
+      setLoading(false);
+      if (fallbackError) { setError(fallbackError.message); return; }
+      if (data && data.length > 0) {
+        setDelivery({ ...(data[0] as Omit<DeliveryMatch, 'method'>), method: 'fallback' });
+      }
+    };
+
+    findDelivery();
+    return () => { active = false; };
+  }, [pickup.booking_id, pickup.car_id, pickup.operation_date]);
+
+  // ── Metrics ────────────────────────────────────────────────────────────────
+  const kmKnown   = delivery != null && delivery.current_km != null && pickup.current_km != null;
+  const kmUsed    = kmKnown ? (pickup.current_km as number) - (delivery!.current_km as number) : null;
+
+  const fuelKnown = delivery != null && delivery.fuel_level != null && pickup.fuel_level != null;
+  const fuelDiff  = fuelKnown ? (pickup.fuel_level as number) - (delivery!.fuel_level as number) : null;
+
+  const cleanKnown  = delivery != null && delivery.cleanliness_status != null && pickup.cleanliness_status != null;
+  const washNeeded  = cleanKnown
+    && delivery!.cleanliness_status === 'clean'
+    && pickup.cleanliness_status === 'not_clean';
+
+  const muted: React.CSSProperties = { color: '#d1d5db' };
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1150, background: 'rgba(15,17,23,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 150ms ease' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'slideUp 180ms ease' }}
+      >
+        {/* Header */}
+        <div style={{ padding: '22px 26px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              Pickup Report — {pickup.plate_number}
+            </div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>
+              Picked up on {formatDate(pickup.operation_date)}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 26px 24px' }}>
+          {loading && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={{ height: 92, borderRadius: 12, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              ))}
+            </div>
+          )}
+
+          {!loading && error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, fontSize: 13, color: '#ef4444' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && !delivery && (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#6b7280', fontSize: 14 }}>
+              No matching delivery found — cannot generate report.
+            </div>
+          )}
+
+          {!loading && !error && delivery && (
+            <>
+              {/* Match summary */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+                <span style={{ fontSize: 13, color: '#374151' }}>
+                  Matched delivery: <strong>{formatDate(delivery.operation_date)}</strong>
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '4px 10px',
+                  color:      delivery.method === 'booking' ? '#16a34a' : '#b45309',
+                  background: delivery.method === 'booking' ? 'rgba(22,163,74,0.12)' : 'rgba(245,158,11,0.14)',
+                }}>
+                  {delivery.method === 'booking'
+                    ? 'Matched by booking'
+                    : 'Approximate — matched by last delivery for this car'}
+                </span>
+              </div>
+
+              {/* Metrics */}
+              <div style={{ display: 'grid', gap: 12 }}>
+                <MetricCard
+                  label="Kilometers used"
+                  incomplete={!kmKnown}
+                  value={kmUsed != null
+                    ? <span style={{ color: '#0f1117' }}>{Math.round(kmUsed).toLocaleString()} km</span>
+                    : <span style={muted}>—</span>}
+                  raw={kmKnown
+                    ? `Delivery: ${(delivery.current_km as number).toLocaleString()} km → Pickup: ${(pickup.current_km as number).toLocaleString()} km`
+                    : 'Mileage missing on delivery or pickup'}
+                />
+
+                <MetricCard
+                  label="Fuel difference"
+                  incomplete={!fuelKnown}
+                  value={fuelDiff != null
+                    ? <span style={{ color: fuelDiff < 0 ? '#ef4444' : '#16a34a' }}>
+                        {fuelDiff < 0 ? '−' : '+'}{Math.abs(fuelDiff).toLocaleString()} L
+                      </span>
+                    : <span style={muted}>—</span>}
+                  raw={fuelKnown
+                    ? `Delivery: ${(delivery.fuel_level as number).toLocaleString()} L → Pickup: ${(pickup.fuel_level as number).toLocaleString()} L`
+                    : 'Fuel level missing on delivery or pickup'}
+                />
+
+                <MetricCard
+                  label="Cleanliness"
+                  incomplete={!cleanKnown}
+                  value={cleanKnown
+                    ? <span style={{
+                        display: 'inline-block', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '5px 12px',
+                        color:      washNeeded ? '#ef4444' : '#16a34a',
+                        background: washNeeded ? 'rgba(239,68,68,0.12)' : 'rgba(22,163,74,0.12)',
+                      }}>
+                        {washNeeded ? 'Wash needed' : 'No wash needed'}
+                      </span>
+                    : <span style={muted}>—</span>}
+                  raw={cleanKnown
+                    ? `Delivered: ${cleanlinessLabel(delivery.cleanliness_status)} → Returned: ${cleanlinessLabel(pickup.cleanliness_status)}`
+                    : 'Cleanliness status missing on delivery or pickup'}
+                />
+              </div>
+
+              {/* Damage Inspection placeholder */}
+              <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
+                  Damage Inspection
+                </div>
+                <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '26px 16px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
+                  Photo comparison coming soon
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const OperationsPage: React.FC = () => {
@@ -1062,6 +1302,7 @@ const OperationsPage: React.FC = () => {
   const [deleteOp, setDeleteOp]     = useState<Operation | null>(null);
   const [deleting, setDeleting]     = useState(false);
   const [photosOp, setPhotosOp]     = useState<Operation | null>(null);
+  const [reportOp, setReportOp]     = useState<Operation | null>(null);
   const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, kind: 'success' | 'error') => {
@@ -1166,7 +1407,7 @@ const OperationsPage: React.FC = () => {
   }, [activeOps, search, typeFilter]);
 
   const td: React.CSSProperties = { padding: '10px 12px', fontSize: 13, color: '#374151', verticalAlign: 'middle' };
-  const colCount = tab === 'dp' ? 10 : 9;
+  const colCount = tab === 'dp' ? 12 : 10;
 
   // ── Stat card definitions per tab ────────────────────────────────────────
   const dpStatCards = [
@@ -1311,6 +1552,7 @@ const OperationsPage: React.FC = () => {
                 <Th style={{ textAlign: 'center' }}>Cleanliness</Th>
                 <Th>Notes</Th>
                 <Th style={{ textAlign: 'center' }}>Photos</Th>
+                {tab === 'dp' && <Th style={{ textAlign: 'center' }}>Report</Th>}
                 <Th style={{ textAlign: 'center' }}>Actions</Th>
               </tr>
             </thead>
@@ -1403,6 +1645,29 @@ const OperationsPage: React.FC = () => {
                     )}
                   </td>
 
+                  {/* Report — PICKUP rows only */}
+                  {tab === 'dp' && (
+                    <td style={{ ...td, textAlign: 'center' }}>
+                      {op.type === 'PICKUP' ? (
+                        <button
+                          onClick={() => setReportOp(op)}
+                          title="Pickup report"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', color: '#6b7280', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 140ms ease' }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                            <path d="M14 2v6h6M8 13h8M8 17h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Report
+                        </button>
+                      ) : (
+                        <span style={{ color: '#d1d5db' }}>—</span>
+                      )}
+                    </td>
+                  )}
+
                   {/* Edit + Delete */}
                   <td style={{ ...td, textAlign: 'center' }}>
                     <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
@@ -1456,6 +1721,11 @@ const OperationsPage: React.FC = () => {
           folderUrl={photosOp.folder_url}
           onClose={() => setPhotosOp(null)}
         />
+      )}
+
+      {/* ── Pickup Report Modal ── */}
+      {reportOp && (
+        <PickupReportModal pickup={reportOp} onClose={() => setReportOp(null)} />
       )}
 
       {/* ── Add Modal ── */}
