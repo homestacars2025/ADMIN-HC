@@ -4,16 +4,18 @@ import { supabase } from '../lib/supabase';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type CalendarStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
+type CalendarStatus = 'working' | 'parking' | 'pending' | 'maintenance' | 'selling' | 'replacement';
 type CellKind = CalendarStatus | 'booked';
 
 interface ModelGroupJoin { name: string; image_url: string | null; }
 interface CarRaw { id: number; plate_number: string; model_group: ModelGroupJoin | ModelGroupJoin[] | null; }
-interface AvailabilityRaw { id: number; status: CalendarStatus; }
+// `status` is a text expression in the car_availability view, not an enum —
+// it is deliberately not narrowed to CalendarStatus here.
+interface AvailabilityRaw { id: number; status: string; }
 interface CarCalendarRaw { id: number; car_id: number; start_date: string; end_date: string; block_type: string; booking_id: number | null; }
 interface CustomerJoin { first_name: string; last_name: string; }
 interface BookingCustomerRaw { id: number; customers: CustomerJoin | CustomerJoin[] | null; }
-interface CalendarCar { id: number; plate_number: string; model_name: string; image_url: string | null; car_status: CalendarStatus; }
+interface CalendarCar { id: number; plate_number: string; model_name: string; image_url: string | null; car_status: string; }
 interface CalendarEntry { id: number; car_id: number; start_date: string; end_date: string; block_type: string; booking_id: number | null; customer_name: string | null; }
 interface TooltipState { entry: CalendarEntry; x: number; y: number; }
 interface ActionMenuState { car: CalendarCar; startDay: number; endDay: number; }
@@ -40,6 +42,7 @@ const ROW_H  = 64;
 const BADGE: Record<CellKind, { bg: string; color: string }> = {
   working:     { bg: '#dcfce7', color: '#16a34a' },
   parking:     { bg: '#fef2f2', color: '#dc2626' },
+  pending:     { bg: '#f5f3ff', color: '#7c3aed' },
   maintenance: { bg: '#f1f5f9', color: '#64748b' },
   selling:     { bg: '#fefce8', color: '#ca8a04' },
   replacement: { bg: '#fff7ed', color: '#ea580c' },
@@ -49,6 +52,7 @@ const BADGE: Record<CellKind, { bg: string; color: string }> = {
 const CELL_FILL: Record<CellKind, string> = {
   working:     '#bbf7d0',
   parking:     '#fecaca',
+  pending:     '#ddd6fe',
   maintenance: '#e2e8f0',
   selling:     '#fef08a',
   replacement: '#fed7aa',
@@ -58,6 +62,7 @@ const CELL_FILL: Record<CellKind, string> = {
 const CELL_TEXT_COLOR: Record<CellKind, string> = {
   working:     '#15803d',
   parking:     '#dc2626',
+  pending:     '#6d28d9',
   maintenance: '#475569',
   selling:     '#a16207',
   replacement: '#c2410c',
@@ -67,6 +72,7 @@ const CELL_TEXT_COLOR: Record<CellKind, string> = {
 const LEGEND_DOT: Record<CalendarStatus, string> = {
   working:     '#22c55e',
   parking:     '#fecaca',
+  pending:     '#a78bfa',
   maintenance: '#e2e8f0',
   selling:     '#fef08a',
   replacement: '#fed7aa',
@@ -75,22 +81,36 @@ const LEGEND_DOT: Record<CalendarStatus, string> = {
 const STATUS_LABEL: Record<CellKind, string> = {
   working:     'Working',
   parking:     'Parking',
+  pending:     'Pending',
   maintenance: 'Maintenance',
   selling:     'Selling',
   replacement: 'Replacement',
   booked:      'Booked',
 };
 
+// The `status` these maps are keyed by comes from the car_availability view,
+// which can gain values (e.g. 'pending') without any change here. Always look
+// up through these helpers so an unmapped value degrades instead of crashing.
+const FALLBACK_BADGE = { bg: '#f3f4f6', color: '#6b7280' };
+const FALLBACK_FILL  = '#e5e7eb';
+const FALLBACK_TEXT  = '#6b7280';
+
+const badgeFor     = (kind: string) => BADGE[kind as CellKind] ?? FALLBACK_BADGE;
+const cellFillFor  = (kind: string) => CELL_FILL[kind as CellKind] ?? FALLBACK_FILL;
+const cellTextFor  = (kind: string) => CELL_TEXT_COLOR[kind as CellKind] ?? FALLBACK_TEXT;
+const statusLabelFor = (kind: string) => STATUS_LABEL[kind as CellKind] ?? 'Unknown';
+
 const STATUS_OPTIONS: Array<{ value: CalendarStatus | 'all'; label: string }> = [
   { value: 'all',         label: 'All statuses'  },
   { value: 'working',     label: 'Working'        },
   { value: 'parking',     label: 'Parking'        },
+  { value: 'pending',     label: 'Pending'        },
   { value: 'maintenance', label: 'Maintenance'    },
   { value: 'selling',     label: 'Selling'        },
   { value: 'replacement', label: 'Replacement'    },
 ];
 
-const LEGEND_KINDS: CalendarStatus[] = ['working', 'parking', 'maintenance', 'selling', 'replacement'];
+const LEGEND_KINDS: CalendarStatus[] = ['working', 'parking', 'pending', 'maintenance', 'selling', 'replacement'];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -165,12 +185,12 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
     }}>
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
-        background: BADGE[kind].bg, borderRadius: 20,
+        background: badgeFor(kind).bg, borderRadius: 20,
         padding: '3px 9px', marginBottom: 10,
       }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: CELL_TEXT_COLOR[kind], flexShrink: 0 }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: BADGE[kind].color, letterSpacing: '0.2px' }}>
-          {STATUS_LABEL[kind]}
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: cellTextFor(kind), flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: badgeFor(kind).color, letterSpacing: '0.2px' }}>
+          {statusLabelFor(kind)}
         </span>
       </div>
       {entry.customer_name && (
@@ -445,12 +465,12 @@ const BlockPopup: React.FC<BlockPopupProps> = ({
           {/* Type badge */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
-            background: BADGE[kind].bg, borderRadius: 20,
+            background: badgeFor(kind).bg, borderRadius: 20,
             padding: '3px 10px', marginBottom: 6,
           }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: CELL_TEXT_COLOR[kind], flexShrink: 0 }} />
-            <span style={{ fontSize: 11, fontWeight: 600, color: BADGE[kind].color, letterSpacing: '0.2px' }}>
-              {STATUS_LABEL[kind]}
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: cellTextFor(kind), flexShrink: 0 }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: badgeFor(kind).color, letterSpacing: '0.2px' }}>
+              {statusLabelFor(kind)}
             </span>
           </div>
           {/* Car info */}
@@ -649,7 +669,7 @@ const BlockPopup: React.FC<BlockPopupProps> = ({
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#991b1b', marginBottom: 3 }}>Delete this block?</div>
               <div style={{ fontSize: 12, color: '#b91c1c', lineHeight: 1.4 }}>
-                {STATUS_LABEL[kind]} · {formatDateShort(entry.start_date)} → {formatDateShort(entry.end_date)}
+                {statusLabelFor(kind)} · {formatDateShort(entry.start_date)} → {formatDateShort(entry.end_date)}
               </div>
             </div>
           </div>
@@ -773,7 +793,7 @@ const CalendarPage: React.FC = () => {
       return;
     }
 
-    const statusById = new Map<number, CalendarStatus>();
+    const statusById = new Map<number, string>();
     for (const row of (availRes.data ?? []) as AvailabilityRaw[]) {
       statusById.set(row.id, row.status);
     }
@@ -1213,7 +1233,7 @@ const CalendarPage: React.FC = () => {
               width: 11, height: 11, borderRadius: '50%',
               background: LEGEND_DOT[kind], flexShrink: 0,
             }} />
-            <span style={{ fontSize: 12, color: TEXT_MID }}>{STATUS_LABEL[kind]}</span>
+            <span style={{ fontSize: 12, color: TEXT_MID }}>{statusLabelFor(kind)}</span>
           </div>
         ))}
       </div>
@@ -1383,18 +1403,18 @@ const CalendarPage: React.FC = () => {
                     <div style={{
                       marginTop: 5,
                       display: 'inline-flex', alignItems: 'center', gap: 4,
-                      background: BADGE[status].bg, borderRadius: 20,
+                      background: badgeFor(status).bg, borderRadius: 20,
                       padding: '2px 8px', alignSelf: 'flex-start',
                     }}>
                       <div style={{
                         width: 5, height: 5, borderRadius: '50%',
-                        background: BADGE[status].color, flexShrink: 0,
+                        background: badgeFor(status).color, flexShrink: 0,
                       }} />
                       <span style={{
-                        fontSize: 11, fontWeight: 500, color: BADGE[status].color,
+                        fontSize: 11, fontWeight: 500, color: badgeFor(status).color,
                         whiteSpace: 'nowrap', lineHeight: 1.4,
                       }}>
-                        {STATUS_LABEL[status]}
+                        {statusLabelFor(status)}
                       </span>
                     </div>
                   </div>
@@ -1417,13 +1437,13 @@ const CalendarPage: React.FC = () => {
                     const selMidAlpha      = isPending ? 0.06 : 0.12;
 
                     const circleBg = calEntry
-                      ? CELL_FILL[kind]
+                      ? cellFillFor(kind)
                       : isToday
                         ? '#fff1f2'
                         : '#fecaca';
 
                     const circleColor = calEntry
-                      ? CELL_TEXT_COLOR[kind]
+                      ? cellTextFor(kind)
                       : isToday
                         ? AIRBNB_RED
                         : '#dc2626';
