@@ -1060,12 +1060,30 @@ const DELIVERY_MATCH_COLUMNS = 'id, operation_date, operation_time, current_km, 
 const cleanlinessLabel = (s: string | null): string =>
   s === 'clean' ? 'Clean' : s === 'not_clean' ? 'Not clean' : '—';
 
+// Fuel readings above this are assumed to be a different unit than the small
+// 0–100 values most rows use. We never convert — we only flag for manual review.
+const FUEL_UNIT_WARNING_THRESHOLD = 100;
+
+/** Whole calendar days between two 'YYYY-MM-DD' dates (b − a). */
+function daysBetween(a: string, b: string): number {
+  const from = new Date(a + 'T00:00:00').getTime();
+  const to   = new Date(b + 'T00:00:00').getTime();
+  return Math.round((to - from) / 86400000);
+}
+
+function formatDuration(days: number): string {
+  if (days === 0) return 'Same day';
+  if (days === 1) return '1 day';
+  return `${days} days`;
+}
+
 const MetricCard: React.FC<{
   label: string;
   value: React.ReactNode;
   raw: React.ReactNode;
   incomplete: boolean;
-}> = ({ label, value, raw, incomplete }) => (
+  warning?: string | null;
+}> = ({ label, value, raw, incomplete, warning }) => (
   <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px', background: '#fafafa' }}>
     <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
       {label}
@@ -1074,6 +1092,9 @@ const MetricCard: React.FC<{
     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>{raw}</div>
     {incomplete && (
       <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, fontWeight: 600 }}>Incomplete data</div>
+    )}
+    {warning && (
+      <div style={{ fontSize: 11, color: '#b45309', marginTop: 4, fontWeight: 600 }}>{warning}</div>
     )}
   </div>
 );
@@ -1139,8 +1160,14 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
   const kmKnown   = delivery != null && delivery.current_km != null && pickup.current_km != null;
   const kmUsed    = kmKnown ? (pickup.current_km as number) - (delivery!.current_km as number) : null;
 
+  const rentalDays = delivery != null ? daysBetween(delivery.operation_date, pickup.operation_date) : null;
+
   const fuelKnown = delivery != null && delivery.fuel_level != null && pickup.fuel_level != null;
   const fuelDiff  = fuelKnown ? (pickup.fuel_level as number) - (delivery!.fuel_level as number) : null;
+  // Mixed units live in this column, so flag rather than guess.
+  const fuelUnitsSuspect = fuelKnown
+    && ((delivery!.fuel_level as number) > FUEL_UNIT_WARNING_THRESHOLD
+     || (pickup.fuel_level as number)   > FUEL_UNIT_WARNING_THRESHOLD);
 
   const cleanKnown  = delivery != null && delivery.cleanliness_status != null && pickup.cleanliness_status != null;
   const washNeeded  = cleanKnown
@@ -1222,6 +1249,15 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
               {/* Metrics */}
               <div style={{ display: 'grid', gap: 12 }}>
                 <MetricCard
+                  label="Rental duration"
+                  incomplete={false}
+                  value={rentalDays != null
+                    ? <span style={{ color: '#0f1117' }}>{formatDuration(rentalDays)}</span>
+                    : <span style={muted}>—</span>}
+                  raw={`Delivery: ${formatDate(delivery.operation_date)} → Pickup: ${formatDate(pickup.operation_date)}`}
+                />
+
+                <MetricCard
                   label="Kilometers used"
                   incomplete={!kmKnown}
                   value={kmUsed != null
@@ -1233,15 +1269,16 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                 />
 
                 <MetricCard
-                  label="Fuel difference"
+                  label="Fuel reading difference"
                   incomplete={!fuelKnown}
+                  warning={fuelUnitsSuspect ? 'Inconsistent fuel units detected — verify manually' : null}
                   value={fuelDiff != null
                     ? <span style={{ color: fuelDiff < 0 ? '#ef4444' : '#16a34a' }}>
-                        {fuelDiff < 0 ? '−' : '+'}{Math.abs(fuelDiff).toLocaleString()} L
+                        {fuelDiff < 0 ? '−' : '+'}{Math.abs(fuelDiff).toLocaleString()}
                       </span>
                     : <span style={muted}>—</span>}
                   raw={fuelKnown
-                    ? `Delivery: ${(delivery.fuel_level as number).toLocaleString()} L → Pickup: ${(pickup.fuel_level as number).toLocaleString()} L`
+                    ? `Delivery: ${(delivery.fuel_level as number).toLocaleString()} → Pickup: ${(pickup.fuel_level as number).toLocaleString()}`
                     : 'Fuel level missing on delivery or pickup'}
                 />
 
