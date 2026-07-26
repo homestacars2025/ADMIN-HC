@@ -190,19 +190,24 @@ const ImageSection: React.FC<{
     // Optimistically set status to 'generating' so polling starts if user navigates away
     onUpdated({ ...post, image_status: 'generating' });
     try {
-      const res = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content_id: post.id, mode }),
+      const { data, error } = await supabase.functions.invoke('generate-image', {
+        body: { content_id: post.id, mode },
       });
-      if (!res.ok) {
-        const text = await res.text();
-        console.error('[image-gen] server error:', res.status, text);
-        throw new Error(`Image generator failed (HTTP ${res.status}): ${text.slice(0, 400)}`);
+      if (error) {
+        // A non-2xx response surfaces as FunctionsHttpError with data === null, so the
+        // structured failure body lives on error.context (a Response) instead.
+        const body = await (error as any)?.context?.json?.().catch(() => null);
+        console.error('[image-gen] invoke error:', error, body);
+        if (body?.stage || body?.error_message) {
+          throw new Error(`Failed at stage "${body.stage ?? 'unknown'}": ${body.error_message ?? 'A server error occurred'}`);
+        }
+        throw new Error(`Image generator failed: ${error.message || 'unknown error'}`);
       }
-      const data = await res.json().catch(() => null);
       if (!data?.ok) {
-        throw new Error(data?.error ?? 'Image generator returned an unexpected response');
+        console.error('[image-gen] server error:', data);
+        const stage = data?.stage ?? 'unknown';
+        const message = data?.error_message ?? 'A server error occurred';
+        throw new Error(`Failed at stage "${stage}": ${message}`);
       }
       // Fetch the fresh row
       const { data: fresh } = await socialFrom('sm_content_social').select('*').eq('id', post.id).single();
