@@ -296,10 +296,11 @@ const AddOperationModal: React.FC<{
       .eq('is_active', true)
       .then(({ data }) => {
         if (active && data) {
+          // Group by model, then plate within each model
           const sorted = (data as unknown as CarOption[]).sort((a, b) => {
             const nameA = a.model_group?.name ?? '';
             const nameB = b.model_group?.name ?? '';
-            return nameA.localeCompare(nameB);
+            return nameA.localeCompare(nameB) || a.plate_number.localeCompare(b.plate_number);
           });
           setCars(sorted);
         }

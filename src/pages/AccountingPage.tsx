@@ -3193,8 +3193,11 @@ const AddFinancialTxModal: React.FC<{
       const raw = (carsRes.data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
       setCars(
         raw
-          .map(c => ({ id: c.id, label: `${c.plate_number} — ${c.model_group?.name ?? '—'}` }))
-          .sort((a, b) => a.label.localeCompare(b.label)),
+          // Group by model, then plate within each model
+          .sort((a, b) =>
+            (a.model_group?.name ?? '—').localeCompare(b.model_group?.name ?? '—') ||
+            a.plate_number.localeCompare(b.plate_number))
+          .map(c => ({ id: c.id, label: `${c.plate_number} — ${c.model_group?.name ?? '—'}` })),
       );
     });
   }, [form.investor_id]); // eslint-disable-line react-hooks/exhaustive-deps

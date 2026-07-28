@@ -1311,6 +1311,8 @@ const FinesPage: React.FC = () => {
             const mg = Array.isArray(c.model_group) ? c.model_group[0] : c.model_group;
             return { id: c.id, plate_number: c.plate_number, model_name: mg?.name ?? '—' };
           })
+          // Group by model, then plate within each model
+          .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number))
       );
     })();
     return () => { active = false; };

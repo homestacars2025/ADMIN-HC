@@ -1055,7 +1055,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         const model = Array.isArray(mg) ? (mg[0]?.name ?? '') : (mg as { name: string } | null)?.name ?? '';
         return { id: c.id, plate_number: c.plate_number, model };
       });
-      carOpts.sort((a, b) => a.model.localeCompare(b.model));
+      // Group by model, then plate within each model
+      carOpts.sort((a, b) => a.model.localeCompare(b.model) || a.plate_number.localeCompare(b.plate_number));
       setCars(carOpts);
 
       // Auto-generate booking number (add mode only)
