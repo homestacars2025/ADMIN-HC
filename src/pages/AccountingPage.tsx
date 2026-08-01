@@ -1218,6 +1218,7 @@ const InvestorCarListView: React.FC<{
   const [cars,        setCars]        = useState<CarOption[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
   const [selectedCar, setSelectedCar] = useState<CarOption | null>(null);
+  const [search,      setSearch]      = useState('');
 
   useEffect(() => {
     supabase
@@ -1249,15 +1250,22 @@ const InvestorCarListView: React.FC<{
     }))
     .sort((a, b) => b.total - a.total);
 
-  // Summary bar totals
+  // Summary bar totals — always computed from ALL cars, unaffected by the search filter
   const totalIncome   = carsWithStats.reduce((s, c) => s + c.total, 0);
   const activeCars    = carsWithStats.filter(c => c.count > 0).length;
   const totalRecords  = carsWithStats.reduce((s, c) => s + c.count, 0);
 
+  // Client-side filter: plate number or model group name, case-insensitive partial match
+  const q = search.trim().toLowerCase();
+  const visibleCars = q
+    ? carsWithStats.filter(({ car }) =>
+        car.plate_number.toLowerCase().includes(q) || car.model_name.toLowerCase().includes(q))
+    : carsWithStats;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <button
           onClick={onBack}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
@@ -1270,6 +1278,28 @@ const InvestorCarListView: React.FC<{
         <div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.4px' }}>Cars Rental Income</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 3 }}>{monthLabel(monthKey)}</div>
+        </div>
+
+        {/* ── Search ── */}
+        <div style={{ position: 'relative', marginLeft: 'auto', width: '100%', maxWidth: 320, flex: '1 1 220px' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+            <circle cx="11" cy="11" r="7" stroke="#9ca3af" strokeWidth="2"/>
+            <path d="M20 20l-3-3" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search by plate or model..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', height: 40, padding: '0 34px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 10, outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#0f1117', boxSizing: 'border-box', transition: 'border-color 140ms ease' }}
+            onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+            onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, borderRadius: 5, border: 'none', background: '#e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round"/></svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1300,9 +1330,13 @@ const InvestorCarListView: React.FC<{
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
           No cars found for this investor.
         </div>
+      ) : visibleCars.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+          No cars found
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-          {carsWithStats.map(({ car, total, count }) => {
+          {visibleCars.map(({ car, total, count }) => {
             const active    = count > 0;
             const negative  = active && total < 0;
             const accentClr = !active ? '#9ca3af' : negative ? '#dc2626' : '#16a34a';
