@@ -4040,6 +4040,142 @@ const WalletHistoryModal: React.FC<{
   );
 };
 
+// ─── Edit modal for a single company_expenses row ─────────────────────────────
+
+const EditCompanyExpenseModal: React.FC<{
+  entry:   CompanyExpenseRow;
+  onClose: () => void;
+  onSaved: () => void;
+}> = ({ entry, onClose, onSaved }) => {
+  const { symbol } = useCurrency();
+  const [form, setForm] = useState({
+    date:        entry.expense_date ?? '',
+    direction:   (entry.direction?.toUpperCase() === 'IN' ? 'IN' : 'OUT') as 'IN' | 'OUT',
+    category:    entry.category ?? '',
+    amount:      String(entry.amount ?? ''),
+    description: entry.description ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState<string | null>(null);
+
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm(prev => ({ ...prev, [k]: v }));
+
+  const handleSave = async () => {
+    const amount = parseFloat(form.amount);
+    if (!form.date || isNaN(amount) || amount <= 0) {
+      setError('Date and a valid amount are required.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const { error: err } = await supabase
+      .from('company_expenses')
+      .update({
+        expense_date: form.date,
+        direction:    form.direction,
+        category:     form.category || null,
+        amount,
+        description:  form.description || null,
+      })
+      .eq('id', entry.id);
+    setSaving(false);
+    if (err) { setError(err.message); return; }
+    onSaved();
+    onClose();
+  };
+
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', fontSize: 13,
+    border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none',
+    fontFamily: 'inherit', color: '#0f1117', background: '#fff',
+    boxSizing: 'border-box', transition: 'border-color 140ms ease',
+  };
+  const lbl: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: '#6b7280',
+    textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block',
+  };
+  const knownCategory = COMPANY_EXPENSE_CATEGORIES.some(c => c.value === form.category);
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
+    >
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Edit Expense</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>ID #{entry.id}</div>
+          </div>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Date</label>
+              <input type="date" value={form.date} onChange={e => set('date', e.target.value)} style={inp}
+                onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+                onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
+            </div>
+            <div>
+              <label style={lbl}>Direction</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['IN', 'OUT'] as const).map(d => (
+                  <button key={d} onClick={() => set('direction', d)}
+                    style={{ flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`, background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff', color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}>
+                    {d === 'IN' ? '↓ IN' : '↑ OUT'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Category</label>
+            <select value={form.category} onChange={e => set('category', e.target.value)} style={inp}
+              onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}>
+              <option value="">— Select —</option>
+              {COMPANY_EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {form.category && !knownCategory && <option value={form.category}>{form.category}</option>}
+            </select>
+          </div>
+
+          <div>
+            <label style={lbl}>Amount ({symbol})</label>
+            <input type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} style={inp}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
+          </div>
+
+          <div>
+            <label style={lbl}>Description</label>
+            <input type="text" placeholder="Optional description…" value={form.description} onChange={e => set('description', e.target.value)} style={inp}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 const CompanyExpensesTab: React.FC = () => {
   const { fmt } = useCurrency();
   const [monthKey,       setMonthKey]       = useState(currentMonthKey());
@@ -4051,6 +4187,13 @@ const CompanyExpensesTab: React.FC = () => {
   const [walletsLoading, setWalletsLoading] = useState(true);
   const [openCategory,   setOpenCategory]   = useState<{ value: string; label: string } | null>(null);
   const [openWallet,     setOpenWallet]     = useState<{ employee_id: string; full_name: string | null } | null>(null);
+  const [editExpense,    setEditExpense]    = useState<CompanyExpenseRow | null>(null);
+
+  const handleDeleteExpense = async (id: number) => {
+    if (!window.confirm('Delete this expense? This cannot be undone.')) return;
+    await supabase.from('company_expenses').delete().eq('id', id);
+    setRefreshKey(k => k + 1);
+  };
 
   // employee_wallet_balances is already scoped to role='staff' — one card per row.
   useEffect(() => {
@@ -4182,7 +4325,110 @@ const CompanyExpensesTab: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Company Expenses: Section 3 — Employee Wallets ──────────────── */}
+      {/* ── Company Expenses: Section 3 — Transactions table ────────────── */}
+      {(() => {
+        const rows = [...ifMonthData].sort((a, b) =>
+          (a.expense_date < b.expense_date ? 1 : a.expense_date > b.expense_date ? -1 : b.id - a.id));
+        const net = rows.reduce((a, r) =>
+          a + (r.direction?.toUpperCase() === 'IN' ? (r.amount ?? 0) : -(r.amount ?? 0)), 0);
+
+        const th: React.CSSProperties = { padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' };
+        const td: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: '#374151', verticalAlign: 'middle' };
+
+        return (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Transactions
+              </div>
+              {!ifMonthLoading && rows.length > 0 && (
+                <div style={{ fontSize: 13, color: '#6b7280' }}>
+                  {rows.length} transaction{rows.length !== 1 ? 's' : ''} · Total{' '}
+                  <span style={{ fontWeight: 700, color: net < 0 ? '#dc2626' : '#16a34a' }}>
+                    {net < 0 ? '-' : ''}{fmt(Math.abs(net))}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+              {ifMonthLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
+                  </svg>
+                </div>
+              ) : rows.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 24px', color: '#9ca3af', fontSize: 13 }}>
+                  No expenses recorded for this month
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+                    <thead>
+                      <tr>
+                        <th style={th}>Date</th>
+                        <th style={th}>Direction</th>
+                        <th style={th}>Category</th>
+                        <th style={th}>Amount</th>
+                        <th style={th}>Description</th>
+                        <th style={th}>Receipt</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r, i) => {
+                        const isIn = r.direction?.toUpperCase() === 'IN';
+                        const catLabel = COMPANY_EXPENSE_CATEGORIES.find(c => c.value === r.category)?.label ?? r.category;
+                        return (
+                          <tr key={r.id} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f7f7f7' : 'none' }}>
+                            <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(r.expense_date)}</td>
+                            <td style={td}><DirBadge dir={r.direction} /></td>
+                            <td style={{ ...td, whiteSpace: 'nowrap', color: catLabel ? '#374151' : '#d1d5db' }}>{catLabel || '—'}</td>
+                            <td style={{ ...td, fontWeight: 700, color: isIn ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
+                              {isIn ? '+' : '-'}{fmt(r.amount ?? 0)}
+                            </td>
+                            <td style={{ ...td, color: r.description ? '#374151' : '#d1d5db', maxWidth: 260 }}>{r.description || '—'}</td>
+                            <td style={td}>
+                              {r.receipt_url
+                                ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none', fontSize: 12 }}>View</a>
+                                : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>}
+                            </td>
+                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => setEditExpense(r)}
+                                  title="Edit"
+                                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', transition: 'all 140ms ease' }}
+                                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+                                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
+                                >
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExpense(r.id)}
+                                  title="Delete"
+                                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', transition: 'all 140ms ease' }}
+                                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#ef4444'; b.style.color = '#ef4444'; }}
+                                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
+                                >
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Company Expenses: Section 4 — Employee Wallets ──────────────── */}
       <div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
           Employee Wallets
@@ -4237,6 +4483,14 @@ const CompanyExpensesTab: React.FC = () => {
           profiles={wallets.map(w => ({ id: w.employee_id, full_name: w.full_name, avatar_url: null }))}
           onClose={() => setShowAddTx(false)}
           onSaved={() => { setShowAddTx(false); setRefreshKey(k => k + 1); }}
+        />
+      )}
+
+      {editExpense && (
+        <EditCompanyExpenseModal
+          entry={editExpense}
+          onClose={() => setEditExpense(null)}
+          onSaved={() => { setEditExpense(null); setRefreshKey(k => k + 1); }}
         />
       )}
 
