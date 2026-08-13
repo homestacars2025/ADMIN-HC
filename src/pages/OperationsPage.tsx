@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import OperationPhotoGrid, {
+  OPERATION_PHOTO_SLOTS,
+  MAX_EXTRA_SCRATCHES,
+  capturedSlotCount,
+  missingSlotLabels,
+  type SlotFiles,
+} from '../components/OperationPhotoGrid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +21,13 @@ type TabKey = 'dp' | 'other';
 interface CarOption      { id: number; plate_number: string; model_group: { name: string } | null; }
 interface ProfileOption  { id: string; full_name: string | null; role: string; }
 interface CustomerOption { id: string; first_name: string; last_name: string; }
+
+/** Shape of the `operations.photos` JSONB column for structured delivery/pickup rows. */
+interface OperationPhotos {
+  [key: string]: string | string[] | undefined;
+  extra_scratches?: string[];
+  base_path?: string;
+}
 
 interface OperationRow {
   id: number;
@@ -30,6 +44,7 @@ interface OperationRow {
   note: string | null;
   booking_id: number | null;
   folder_url: string | null;
+  photos: OperationPhotos | null;
   cars: { plate_number: string } | { plate_number: string }[] | null;
   handler: { full_name: string | null } | { full_name: string | null }[] | null;
   customers: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
@@ -53,6 +68,7 @@ interface Operation {
   note: string | null;
   booking_id: number | null;
   folder_url: string | null;
+  photos: OperationPhotos | null;
 }
 
 interface AddOpForm {
@@ -141,6 +157,12 @@ function sanitizePath(s: string): string {
     .toLowerCase();
 }
 
+// Storage folder key for a plate: lowercased, whitespace removed.
+// Anything outside [a-z0-9-_] is dropped so the key stays storage-safe.
+function plateFolderKey(plate: string): string {
+  return plate.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9\-_]/g, '');
+}
+
 function resolveOperation(row: OperationRow): Operation {
   const car  = Array.isArray(row.cars)      ? row.cars[0]      : row.cars;
   const hdlr = Array.isArray(row.handler)   ? row.handler[0]   : row.handler;
@@ -163,6 +185,7 @@ function resolveOperation(row: OperationRow): Operation {
     note:               row.note,
     booking_id:         row.booking_id,
     folder_url:         row.folder_url,
+    photos:             row.photos ?? null,
   };
 }
 
@@ -278,6 +301,10 @@ const AddOperationModal: React.FC<{
   const [bookingLoading, setBookingLoading] = useState(false);
   const [photos, setPhotos]               = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [slotFiles, setSlotFiles]         = useState<SlotFiles>({});
+  const [scratchFiles, setScratchFiles]   = useState<File[]>([]);
+  const [uploadDone, setUploadDone]       = useState(0);
+  const [uploadTotal, setUploadTotal]     = useState(0);
   const [saving, setSaving]           = useState(false);
   const [saveStep, setSaveStep]       = useState<'saving' | 'uploading'>('saving');
   const [formError, setFormError]     = useState<string | null>(null);
@@ -410,6 +437,23 @@ const AddOperationModal: React.FC<{
   const set = (k: keyof AddOpForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
+  // Delivery / pickup in add mode use the fixed named-slot photo grid.
+  // Every other type (and edit mode) keeps the free multi-photo uploader.
+  const usesPhotoSlots  = !isEdit && (DP_TYPES as string[]).includes(form.type);
+  const capturedSlots   = capturedSlotCount(slotFiles);
+  const missingSlots    = usesPhotoSlots ? missingSlotLabels(slotFiles) : [];
+  const slotsIncomplete = usesPhotoSlots && missingSlots.length > 0;
+
+  const handleSlotChange = useCallback((key: string, file: File) => {
+    setSlotFiles(prev => ({ ...prev, [key]: file }));
+  }, []);
+  const handleScratchAdd = useCallback((file: File) => {
+    setScratchFiles(prev => (prev.length >= MAX_EXTRA_SCRATCHES ? prev : [...prev, file]));
+  }, []);
+  const handleScratchRemove = useCallback((index: number) => {
+    setScratchFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.car_id)     { setFormError('Please select a car.'); return; }
@@ -422,6 +466,10 @@ const AddOperationModal: React.FC<{
     }
     if (Number(form.fuel_level) > 2000) {
       setFuelLevelError('Maximum fuel level is 2000');
+      return;
+    }
+    if (usesPhotoSlots && missingSlots.length > 0) {
+      setFormError(`${missingSlots.length} required photo(s) still missing: ${missingSlots.join(', ')}.`);
       return;
     }
 
@@ -463,6 +511,73 @@ const AddOperationModal: React.FC<{
 
     const selectedCar      = cars.find(c => String(c.id) === form.car_id);
     const selectedCustomer = customers.find(c => c.id === form.customer_id);
+
+    // ── Structured delivery / pickup photos ──────────────────────────────────
+    // Upload every slot first; only insert once all of them succeeded, so a
+    // failed upload can never leave a half-filled operation behind.
+    if (usesPhotoSlots) {
+      const plate  = plateFolderKey(selectedCar?.plate_number ?? '') || 'unknown';
+      const opType = form.type.toLowerCase();
+      const date   = form.operation_date.slice(0, 10);
+      // Short unique suffix so two same-car/same-type/same-day operations never
+      // overwrite each other's photos.
+      const folderUid = (globalThis.crypto?.randomUUID?.() ?? String(Date.now())).slice(0, 8);
+      const basePath  = `${plate}/${opType}-${date}/${folderUid}`;
+
+      const targets: Array<{ path: string; file: File; slot: string }> = [
+        ...OPERATION_PHOTO_SLOTS.flatMap(slot => {
+          const file = slotFiles[slot.key];
+          return file ? [{ path: `${basePath}/${slot.key}.jpg`, file, slot: slot.key }] : [];
+        }),
+        ...scratchFiles.map((file, i) => ({
+          path: `${basePath}/scratch-${i + 1}.jpg`, file, slot: `scratch_${i + 1}`,
+        })),
+      ];
+
+      setSaveStep('uploading');
+      setUploadDone(0);
+      setUploadTotal(targets.length);
+
+      const uploaded: Record<string, string> = {};
+      const stamp = Date.now();
+      for (const target of targets) {
+        const { error: uploadError } = await supabase.storage
+          .from('operations')
+          .upload(target.path, target.file, { upsert: true, contentType: target.file.type });
+
+        if (uploadError) {
+          setSaving(false);
+          setUploadTotal(0);
+          setFormError(`Photo upload failed (${target.slot}): ${uploadError.message}. Nothing was saved — please try again.`);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage.from('operations').getPublicUrl(target.path);
+        // Fixed filenames + upsert mean the CDN may still hold the previous
+        // image at this path, so stamp the URL to force a fresh fetch.
+        uploaded[target.slot] = `${urlData.publicUrl}?t=${stamp}`;
+        setUploadDone(d => d + 1);
+      }
+
+      const photosPayload: Record<string, unknown> = {};
+      for (const slot of OPERATION_PHOTO_SLOTS) photosPayload[slot.key] = uploaded[slot.key];
+      photosPayload.extra_scratches = scratchFiles.map((_, i) => uploaded[`scratch_${i + 1}`]);
+      // Stored so future screens can locate these images without re-deriving the path.
+      photosPayload.base_path = basePath;
+
+      setSaveStep('saving');
+      const { error: insertError } = await supabase
+        .from('operations')
+        .insert({ ...corePayload, created_by: uid, photos: photosPayload });
+
+      setSaving(false);
+      setUploadTotal(0);
+      if (insertError) { setFormError(insertError.message); return; }
+      onSaved();
+      return;
+    }
+
+    // ── Legacy free-uploader path (all other types) ──────────────────────────
     const platePart    = sanitizePath(selectedCar?.plate_number ?? 'unknown');
     const typePart     = sanitizePath(form.type);
     const customerPart = selectedCustomer
@@ -717,8 +832,20 @@ const AddOperationModal: React.FC<{
             />
           </div>
 
-          {/* Photos — add mode only */}
-          {!isEdit && <div style={fieldStyle}>
+          {/* Photos — delivery / pickup use the fixed named-slot grid */}
+          {usesPhotoSlots && (
+            <OperationPhotoGrid
+              slotFiles={slotFiles}
+              onSlotChange={handleSlotChange}
+              scratches={scratchFiles}
+              onScratchAdd={handleScratchAdd}
+              onScratchRemove={handleScratchRemove}
+              disabled={saving}
+            />
+          )}
+
+          {/* Photos — free uploader for every other type, add mode only */}
+          {!isEdit && !usesPhotoSlots && <div style={fieldStyle}>
             <label style={labelStyle}>
               Photos <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
             </label>
@@ -781,7 +908,15 @@ const AddOperationModal: React.FC<{
         </form>
 
         {/* Footer */}
-        <div style={{ padding: '16px 28px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+        <div style={{ padding: '16px 28px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
+          {slotsIncomplete && !saving && (
+            <div style={{ flex: '1 1 200px', minWidth: 0, fontSize: 11.5, color: '#9ca3af', lineHeight: 1.45 }}>
+              <span style={{ fontWeight: 700, color: '#ef4444' }}>
+                {missingSlots.length} photo{missingSlots.length > 1 ? 's' : ''} still missing
+              </span>{' '}
+              ({capturedSlots} / {OPERATION_PHOTO_SLOTS.length} captured) — {missingSlots.join(', ')}
+            </div>
+          )}
           <button type="button" onClick={onClose}
             style={{ height: 40, padding: '0 20px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
@@ -791,15 +926,17 @@ const AddOperationModal: React.FC<{
           <button
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={saving}
-            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: saving ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
+            disabled={saving || slotsIncomplete}
+            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: (saving || slotsIncomplete) ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: (saving || slotsIncomplete) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             {saving ? (
               <>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
                   <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                 </svg>
-                {saveStep === 'uploading' ? 'Uploading photos…' : 'Saving…'}
+                {saveStep === 'uploading'
+                  ? (uploadTotal > 0 ? `Uploading photos… ${uploadDone}/${uploadTotal}` : 'Uploading photos…')
+                  : 'Saving…'}
               </>
             ) : isEdit ? 'Save Changes' : 'Save Operation'}
           </button>
@@ -877,9 +1014,17 @@ const ConfirmDeleteDialog: React.FC<{
 
 // ─── Photos Modal ─────────────────────────────────────────────────────────────
 
-const PhotosModal: React.FC<{ folderUrl: string; onClose: () => void }> = ({ folderUrl, onClose }) => {
+/** One tile in the photos modal. `url` is null for a mandatory slot with no image. */
+interface PhotoItem { url: string | null; label: string | null; }
+
+const PhotosModal: React.FC<{
+  folderUrl: string | null;
+  structuredPhotos: OperationPhotos | null;
+  onClose: () => void;
+}> = ({ folderUrl, structuredPhotos, onClose }) => {
   const [photos, setPhotos]     = useState<string[]>([]);
-  const [fetching, setFetching] = useState(true);
+  // Structured rows resolve straight from the JSONB column — nothing to fetch.
+  const [fetching, setFetching] = useState(!structuredPhotos);
   const [fetchErr, setFetchErr] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
@@ -892,6 +1037,7 @@ const PhotosModal: React.FC<{ folderUrl: string; onClose: () => void }> = ({ fol
   }, [onClose, lightbox]);
 
   useEffect(() => {
+    if (structuredPhotos || !folderUrl) return;
     let active = true;
     const parts = folderUrl.split('/public/operations/');
     const folderPath = parts[1]?.replace(/\/$/, '') ?? '';
@@ -910,7 +1056,25 @@ const PhotosModal: React.FC<{ folderUrl: string; onClose: () => void }> = ({ fol
         setPhotos(urls);
       });
     return () => { active = false; };
-  }, [folderUrl]);
+  }, [folderUrl, structuredPhotos]);
+
+  // Structured rows: the 13 named positions in slot order, then the extra
+  // scratches unlabeled. Legacy rows: whatever the folder listing returned.
+  const items: PhotoItem[] = useMemo(() => {
+    if (!structuredPhotos) return photos.map(url => ({ url, label: null }));
+
+    const slots: PhotoItem[] = OPERATION_PHOTO_SLOTS.map(slot => {
+      const value = structuredPhotos[slot.key];
+      return { url: typeof value === 'string' && value ? value : null, label: slot.label };
+    });
+    const extras: PhotoItem[] = (Array.isArray(structuredPhotos.extra_scratches) ? structuredPhotos.extra_scratches : [])
+      .filter((url): url is string => typeof url === 'string' && !!url)
+      .map(url => ({ url, label: null }));
+
+    return [...slots, ...extras];
+  }, [structuredPhotos, photos]);
+
+  const presentCount = items.filter(i => i.url).length;
 
   return ReactDOM.createPortal(
     <>
@@ -929,7 +1093,7 @@ const PhotosModal: React.FC<{ folderUrl: string; onClose: () => void }> = ({ fol
               <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>Operation Photos</div>
               {!fetching && !fetchErr && (
                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-                  {photos.length} photo{photos.length !== 1 ? 's' : ''}
+                  {presentCount} photo{presentCount !== 1 ? 's' : ''}
                 </div>
               )}
             </div>
@@ -960,7 +1124,7 @@ const PhotosModal: React.FC<{ folderUrl: string; onClose: () => void }> = ({ fol
               </div>
             )}
 
-            {!fetching && !fetchErr && photos.length === 0 && (
+            {!fetching && !fetchErr && presentCount === 0 && (
               <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af' }}>
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 12px', display: 'block', color: '#d1d5db' }}>
                   <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
@@ -972,30 +1136,47 @@ const PhotosModal: React.FC<{ folderUrl: string; onClose: () => void }> = ({ fol
               </div>
             )}
 
-            {!fetching && !fetchErr && photos.length > 0 && (
+            {!fetching && !fetchErr && presentCount > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                {photos.map((url, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setLightbox(url)}
-                    style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 10, overflow: 'hidden', border: '1.5px solid #e5e7eb', cursor: 'zoom-in', padding: 0, background: '#f9fafb', display: 'block', width: '100%', transition: 'border-color 140ms ease, transform 140ms ease' }}
-                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.transform = 'scale(1.02)'; }}
-                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.transform = 'scale(1)'; }}
-                  >
-                    <img
-                      src={url}
-                      alt={`Photo ${i + 1}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.12)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0)'; }}
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ opacity: 0, transition: 'opacity 140ms ease', color: '#fff' }}>
-                        <path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M16 21h3a2 2 0 002-2v-3M8 21H5a2 2 0 01-2-2v-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                {items.map((item, i) => item.url === null ? (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <div style={{ aspectRatio: '4/3', borderRadius: 10, border: '1.5px dashed #e5e7eb', background: '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, color: '#d1d5db' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.6"/>
+                        <path d="M4 20L20 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                       </svg>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>No photo</span>
                     </div>
-                  </button>
+                    {item.label && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textAlign: 'center' }}>{item.label}</span>
+                    )}
+                  </div>
+                ) : (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <button
+                      onClick={() => setLightbox(item.url as string)}
+                      style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 10, overflow: 'hidden', border: '1.5px solid #e5e7eb', cursor: 'zoom-in', padding: 0, background: '#f9fafb', display: 'block', width: '100%', transition: 'border-color 140ms ease, transform 140ms ease' }}
+                      onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.transform = 'scale(1.02)'; }}
+                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.transform = 'scale(1)'; }}
+                    >
+                      <img
+                        src={item.url}
+                        alt={item.label ?? `Photo ${i + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0)', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0.12)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,0,0,0)'; }}
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ opacity: 0, transition: 'opacity 140ms ease', color: '#fff' }}>
+                          <path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M16 21h3a2 2 0 002-2v-3M8 21H5a2 2 0 01-2-2v-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+                    </button>
+                    {item.label && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', textAlign: 'center' }}>{item.label}</span>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -1356,8 +1537,27 @@ const OperationsPage: React.FC = () => {
 
   const handleDelete = async (op: Operation) => {
     setDeleting(true);
+
+    // Structured delivery/pickup rows keep their photos under photos.base_path.
+    // Cleanup failures are logged but must never block deleting the row itself.
+    const basePath = typeof op.photos?.base_path === 'string' ? op.photos.base_path : null;
+
+    if (basePath) {
+      try {
+        const { data: files, error: listError } = await supabase.storage.from('operations').list(basePath);
+        if (listError) throw listError;
+        if (files && files.length > 0) {
+          const { error: removeError } = await supabase.storage
+            .from('operations')
+            .remove(files.map(f => `${basePath}/${f.name}`));
+          if (removeError) throw removeError;
+        }
+      } catch (cleanupError) {
+        console.error('[Op] failed to remove structured photos under', basePath, cleanupError);
+      }
+    }
     // Delete storage files if folder_url exists
-    if (op.folder_url) {
+    else if (op.folder_url) {
       const parts = op.folder_url.split('/public/operations/');
       const folderPath = parts[1]?.replace(/\/$/, '') ?? '';
       if (folderPath) {
@@ -1388,7 +1588,7 @@ const OperationsPage: React.FC = () => {
       .from('operations')
       .select(`
         id, operation_date, operation_time, type, car_id, performed_by, customer_id,
-        current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url,
+        current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url, photos,
         cars!operations_car_id_fkey(plate_number),
         handler:profiles!performed_by(full_name),
         customers(first_name, last_name)
@@ -1654,7 +1854,7 @@ const OperationsPage: React.FC = () => {
                   </td>
 
                   <td style={{ ...td, textAlign: 'center' }}>
-                    {op.folder_url ? (
+                    {(op.photos || op.folder_url) ? (
                       <button
                         onClick={() => setPhotosOp(op)}
                         title="View photos"
@@ -1754,9 +1954,10 @@ const OperationsPage: React.FC = () => {
       </div>
 
       {/* ── Photos Modal ── */}
-      {photosOp?.folder_url && (
+      {photosOp && (photosOp.photos || photosOp.folder_url) && (
         <PhotosModal
           folderUrl={photosOp.folder_url}
+          structuredPhotos={photosOp.photos}
           onClose={() => setPhotosOp(null)}
         />
       )}
