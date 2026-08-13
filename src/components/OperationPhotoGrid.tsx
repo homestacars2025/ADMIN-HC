@@ -5,22 +5,42 @@ import React, { useEffect, useState } from 'react';
 // Order here is the order shown in the grid — keep both stable so delivery and
 // pickup photos can be compared position-by-position later.
 
-export interface PhotoSlotDef { key: string; label: string; }
+/** Where a slot's highlight sits on the shared top-view car (viewBox 0 0 48 84, nose at top). */
+export type SlotHighlight =
+  | { kind: 'dot';  cx: number; cy: number; r?: number }
+  | { kind: 'zone'; x: number; y: number; w: number; h: number; rx: number };
 
+/** Exterior positions highlight red, interior positions green. */
+export type SlotArea = 'exterior' | 'interior';
+
+export const AREA_COLOR: Record<SlotArea, string> = {
+  exterior: '#ef4444',
+  interior: '#16a34a',
+};
+
+export interface PhotoSlotDef {
+  key: string;
+  label: string;
+  area: SlotArea;
+  highlight: SlotHighlight;
+}
+
+// Label, order, area and diagram all live on the same record, so a slot can
+// never end up showing one position's name next to another's diagram.
 export const OPERATION_PHOTO_SLOTS: PhotoSlotDef[] = [
-  { key: 'front',       label: 'Front' },
-  { key: 'right_side',  label: 'Right side' },
-  { key: 'left_side',   label: 'Left side' },
-  { key: 'rear',        label: 'Rear' },
-  { key: 'corner_1',    label: 'Corner 1' },
-  { key: 'corner_2',    label: 'Corner 2' },
-  { key: 'corner_3',    label: 'Corner 3' },
-  { key: 'corner_4',    label: 'Corner 4' },
-  { key: 'trunk',       label: 'Trunk' },
-  { key: 'rear_seats',  label: 'Rear seats' },
-  { key: 'front_seats', label: 'Front seats' },
-  { key: 'odometer',    label: 'Odometer' },
-  { key: 'dashboard',   label: 'Dashboard' },
+  { key: 'front',       label: 'Front',       area: 'exterior', highlight: { kind: 'dot', cx: 24, cy: 8 } },
+  { key: 'right_side',  label: 'Right side',  area: 'exterior', highlight: { kind: 'dot', cx: 40, cy: 42 } },
+  { key: 'left_side',   label: 'Left side',   area: 'exterior', highlight: { kind: 'dot', cx: 8,  cy: 42 } },
+  { key: 'rear',        label: 'Rear',        area: 'exterior', highlight: { kind: 'dot', cx: 24, cy: 76 } },
+  { key: 'corner_1',    label: 'Corner 1',    area: 'exterior', highlight: { kind: 'dot', cx: 10, cy: 14 } },
+  { key: 'corner_2',    label: 'Corner 2',    area: 'exterior', highlight: { kind: 'dot', cx: 38, cy: 14 } },
+  { key: 'corner_3',    label: 'Corner 3',    area: 'exterior', highlight: { kind: 'dot', cx: 10, cy: 70 } },
+  { key: 'corner_4',    label: 'Corner 4',    area: 'exterior', highlight: { kind: 'dot', cx: 38, cy: 70 } },
+  { key: 'trunk',       label: 'Trunk',       area: 'interior', highlight: { kind: 'zone', x: 12.5, y: 66,   w: 23, h: 11,  rx: 4 } },
+  { key: 'rear_seats',  label: 'Rear seats',  area: 'interior', highlight: { kind: 'zone', x: 14,   y: 48,   w: 20, h: 10,  rx: 3 } },
+  { key: 'front_seats', label: 'Front seats', area: 'interior', highlight: { kind: 'zone', x: 14,   y: 37,   w: 20, h: 10,  rx: 3 } },
+  { key: 'odometer',    label: 'Odometer',    area: 'interior', highlight: { kind: 'dot', cx: 18.5, cy: 33, r: 3.1 } },
+  { key: 'dashboard',   label: 'Dashboard',   area: 'interior', highlight: { kind: 'zone', x: 14.5, y: 30.5, w: 19, h: 4.8, rx: 2.2 } },
 ];
 
 export const MAX_EXTRA_SCRATCHES = 5;
@@ -49,6 +69,66 @@ const CheckIcon: React.FC = () => (
   <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
     <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
+);
+
+// ─── Top-view car diagram ─────────────────────────────────────────────────────
+// One car body, drawn identically for every slot — only the highlight moves.
+// Nose is at the top, so the car's left side is screen-left and its right side
+// is screen-right, matching how you'd stand over the car looking down.
+
+const CAR_ASPECT = 48 / 84;
+
+const CAR_BODY_PATH =
+  'M16 4 L32 4 Q38 4.5 39.5 12 L40.5 26 Q41 42 40.5 58 L39.5 72 Q38 80 32 80.5 ' +
+  'L16 80.5 Q10 80 8.5 72 L7.5 58 Q7 42 7.5 26 L8.5 12 Q10 4.5 16 4 Z';
+
+const CarDiagram: React.FC<{ highlight: SlotHighlight; area: SlotArea; height: number }> = ({
+  highlight, area, height,
+}) => {
+  const color = AREA_COLOR[area];
+  return (
+    <svg
+      width={Math.round(height * CAR_ASPECT)}
+      height={height}
+      viewBox="0 0 48 84"
+      fill="none"
+      aria-hidden="true"
+      style={{ display: 'block', flexShrink: 0, overflow: 'visible' }}
+    >
+      {/* Body */}
+      <path d={CAR_BODY_PATH} fill="#fff" stroke="#9ca3af" strokeWidth="1.8" strokeLinejoin="round" />
+      {/* Hood + boot creases */}
+      <path d="M12.5 21.5 Q24 19 35.5 21.5" stroke="#d1d5db" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M12.5 71 Q24 73.5 35.5 71"   stroke="#d1d5db" strokeWidth="1.3" strokeLinecap="round" />
+      {/* Wing mirrors */}
+      <path d="M7.6 28.8 L4.6 30.2 L4.6 32.6 L7.8 32" fill="#fff" stroke="#9ca3af" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M40.4 28.8 L43.4 30.2 L43.4 32.6 L40.2 32" fill="#fff" stroke="#9ca3af" strokeWidth="1.3" strokeLinejoin="round" />
+      {/* Glass: windshield, cabin sides, rear window */}
+      <path d="M17.5 27 L30.5 27 L33 35 L15 35 Z" fill="#eef1f4" stroke="#cbd1d9" strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M15 35 L15 58 M33 35 L33 58" stroke="#cbd1d9" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M15 58 L33 58 L30.5 65 L17.5 65 Z" fill="#eef1f4" stroke="#cbd1d9" strokeWidth="1.2" strokeLinejoin="round" />
+
+      {/* Highlight — the only part that differs between slots */}
+      {highlight.kind === 'dot' ? (
+        <>
+          <circle cx={highlight.cx} cy={highlight.cy} r={(highlight.r ?? 4) * 2.4} fill={color} opacity="0.25" />
+          <circle cx={highlight.cx} cy={highlight.cy} r={highlight.r ?? 4} fill={color} stroke="#fff" strokeWidth="1.2" />
+        </>
+      ) : (
+        <rect
+          x={highlight.x} y={highlight.y} width={highlight.w} height={highlight.h} rx={highlight.rx}
+          fill={color} fillOpacity="0.28" stroke={color} strokeWidth="1.8"
+        />
+      )}
+    </svg>
+  );
+};
+
+const LegendChip: React.FC<{ color: string; label: string }> = ({ color, label }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+    <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+    <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af' }}>{label}</span>
+  </span>
 );
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -129,6 +209,12 @@ const OperationPhotoGrid: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* Diagram legend */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
+        <LegendChip color={AREA_COLOR.exterior} label="Exterior" />
+        <LegendChip color={AREA_COLOR.interior} label="Interior" />
+      </div>
+
       {/* Mandatory slot grid */}
       <div style={gridStyle}>
         {OPERATION_PHOTO_SLOTS.map((slot, i) => {
@@ -161,6 +247,15 @@ const OperationPhotoGrid: React.FC<Props> = ({
                   }}>
                     <CheckIcon />
                   </span>
+                  {/* Diagram shrinks to a corner badge so the position stays
+                      identifiable at a glance once the photo covers the tile. */}
+                  <span style={{
+                    position: 'absolute', top: 5, left: 5, borderRadius: 6,
+                    background: 'rgba(255,255,255,0.94)', padding: '3px 4px',
+                    display: 'flex', boxShadow: '0 1px 4px rgba(0,0,0,0.22)',
+                  }}>
+                    <CarDiagram highlight={slot.highlight} area={slot.area} height={30} />
+                  </span>
                   {/* Label + replace affordance */}
                   <span style={{
                     position: 'absolute', left: 0, right: 0, bottom: 0,
@@ -179,7 +274,10 @@ const OperationPhotoGrid: React.FC<Props> = ({
                   }}>
                     {i + 1}
                   </span>
-                  <CameraIcon />
+                  <span style={{ position: 'absolute', top: 6, right: 7, display: 'flex' }}>
+                    <CameraIcon size={11} color="#d1d5db" />
+                  </span>
+                  <CarDiagram highlight={slot.highlight} area={slot.area} height={56} />
                   <span style={{ fontSize: 11.5, fontWeight: 600, color: '#6b7280', lineHeight: 1.25 }}>{slot.label}</span>
                 </>
               )}
