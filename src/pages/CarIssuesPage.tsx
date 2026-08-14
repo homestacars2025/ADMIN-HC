@@ -653,6 +653,27 @@ const AddIssueModal: React.FC<{ onClose: () => void; onSaved: () => void }> = ({
     return () => { active = false; };
   }, [carId]);
 
+  // A booking may only be linked to the customer it belongs to, so once a
+  // customer is chosen the booking list narrows to that customer's bookings.
+  const visibleBookings = useMemo(
+    () => (customerId ? bookings.filter(b => b.customer_id === customerId) : bookings),
+    [bookings, customerId],
+  );
+
+  const handleCustomerChange = (nextCustomerId: string) => {
+    setCustomerId(nextCustomerId);
+    if (!nextCustomerId || !bookingId) return;
+    const current = bookings.find(b => String(b.id) === bookingId);
+    if (!current || current.customer_id !== nextCustomerId) setBookingId('');
+  };
+
+  const handleBookingChange = (nextBookingId: string) => {
+    setBookingId(nextBookingId);
+    if (!nextBookingId) return;
+    const picked = bookings.find(b => String(b.id) === nextBookingId);
+    if (picked?.customer_id) setCustomerId(picked.customer_id);
+  };
+
   const addPhotos = (incoming: File[]) =>
     setPhotos(prev => [...prev, ...incoming].slice(0, MAX_PHOTOS));
   const removePhoto = (index: number) =>
@@ -726,7 +747,7 @@ const AddIssueModal: React.FC<{ onClose: () => void; onSaved: () => void }> = ({
             <label style={LABEL_STYLE}>
               Customer <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
             </label>
-            <select value={customerId} onChange={e => setCustomerId(e.target.value)} disabled={!carId || linksLoading || saving}
+            <select value={customerId} onChange={e => handleCustomerChange(e.target.value)} disabled={!carId || linksLoading || saving}
               style={{ ...FIELD_STYLE, cursor: 'pointer', color: customerId ? '#0f1117' : '#9ca3af' }} onFocus={onFieldFocus} onBlur={onFieldBlur}>
               <option value="">
                 {!carId ? 'Select a car first' : linksLoading ? 'Loading…' : customers.length === 0 ? 'No customers for this car' : 'No customer'}
@@ -739,17 +760,22 @@ const AddIssueModal: React.FC<{ onClose: () => void; onSaved: () => void }> = ({
             <label style={LABEL_STYLE}>
               Booking <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
             </label>
-            <select value={bookingId} onChange={e => setBookingId(e.target.value)} disabled={!carId || linksLoading || saving}
+            <select value={bookingId} onChange={e => handleBookingChange(e.target.value)} disabled={!carId || linksLoading || saving}
               style={{ ...FIELD_STYLE, cursor: 'pointer', color: bookingId ? '#0f1117' : '#9ca3af' }} onFocus={onFieldFocus} onBlur={onFieldBlur}>
               <option value="">
-                {!carId ? 'Select a car first' : linksLoading ? 'Loading…' : bookings.length === 0 ? 'No bookings for this car' : 'No booking'}
+                {!carId ? 'Select a car first' : linksLoading ? 'Loading…' : 'No booking'}
               </option>
-              {bookings.map(b => (
+              {visibleBookings.map(b => (
                 <option key={b.id} value={String(b.id)}>
                   {b.booking_number ?? `#${b.id}`} · {formatDate(b.start_date)} → {formatDate(b.end_date)}
                 </option>
               ))}
             </select>
+            {carId && !linksLoading && visibleBookings.length === 0 && (
+              <span style={{ display: 'block', fontSize: 11, color: '#9ca3af', marginTop: 5 }}>
+                {customerId ? 'This customer has no bookings for this car.' : 'No bookings for this car.'}
+              </span>
+            )}
           </div>
 
           <div style={{ gridColumn: '1 / -1' }}>
