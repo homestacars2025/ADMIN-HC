@@ -18,6 +18,7 @@ import ActiveBookingsPage from './pages/ActiveBookingsPage';
 import PendingInvoicesPage from './pages/PendingInvoicesPage';
 import CustomersPage from './pages/CustomersPage';
 import OperationsPage from './pages/OperationsPage';
+import CarIssuesPage from './pages/CarIssuesPage';
 import SourcingPage from './pages/SourcingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import MarketingLayout from './pages/marketing/MarketingLayout';
@@ -70,6 +71,7 @@ const App: React.FC = () => {
           <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="operations" element={<OperationsPage />} />
+          <Route path="car-issues" element={<CarIssuesPage />} />
           <Route path="sourcing" element={<SourcingPage />} />
           <Route path="online-users" element={<OnlineUsersPage />} />
           <Route path="team" element={<TeamPage />} />

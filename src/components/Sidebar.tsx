@@ -298,6 +298,16 @@ const operationsItems = [
     ),
   },
   {
+    label: 'Car Issues',
+    path: '/dashboard/car-issues',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M10.3 3.9L2.5 17.4A2 2 0 004.2 20.4h15.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+        <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
     label: 'KGM Tolls',
     path: '/dashboard/kgm',
     icon: (
