@@ -289,6 +289,15 @@ const marketingItems = [
 
 const operationsItems = [
   {
+    label: 'Inbox',
+    path: '/dashboard/inbox',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     label: 'Operations',
     path: '/dashboard/operations',
     icon: (
