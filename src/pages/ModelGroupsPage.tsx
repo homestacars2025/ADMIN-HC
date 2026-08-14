@@ -148,7 +148,11 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
         setFormError(`Image upload failed: ${uploadError.message}`);
         return;
       }
-      imageUrl = supabase.storage.from('model-group').getPublicUrl(fileName).data.publicUrl;
+      // The storage path is fixed per model, so the public URL alone never changes
+      // and the browser/CDN keeps serving the old file. Stamp a version on the
+      // stored image_url so every consumer of it picks up the replacement.
+      const publicUrl = supabase.storage.from('model-group').getPublicUrl(fileName).data.publicUrl;
+      imageUrl = `${publicUrl}?v=${Date.now()}`;
     }
 
     setSaving('saving');
