@@ -20,6 +20,7 @@ import CustomersPage from './pages/CustomersPage';
 import OperationsPage from './pages/OperationsPage';
 import CarIssuesPage from './pages/CarIssuesPage';
 import InboxPage from './pages/InboxPage';
+import StaffPermissionsPage from './pages/StaffPermissionsPage';
 import SourcingPage from './pages/SourcingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import MarketingLayout from './pages/marketing/MarketingLayout';
@@ -77,6 +78,7 @@ const App: React.FC = () => {
           <Route path="sourcing" element={<SourcingPage />} />
           <Route path="online-users" element={<OnlineUsersPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="staff-permissions" element={<StaffPermissionsPage />} />
 
           {/* ── Marketing ─────────────────────────────────── */}
           <Route path="marketing" element={<MarketingLayout />}>

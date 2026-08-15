@@ -131,6 +131,17 @@ const adminToolItems = [
     ),
   },
   {
+    label: 'Staff Permissions',
+    path: '/dashboard/staff-permissions',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <rect x="4" y="10.5" width="16" height="10.5" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M8 10.5V7a4 4 0 018 0v3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="12" cy="15.5" r="1.4" fill="currentColor"/>
+      </svg>
+    ),
+  },
+  {
     label: 'Team',
     path: '/dashboard/team',
     icon: (
