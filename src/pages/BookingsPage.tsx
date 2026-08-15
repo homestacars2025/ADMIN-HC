@@ -1015,15 +1015,10 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     payment:   { id: number; amount: number } | null;
   }>({ rental: null, deposit: null, payment: null });
 
-  const uploadDoc = async (file: File, prefix: string, fullName: string): Promise<string | null> => {
-    const ext  = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
-    const path = `${prefix}-${fullName}.${ext}`;
-    const { error } = await supabase.storage.from('customers_doc').upload(path, file, { upsert: true });
-    if (error) { console.error(`[Booking] upload ${prefix} error:`, error); return null; }
-    const { data } = supabase.storage.from('customers_doc').getPublicUrl(path);
-    return data.publicUrl;
-  };
-
+  // Every customer document goes through this one uploader. The key is keyed on
+  // the customer id — never the name — because Supabase Storage rejects
+  // non-ASCII object keys (Turkish/Arabic names) and same-name customers would
+  // otherwise overwrite each other.
   const uploadDocById = async (file: File, customerId: number | string, fieldName: string): Promise<string | null> => {
     const ext  = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
     const path = `${customerId}/${fieldName}-${Date.now()}.${ext}`;
@@ -1284,15 +1279,14 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
       // Step 2: upload documents and patch customer
       const customerId = (custData as { id: number }).id;
-      const fullName   = `${form.cust_first_name} ${form.cust_last_name}`.trim();
       const docUpdates: Record<string, string> = {};
 
       const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([
-        docIdPhoto            ? uploadDoc(docIdPhoto,            'ID',             fullName) : Promise.resolve(null),
+        docIdPhoto            ? uploadDocById(docIdPhoto,            customerId, 'id-photo')             : Promise.resolve(null),
         docIdPhotoBack        ? uploadDocById(docIdPhotoBack,        customerId, 'id-photo-back')        : Promise.resolve(null),
-        docDrivingLicense     ? uploadDoc(docDrivingLicense,     'DrivingLicense', fullName) : Promise.resolve(null),
+        docDrivingLicense     ? uploadDocById(docDrivingLicense,     customerId, 'driving-license')      : Promise.resolve(null),
         docDrivingLicenseBack ? uploadDocById(docDrivingLicenseBack, customerId, 'driving-license-back') : Promise.resolve(null),
-        docEntryStamp         ? uploadDoc(docEntryStamp,         'EntryStamp',     fullName) : Promise.resolve(null),
+        docEntryStamp         ? uploadDocById(docEntryStamp,         customerId, 'entry-stamp')          : Promise.resolve(null),
       ]);
       if (idUrl)     docUpdates.id_photo_url                = idUrl;
       if (idBackUrl) docUpdates.id_photo_back_url           = idBackUrl;
@@ -1393,17 +1387,16 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
       // Edit: update customer + upload docs
       if (editCustomerId) {
-        const fullName = `${form.cust_first_name} ${form.cust_last_name}`.trim();
-        const phone    = form.cust_phone
+        const phone = form.cust_phone
           ? `${form.cust_phone_dial}${form.cust_phone}`
           : null;
 
         const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([
-          docIdPhoto            ? uploadDoc(docIdPhoto,            'ID',             fullName) : Promise.resolve(null),
+          docIdPhoto            ? uploadDocById(docIdPhoto,            editCustomerId, 'id-photo')             : Promise.resolve(null),
           docIdPhotoBack        ? uploadDocById(docIdPhotoBack,        editCustomerId, 'id-photo-back')        : Promise.resolve(null),
-          docDrivingLicense     ? uploadDoc(docDrivingLicense,     'DrivingLicense', fullName) : Promise.resolve(null),
+          docDrivingLicense     ? uploadDocById(docDrivingLicense,     editCustomerId, 'driving-license')      : Promise.resolve(null),
           docDrivingLicenseBack ? uploadDocById(docDrivingLicenseBack, editCustomerId, 'driving-license-back') : Promise.resolve(null),
-          docEntryStamp         ? uploadDoc(docEntryStamp,         'EntryStamp',     fullName) : Promise.resolve(null),
+          docEntryStamp         ? uploadDocById(docEntryStamp,         editCustomerId, 'entry-stamp')          : Promise.resolve(null),
         ]);
 
         const { error: custErr } = await supabase
