@@ -18,6 +18,7 @@ interface FinancialTransaction {
   note: string | null;
   direction: string;
   date: string;
+  receipt_url: string | null;
 }
 
 interface CustomerLedgerEntry {
@@ -128,6 +129,262 @@ function fmtDate(d: string | null) {
 function sumTx(txs: FinancialTransaction[], filter: (t: FinancialTransaction) => boolean): number {
   return txs.filter(filter).reduce((a, t) => a + (t.amount ?? 0), 0);
 }
+
+// ─── Transaction receipts ─────────────────────────────────────────────────────
+
+const RECEIPT_BUCKET     = 'transaction-receipts';
+const RECEIPT_ACCEPT     = 'image/jpeg,image/jpg,image/png,image/webp,application/pdf';
+const RECEIPT_MAX_BYTES  = 10 * 1024 * 1024; // 10 MB
+
+interface ReceiptValue {
+  file:        File | null;   // newly picked file (not uploaded yet)
+  existingUrl: string | null; // receipt already stored on the transaction
+  removed:     boolean;       // user cleared the existing receipt
+}
+
+const EMPTY_RECEIPT: ReceiptValue = { file: null, existingUrl: null, removed: false };
+
+function receiptValueFrom(url: string | null | undefined): ReceiptValue {
+  return { file: null, existingUrl: url ?? null, removed: false };
+}
+
+function isPdfReceipt(url: string): boolean {
+  return url.split('?')[0].toLowerCase().endsWith('.pdf');
+}
+
+/** Lowercase, space-free folder segment built from a plate number / car id. */
+function receiptFolder(key: string | number | null | undefined): string {
+  const slug = String(key ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug || 'general';
+}
+
+function newReceiptId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+}
+
+/** Uploads a receipt and returns its public URL. Throws on failure. */
+async function uploadReceipt(file: File, folderKey: string | number | null | undefined): Promise<string> {
+  const rawExt = file.name.includes('.') ? file.name.split('.').pop()! : '';
+  const ext    = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '') || (file.type === 'application/pdf' ? 'pdf' : 'jpg');
+  const path   = `${receiptFolder(folderKey)}/${newReceiptId()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(RECEIPT_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (error) throw new Error(error.message);
+
+  return supabase.storage.from(RECEIPT_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/**
+ * Resolves the value to store in financial_transactions.receipt_url.
+ * Uploads a newly picked file, keeps the existing URL, or clears it.
+ */
+async function resolveReceiptUrl(value: ReceiptValue, folderKey: string | number | null | undefined): Promise<string | null> {
+  if (value.file) return await uploadReceipt(value.file, folderKey);
+  if (value.removed) return null;
+  return value.existingUrl;
+}
+
+/** Full-screen image preview. PDFs are opened in a new tab instead. */
+const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(15,17,23,0.78)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, animation: 'fadeIn 160ms ease' }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', maxWidth: '100%', maxHeight: '100%' }}>
+        <img src={url} alt="Receipt" style={{ maxWidth: '100%', maxHeight: '78vh', borderRadius: 12, boxShadow: '0 24px 60px rgba(0,0,0,0.4)', background: '#fff' }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <a
+            href={url} target="_blank" rel="noreferrer"
+            style={{ padding: '8px 16px', borderRadius: 9, background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}
+          >
+            Open in new tab
+          </a>
+          <button
+            onClick={onClose}
+            style={{ padding: '8px 16px', borderRadius: 9, background: '#fff', border: 'none', color: '#0f1117', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+/** Table-cell receipt indicator — a small button on rows that have a receipt. */
+const ReceiptCell: React.FC<{ url: string | null | undefined }> = ({ url }) => {
+  const [open, setOpen] = useState(false);
+
+  if (!url) return <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>;
+
+  const pdf = isPdfReceipt(url);
+
+  return (
+    <>
+      <button
+        type="button"
+        title="View receipt"
+        onClick={() => { if (pdf) window.open(url, '_blank', 'noopener,noreferrer'); else setOpen(true); }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 20, border: '1px solid rgba(75,166,234,0.35)', background: 'rgba(75,166,234,0.08)', color: '#1d6fa8', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.16)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.08)'; }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        {pdf ? 'PDF' : 'View'}
+      </button>
+      {open && <ReceiptLightbox url={url} onClose={() => setOpen(false)} />}
+    </>
+  );
+};
+
+/** Receipt picker used inside the Add / Edit Transaction modals. */
+const ReceiptField: React.FC<{
+  value:    ReceiptValue;
+  onChange: (v: ReceiptValue) => void;
+  disabled?: boolean;
+  compact?:  boolean;
+}> = ({ value, onChange, disabled, compact }) => {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!value.file || value.file.type === 'application/pdf') { setPreview(null); return; }
+    const url = URL.createObjectURL(value.file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [value.file]);
+
+  const pick = (file: File | null) => {
+    if (inputRef.current) inputRef.current.value = '';
+    if (!file) return;
+    const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : '';
+    const okType = RECEIPT_ACCEPT.split(',').includes(file.type);
+    const okExt  = ['jpg', 'jpeg', 'png', 'webp', 'pdf'].includes(ext);
+    if (!okType && !okExt) {
+      setFileError('Unsupported file — use JPG, PNG, WEBP or PDF.');
+      return;
+    }
+    if (file.size > RECEIPT_MAX_BYTES) {
+      setFileError('File is larger than 10 MB.');
+      return;
+    }
+    setFileError(null);
+    onChange({ ...value, file, removed: false });
+  };
+
+  const clear = () => {
+    setFileError(null);
+    // Dropping a newly picked file falls back to the stored receipt (if any);
+    // dropping a stored receipt marks it for removal on save.
+    if (value.file) onChange({ ...value, file: null });
+    else onChange({ ...value, file: null, removed: true });
+  };
+
+  const showExisting = !value.file && !!value.existingUrl && !value.removed;
+  const existingPdf  = showExisting && isPdfReceipt(value.existingUrl!);
+  const thumb        = value.file ? preview : (showExisting && !existingPdf ? value.existingUrl : null);
+  const hasSomething = !!value.file || showExisting;
+
+  const chip: React.CSSProperties = {
+    padding: '4px 10px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff',
+    fontSize: 11.5, fontWeight: 600, color: '#374151', cursor: disabled ? 'not-allowed' : 'pointer',
+    fontFamily: 'inherit', transition: 'all 140ms ease',
+  };
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={RECEIPT_ACCEPT}
+        disabled={disabled}
+        style={{ display: 'none' }}
+        onChange={e => pick(e.target.files?.[0] ?? null)}
+      />
+
+      {hasSomething ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1.5px solid #e5e7eb', borderRadius: 10, padding: compact ? '6px 8px' : '10px 12px', opacity: disabled ? 0.6 : 1 }}>
+          {thumb ? (
+            <img
+              src={thumb} alt="Receipt"
+              onClick={() => { if (!value.file && value.existingUrl) setLightbox(true); }}
+              style={{ width: compact ? 34 : 46, height: compact ? 34 : 46, objectFit: 'cover', borderRadius: 7, flexShrink: 0, cursor: !value.file && value.existingUrl ? 'zoom-in' : 'default', background: '#f3f4f6' }}
+            />
+          ) : (
+            <div style={{ width: compact ? 34 : 46, height: compact ? 34 : 46, borderRadius: 7, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>PDF</div>
+          )}
+
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {value.file ? value.file.name : 'Current receipt'}
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+              {value.file ? `${(value.file.size / 1024).toFixed(0)} KB · not uploaded yet` : 'Saved with this transaction'}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {showExisting && (
+              <button
+                type="button"
+                onClick={() => { if (existingPdf) window.open(value.existingUrl!, '_blank', 'noopener,noreferrer'); else setLightbox(true); }}
+                style={{ ...chip, color: '#1d6fa8', borderColor: 'rgba(75,166,234,0.35)', cursor: 'pointer' }}
+              >
+                View
+              </button>
+            )}
+            <button type="button" disabled={disabled} onClick={() => inputRef.current?.click()} style={chip}>Replace</button>
+            <button
+              type="button" disabled={disabled} onClick={clear}
+              style={{ ...chip, color: '#dc2626', borderColor: 'rgba(239,68,68,0.3)' }}
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => inputRef.current?.click()}
+          style={{
+            width: '100%', display: 'block', border: '1.5px dashed #e5e7eb', borderRadius: 10,
+            padding: compact ? '8px 12px' : '18px 14px', background: '#fff', cursor: disabled ? 'not-allowed' : 'pointer',
+            textAlign: 'center', fontFamily: 'inherit', transition: 'border-color 140ms ease', opacity: disabled ? 0.6 : 1,
+          }}
+          onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+        >
+          <div style={{ fontSize: 12.5, color: '#6b7280' }}>
+            {value.removed && value.existingUrl ? 'Receipt will be removed on save' : 'Click to attach a receipt'}
+          </div>
+          {!compact && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>JPG, PNG, WEBP or PDF · max 10 MB</div>}
+        </button>
+      )}
+
+      {fileError && (
+        <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 6 }}>{fileError}</div>
+      )}
+
+      {lightbox && value.existingUrl && <ReceiptLightbox url={value.existingUrl} onClose={() => setLightbox(false)} />}
+    </div>
+  );
+};
 
 // ─── Month Navigator ──────────────────────────────────────────────────────────
 
@@ -651,10 +908,10 @@ const TransactionPanelModal: React.FC<{
             <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: 13 }}>No transactions found.</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
                 <thead>
                   <tr>
-                    {['Date', 'Direction', 'Category', `Amount (${symbol})`, 'Description', 'Actions'].map(h => (
+                    {['Date', 'Direction', 'Category', `Amount (${symbol})`, 'Description', 'Receipt', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -681,6 +938,9 @@ const TransactionPanelModal: React.FC<{
                         <input type="text" value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} style={{ ...editInput, width: '100%', boxSizing: 'border-box' }} />
                       </td>
                       <td style={{ padding: '8px 14px' }}>
+                        <ReceiptCell url={t.receipt_url} />
+                      </td>
+                      <td style={{ padding: '8px 14px' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button onClick={handleSaveEdit} disabled={saving} style={inBtn}>{saving ? '…' : 'Save'}</button>
                           <button onClick={() => setEditingId(null)} style={cancelBtn}>Cancel</button>
@@ -699,6 +959,7 @@ const TransactionPanelModal: React.FC<{
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{t.category ?? t.sheet_type ?? '—'}</td>
                       <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>{fmt(t.amount)}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280', maxWidth: 200 }}>{t.note ?? '—'}</td>
+                      <td style={{ padding: '10px 14px' }}><ReceiptCell url={t.receipt_url} /></td>
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
@@ -749,6 +1010,8 @@ const InvestorSheetView: React.FC<{
   const [loading,         setLoading]         = useState(true);
   const [editingId,       setEditingId]       = useState<number | null>(null);
   const [editForm,        setEditForm]        = useState({ date: '', direction: 'out', amount: '', note: '' });
+  const [editReceipt,     setEditReceipt]     = useState<ReceiptValue>(EMPTY_RECEIPT);
+  const [receiptError,    setReceiptError]    = useState<string | null>(null);
   const [saving,          setSaving]          = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showAdd,         setShowAdd]         = useState(false);
@@ -773,20 +1036,37 @@ const InvestorSheetView: React.FC<{
   const startEdit = (t: FinancialTransaction) => {
     setEditingId(t.id);
     setEditForm({ date: t.date ?? '', direction: t.direction ?? 'out', amount: String(t.amount ?? ''), note: t.note ?? '' });
+    setEditReceipt(receiptValueFrom(t.receipt_url));
+    setReceiptError(null);
     setConfirmDeleteId(null);
   };
 
   const handleSaveEdit = async () => {
     if (!editingId) return;
     setSaving(true);
+    setReceiptError(null);
+
+    // Receipt is optional — an upload failure must never block the update.
+    const current = txs.find(t => t.id === editingId)?.receipt_url ?? null;
+    let receipt_url = current;
+    let uploadError: string | null = null;
+    try {
+      receipt_url = await resolveReceiptUrl(editReceipt, sheetType);
+    } catch (e) {
+      uploadError = e instanceof Error ? e.message : 'Unknown error';
+      receipt_url = current;
+    }
+
     await supabase.from('financial_transactions').update({
       date:      editForm.date || null,
       direction: editForm.direction,
       amount:    parseFloat(editForm.amount) || 0,
       note:      editForm.note || null,
+      receipt_url,
     }).eq('id', editingId);
     setSaving(false);
     setEditingId(null);
+    if (uploadError) setReceiptError(`Changes saved, but the receipt upload failed: ${uploadError}`);
     fetchTxs();
   };
 
@@ -841,6 +1121,10 @@ const InvestorSheetView: React.FC<{
         </div>
       </div>
 
+      {receiptError && (
+        <div style={{ fontSize: 12, color: '#b45309', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '9px 14px' }}>{receiptError}</div>
+      )}
+
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {loading ? (
@@ -853,10 +1137,10 @@ const InvestorSheetView: React.FC<{
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: 13 }}>No transactions found.</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
               <thead>
                 <tr>
-                  {['Date', 'Direction', `Amount (${symbol})`, 'Note', 'Actions'].map(h => (
+                  {['Date', 'Direction', `Amount (${symbol})`, 'Note', 'Receipt', 'Actions'].map(h => (
                     <th key={h} style={th}>{h}</th>
                   ))}
                 </tr>
@@ -873,6 +1157,9 @@ const InvestorSheetView: React.FC<{
                     </td>
                     <td style={td}><input type="number" value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} style={{ ...inp, width: 90 }} /></td>
                     <td style={td}><input type="text" value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} style={{ ...inp, width: '100%', boxSizing: 'border-box' }} /></td>
+                    <td style={{ ...td, minWidth: 220 }}>
+                      <ReceiptField value={editReceipt} onChange={setEditReceipt} disabled={saving} compact />
+                    </td>
                     <td style={td}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button onClick={handleSaveEdit} disabled={saving} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? '…' : 'Save'}</button>
@@ -891,6 +1178,7 @@ const InvestorSheetView: React.FC<{
                     </td>
                     <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(Number(t.amount))}</td>
                     <td style={{ ...td, color: '#6b7280', maxWidth: 220 }}>{t.note ?? '—'}</td>
+                    <td style={td}><ReceiptCell url={t.receipt_url} /></td>
                     <td style={td}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
@@ -941,10 +1229,12 @@ interface EditFinTxForm {
 }
 
 const EditFinancialTxModal: React.FC<{
-  entry:   FinancialTransaction;
-  onClose: () => void;
-  onSaved: () => void;
-}> = ({ entry, onClose, onSaved }) => {
+  entry:      FinancialTransaction;
+  /** Storage folder for a newly attached receipt — plate number when available. */
+  receiptKey?: string | number | null;
+  onClose:    () => void;
+  onSaved:    () => void;
+}> = ({ entry, receiptKey, onClose, onSaved }) => {
   const { symbol } = useCurrency();
   const [form,   setForm]   = useState<EditFinTxForm>({
     date:      entry.date ?? '',
@@ -953,8 +1243,10 @@ const EditFinancialTxModal: React.FC<{
     amount:    String(entry.amount ?? ''),
     note:      entry.note ?? '',
   });
+  const [receipt, setReceipt] = useState<ReceiptValue>(() => receiptValueFrom(entry.receipt_url));
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const set = <K extends keyof EditFinTxForm>(k: K, v: EditFinTxForm[K]) =>
     setForm(prev => ({ ...prev, [k]: v }));
@@ -969,6 +1261,18 @@ const EditFinancialTxModal: React.FC<{
     }
     setSaving(true);
     setError(null);
+    setWarning(null);
+
+    // Receipt is optional — an upload failure must never block the update.
+    let receipt_url: string | null = entry.receipt_url ?? null;
+    let uploadError: string | null = null;
+    try {
+      receipt_url = await resolveReceiptUrl(receipt, receiptKey ?? entry.car_id ?? entry.sheet_type);
+    } catch (e) {
+      uploadError = e instanceof Error ? e.message : 'Unknown error';
+      receipt_url = entry.receipt_url ?? null;
+    }
+
     const { error: err } = await supabase
       .from('financial_transactions')
       .update({
@@ -977,10 +1281,15 @@ const EditFinancialTxModal: React.FC<{
         category:  form.category || null,
         amount,
         note:      form.note || null,
+        receipt_url,
       })
       .eq('id', entry.id);
     setSaving(false);
     if (err) { setError(err.message); return; }
+    if (uploadError) {
+      setWarning(`Changes saved, but the receipt upload failed: ${uploadError}`);
+      return;
+    }
     onSaved();
     onClose();
   };
@@ -1065,15 +1374,31 @@ const EditFinancialTxModal: React.FC<{
               onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
           </div>
 
+          {/* Receipt */}
+          <div>
+            <label style={lbl}>Receipt (optional)</label>
+            <ReceiptField value={receipt} onChange={setReceipt} disabled={saving || !!warning} />
+          </div>
+
           {error && (
             <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
           )}
 
+          {warning && (
+            <div style={{ fontSize: 12, color: '#b45309', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px' }}>{warning}</div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-            <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            {warning ? (
+              <button onClick={() => { onSaved(); onClose(); }} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+            ) : (
+              <>
+                <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1155,9 +1480,9 @@ const InvestorCarSheetView: React.FC<{
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: 13 }}>No transactions found.</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
               <thead>
-                <tr>{['Date', 'Direction', 'Category', `Amount (${symbol})`, 'Note', 'Actions'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+                <tr>{['Date', 'Direction', 'Category', `Amount (${symbol})`, 'Note', 'Receipt', 'Actions'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {txs.map((t, i) => (
@@ -1167,6 +1492,7 @@ const InvestorCarSheetView: React.FC<{
                     <td style={{ ...td, color: '#6b7280' }}>{t.category ?? '—'}</td>
                     <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap', color: t.direction?.toUpperCase() === 'IN' ? '#16a34a' : '#dc2626' }}>{fmt(Number(t.amount))}</td>
                     <td style={{ ...td, color: '#6b7280', maxWidth: 180 }}>{t.note ?? '—'}</td>
+                    <td style={td}><ReceiptCell url={t.receipt_url} /></td>
                     <td style={td}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
@@ -1198,6 +1524,7 @@ const InvestorCarSheetView: React.FC<{
       {editModal && (
         <EditFinancialTxModal
           entry={editModal}
+          receiptKey={car.plate_number}
           onClose={() => setEditModal(null)}
           onSaved={() => { setEditModal(null); fetchTxs(); }}
         />
@@ -3198,10 +3525,13 @@ const AddFinancialTxModal: React.FC<{
 }> = ({ onClose, onSaved }) => {
   const [form,           setForm]           = useState<AddFinTxForm>(EMPTY_FIN_TX);
   const [saving,         setSaving]         = useState(false);
+  const [saveStep,       setSaveStep]       = useState('');
   const [error,          setError]          = useState<string | null>(null);
+  const [warning,        setWarning]        = useState<string | null>(null);
   const [investors,      setInvestors]      = useState<{ id: string; company_name: string }[]>([]);
-  const [cars,           setCars]           = useState<{ id: number; label: string }[]>([]);
+  const [cars,           setCars]           = useState<{ id: number; label: string; plate: string }[]>([]);
   const [commissionRate, setCommissionRate] = useState<number | null>(null);
+  const [receipt,        setReceipt]        = useState<ReceiptValue>(EMPTY_RECEIPT);
 
   // Fetch investors once on mount
   useEffect(() => {
@@ -3231,7 +3561,7 @@ const AddFinancialTxModal: React.FC<{
           .sort((a, b) =>
             (a.model_group?.name ?? '—').localeCompare(b.model_group?.name ?? '—') ||
             a.plate_number.localeCompare(b.plate_number))
-          .map(c => ({ id: c.id, label: `${c.plate_number} — ${c.model_group?.name ?? '—'}` })),
+          .map(c => ({ id: c.id, label: `${c.plate_number} — ${c.model_group?.name ?? '—'}`, plate: c.plate_number })),
       );
     });
   }, [form.investor_id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3256,6 +3586,25 @@ const AddFinancialTxModal: React.FC<{
     const sheet_type = isCarSheet ? 'car' : form.sheet_target;
     const car_id     = isCarSheet ? parseInt(form.sheet_target.replace('car:', ''), 10) : null;
 
+    setSaving(true);
+    setError(null);
+    setWarning(null);
+
+    // Receipt is optional — an upload failure must never block the transaction.
+    let receipt_url: string | null = null;
+    let uploadError: string | null = null;
+    if (receipt.file) {
+      setSaveStep('Uploading receipt…');
+      const folderKey = isCarSheet
+        ? (cars.find(c => c.id === car_id)?.plate ?? car_id)
+        : sheet_type;
+      try {
+        receipt_url = await resolveReceiptUrl(receipt, folderKey);
+      } catch (e) {
+        uploadError = e instanceof Error ? e.message : 'Unknown error';
+      }
+    }
+
     // Insert only the main transaction row. For car-sheet Rent Collection entries
     // the database trigger automatically creates the matching commission row, so
     // the frontend must not insert it (would double up).
@@ -3269,13 +3618,20 @@ const AddFinancialTxModal: React.FC<{
       direction:   form.direction,
       category:    form.category || null,
       amount,
+      receipt_url,
     };
 
-    setSaving(true);
-    setError(null);
+    setSaveStep('Saving…');
     const { error: err } = await supabase.from('financial_transactions').insert(row);
     setSaving(false);
+    setSaveStep('');
     if (err) { setError(err.message); return; }
+    if (uploadError) {
+      // The transaction itself is saved; only the receipt failed. Keep the modal
+      // open (as a "saved" state) so the user sees why the receipt is missing.
+      setWarning(`Transaction saved, but the receipt upload failed: ${uploadError}`);
+      return;
+    }
     onSaved();
     onClose();
   };
@@ -3450,17 +3806,33 @@ const AddFinancialTxModal: React.FC<{
             />
           </div>
 
+          {/* 8. Receipt */}
+          <div>
+            <label style={lbl}>Receipt (optional)</label>
+            <ReceiptField value={receipt} onChange={setReceipt} disabled={saving || !!warning} />
+          </div>
+
           {error && (
             <div style={{ fontSize: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px' }}>{error}</div>
+          )}
+
+          {warning && (
+            <div style={{ fontSize: 12, color: '#b45309', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px' }}>{warning}</div>
           )}
         </div>
 
         {/* Footer */}
         <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-            {saving ? 'Saving…' : 'Add Transaction'}
-          </button>
+          {warning ? (
+            <button onClick={() => { onSaved(); onClose(); }} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+          ) : (
+            <>
+              <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                {saving ? (saveStep || 'Saving…') : 'Add Transaction'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>,
