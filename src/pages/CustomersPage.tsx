@@ -10,6 +10,7 @@ interface Customer {
   last_name: string;
   phone: string | null;
   nationality: string | null;
+  language: CustomerLanguage;
   id_type: string | null;
   id_number: string | null;
   driving_license_number: string | null;
@@ -47,6 +48,23 @@ interface BookingInsights {
 }
 
 type EditForm = Omit<Customer, 'id'>;
+
+// ─── Customer language ────────────────────────────────────────────────────────
+// Drives which WhatsApp template language the customer receives in automations.
+// Must stay within the customers.language CHECK constraint (ar | tr | en).
+
+export type CustomerLanguage = 'ar' | 'tr' | 'en';
+
+export const LANGUAGE_OPTIONS: Array<{ value: CustomerLanguage; label: string }> = [
+  { value: 'ar', label: 'Arabic' },
+  { value: 'tr', label: 'Turkish' },
+  { value: 'en', label: 'English' },
+];
+
+/** Coerce any stored/unknown value to a valid language, defaulting to 'ar'. */
+export function normalizeLanguage(value: unknown): CustomerLanguage {
+  return value === 'tr' || value === 'en' ? value : 'ar';
+}
 
 // ─── Country dial-code data (same list as BookingsPage) ───────────────────────
 
@@ -592,6 +610,7 @@ const EditCustomerModal: React.FC<{
     first_name:                   customer.first_name,
     last_name:                    customer.last_name,
     nationality:                  customer.nationality             ?? '',
+    language:                     normalizeLanguage(customer.language),
     id_type:                      customer.id_type                 ?? '',
     id_number:                    customer.id_number               ?? '',
     driving_license_number:       customer.driving_license_number  ?? '',
@@ -645,6 +664,7 @@ const EditCustomerModal: React.FC<{
         last_name:       form.last_name.trim(),
         phone,
         nationality:     form.nationality?.trim()     || null,
+        language:        normalizeLanguage(form.language),
         id_type:         form.id_type?.trim()         || null,
         id_number:       form.id_number?.trim()       || null,
         driving_license_number: form.driving_license_number?.trim() || null,
@@ -739,6 +759,24 @@ const EditCustomerModal: React.FC<{
             <div>
               <label style={lbl}>Nationality</label>
               <input value={form.nationality ?? ''} onChange={e => set('nationality', e.target.value)} style={inp} onFocus={focusBlue} onBlur={blurGray} />
+            </div>
+          </div>
+
+          {/* Language — drives the WhatsApp template language in automations */}
+          <div style={g2}>
+            <div>
+              <label style={lbl}>Language</label>
+              <select
+                value={form.language}
+                onChange={e => set('language', normalizeLanguage(e.target.value))}
+                style={{ ...inp, cursor: 'pointer' }}
+                onFocus={e => { e.target.style.borderColor = '#4ba6ea'; }}
+                onBlur={e => { e.target.style.borderColor = '#e5e7eb'; }}
+              >
+                {LANGUAGE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 

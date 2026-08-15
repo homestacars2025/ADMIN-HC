@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { printBookingContract } from '../lib/printContract';
 import { useCurrency } from '../lib/CurrencyContext';
+import { LANGUAGE_OPTIONS, normalizeLanguage, type CustomerLanguage } from './CustomersPage';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -801,6 +802,7 @@ type BookingFormData = {
   cust_phone_dial: string;
   cust_phone: string;
   cust_nationality: string;
+  cust_language: CustomerLanguage;
   cust_driving_license: string;
   cust_driving_license_number: string;
   cust_address: string;
@@ -825,7 +827,7 @@ const EMPTY_FORM: BookingFormData = {
   cust_id_type: 'passport', cust_id_number: '',
   cust_first_name: '', cust_last_name: '',
   cust_phone_dial: '+90', cust_phone: '',
-  cust_nationality: '', cust_driving_license: '',
+  cust_nationality: '', cust_language: 'ar', cust_driving_license: '',
   cust_driving_license_number: '', cust_address: '',
   cust_birth_date: '', cust_license_issue_date: '', cust_notes: '',
   fin_currency: 'TRY', fin_rental_amount: '', fin_deposit_amount: '', fin_paid_amount: '',
@@ -1091,7 +1093,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         if (!active || error || !data) return;
         const c = data as {
           first_name: string; last_name: string; phone: string | null;
-          nationality: string | null; id_type: string | null; id_number: string | null;
+          nationality: string | null; language: string | null;
+          id_type: string | null; id_number: string | null;
           driving_license_number: string | null;
           address: string | null; birth_date: string | null; license_issue_date: string | null;
           notes: string | null;
@@ -1106,6 +1109,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           cust_phone_dial:             parseStoredPhone(c.phone).dial,
           cust_phone:                  parseStoredPhone(c.phone).local,
           cust_nationality:            c.nationality ?? '',
+          cust_language:               normalizeLanguage(c.language),
           cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
           cust_id_number:              c.id_number ?? '',
           cust_driving_license:        c.driving_license_number ?? '',
@@ -1196,7 +1200,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       if (error || !data) { setIdLookup('not-found'); return; }
       const c = data as {
         first_name: string; last_name: string; phone: string | null;
-        nationality: string | null; id_type: string | null; id_number: string | null;
+        nationality: string | null; language: string | null;
+        id_type: string | null; id_number: string | null;
         driving_license_number: string | null;
         address: string | null; birth_date: string | null; notes: string | null;
       };
@@ -1208,6 +1213,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         cust_phone_dial:             parseStoredPhone(c.phone).dial,
         cust_phone:                  parseStoredPhone(c.phone).local,
         cust_nationality:            c.nationality ?? '',
+        cust_language:               normalizeLanguage(c.language),
         cust_driving_license:        c.driving_license_number ?? '',
         cust_driving_license_number: '',
         cust_birth_date:             c.birth_date ?? '',
@@ -1260,6 +1266,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           last_name:           form.cust_last_name,
           phone:               phone,
           nationality:         form.cust_nationality        || null,
+          language:            normalizeLanguage(form.cust_language),
           driving_license_number: form.cust_driving_license || null,
           address:             form.cust_address            || null,
           birth_date:          form.cust_birth_date         || null,
@@ -1406,6 +1413,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             last_name:               form.cust_last_name,
             phone,
             nationality:             form.cust_nationality            || null,
+            language:                normalizeLanguage(form.cust_language),
             id_type:                 form.cust_id_type,
             id_number:               form.cust_id_number              || null,
             driving_license_number:  form.cust_driving_license        || null,
@@ -1938,6 +1946,23 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   )}
                 </div>
 
+                {/* Language — drives the WhatsApp template language in automations */}
+                <div>
+                  <Field label="Language">
+                    <select
+                      value={form.cust_language}
+                      onChange={e => set('cust_language', normalizeLanguage(e.target.value))}
+                      style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                      onFocus={focusBlue}
+                      onBlur={blurGray}
+                    >
+                      {LANGUAGE_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
                 {/* Row 5: Birth Date | Address */}
                 <div>
                   <Field label="Birth Date">
@@ -2425,7 +2450,7 @@ const BookingsPage: React.FC = () => {
     cust_id_type: 'passport', cust_id_number: '',
     cust_first_name: '', cust_last_name: '',
     cust_phone_dial: '+90', cust_phone: '',
-    cust_nationality: '', cust_driving_license: '',
+    cust_nationality: '', cust_language: 'ar', cust_driving_license: '',
     cust_driving_license_number: '', cust_address: '',
     cust_birth_date: '', cust_license_issue_date: '', cust_notes: '',
     fin_currency: 'TRY', fin_rental_amount: '', fin_deposit_amount: '', fin_paid_amount: '',
