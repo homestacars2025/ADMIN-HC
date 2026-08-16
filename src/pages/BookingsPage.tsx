@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { printBookingContract } from '../lib/printContract';
+import { printReplacementSheet, type ReplacementSheet } from '../lib/printReplacementSheet';
 import { useCurrency } from '../lib/CurrencyContext';
 import { LANGUAGE_OPTIONS, normalizeLanguage, type CustomerLanguage } from './CustomersPage';
 
@@ -48,6 +49,80 @@ interface CarOption {
 interface CustomerOption {
   id: number;
   full_name: string; // derived: first_name + ' ' + last_name
+}
+
+// ─── Replacement-car shapes ───────────────────────────────────────────────────
+
+/**
+ * A car in either dropdown. The original-car picker lists every car (a withdrawn
+ * car may well be inactive); the replacement picker lists only active ones.
+ */
+interface CarPickOption {
+  id:           number;
+  plate_number: string;
+  model_name:   string;
+  is_active:    boolean;
+  status:       string;   // 'working' | 'parking' | 'maintenance' | 'replacement' | 'selling' | 'pending'
+}
+
+/** Raw booking row for the chosen original car — any status, any date. */
+interface CarBookingJoin {
+  id:             number;
+  booking_number: string;
+  start_date:     string;
+  end_date:       string;
+  customer_id:    string | null;   // uuid
+  customers:      CustomerJoin | CustomerJoin[] | null;
+}
+
+/** A booking belonging to the chosen original car, flattened for the dropdown. */
+interface CarBookingOption {
+  id:             number;
+  booking_number: string;
+  start_date:     string;
+  end_date:       string;
+  customer_id:    string | null;   // uuid
+  customer_name:  string;
+}
+
+/** Raw replacement_sheets row with its four embedded relations. */
+interface ReplacementSheetJoin {
+  id:                  number;
+  sheet_number:        string | null;
+  created_at:          string;
+  start_date:          string;
+  end_date:            string;
+  km_at_handover:      number | string | null;
+  fuel_at_handover:    string | null;
+  notes:               string | null;
+  customer_id:         string | null;
+  original_booking_id: number | null;
+  original_car_id:     number | null;
+  replacement_car_id:  number;
+  calendar_block_id:   number | null;
+  customers:        CustomerJoin | CustomerJoin[] | null;
+  bookings:         { booking_number: string } | { booking_number: string }[] | null;
+  original_car:     CarJoin | CarJoin[] | null;
+  replacement_car:  CarJoin | CarJoin[] | null;
+}
+
+/** Flattened replacement sheet, ready for the table and for reprinting. */
+interface ReplacementSheetRow {
+  id:                      number;
+  sheet_number:            string;
+  created_at:              string;
+  start_date:              string;
+  end_date:                string;
+  km_at_handover:          number | null;
+  fuel_at_handover:        string | null;
+  notes:                   string | null;
+  customer_id:             string | null;
+  customer_name:           string;
+  original_booking_number: string | null;
+  original_plate:          string | null;
+  original_model:          string | null;
+  replacement_plate:       string;
+  replacement_model:       string | null;
 }
 
 type SortCol = 'booking_number' | 'start_date' | 'end_date' | null;
@@ -116,6 +191,72 @@ function resolveBooking(row: BookingRow): Booking {
     customer_name,
   };
 }
+
+/** PostgREST returns an embedded to-one relation as either an object or a 1-element array. */
+function resolveModelName(mg: { name: string } | { name: string }[] | null | undefined): string {
+  if (!mg) return '—';
+  return Array.isArray(mg) ? (mg[0]?.name ?? '—') : mg.name;
+}
+
+function firstOf<T>(v: T | T[] | null | undefined): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+function resolveReplacementSheet(row: ReplacementSheetJoin): ReplacementSheetRow {
+  const cust = firstOf(row.customers);
+  const bkg  = firstOf(row.bookings);
+  const oCar = firstOf(row.original_car);
+  const rCar = firstOf(row.replacement_car);
+
+  return {
+    id:                      row.id,
+    sheet_number:            row.sheet_number ?? '—',
+    created_at:              row.created_at,
+    start_date:              row.start_date,
+    end_date:                row.end_date,
+    // numeric columns can arrive as a string from PostgREST — normalise to number.
+    km_at_handover:          row.km_at_handover == null ? null : Number(row.km_at_handover),
+    fuel_at_handover:        row.fuel_at_handover,
+    notes:                   row.notes,
+    customer_id:             row.customer_id,
+    customer_name:           cust ? `${cust.first_name} ${cust.last_name}`.trim() : '—',
+    original_booking_number: bkg?.booking_number ?? null,
+    original_plate:          oCar?.plate_number ?? null,
+    original_model:          oCar ? resolveModelName(oCar.model_group) : null,
+    replacement_plate:       rCar?.plate_number ?? '—',
+    replacement_model:       rCar ? resolveModelName(rCar.model_group) : null,
+  };
+}
+
+/** The one place a stored sheet becomes printer input — used by create and reprint alike. */
+function toPrintable(row: ReplacementSheetRow): ReplacementSheet {
+  return {
+    sheet_number:            row.sheet_number,
+    customer_id:             row.customer_id ?? '',
+    customer_name:           row.customer_name,
+    original_booking_number: row.original_booking_number,
+    original_plate:          row.original_plate,
+    original_model:          row.original_model,
+    replacement_plate:       row.replacement_plate,
+    replacement_model:       row.replacement_model,
+    start_date:              row.start_date,
+    end_date:                row.end_date,
+    km_at_handover:          row.km_at_handover,
+    fuel_at_handover:        row.fuel_at_handover,
+    notes:                   row.notes,
+  };
+}
+
+const REPLACEMENT_SHEET_SELECT = `
+  id, sheet_number, created_at, start_date, end_date,
+  km_at_handover, fuel_at_handover, notes,
+  customer_id, original_booking_id, original_car_id, replacement_car_id, calendar_block_id,
+  customers!replacement_sheets_customer_id_fkey(first_name, last_name),
+  bookings!replacement_sheets_original_booking_id_fkey(booking_number),
+  original_car:cars!replacement_sheets_original_car_id_fkey(plate_number, model_group(name)),
+  replacement_car:cars!replacement_sheets_replacement_car_id_fkey(plate_number, model_group(name))
+`;
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -2175,6 +2316,767 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
   </div>
 );
 
+// ─── Replacement car ──────────────────────────────────────────────────────────
+
+// The six statuses the car_availability view can emit — verbatim, no invented
+// labels. Colours match CarsPage's STATUS_CONFIG; `pending` takes CalendarPage's.
+const CAR_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  working:     { label: 'Working',     color: '#16a34a', bg: 'rgba(34,197,94,0.1)'   },
+  parking:     { label: 'Parking',     color: '#ea580c', bg: 'rgba(249,115,22,0.1)'  },
+  maintenance: { label: 'Maintenance', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+  replacement: { label: 'Replacement', color: '#0891b2', bg: 'rgba(6,182,212,0.1)'   },
+  selling:     { label: 'Selling',     color: '#ca8a04', bg: 'rgba(234,179,8,0.1)'   },
+  pending:     { label: 'Pending',     color: '#7c3aed', bg: 'rgba(124,58,237,0.1)'  },
+};
+
+function carStatus(status: string) {
+  return CAR_STATUS_CONFIG[status] ?? { label: status || '—', color: '#6b7280', bg: '#f3f4f6' };
+}
+
+interface ReplacementModalProps {
+  onClose:   () => void;
+  onSaved:   () => void;
+  showToast: (message: string, type: 'success' | 'error') => void;
+}
+
+const ReplacementFormModal: React.FC<ReplacementModalProps> = ({ onClose, onSaved, showToast }) => {
+  const backdropPressRef = useRef(false);
+
+  const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving,    setSaving]    = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [cars, setCars] = useState<CarPickOption[]>([]);
+
+  // Step 1 — the original car, chosen by plate.
+  const [plateSearch,  setPlateSearch]  = useState('');
+  const [originalCar,  setOriginalCar]  = useState<CarPickOption | null>(null);
+
+  // Step 2 — a booking on that car. Loaded only once a plate is picked.
+  const [carBookings,        setCarBookings]        = useState<CarBookingOption[]>([]);
+  const [carBookingsLoading, setCarBookingsLoading] = useState(false);
+  const [carBookingsError,   setCarBookingsError]   = useState<string | null>(null);
+  const [bookingId,          setBookingId]          = useState('');
+
+  const [replacementCarId, setReplacementCarId] = useState('');
+  const [startDate,        setStartDate]        = useState(toDateStr(new Date()));
+  const [endDate,          setEndDate]          = useState('');
+  const [kmAtHandover,     setKmAtHandover]     = useState('');
+  const [fuelAtHandover,   setFuelAtHandover]   = useState('');
+  const [notes,            setNotes]            = useState('');
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+
+  // Every car plus live availability in one parallel round trip — no waterfall.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const [carsRes, availRes] = await Promise.all([
+        supabase.from('cars').select('id, plate_number, is_active, model_group(name)').order('plate_number'),
+        supabase.from('car_availability').select('id, status'),
+      ]);
+
+      if (cancelled) return;
+
+      if (carsRes.error) {
+        setLoadError(carsRes.error.message);
+        setLoading(false);
+        return;
+      }
+
+      const statusById = new Map<number, string>();
+      for (const row of (availRes.data ?? []) as { id: number; status: string }[]) {
+        statusById.set(row.id, row.status);
+      }
+
+      setCars(
+        ((carsRes.data ?? []) as unknown as {
+          id: number; plate_number: string; is_active: boolean;
+          model_group: { name: string } | { name: string }[] | null;
+        }[]).map(c => ({
+          id:           c.id,
+          plate_number: c.plate_number,
+          model_name:   resolveModelName(c.model_group),
+          is_active:    c.is_active,
+          status:       statusById.get(c.id) ?? 'parking',
+        })),
+      );
+      setLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // Step 2 — every booking on the chosen car, regardless of status or date. The
+  // replacement is often arranged before the original booking is active, so
+  // filtering by is_currently_active here would hide the booking we need.
+  useEffect(() => {
+    if (!originalCar) { setCarBookings([]); setCarBookingsError(null); return; }
+
+    let cancelled = false;
+    setCarBookingsLoading(true);
+    setCarBookingsError(null);
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('id, booking_number, start_date, end_date, customer_id, customers(first_name, last_name)')
+        .eq('car_id', originalCar.id)
+        .order('start_date', { ascending: false });
+
+      if (cancelled) return;
+
+      if (error) {
+        setCarBookingsError(error.message);
+        setCarBookings([]);
+        setCarBookingsLoading(false);
+        return;
+      }
+
+      setCarBookings(((data ?? []) as unknown as CarBookingJoin[]).map(b => {
+        const cust = firstOf(b.customers);
+        return {
+          id:             b.id,
+          booking_number: b.booking_number,
+          start_date:     b.start_date,
+          end_date:       b.end_date,
+          customer_id:    b.customer_id,
+          customer_name:  cust ? `${cust.first_name} ${cust.last_name}`.trim() : '—',
+        };
+      }));
+      setCarBookingsLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [originalCar]);
+
+  const filteredCars = useMemo(() => {
+    const q = plateSearch.trim().toLowerCase();
+    if (!q) return cars;
+    return cars.filter(c =>
+      c.plate_number.toLowerCase().includes(q) ||
+      c.model_name.toLowerCase().includes(q)
+    );
+  }, [cars, plateSearch]);
+
+  // Only active cars can be handed out, and free ones are listed first.
+  const replacementCars = useMemo(() => {
+    const active = cars.filter(c => c.is_active);
+    return {
+      parking: active.filter(c => c.status === 'parking'),
+      other:   active.filter(c => c.status !== 'parking'),
+    };
+  }, [cars]);
+
+  const chosenCar = useMemo(
+    () => cars.find(c => String(c.id) === replacementCarId) ?? null,
+    [cars, replacementCarId],
+  );
+
+  const selectedBooking = useMemo(
+    () => carBookings.find(b => String(b.id) === bookingId) ?? null,
+    [carBookings, bookingId],
+  );
+
+  const pickOriginalCar = (c: CarPickOption) => {
+    setOriginalCar(c);
+    setBookingId('');
+    setFormError(null);
+  };
+
+  // A sheet is always tied to a customer, so a booking must be picked — a car
+  // with no bookings at all can never be the original.
+  const submitBlocked =
+    saving || loading || !!loadError ||
+    !originalCar || carBookingsLoading || !selectedBooking;
+
+  // Default the return date to the chosen booking's end date.
+  const pickBooking = (id: string) => {
+    setBookingId(id);
+    const b = carBookings.find(x => String(x.id) === id);
+    if (b) setEndDate(b.end_date);
+    setFormError(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!originalCar)           { setFormError('Select the original car by plate.'); return; }
+    if (!selectedBooking)       { setFormError('Select the original booking — the sheet must be tied to a customer.'); return; }
+    if (!replacementCarId)      { setFormError('Select a replacement car.'); return; }
+    if (!startDate || !endDate) { setFormError('Handover and return dates are both required.'); return; }
+    if (endDate < startDate)    { setFormError('The return date cannot be before the handover date.'); return; }
+
+    setSaving(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const carId = Number(replacementCarId);
+
+    // Step 1 — block the replacement car's calendar.
+    // booking_id MUST stay null: it is UNIQUE, and the original booking already
+    // owns its own booked_* row. Pointing it at the original booking would collide.
+    const { data: blockData, error: blockError } = await supabase
+      .from('car_calendar')
+      .insert({
+        car_id:     carId,
+        start_date: startDate,
+        end_date:   endDate,
+        block_type: 'replacement',
+        booking_id: null,
+        created_by: user?.id ?? null,
+        notes:      `Replacement for booking ${selectedBooking.booking_number}`,
+      })
+      .select('id')
+      .single();
+
+    if (blockError) {
+      setSaving(false);
+      setFormError(blockError.message);
+      return;
+    }
+
+    const blockId = (blockData as { id: number }).id;
+
+    // Step 2 — the sheet record, linked back to the block it just created.
+    const { data: sheetData, error: sheetError } = await supabase
+      .from('replacement_sheets')
+      .insert({
+        created_by:          user?.id ?? null,
+        original_booking_id: selectedBooking.id,
+        customer_id:         selectedBooking.customer_id,   // uuid — never cast
+        original_car_id:     originalCar.id,                // from the plate choice, not the booking
+        replacement_car_id:  carId,
+        start_date:          startDate,
+        end_date:            endDate,
+        km_at_handover:      kmAtHandover.trim()   ? Number(kmAtHandover) : null,
+        fuel_at_handover:    fuelAtHandover.trim() || null,
+        notes:               notes.trim()          || null,
+        calendar_block_id:   blockId,
+      })
+      .select('sheet_number')
+      .single();
+
+    // Step 3 — roll the block back so a failed sheet never leaves an orphan
+    // block sitting on the calendar.
+    if (sheetError) {
+      const { error: rollbackError } = await supabase.from('car_calendar').delete().eq('id', blockId);
+      setSaving(false);
+      setFormError(sheetError.message);
+      showToast(
+        rollbackError
+          ? `Sheet failed and the calendar block could not be rolled back — remove block #${blockId} manually`
+          : 'Replacement sheet failed — the calendar block was rolled back',
+        'error',
+      );
+      return;
+    }
+
+    setSaving(false);
+
+    const printable: ReplacementSheet = {
+      sheet_number:            (sheetData as { sheet_number: string | null }).sheet_number ?? '—',
+      customer_id:             selectedBooking.customer_id ?? '',
+      customer_name:           selectedBooking.customer_name,
+      original_booking_number: selectedBooking.booking_number,
+      original_plate:          originalCar.plate_number,
+      original_model:          originalCar.model_name,
+      replacement_plate:       chosenCar?.plate_number ?? '—',
+      replacement_model:       chosenCar?.model_name ?? null,
+      start_date:              startDate,
+      end_date:                endDate,
+      km_at_handover:          kmAtHandover.trim() ? Number(kmAtHandover) : null,
+      fuel_at_handover:        fuelAtHandover.trim() || null,
+      notes:                   notes.trim() || null,
+    };
+
+    showToast('Replacement sheet created', 'success');
+    onSaved();
+    onClose();
+    await printReplacementSheet(printable);
+  };
+
+  return ReactDOM.createPortal(
+    <div
+      onMouseDown={e => { backdropPressRef.current = e.target === e.currentTarget; }}
+      onClick={e => {
+        if (e.target === e.currentTarget && backdropPressRef.current) onClose();
+        backdropPressRef.current = false;
+      }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '24px 16px', overflowY: 'auto',
+        animation: 'fadeIn 150ms ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 640,
+          marginTop: 'auto', marginBottom: 'auto',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+          animation: 'slideUp 180ms ease',
+        }}
+      >
+        {/* Modal header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
+        }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              Replacement Car
+            </div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+              Hand a substitute vehicle to a customer and block its calendar
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px' }}>
+
+          {loading && (
+            <div style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
+              Loading active bookings…
+            </div>
+          )}
+
+          {!loading && loadError && (
+            <div style={{ padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)', fontSize: 13, color: '#ef4444' }}>
+              {loadError}
+            </div>
+          )}
+
+          {!loading && !loadError && (
+            <>
+              {/* ── Original car ── */}
+              <SectionHeadingBlock
+                title="Original Car"
+                icon={
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 8h10l2 4h4v5H4V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                    <circle cx="7.5" cy="17" r="1.6" stroke="currentColor" strokeWidth="1.6"/>
+                    <circle cx="16.5" cy="17" r="1.6" stroke="currentColor" strokeWidth="1.6"/>
+                  </svg>
+                }
+              />
+
+              {originalCar ? (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+                  padding: '12px 14px', borderRadius: 10,
+                  background: 'rgba(75,166,234,0.06)', border: '1px solid rgba(75,166,234,0.25)',
+                  marginBottom: 14,
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>
+                      {originalCar.plate_number}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
+                      {originalCar.model_name}
+                      {!originalCar.is_active && ' · inactive'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setOriginalCar(null); setPlateSearch(''); setBookingId(''); }}
+                    style={{ flexShrink: 0, minHeight: 32, padding: '0 12px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div style={{ marginBottom: 14 }}>
+                  <input
+                    type="text"
+                    value={plateSearch}
+                    onChange={e => setPlateSearch(e.target.value)}
+                    placeholder="Search by plate or model…"
+                    style={{ ...INPUT_STYLE, marginBottom: 8 }}
+                    onFocus={focusBlue}
+                    onBlur={blurGray}
+                  />
+                  <div style={{ maxHeight: 200, overflowY: 'auto', border: '1.5px solid #e5e7eb', borderRadius: 8 }}>
+                    {filteredCars.length === 0 && (
+                      <div style={{ padding: '20px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
+                        No cars match your search.
+                      </div>
+                    )}
+                    {filteredCars.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => pickOriginalCar(c)}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          minHeight: 44, padding: '9px 12px',
+                          border: 'none', borderBottom: '1px solid #f3f4f6',
+                          background: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}
+                      >
+                        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f1117' }}>
+                          {c.plate_number}
+                        </span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
+                          {c.model_name}{!c.is_active && ' · inactive'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Original booking / customer ── */}
+              {originalCar && (
+                <div style={{ marginBottom: 16 }}>
+                  <Field label="Original booking / customer" required>
+                    {carBookingsLoading ? (
+                      <div style={{ fontSize: 13, color: '#9ca3af', padding: '11px 0' }}>Loading bookings…</div>
+                    ) : carBookingsError ? (
+                      <div style={{ fontSize: 13, color: '#ef4444', padding: '11px 0' }}>{carBookingsError}</div>
+                    ) : carBookings.length === 0 ? (
+                      <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.25)', fontSize: 12.5, color: '#b45309' }}>
+                        No bookings found for this car — a replacement sheet must be tied to a booking's customer.
+                      </div>
+                    ) : (
+                      <select
+                        value={bookingId}
+                        onChange={e => pickBooking(e.target.value)}
+                        style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                        onFocus={focusBlue}
+                        onBlur={blurGray}
+                      >
+                        <option value="">Select a booking…</option>
+                        {carBookings.map(b => (
+                          <option key={b.id} value={String(b.id)}>
+                            {b.customer_name} · {b.booking_number} · {formatDateDisplay(b.start_date)} – {formatDateDisplay(b.end_date)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </Field>
+                </div>
+              )}
+
+              {/* ── Replacement vehicle ── */}
+              <SectionHeadingBlock
+                title="Replacement Vehicle"
+                icon={
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 8h10l2 4h4v5H4V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                    <circle cx="7.5" cy="17" r="1.6" stroke="currentColor" strokeWidth="1.6"/>
+                    <circle cx="16.5" cy="17" r="1.6" stroke="currentColor" strokeWidth="1.6"/>
+                  </svg>
+                }
+              />
+
+              <div style={{ marginBottom: 12 }}>
+                <Field label="Replacement car" required>
+                  <select
+                    value={replacementCarId}
+                    onChange={e => setReplacementCarId(e.target.value)}
+                    style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                    onFocus={focusBlue}
+                    onBlur={blurGray}
+                  >
+                    <option value="">Select a car…</option>
+                    {replacementCars.parking.length > 0 && (
+                      <optgroup label="Parking">
+                        {replacementCars.parking.map(c => (
+                          <option key={c.id} value={String(c.id)}>
+                            {c.plate_number} · {c.model_name} — {carStatus(c.status).label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {replacementCars.other.length > 0 && (
+                      <optgroup label="Other">
+                        {replacementCars.other.map(c => (
+                          <option key={c.id} value={String(c.id)}>
+                            {c.plate_number} · {c.model_name} — {carStatus(c.status).label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </Field>
+              </div>
+
+              {chosenCar && (
+                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+                    color: carStatus(chosenCar.status).color,
+                    background: carStatus(chosenCar.status).bg,
+                  }}>
+                    {carStatus(chosenCar.status).label}
+                  </span>
+                  {chosenCar.status !== 'parking' && (
+                    <span style={{ fontSize: 11.5, color: '#b45309' }}>
+                      This car is not free today — check the calendar before handing it over.
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {originalCar && chosenCar && originalCar.id === chosenCar.id && (
+                <div style={{ marginBottom: 12, padding: '9px 12px', borderRadius: 8, background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.25)', fontSize: 12, color: '#b45309' }}>
+                  This is the same car as the original — pick a different replacement.
+                </div>
+              )}
+
+              {/* ── Handover ── */}
+              <SectionHeadingBlock
+                title="Handover"
+                icon={
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 7h11M4 7l3-3M4 7l3 3M20 17H9M20 17l-3-3M20 17l-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                }
+              />
+
+              <div className="rpl-grid">
+                <Field label="Handover date" required>
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                    style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
+                </Field>
+                <Field label="Return date" required>
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                    style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
+                </Field>
+                <Field label="KM at handover">
+                  <input type="number" min="0" value={kmAtHandover} onChange={e => setKmAtHandover(e.target.value)}
+                    placeholder="e.g. 48250" style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
+                </Field>
+                <Field label="Fuel at handover">
+                  <input type="text" value={fuelAtHandover} onChange={e => setFuelAtHandover(e.target.value)}
+                    placeholder="e.g. 3/4" style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
+                </Field>
+                <div className="rpl-span">
+                  <Field label="Notes">
+                    <textarea
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      rows={2}
+                      placeholder="Why the original car was withdrawn…"
+                      style={{ ...INPUT_STYLE, height: 'auto', padding: '9px 12px', resize: 'vertical' }}
+                      onFocus={focusBlue}
+                      onBlur={blurGray}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </>
+          )}
+
+          {formError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
+                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: 13, color: '#ef4444' }}>{formError}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
+            <button type="button" onClick={onClose}
+              style={{ minHeight: 44, padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            >
+              Cancel
+            </button>
+            <button type="submit" disabled={submitBlocked}
+              style={{ minHeight: 44, padding: '9px 22px', borderRadius: 9, border: 'none', background: submitBlocked ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: submitBlocked ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
+              onMouseEnter={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+              onMouseLeave={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            >
+              {saving ? 'Saving…' : 'Create & Print'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes slideUp { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        .rpl-grid { display: grid; grid-template-columns: 1fr; gap: 14px 16px; }
+        .rpl-span { grid-column: 1 / -1; }
+        @media (min-width: 640px) { .rpl-grid { grid-template-columns: 1fr 1fr; } }
+      `}</style>
+    </div>,
+    document.body,
+  );
+};
+
+/** Section heading matching the booking form's, without its `grid-column: span 2`. */
+const SectionHeadingBlock: React.FC<{ icon: React.ReactNode; title: string }> = ({ icon, title }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 10px' }}>
+    <div style={{
+      width: 28, height: 28, borderRadius: 8,
+      background: 'rgba(75,166,234,0.10)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#4ba6ea', flexShrink: 0,
+    }}>
+      {icon}
+    </div>
+    <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+      {title}
+    </span>
+    <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
+  </div>
+);
+
+// ─── Replacement sheets list (reprint) ────────────────────────────────────────
+
+const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey }) => {
+  const [open,    setOpen]    = useState(false);
+  const [rows,    setRows]    = useState<ReplacementSheetRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      const { data, error: fetchError } = await supabase
+        .from('replacement_sheets')
+        .select(REPLACEMENT_SHEET_SELECT)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (cancelled) return;
+
+      if (fetchError) { setError(fetchError.message); setLoading(false); return; }
+      setError(null);
+      setRows(((data ?? []) as unknown as ReplacementSheetJoin[]).map(resolveReplacementSheet));
+      setLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #ebebeb', marginTop: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+          minHeight: 52, padding: '12px 20px',
+          border: 'none', background: '#fff', cursor: 'pointer',
+          fontFamily: 'inherit', textAlign: 'left',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 150ms ease', flexShrink: 0 }}>
+          <path d="M9 6l6 6-6 6" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>Replacement Sheets</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '2px 9px' }}>
+          {loading ? '…' : rows.length}
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af' }}>
+          {open ? 'Hide' : 'Show'}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ borderTop: '1px solid #f3f4f6' }}>
+          {loading && <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>Loading…</div>}
+
+          {!loading && error && (
+            <div style={{ padding: '16px 20px', fontSize: 13, color: '#ef4444' }}>{error}</div>
+          )}
+
+          {!loading && !error && rows.length === 0 && (
+            <div style={{ padding: '28px 20px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
+              No replacement sheets yet.
+            </div>
+          )}
+
+          {!loading && !error && rows.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+                <thead>
+                  <tr style={{ background: '#fafafa' }}>
+                    <Th>Sheet</Th>
+                    <Th>Customer</Th>
+                    <Th>Original → Replacement</Th>
+                    <Th>Period</Th>
+                    <Th style={{ textAlign: 'right', paddingRight: 16 }}>Print</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, idx) => (
+                    <tr key={r.id} className="bk-row" style={{ background: idx % 2 === 1 ? '#fcfcfd' : '#fff' }}>
+                      <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>
+                        {r.sheet_number}
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151' }}>
+                        {r.customer_name}
+                        {r.original_booking_number && (
+                          <span style={{ display: 'block', fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
+                            {r.original_booking_number}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
+                        <span style={{ color: '#9ca3af' }}>{r.original_plate ?? '—'}</span>
+                        <span style={{ margin: '0 7px', color: '#4ba6ea' }}>→</span>
+                        <strong style={{ color: '#0f1117' }}>{r.replacement_plate}</strong>
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
+                        {formatDateDisplay(r.start_date)} – {formatDateDisplay(r.end_date)}
+                      </td>
+                      <td style={{ padding: '11px 14px', textAlign: 'right' }}>
+                        <ActionBtn
+                          onClick={() => printReplacementSheet(toPrintable(r))}
+                          title="Reprint sheet"
+                          hoverColor="#4ba6ea"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </ActionBtn>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Delete confirm modal ─────────────────────────────────────────────────────
 
 const DeleteConfirm: React.FC<{
@@ -2254,7 +3156,8 @@ const BookingsPage: React.FC = () => {
   const [statusFilter, setStatusFilter]   = useState<BookingStatus | ''>('');
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
-  const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking }>(null);
+  const [modal, setModal]                 = useState<null | 'add' | 'replacement' | { mode: 'edit'; booking: Booking }>(null);
+  const [sheetsRefresh, setSheetsRefresh]  = useState(0);
   const [deleteTarget, setDeleteTarget]   = useState<Booking | null>(null);
   const [deleting, setDeleting]           = useState(false);
   const [toast, setToast]                 = useState<ToastState | null>(null);
@@ -2471,25 +3374,56 @@ const BookingsPage: React.FC = () => {
             <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Monthly bookings control center</p>
           </div>
 
-          <button
-            onClick={() => setModal('add')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              height: 40, padding: '0 18px',
-              background: '#4ba6ea', color: '#fff', border: 'none',
-              borderRadius: 10, fontSize: 14, fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-              boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
-              transition: 'background 150ms ease',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
-            </svg>
-            Add New Booking
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* Secondary — outline, so the blue CTA beside it stays dominant. */}
+            <button
+              className="bk-hdr-btn"
+              onClick={() => setModal('replacement')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '0 16px',
+                background: '#fff', color: '#374151',
+                border: '1.5px solid #e5e7eb',
+                borderRadius: 10, fontSize: 14, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={e => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea';
+              }}
+              onMouseLeave={e => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.borderColor = '#e5e7eb'; b.style.color = '#374151';
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M4 8h13l-3-3M20 16H7l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Replacement Car
+            </button>
+
+            <button
+              className="bk-hdr-btn"
+              onClick={() => setModal('add')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '0 18px',
+                background: '#4ba6ea', color: '#fff', border: 'none',
+                borderRadius: 10, fontSize: 14, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
+                transition: 'background 150ms ease',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+              </svg>
+              Add New Booking
+            </button>
+          </div>
         </div>
 
         {/* ── Month navigation ── */}
@@ -2663,6 +3597,8 @@ const BookingsPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        <ReplacementSheetsSection refreshKey={sheetsRefresh} />
       </div>
 
       {/* ── Modals ── */}
@@ -2679,7 +3615,18 @@ const BookingsPage: React.FC = () => {
           }}
         />
       )}
-      {modal !== null && modal !== 'add' && (
+      {modal === 'replacement' && (
+        <ReplacementFormModal
+          showToast={showToast}
+          onClose={() => setModal(null)}
+          onSaved={() => {
+            fetchStats(selectedMonth);
+            fetchBookings(selectedMonth);
+            setSheetsRefresh(k => k + 1);
+          }}
+        />
+      )}
+      {typeof modal === 'object' && modal !== null && (
         <BookingFormModal
           mode="edit"
           initial={editFormData(modal.booking)}
@@ -2707,6 +3654,8 @@ const BookingsPage: React.FC = () => {
       <style>{`
         .bk-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
         @media (min-width: 768px) { .bk-stats { grid-template-columns: repeat(4, 1fr); gap: 16px; } }
+        .bk-hdr-btn { height: 44px; }
+        @media (min-width: 768px) { .bk-hdr-btn { height: 40px; } }
         .bk-row:hover td { background: #f9fafb !important; }
         @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.45} }
         @keyframes slideUpIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
