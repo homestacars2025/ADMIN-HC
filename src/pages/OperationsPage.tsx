@@ -45,6 +45,10 @@ interface OperationRow {
   booking_id: number | null;
   folder_url: string | null;
   photos: OperationPhotos | null;
+  checklist_license_present: boolean | null;
+  checklist_tutanak_present: boolean | null;
+  checklist_air_freshener:   boolean | null;
+  checklist_customer_card:   boolean | null;
   cars: { plate_number: string } | { plate_number: string }[] | null;
   handler: { full_name: string | null } | { full_name: string | null }[] | null;
   customers: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
@@ -69,6 +73,10 @@ interface Operation {
   booking_id: number | null;
   folder_url: string | null;
   photos: OperationPhotos | null;
+  checklist_license_present: boolean | null;
+  checklist_tutanak_present: boolean | null;
+  checklist_air_freshener:   boolean | null;
+  checklist_customer_card:   boolean | null;
 }
 
 interface AddOpForm {
@@ -84,7 +92,21 @@ interface AddOpForm {
   cleanliness_status: 'clean' | 'not_clean' | '';
   location_text: string;
   note: string;
+  // Delivery checklist. '' means unanswered — DELIVERY cannot submit until all
+  // four are an explicit Yes or No, so there is deliberately no default.
+  checklist_license_present: YesNo;
+  checklist_tutanak_present: YesNo;
+  checklist_air_freshener:   YesNo;
+  checklist_customer_card:   YesNo;
 }
+
+type YesNo = 'yes' | 'no' | '';
+
+type ChecklistKey =
+  | 'checklist_license_present'
+  | 'checklist_tutanak_present'
+  | 'checklist_air_freshener'
+  | 'checklist_customer_card';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -105,6 +127,15 @@ const ALL_OP_TYPES: OperationType[] = [
 
 const DP_TYPES:    OperationType[] = ['DELIVERY', 'PICKUP'];
 const OTHER_TYPES: OperationType[] = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER']; // SERVICE/RECEIVING kept so legacy rows appear in the list
+
+/** The delivery checklist, in display order. Labels are the source of truth for
+ *  both the form and the validation message. */
+const CHECKLIST_ITEMS: { key: ChecklistKey; label: string }[] = [
+  { key: 'checklist_license_present', label: 'Vehicle license present?'       },
+  { key: 'checklist_tutanak_present', label: 'Tutanak present?'               },
+  { key: 'checklist_air_freshener',   label: 'Branded air freshener present?' },
+  { key: 'checklist_customer_card',   label: 'Customer number card present?'  },
+];
 
 const DP_STAT_CARDS    = ['DELIVERY', 'PICKUP'] as const;
 const OTHER_STAT_CARDS = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER'] as const;
@@ -146,7 +177,20 @@ function opToForm(op: Operation): AddOpForm {
                       ? op.cleanliness_status : '',
     location_text:      op.location_text ?? '',
     note:               op.note ?? '',
+    checklist_license_present: boolToYesNo(op.checklist_license_present),
+    checklist_tutanak_present: boolToYesNo(op.checklist_tutanak_present),
+    checklist_air_freshener:   boolToYesNo(op.checklist_air_freshener),
+    checklist_customer_card:   boolToYesNo(op.checklist_customer_card),
   };
+}
+
+function boolToYesNo(v: boolean | null | undefined): YesNo {
+  return v === true ? 'yes' : v === false ? 'no' : '';
+}
+
+/** True when an operation carries any checklist answer at all. */
+function hasChecklist(op: Operation): boolean {
+  return CHECKLIST_ITEMS.some(item => op[item.key] != null);
 }
 
 function sanitizePath(s: string): string {
@@ -186,6 +230,10 @@ function resolveOperation(row: OperationRow): Operation {
     booking_id:         row.booking_id,
     folder_url:         row.folder_url,
     photos:             row.photos ?? null,
+    checklist_license_present: row.checklist_license_present ?? null,
+    checklist_tutanak_present: row.checklist_tutanak_present ?? null,
+    checklist_air_freshener:   row.checklist_air_freshener   ?? null,
+    checklist_customer_card:   row.checklist_customer_card   ?? null,
   };
 }
 
@@ -268,6 +316,57 @@ const Toast: React.FC<{ message: string; kind: 'success' | 'error' }> = ({ messa
     document.body,
   );
 
+/** Yes / No segmented pair. Neither side is pre-selected — the caller passes ''
+ *  until the user actively picks, which is what the DELIVERY validation checks. */
+const YesNoToggle: React.FC<{
+  value:    YesNo;
+  disabled?: boolean;
+  onChange: (v: 'yes' | 'no') => void;
+}> = ({ value, disabled, onChange }) => (
+  <div style={{ display: 'inline-flex', gap: 6, flexShrink: 0 }}>
+    {(['yes', 'no'] as const).map(opt => {
+      const active = value === opt;
+      const tone   = opt === 'yes' ? '#16a34a' : '#ef4444';
+      return (
+        <button
+          key={opt}
+          type="button"
+          disabled={disabled}
+          aria-pressed={active}
+          onClick={() => onChange(opt)}
+          style={{
+            minWidth: 64, minHeight: 44, padding: '0 14px',
+            borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            transition: 'all 140ms ease',
+            border:     active ? `1.5px solid ${tone}` : '1.5px solid #e5e7eb',
+            color:      active ? tone : '#6b7280',
+            background: active ? `${tone}14` : '#fff',
+          }}
+        >
+          {opt === 'yes' ? 'Yes' : 'No'}
+        </button>
+      );
+    })}
+  </div>
+);
+
+/** Read-only Yes / No / — result, used on the operation view. */
+const YesNoResult: React.FC<{ value: boolean | null }> = ({ value }) => {
+  if (value == null) return <span style={{ fontSize: 13, color: '#d1d5db' }}>—</span>;
+  const tone = value ? '#16a34a' : '#ef4444';
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: tone }}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        {value
+          ? <path d="M20 6L9 17l-5-5" stroke={tone} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+          : <path d="M18 6L6 18M6 6l12 12" stroke={tone} strokeWidth="2.4" strokeLinecap="round"/>}
+      </svg>
+      {value ? 'Yes' : 'No'}
+    </span>
+  );
+};
+
 // ─── Add Operation Modal ──────────────────────────────────────────────────────
 
 const EMPTY_FORM = (): AddOpForm => ({
@@ -283,6 +382,10 @@ const EMPTY_FORM = (): AddOpForm => ({
   cleanliness_status: '',
   location_text:      '',
   note:               '',
+  checklist_license_present: '',
+  checklist_tutanak_present: '',
+  checklist_air_freshener:   '',
+  checklist_customer_card:   '',
 });
 
 const AddOperationModal: React.FC<{
@@ -439,6 +542,8 @@ const AddOperationModal: React.FC<{
 
   // Delivery / pickup in add mode use the fixed named-slot photo grid.
   // Every other type (and edit mode) keeps the free multi-photo uploader.
+  const checklistAnswered = CHECKLIST_ITEMS.filter(item => form[item.key] !== '').length;
+
   const usesPhotoSlots  = !isEdit && (DP_TYPES as string[]).includes(form.type);
   const capturedSlots   = capturedSlotCount(slotFiles);
   const missingSlots    = usesPhotoSlots ? missingSlotLabels(slotFiles) : [];
@@ -468,6 +573,19 @@ const AddOperationModal: React.FC<{
       setFuelLevelError('Maximum fuel level is 2000');
       return;
     }
+    // Every checklist item must be an explicit Yes or No before a NEW delivery
+    // saves. Edit mode is exempt: existing deliveries predate the checklist, so
+    // requiring it there would block unrelated edits on historic rows.
+    if (!isEdit && form.type === 'DELIVERY') {
+      const unanswered = CHECKLIST_ITEMS.filter(item => form[item.key] === '');
+      if (unanswered.length > 0) {
+        setFormError(
+          `Delivery checklist incomplete — please answer Yes or No for: ${unanswered.map(i => i.label).join(', ')}`
+        );
+        return;
+      }
+    }
+
     if (usesPhotoSlots && missingSlots.length > 0) {
       setFormError(`${missingSlots.length} required photo(s) still missing: ${missingSlots.join(', ')}.`);
       return;
@@ -491,7 +609,17 @@ const AddOperationModal: React.FC<{
       customer_id:        form.customer_id || null,
       booking_id:         form.booking_id.trim() ? Number(form.booking_id) : null,
     };
-    console.log('[Op] save payload cleanliness_status:', corePayload.cleanliness_status);
+    // Only DELIVERY carries a checklist; every other type explicitly nulls the
+    // four columns so switching an operation's type never leaves stale answers.
+    // Unanswered ('') stays null rather than collapsing to false — otherwise
+    // editing a pre-checklist delivery would silently record four "No" answers.
+    // New deliveries are validated above, so they always land as real booleans.
+    for (const item of CHECKLIST_ITEMS) {
+      const answer = form[item.key];
+      corePayload[item.key] =
+        form.type === 'DELIVERY' && answer !== '' ? answer === 'yes' : null;
+    }
+
 
     // ── Edit mode ────────────────────────────────────────────────────────────
     if (isEdit) {
@@ -818,6 +946,44 @@ const AddOperationModal: React.FC<{
             </div>
           </div>
 
+          {/* Delivery checklist — DELIVERY only. Other types hide it and save nulls. */}
+          {form.type === 'DELIVERY' && (
+            <div style={{ marginBottom: 20, border: '1.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                padding: '10px 14px', background: '#fafafa', borderBottom: '1px solid #f0f0f0',
+              }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ color: '#16a34a', flexShrink: 0 }}>
+                  <path d="M9 11l3 3 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  Delivery Checklist <span style={{ color: '#ef4444' }}>*</span>
+                </span>
+                <span style={{
+                  marginLeft: 'auto', fontSize: 11.5, fontWeight: 600,
+                  color: checklistAnswered === CHECKLIST_ITEMS.length ? '#16a34a' : '#9ca3af',
+                }}>
+                  {checklistAnswered}/{CHECKLIST_ITEMS.length} answered
+                </span>
+              </div>
+              {CHECKLIST_ITEMS.map((item, i) => (
+                <div
+                  key={item.key}
+                  className="op-check-row"
+                  style={{ borderTop: i === 0 ? 'none' : '1px solid #f5f5f5' }}
+                >
+                  <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{item.label}</span>
+                  <YesNoToggle
+                    value={form[item.key]}
+                    disabled={saving}
+                    onChange={v => setForm(f => ({ ...f, [item.key]: v }))}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Note */}
           <div style={{ ...fieldStyle, marginBottom: 20 }}>
             <label style={labelStyle}>Note <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
@@ -1020,8 +1186,10 @@ interface PhotoItem { url: string | null; label: string | null; }
 const PhotosModal: React.FC<{
   folderUrl: string | null;
   structuredPhotos: OperationPhotos | null;
+  /** Supplied so a DELIVERY's checklist result is visible after the fact. */
+  operation?: Operation | null;
   onClose: () => void;
-}> = ({ folderUrl, structuredPhotos, onClose }) => {
+}> = ({ folderUrl, structuredPhotos, operation, onClose }) => {
   const [photos, setPhotos]     = useState<string[]>([]);
   // Structured rows resolve straight from the JSONB column — nothing to fetch.
   const [fetching, setFetching] = useState(!structuredPhotos);
@@ -1109,6 +1277,30 @@ const PhotosModal: React.FC<{
 
           {/* Body */}
           <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+            {operation && operation.type === 'DELIVERY' && hasChecklist(operation) && (
+              <div style={{ marginBottom: 20, border: '1.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{
+                  padding: '10px 14px', background: '#fafafa', borderBottom: '1px solid #f0f0f0',
+                  fontSize: 12, fontWeight: 700, color: '#374151',
+                  textTransform: 'uppercase', letterSpacing: '0.6px',
+                }}>
+                  Delivery Checklist
+                </div>
+                {CHECKLIST_ITEMS.map((item, i) => (
+                  <div
+                    key={item.key}
+                    className="op-check-row"
+                    style={{
+                      borderTop: i === 0 ? 'none' : '1px solid #f5f5f5',
+                      background: operation[item.key] === false ? 'rgba(239,68,68,0.04)' : 'transparent',
+                    }}
+                  >
+                    <span style={{ fontSize: 13, color: '#374151' }}>{item.label}</span>
+                    <YesNoResult value={operation[item.key]} />
+                  </div>
+                ))}
+              </div>
+            )}
             {fetching && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -1589,6 +1781,7 @@ const OperationsPage: React.FC = () => {
       .select(`
         id, operation_date, operation_time, type, car_id, performed_by, customer_id,
         current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url, photos,
+        checklist_license_present, checklist_tutanak_present, checklist_air_freshener, checklist_customer_card,
         cars!operations_car_id_fkey(plate_number),
         handler:profiles!performed_by(full_name),
         customers(first_name, last_name)
@@ -1854,10 +2047,10 @@ const OperationsPage: React.FC = () => {
                   </td>
 
                   <td style={{ ...td, textAlign: 'center' }}>
-                    {(op.photos || op.folder_url) ? (
+                    {(op.photos || op.folder_url || hasChecklist(op)) ? (
                       <button
                         onClick={() => setPhotosOp(op)}
-                        title="View photos"
+                        title={op.photos || op.folder_url ? 'View photos' : 'View delivery checklist'}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
                         onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
@@ -1954,10 +2147,11 @@ const OperationsPage: React.FC = () => {
       </div>
 
       {/* ── Photos Modal ── */}
-      {photosOp && (photosOp.photos || photosOp.folder_url) && (
+      {photosOp && (photosOp.photos || photosOp.folder_url || hasChecklist(photosOp)) && (
         <PhotosModal
           folderUrl={photosOp.folder_url}
           structuredPhotos={photosOp.photos}
+          operation={photosOp}
           onClose={() => setPhotosOp(null)}
         />
       )}
@@ -2019,6 +2213,16 @@ const OperationsPage: React.FC = () => {
         }
         @media (min-width: 640px) and (max-width: 1023px) {
           .ops-stats { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+        /* Delivery checklist rows — label left, Yes/No right; stacked on phones
+           so the 44px targets never get squeezed. Global so the modal portals
+           pick it up too. */
+        .op-check-row {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; padding: 10px 14px; flex-wrap: wrap;
+        }
+        @media (max-width: 479px) {
+          .op-check-row { flex-direction: column; align-items: flex-start; gap: 8px; }
         }
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.45} }
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
