@@ -83,6 +83,15 @@ const managementItems = [
     ),
   },
   {
+    label: 'Google Reviews',
+    path: '/dashboard/google-reviews',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.45l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     label: 'Users',
     path: '/dashboard/users',
     icon: (

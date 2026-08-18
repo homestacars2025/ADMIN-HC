@@ -17,6 +17,7 @@ import CarTrackingPage from './pages/CarTrackingPage';
 import ActiveBookingsPage from './pages/ActiveBookingsPage';
 import PendingInvoicesPage from './pages/PendingInvoicesPage';
 import CustomersPage from './pages/CustomersPage';
+import GoogleReviewsPage from './pages/GoogleReviewsPage';
 import OperationsPage from './pages/OperationsPage';
 import CarIssuesPage from './pages/CarIssuesPage';
 import InboxPage from './pages/InboxPage';
@@ -72,6 +73,7 @@ const App: React.FC = () => {
           <Route path="accounting/report" element={<InvestorReportPage />} />
           <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
           <Route path="customers" element={<CustomersPage />} />
+          <Route path="google-reviews" element={<GoogleReviewsPage />} />
           <Route path="operations" element={<OperationsPage />} />
           <Route path="car-issues" element={<CarIssuesPage />} />
           <Route path="inbox" element={<InboxPage />} />
