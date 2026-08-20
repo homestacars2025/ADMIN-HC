@@ -327,6 +327,16 @@ const operationsItems = [
     ),
   },
   {
+    label: 'KABIS',
+    path: '/dashboard/kabis',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+        <path d="M14 2v6h6M9 15l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     label: 'Car Issues',
     path: '/dashboard/car-issues',
     icon: (
