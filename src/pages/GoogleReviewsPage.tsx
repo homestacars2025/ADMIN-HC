@@ -14,6 +14,15 @@ const REVIEW_WEBHOOK_URL = '';
 type ReviewStatus = 'pending_review' | 'awaiting_send' | 'sent' | 'rejected';
 type TabKey = 'rate' | 'awaiting' | 'sent';
 
+/** Language the outgoing message is written in — chosen per send, not stored. */
+type MessageLanguage = 'ar' | 'tr' | 'en';
+
+const LANGUAGE_CHOICES: { code: MessageLanguage; native: string; english: string }[] = [
+  { code: 'ar', native: 'العربية', english: 'Arabic'  },
+  { code: 'tr', native: 'Türkçe',  english: 'Turkish' },
+  { code: 'en', native: 'English', english: 'English' },
+];
+
 interface ReviewCandidate {
   customer_id:           string;   // uuid
   first_name:            string | null;
@@ -161,8 +170,15 @@ function initials(name: string | null): string {
   return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
-/** Posts one review request. Never toasts — callers decide how to report. */
-async function postWebhook(row: ReviewCandidate): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Posts one review request. Never toasts — callers decide how to report.
+ * `language` overrides the customer's stored language when the employee picked
+ * one; bulk sends pass nothing and fall back to whatever is on the record.
+ */
+async function postWebhook(
+  row: ReviewCandidate,
+  language?: MessageLanguage,
+): Promise<{ ok: boolean; error?: string }> {
   if (!REVIEW_WEBHOOK_URL) return { ok: false, error: 'Webhook not configured yet' };
   try {
     const res = await fetch(REVIEW_WEBHOOK_URL, {
@@ -172,7 +188,7 @@ async function postWebhook(row: ReviewCandidate): Promise<{ ok: boolean; error?:
         customer_id:    row.customer_id,
         full_name:      row.full_name,
         phone:          row.phone,
-        language:       row.language,
+        language:       language ?? row.language,
         booking_number: row.latest_booking_number,
       }),
     });
@@ -401,6 +417,136 @@ const SendButton: React.FC<{
   </button>
 );
 
+/**
+ * Asks which language the message should be written in before anything is sent.
+ * Nothing is pre-selected — the employee must actively pick, and Cancel sends
+ * nothing at all.
+ */
+const LanguageModal: React.FC<{
+  customerName: string | null;
+  mode:  'send' | 'resend';
+  busy:  boolean;
+  onPick: (language: MessageLanguage) => void;
+  onClose: () => void;
+}> = ({ customerName, mode, busy, onPick, onClose }) => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy) onClose(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose, busy]);
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget && !busy) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1200,
+        background: 'rgba(15,17,23,0.5)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, animation: 'fadeIn 150ms ease', overflowY: 'auto',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 420,
+          boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'slideUp 180ms ease',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+        }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Choose message language</div>
+            <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 3 }}>
+              {mode === 'resend' ? 'Resending to ' : 'Sending to '}
+              <strong style={{ color: '#374151', fontWeight: 600 }}>{customerName ?? 'customer'}</strong>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Close"
+            style={{
+              width: 34, height: 34, borderRadius: 9, border: 'none', background: '#f3f4f6',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: busy ? 'not-allowed' : 'pointer', flexShrink: 0,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        {/* Choices — no default selection */}
+        <div style={{ padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {LANGUAGE_CHOICES.map(choice => (
+            <button
+              key={choice.code}
+              type="button"
+              disabled={busy}
+              onClick={() => onPick(choice.code)}
+              style={{
+                minHeight: 52, padding: '0 16px', width: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                borderRadius: 11, border: '1.5px solid #e5e7eb', background: '#fff',
+                fontFamily: 'inherit', cursor: busy ? 'wait' : 'pointer',
+                transition: 'all 140ms ease', textAlign: 'left',
+              }}
+              onMouseEnter={e => {
+                if (busy) return;
+                const b = e.currentTarget;
+                b.style.borderColor = '#4ba6ea';
+                b.style.background = 'rgba(75,166,234,0.05)';
+              }}
+              onMouseLeave={e => {
+                if (busy) return;
+                const b = e.currentTarget;
+                b.style.borderColor = '#e5e7eb';
+                b.style.background = '#fff';
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 9, minWidth: 0 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#0f1117' }}>{choice.native}</span>
+                {choice.english !== choice.native && (
+                  <span style={{ fontSize: 12, color: '#9ca3af' }}>{choice.english}</span>
+                )}
+              </span>
+              <span style={{
+                fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700,
+                color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '2px 7px',
+                flexShrink: 0,
+              }}>
+                {choice.code}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 24px 20px' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            style={{
+              minHeight: 44, padding: '0 18px', borderRadius: 9,
+              border: '1px solid #e5e7eb', background: '#fff',
+              fontSize: 14, fontWeight: 500, color: '#6b7280',
+              cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {busy ? 'Sending…' : 'Cancel'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -419,6 +565,11 @@ const GoogleReviewsPage: React.FC = () => {
   const [ratingId,    setRatingId]    = useState<string | null>(null);
   const [sendingId,   setSendingId]   = useState<string | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
+
+  // Which row is waiting on a language choice, and whether it is a first send
+  // or a resend. Null means the modal is closed.
+  const [langPrompt, setLangPrompt] =
+    useState<{ row: ReviewCandidate; mode: 'send' | 'resend' } | null>(null);
 
   const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error' } | null>(null);
 
@@ -500,13 +651,14 @@ const GoogleReviewsPage: React.FC = () => {
   }, [ratingId, showToast, load]);
 
   // ── Send ──────────────────────────────────────────────────────────────────
-  const handleSend = useCallback(async (row: ReviewCandidate) => {
+  const handleSend = useCallback(async (row: ReviewCandidate, language: MessageLanguage) => {
     if (sendingId || bulkSending) return;
     setSendingId(row.customer_id);
 
-    const result = await postWebhook(row);
+    const result = await postWebhook(row, language);
     if (!result.ok) {
       setSendingId(null);
+      setLangPrompt(null);
       showToast(result.error ?? 'Send failed', 'error');
       return;   // status deliberately unchanged
     }
@@ -517,11 +669,12 @@ const GoogleReviewsPage: React.FC = () => {
       .eq('customer_id', row.customer_id);
 
     setSendingId(null);
+    setLangPrompt(null);
     if (updateError) {
       showToast(`Request sent, but the status update failed: ${updateError.message}`, 'error');
       return;
     }
-    showToast(`Review request sent to ${row.full_name ?? 'customer'}`);
+    showToast(`Review request sent to ${row.full_name ?? 'customer'} in ${language.toUpperCase()}`);
     await load();
   }, [sendingId, bulkSending, showToast, load]);
 
@@ -556,14 +709,25 @@ const GoogleReviewsPage: React.FC = () => {
   }, [byStatus, bulkSending, showToast, load]);
 
   // Resend never mutates anything — it just fires the webhook again.
-  const handleResend = useCallback(async (row: ReviewCandidate) => {
+  const handleResend = useCallback(async (row: ReviewCandidate, language: MessageLanguage) => {
     if (sendingId) return;
     setSendingId(row.customer_id);
-    const result = await postWebhook(row);
+    const result = await postWebhook(row, language);
     setSendingId(null);
+    setLangPrompt(null);
     if (!result.ok) { showToast(result.error ?? 'Resend failed', 'error'); return; }
-    showToast(`Review request resent to ${row.full_name ?? 'customer'}`);
+    showToast(`Review request resent to ${row.full_name ?? 'customer'} in ${language.toUpperCase()}`);
   }, [sendingId, showToast]);
+
+  /**
+   * Row buttons no longer send — they ask for a language first. With no webhook
+   * configured there is nothing to choose between, so keep the existing toast
+   * and never open the modal.
+   */
+  const promptLanguage = useCallback((row: ReviewCandidate, mode: 'send' | 'resend') => {
+    if (!REVIEW_WEBHOOK_URL) { showToast('Webhook not configured yet', 'error'); return; }
+    setLangPrompt({ row, mode });
+  }, [showToast]);
 
   const colCount = tab === 'rate' ? 7 : tab === 'awaiting' ? 6 : 6;
 
@@ -571,6 +735,7 @@ const GoogleReviewsPage: React.FC = () => {
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '32px 28px 56px' }}>
       <style>{`
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
         @keyframes slideUp { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
         .gr-row { transition: background 120ms ease; }
         .gr-row:hover td { background: #f8fafc; }
@@ -795,7 +960,7 @@ const GoogleReviewsPage: React.FC = () => {
                         <SendButton
                           label="Send Review Request"
                           busy={sendingId === row.customer_id || bulkSending}
-                          onClick={() => handleSend(row)}
+                          onClick={() => promptLanguage(row, 'send')}
                         />
                       )}
                       {tab === 'sent' && (
@@ -803,7 +968,7 @@ const GoogleReviewsPage: React.FC = () => {
                           label="Resend"
                           variant="ghost"
                           busy={sendingId === row.customer_id}
-                          onClick={() => handleResend(row)}
+                          onClick={() => promptLanguage(row, 'resend')}
                         />
                       )}
                     </td>
@@ -814,6 +979,19 @@ const GoogleReviewsPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {langPrompt && (
+        <LanguageModal
+          customerName={langPrompt.row.full_name}
+          mode={langPrompt.mode}
+          busy={sendingId === langPrompt.row.customer_id}
+          onPick={language => {
+            if (langPrompt.mode === 'send') void handleSend(langPrompt.row, language);
+            else void handleResend(langPrompt.row, language);
+          }}
+          onClose={() => setLangPrompt(null)}
+        />
+      )}
 
       {toast && <Toast message={toast.message} kind={toast.kind} />}
     </div>
