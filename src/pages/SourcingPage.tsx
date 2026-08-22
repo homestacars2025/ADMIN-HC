@@ -18,6 +18,7 @@ interface SourcingRow {
   source_platform: string;
   source_platform_custom: string | null;
   model_group_id: number | null;
+  model_group_custom: string | null;
   model_year: number | null;
   mileage_km: number | null;
   transmission: Transmission | null;
@@ -51,6 +52,7 @@ interface SourcingForm {
   listing_url: string;
   listed_on: string;
   model_group_id: string;
+  model_group_custom: string;
   model_year: string;
   mileage_km: string;
   transmission: string;
@@ -78,6 +80,11 @@ interface GeoOption { id: string; name: string; }
 const PLATFORM_OPTIONS = [
   'sahibinden.com', 'arabam.com', 'letgo', 'Instagram', 'Facebook Marketplace', 'Other',
 ];
+
+// Sentinel for the Model Group <select>, mirroring the platform field's 'Other'.
+// Real options carry a numeric id as their value, so a non-numeric sentinel can
+// never collide with a model_group row.
+const MODEL_OTHER = 'other';
 
 const LEAD_CFG: Record<LeadStatus, { color: string; bg: string }> = {
   'New':        { color: '#4ba6ea', bg: 'rgba(75,166,234,0.1)'  },
@@ -119,7 +126,7 @@ const LEAD_ORDER: Record<LeadStatus, number> = {
 const EMPTY_FORM: SourcingForm = {
   source_platform: '', source_platform_custom: '',
   listing_url: '', listed_on: new Date().toISOString().slice(0, 10),
-  model_group_id: '', model_year: '', mileage_km: '', transmission: '',
+  model_group_id: '', model_group_custom: '', model_year: '', mileage_km: '', transmission: '',
   fuel_type: '', trim_package: '', damage_record: '', damage_value: '',
   paint_sections_count: '', asking_price: '', target_price: '',
   city_id: '', district_id: '',
@@ -174,6 +181,16 @@ function displayPlatform(row: SourcingRow): string {
   return row.source_platform === 'Other'
     ? (row.source_platform_custom || 'Other')
     : row.source_platform;
+}
+
+// Same fallback shape as displayPlatform: a linked model_group wins, otherwise
+// the free-text model the employee typed under "Other".
+function displayModel(row: SourcingRow): string {
+  return row.model_name ?? row.model_group_custom ?? '—';
+}
+
+function isCustomModel(row: SourcingRow): boolean {
+  return row.model_group_id == null && !!row.model_group_custom;
 }
 
 // ─── Toast ─────────────────────────────────────────────────────────────────────
@@ -595,7 +612,10 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cit
       source_platform_custom: editRow.source_platform_custom ?? '',
       listing_url: editRow.listing_url ?? '',
       listed_on: editRow.listed_on ?? '',
-      model_group_id: editRow.model_group_id != null ? String(editRow.model_group_id) : '',
+      model_group_id: editRow.model_group_id != null
+        ? String(editRow.model_group_id)
+        : (editRow.model_group_custom ? MODEL_OTHER : ''),
+      model_group_custom: editRow.model_group_custom ?? '',
       model_year: editRow.model_year != null ? String(editRow.model_year) : '',
       mileage_km: editRow.mileage_km != null ? String(editRow.mileage_km) : '',
       transmission: editRow.transmission ?? '',
@@ -646,6 +666,9 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cit
     setFormError(null);
     if (!form.source_platform) { setFormError('Source platform is required.'); return; }
     if (!form.model_group_id)  { setFormError('Model group is required.'); return; }
+    if (form.model_group_id === MODEL_OTHER && !form.model_group_custom.trim()) {
+      setFormError('Model name is required when Model Group is "Other".'); return;
+    }
     if (!form.model_year)      { setFormError('Year is required.'); return; }
     if (!form.city_id)         { setFormError('City is required.'); return; }
 
@@ -658,7 +681,8 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cit
       source_platform_custom: form.source_platform === 'Other' ? (form.source_platform_custom.trim() || null) : null,
       listing_url: form.listing_url.trim() || null,
       listed_on: form.listed_on || null,
-      model_group_id: Number(form.model_group_id),
+      model_group_id: form.model_group_id === MODEL_OTHER ? null : Number(form.model_group_id),
+      model_group_custom: form.model_group_id === MODEL_OTHER ? (form.model_group_custom.trim() || null) : null,
       model_year: Number(form.model_year),
       mileage_km: form.mileage_km !== '' ? Number(form.mileage_km) : null,
       transmission: form.transmission || null,
@@ -812,8 +836,19 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cit
                 <select value={form.model_group_id} onChange={e => set('model_group_id', e.target.value)} style={sel}>
                   <option value="">Select model…</option>
                   {modelGroups.map(m => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                  <option value={MODEL_OTHER}>Other (specify)</option>
                 </select>
               </div>
+              {form.model_group_id === MODEL_OTHER && (
+                <div>
+                  <label style={lbl}>Model name <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input type="text" value={form.model_group_custom} onChange={e => set('model_group_custom', e.target.value)}
+                    placeholder="e.g. Peugeot 2008, BYD Seal…" style={inp}
+                    onFocus={e => (e.target.style.borderColor = '#4ba6ea')}
+                    onBlur={e => (e.target.style.borderColor = '#e5e7eb')}
+                  />
+                </div>
+              )}
               <div style={row2}>
                 <div>
                   <label style={lbl}>Year <span style={{ color: '#ef4444' }}>*</span></label>
@@ -1139,7 +1174,7 @@ const SourcingPage: React.FC = () => {
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       const hit = [
-        row.model_name, row.trim_package, row.notes, row.listing_url, displayPlatform(row),
+        displayModel(row), row.trim_package, row.notes, row.listing_url, displayPlatform(row),
       ].some(f => (f ?? '').toLowerCase().includes(q));
       if (!hit) return false;
     }
@@ -1505,8 +1540,13 @@ const SourcingPage: React.FC = () => {
                     {/* Model */}
                     <td style={tdBase}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', whiteSpace: 'nowrap' }}>
-                        {row.model_name ?? '—'}
+                        {displayModel(row)}
                       </span>
+                      {isCustomModel(row) && (
+                        <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 6, whiteSpace: 'nowrap' }}>
+                          (custom)
+                        </span>
+                      )}
                     </td>
 
                     {/* Year */}
