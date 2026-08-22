@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type KabisStatus = 'pending' | 'entered';
+type KabisStatus = 'pending' | 'checked_in' | 'checked_out';
 type KabisAction = 'delivery' | 'pickup';
 
 interface ProfileJoin { full_name: string | null; }
@@ -38,8 +38,17 @@ interface KabisEntry extends Omit<KabisRow, 'profiles' | 'km'> {
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<KabisStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Pending', color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
-  entered: { label: 'Entered', color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
+  pending:     { label: 'Pending',     color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
+  checked_in:  { label: 'Checked in',  color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
+  checked_out: { label: 'Checked out', color: '#2563eb', bg: 'rgba(37,99,235,0.12)'  },
+};
+
+// A delivery can only ever end up checked in, a pickup only checked out — the
+// column has no shared "done" value, so the reachable status is derived from
+// the row's action type everywhere the admin can write it.
+const DONE_STATUS: Record<KabisAction, KabisStatus> = {
+  delivery: 'checked_in',
+  pickup:   'checked_out',
 };
 
 // The enum values stay delivery/pickup; the labels follow the government
@@ -184,9 +193,11 @@ const EditModal: React.FC<{
   // in this modal so the admin always sees which half of the booking they are
   // acting on.
   const actionWord = ACTION_CONFIG[entry.action_type].label.toLowerCase();
+  const doneStatus = DONE_STATUS[entry.action_type];
+  const doneWord   = STATUS_CONFIG[doneStatus].label.toLowerCase();
   const confirmLabel =
     status === entry.status ? 'Save'
-      : status === 'entered' ? `Mark ${actionWord} entered`
+      : status === doneStatus ? `Mark ${actionWord} ${doneWord}`
         : 'Revert to pending';
 
   const save = async () => {
@@ -204,8 +215,8 @@ const EditModal: React.FC<{
     onSaved(
       status === entry.status
         ? 'Entry updated.'
-        : status === 'entered'
-          ? `Marked ${actionWord} as entered.`
+        : status === doneStatus
+          ? `Marked ${actionWord} as ${doneWord}.`
           : `Reverted ${actionWord} to pending.`,
     );
   };
@@ -263,7 +274,7 @@ const EditModal: React.FC<{
 
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Status</label>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-            {(['pending', 'entered'] as const).map(s => {
+            {(['pending', doneStatus] as const).map(s => {
               const active = status === s;
               const cfg = STATUS_CONFIG[s];
               return (
@@ -295,12 +306,12 @@ const EditModal: React.FC<{
             style={{ ...inputStyle, width: '100%', height: 'auto', padding: '10px 12px', resize: 'vertical', lineHeight: 1.5 }}
           />
 
-          {status === 'entered' && entry.status === 'pending' && (
+          {status === doneStatus && entry.status === 'pending' && (
             <div style={{ marginTop: 12, padding: '9px 12px', borderRadius: 8, background: 'rgba(75,166,234,0.07)', border: '1px solid rgba(75,166,234,0.2)', fontSize: 12, color: '#2e8fd4' }}>
               Saving will stamp you as the entering user and set the booking's KABIS flag.
             </div>
           )}
-          {status === 'pending' && entry.status === 'entered' && (
+          {status === 'pending' && entry.status !== 'pending' && (
             <div style={{ marginTop: 12, padding: '9px 12px', borderRadius: 8, background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.25)', fontSize: 12, color: '#b45309' }}>
               Reverting clears the entry stamp and may unset the booking's KABIS flag.
             </div>
@@ -375,11 +386,11 @@ const KabisManagementPage: React.FC = () => {
 
   // Indicator cards always reflect the whole register, not the filtered view.
   const stats = useMemo(() => {
-    const total   = rows.length;
-    const entered = rows.filter(r => r.status === 'entered').length;
-    const pending = total - entered;
-    const rate    = total === 0 ? 0 : Math.round((entered / total) * 100);
-    return { total, entered, pending, rate };
+    const total       = rows.length;
+    const pending     = rows.filter(r => r.status === 'pending').length;
+    const checkedIn   = rows.filter(r => r.status === 'checked_in').length;
+    const checkedOut  = rows.filter(r => r.status === 'checked_out').length;
+    return { total, pending, checkedIn, checkedOut };
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -427,7 +438,7 @@ const KabisManagementPage: React.FC = () => {
   };
 
   const handleExport = () => {
-    const headers = ['Plate', 'Customer', 'ID Number', 'Booking #', 'Type', 'Operation Date', 'KM', 'Status', 'Entered By', 'Registered At', 'Note'];
+    const headers = ['Plate', 'Customer', 'ID Number', 'Booking #', 'Type', 'Operation Date', 'KM', 'Status', 'Registered By', 'Registered At', 'Note'];
     const body = visible.map(r => [
       r.plate_number ?? '', r.customer_name ?? '', r.customer_id_number ?? '', r.booking_number ?? '',
       ACTION_CONFIG[r.action_type].label,
@@ -515,10 +526,10 @@ const KabisManagementPage: React.FC = () => {
 
       {/* Indicators */}
       <div className="kb-stats">
-        <StatCard label="Total"      value={stats.total}          bg="#4ba6ea" loading={loading} />
-        <StatCard label="Pending"    value={stats.pending}        bg="#ea580c" loading={loading} />
-        <StatCard label="Entered"    value={stats.entered}        bg="#16a34a" loading={loading} />
-        <StatCard label="Completion" value={`${stats.rate}%`}     bg="#0f1117" loading={loading} />
+        <StatCard label="Total"       value={stats.total}      bg="#4ba6ea" loading={loading} />
+        <StatCard label="Pending"     value={stats.pending}    bg="#ea580c" loading={loading} />
+        <StatCard label="Checked in"  value={stats.checkedIn}  bg="#16a34a" loading={loading} />
+        <StatCard label="Checked out" value={stats.checkedOut} bg="#2563eb" loading={loading} />
       </div>
 
       {/* Filters */}
@@ -538,7 +549,8 @@ const KabisManagementPage: React.FC = () => {
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as KabisStatus | '')} style={{ ...inputStyle, cursor: 'pointer', minWidth: 140 }}>
           <option value="">All statuses</option>
           <option value="pending">Pending</option>
-          <option value="entered">Entered</option>
+          <option value="checked_in">Checked in</option>
+          <option value="checked_out">Checked out</option>
         </select>
 
         <select value={actionFilter} onChange={e => setActionFilter(e.target.value as KabisAction | '')} style={{ ...inputStyle, cursor: 'pointer', minWidth: 140 }}>
@@ -600,7 +612,7 @@ const KabisManagementPage: React.FC = () => {
                 <Th>Operation Date</Th>
                 <Th align="right">KM</Th>
                 <Th>Status</Th>
-                <Th>Entered By</Th>
+                <Th>Registered By</Th>
                 <Th>Registered At</Th>
                 <Th>Note</Th>
                 <Th align="right">Action</Th>
