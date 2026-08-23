@@ -449,10 +449,11 @@ interface RowProps {
   onEdit: () => void;
   onDelete: () => void;
   onPrint: () => void;
+  onExtend: () => void;
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, isEven, onSelect, onToggle, onEdit, onDelete, onPrint,
+  booking, isSelected, isEven, onSelect, onToggle, onEdit, onDelete, onPrint, onExtend,
 }) => (
   <tr
     className="bk-row"
@@ -518,6 +519,15 @@ const BookingTableRow: React.FC<RowProps> = ({
     </td>
     <td style={{ padding: '9px 16px 9px 8px', textAlign: 'right' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        {/* A cancelled booking has nothing to extend. */}
+        {booking.status !== 'cancelled' && (
+          <ActionBtn onClick={onExtend} title="Extend Booking" hoverColor="#16a34a">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+              <path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </ActionBtn>
+        )}
         <ActionBtn onClick={onPrint} title="Print Contract" hoverColor="#8b5cf6">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -2950,6 +2960,325 @@ const SectionHeadingBlock: React.FC<{ icon: React.ReactNode; title: string }> = 
   </div>
 );
 
+// ─── Booking extension ────────────────────────────────────────────────────────
+
+/** Shape returned by the `extend_booking` RPC — one row, all money in TRY. */
+interface ExtendResult {
+  booking_id:      number;
+  old_end_date:    string;
+  new_end_date:    string;
+  rental_logged:   number;
+  payment_logged:  number;
+  new_balance:     number;
+}
+
+/** ISO date one day after the given ISO date — the first day of the extension. */
+function nextDayStr(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() + 1);
+  return toDateStr(d);
+}
+
+/** Turkish-lira amount for the success toast; no exchange rate is involved. */
+function formatTry(amount: number): string {
+  return `${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ₺`;
+}
+
+interface ExtendModalProps {
+  booking:   Booking;
+  onClose:   () => void;
+  onSaved:   () => void;
+  showToast: (message: string, type: 'success' | 'error') => void;
+}
+
+/**
+ * Extends a booking on the same car. Every write — the new end date and both
+ * ledger rows — happens inside the `extend_booking` RPC so the update and the
+ * accounting stay in one transaction; this modal never touches `bookings` or
+ * `customer_accounting_ledger` directly.
+ */
+const ExtendBookingModal: React.FC<ExtendModalProps> = ({ booking, onClose, onSaved, showToast }) => {
+  const backdropPressRef = useRef(false);
+
+  const [newEndDate,   setNewEndDate]   = useState('');
+  const [rentalAmount, setRentalAmount] = useState('');
+  const [paidAmount,   setPaidAmount]   = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [formError,    setFormError]    = useState<string | null>(null);
+
+  // Display only — the RPC derives the extension's start from the booking.
+  const extensionStart = nextDayStr(booking.end_date);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !saving) onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose, saving]);
+
+  const rentalNum = Number(rentalAmount);
+  const paidNum   = paidAmount.trim() === '' ? 0 : Number(paidAmount);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    setFormError(null);
+
+    if (!newEndDate) {
+      setFormError('Pick the new end date');
+      return;
+    }
+    if (newEndDate <= booking.end_date) {
+      setFormError(`New end date must be after ${formatDateDisplay(booking.end_date)}`);
+      return;
+    }
+    if (!rentalAmount.trim() || Number.isNaN(rentalNum) || rentalNum <= 0) {
+      setFormError('Rental amount must be greater than 0');
+      return;
+    }
+    if (Number.isNaN(paidNum) || paidNum < 0) {
+      setFormError('Paid amount cannot be negative');
+      return;
+    }
+
+    setSaving(true);
+
+    // Attribution is best-effort: an expired session should not block the
+    // extension, so a missing user id is passed through as null.
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error: rpcError } = await supabase.rpc('extend_booking', {
+      p_booking_id:    booking.id,
+      p_new_end_date:  newEndDate,
+      p_rental_amount: rentalNum,
+      p_paid_amount:   paidNum,
+      p_created_by:    user?.id ?? null,
+    });
+
+    setSaving(false);
+
+    if (rpcError) {
+      setFormError(rpcError.message);
+      showToast(rpcError.message, 'error');
+      return;
+    }
+
+    // The function returns TABLE(...), so supabase-js hands back an array.
+    const result = (Array.isArray(data) ? data[0] : data) as ExtendResult | undefined;
+    const endLabel = formatDateDisplay(result?.new_end_date ?? newEndDate);
+    showToast(
+      result
+        ? `Extended to ${endLabel} — new balance: ${formatTry(Number(result.new_balance))}`
+        : `Extended to ${endLabel}`,
+      'success',
+    );
+    onSaved();
+    onClose();
+  };
+
+  const submitBlocked = saving || !newEndDate || !rentalAmount.trim();
+
+  return ReactDOM.createPortal(
+    <div
+      onMouseDown={e => { backdropPressRef.current = e.target === e.currentTarget; }}
+      onClick={e => {
+        if (e.target === e.currentTarget && backdropPressRef.current && !saving) onClose();
+        backdropPressRef.current = false;
+      }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '24px 16px', overflowY: 'auto',
+        animation: 'fadeIn 150ms ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 520,
+          marginTop: 'auto', marginBottom: 'auto',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+          animation: 'slideUp 180ms ease',
+        }}
+      >
+        {/* Modal header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
+        }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              Extend Booking
+            </div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+              {booking.booking_number} · {booking.customer_name}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: saving ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px' }}>
+
+          {/* ── Car — fixed, an extension never swaps the vehicle ── */}
+          <SectionHeadingBlock
+            title="Car"
+            icon={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M4 8h10l2 4h4v5H4V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                <circle cx="7.5" cy="17" r="1.6" stroke="currentColor" strokeWidth="1.6"/>
+                <circle cx="16.5" cy="17" r="1.6" stroke="currentColor" strokeWidth="1.6"/>
+              </svg>
+            }
+          />
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '12px 14px', borderRadius: 10,
+            background: 'rgba(75,166,234,0.06)', border: '1px solid rgba(75,166,234,0.25)',
+            marginBottom: 18,
+          }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>{booking.plate_number}</div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>{booking.car_model}</div>
+            </div>
+          </div>
+
+          {/* ── Dates ── */}
+          <SectionHeadingBlock
+            title="Extension Period"
+            icon={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+                <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            }
+          />
+          <div className="ext-grid" style={{ marginBottom: 18 }}>
+            <Field label="New Period Starts">
+              <div style={{ ...INPUT_STYLE, display: 'flex', alignItems: 'center', background: '#f9fafb', color: '#6b7280' }}>
+                {formatDateDisplay(extensionStart)}
+              </div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                Day after the current end ({formatDateDisplay(booking.end_date)})
+              </div>
+            </Field>
+            <Field label="New End Date" required>
+              <input
+                type="date"
+                value={newEndDate}
+                min={extensionStart}
+                onChange={e => { setNewEndDate(e.target.value); setFormError(null); }}
+                style={INPUT_STYLE}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              />
+            </Field>
+          </div>
+
+          {/* ── Money ── */}
+          <SectionHeadingBlock
+            title="Financials (TRY)"
+            icon={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+                <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8"/>
+              </svg>
+            }
+          />
+          <div className="ext-grid">
+            <Field label="Rental Amount" required>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={rentalAmount}
+                onChange={e => { setRentalAmount(e.target.value); setFormError(null); }}
+                placeholder="0.00"
+                style={INPUT_STYLE}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              />
+            </Field>
+            <Field label="Paid Amount">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={paidAmount}
+                onChange={e => { setPaidAmount(e.target.value); setFormError(null); }}
+                placeholder="0.00"
+                style={INPUT_STYLE}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              />
+            </Field>
+          </div>
+
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 14,
+            padding: '10px 12px', borderRadius: 8, background: '#f9fafb', border: '1px solid #f0f0f0',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="9" stroke="#9ca3af" strokeWidth="1.8"/>
+              <path d="M12 11v5M12 8h.01" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+            <span style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5 }}>
+              Insurance carries over from the original booking — nothing new is charged for it.
+            </span>
+          </div>
+
+          {formError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
+                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: 13, color: '#ef4444' }}>{formError}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
+            <button type="button" onClick={onClose} disabled={saving}
+              style={{ minHeight: 44, padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            >
+              Cancel
+            </button>
+            <button type="submit" disabled={submitBlocked}
+              style={{ minHeight: 44, padding: '9px 22px', borderRadius: 9, border: 'none', background: submitBlocked ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: submitBlocked ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
+              onMouseEnter={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+              onMouseLeave={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            >
+              {saving ? 'Extending…' : 'Confirm Extension'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes slideUp { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        .ext-grid { display: grid; grid-template-columns: 1fr; gap: 14px 16px; }
+        @media (min-width: 560px) { .ext-grid { grid-template-columns: 1fr 1fr; } }
+      `}</style>
+    </div>,
+    document.body,
+  );
+};
+
 // ─── Replacement sheets list (reprint) ────────────────────────────────────────
 
 const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey }) => {
@@ -3159,6 +3488,7 @@ const BookingsPage: React.FC = () => {
   const [modal, setModal]                 = useState<null | 'add' | 'replacement' | { mode: 'edit'; booking: Booking }>(null);
   const [sheetsRefresh, setSheetsRefresh]  = useState(0);
   const [deleteTarget, setDeleteTarget]   = useState<Booking | null>(null);
+  const [extendTarget, setExtendTarget]   = useState<Booking | null>(null);
   const [deleting, setDeleting]           = useState(false);
   const [toast, setToast]                 = useState<ToastState | null>(null);
   const toastTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3573,6 +3903,7 @@ const BookingsPage: React.FC = () => {
                     onEdit={() => setModal({ mode: 'edit', booking })}
                     onDelete={() => setDeleteTarget(booking)}
                     onPrint={() => printBookingContract(booking)}
+                    onExtend={() => setExtendTarget(booking)}
                   />
                 ))}
               </tbody>
@@ -3636,6 +3967,17 @@ const BookingsPage: React.FC = () => {
           onClose={() => setModal(null)}
           onSaved={() => {
             showToast('Booking updated', 'success');
+            fetchStats(selectedMonth);
+            fetchBookings(selectedMonth);
+          }}
+        />
+      )}
+      {extendTarget && (
+        <ExtendBookingModal
+          booking={extendTarget}
+          showToast={showToast}
+          onClose={() => setExtendTarget(null)}
+          onSaved={() => {
             fetchStats(selectedMonth);
             fetchBookings(selectedMonth);
           }}
