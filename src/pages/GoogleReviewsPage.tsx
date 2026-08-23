@@ -254,8 +254,8 @@ const Toast: React.FC<{ message: string; kind: 'success' | 'error' }> = ({ messa
     document.body,
   );
 
-const StarIcon: React.FC<{ filled: boolean }> = ({ filled }) => (
-  <svg width="19" height="19" viewBox="0 0 24 24"
+const StarIcon: React.FC<{ filled: boolean; size?: number }> = ({ filled, size = 19 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24"
     fill={filled ? '#f59e0b' : 'none'}
     stroke={filled ? '#f59e0b' : '#d1d5db'}
     strokeWidth="1.6" strokeLinejoin="round">
@@ -296,6 +296,27 @@ const StarRating: React.FC<{
         </button>
       ))}
     </div>
+  );
+};
+
+/**
+ * Read-only rendering of a rating already given — used in the Awaiting Send and
+ * Sent tabs, where the score is history rather than an input. Shares StarIcon
+ * with StarRating so both tabs stay visually identical, just smaller here so
+ * the column sits comfortably next to the text cells.
+ */
+const StarsDisplay: React.FC<{ value: number | null }> = ({ value }) => {
+  if (value == null) return <span style={{ color: '#d1d5db', fontSize: 13 }}>—</span>;
+  return (
+    <span
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 1, whiteSpace: 'nowrap' }}
+      title={`Rated ${value} star${value === 1 ? '' : 's'}`}
+      aria-label={`Our rating: ${value} out of 5`}
+    >
+      {[1, 2, 3, 4, 5].map(n => (
+        <StarIcon key={n} filled={n <= value} size={14} />
+      ))}
+    </span>
   );
 };
 
@@ -765,7 +786,8 @@ const GoogleReviewsPage: React.FC = () => {
     setLangPrompt({ row, mode });
   }, [showToast]);
 
-  const colCount = tab === 'rate' ? 7 : tab === 'awaiting' ? 6 : 6;
+  // Every tab now renders 7 columns — the shape differs, the count does not.
+  const colCount = 7;
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '32px 28px 56px' }}>
@@ -911,6 +933,7 @@ const GoogleReviewsPage: React.FC = () => {
             <thead>
               <tr>
                 <Th>Customer</Th>
+                {tab !== 'rate' && <Th>Our Rating</Th>}
                 <Th>Nationality</Th>
                 {tab === 'rate' && <Th>Age</Th>}
                 <Th>Phone</Th>
@@ -966,6 +989,9 @@ const GoogleReviewsPage: React.FC = () => {
                     style={{ borderTop: idx === 0 ? 'none' : '1px solid #f2f4f6' }}
                   >
                     <td style={td}><CustomerCell name={row.full_name} email={row.email} /></td>
+                    {tab !== 'rate' && (
+                      <td style={td}><StarsDisplay value={row.our_rating} /></td>
+                    )}
                     <td style={td}><NationalityCell nationality={row.nationality} /></td>
                     {tab === 'rate' && (
                       <td style={{ ...td, fontSize: 13, color: row.age == null ? '#d1d5db' : '#374151', whiteSpace: 'nowrap' }}>
