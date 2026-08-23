@@ -294,22 +294,26 @@ const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, 
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-const Toast: React.FC<{ message: string; kind: 'success' | 'error' }> = ({ message, kind }) =>
+const Toast: React.FC<{ message: string; kind: ToastKind }> = ({ message, kind }) =>
   ReactDOM.createPortal(
     <div style={{
       position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
       display: 'flex', alignItems: 'center', gap: 10,
-      background: kind === 'success' ? '#0f1117' : '#fff1f2',
-      color: kind === 'success' ? '#fff' : '#ef4444',
-      border: kind === 'error' ? '1px solid #fecaca' : 'none',
+      background: kind === 'success' ? '#0f1117' : kind === 'info' ? '#f3f4f6' : '#fff1f2',
+      color:      kind === 'success' ? '#fff'    : kind === 'info' ? '#4b5563' : '#ef4444',
+      border:     kind === 'error'   ? '1px solid #fecaca'
+                : kind === 'info'    ? '1px solid #e5e7eb' : 'none',
       borderRadius: 12, padding: '12px 18px',
       fontSize: 13, fontWeight: 500,
       boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
       animation: 'slideUp 200ms ease',
+      maxWidth: 'min(460px, calc(100vw - 56px))',
     }}>
       {kind === 'success'
-        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#16a34a"/><path d="M7 12l4 4 6-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v5M12 16h.01" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/></svg>
+        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" fill="#16a34a"/><path d="M7 12l4 4 6-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        : kind === 'info'
+        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" stroke="#9ca3af" strokeWidth="1.8"/><path d="M12 11v5M12 8h.01" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/></svg>
+        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v5M12 16h.01" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/></svg>
       }
       {message}
     </div>,
@@ -367,6 +371,83 @@ const YesNoResult: React.FC<{ value: boolean | null }> = ({ value }) => {
   );
 };
 
+// ─── Pickup charges (RPC-backed) ──────────────────────────────────────────────
+
+type ToastKind = 'success' | 'error' | 'info';
+interface ToastNotice { message: string; kind: ToastKind }
+
+/** Ledger descriptions written by `apply_pickup_charges` all start with this. */
+const pickupChargeTag = (pickupId: number) => `pickup_charge:op=${pickupId}`;
+
+/**
+ * Verbatim shape of the jsonb returned by `preview_pickup_charges` and
+ * `apply_pickup_charges`. Every figure is computed in Postgres — nothing here
+ * is recalculated in the browser.
+ */
+interface PickupCharges {
+  booking_id:   number | null;
+  customer_id:  string | null;
+  car_id:       number | null;
+  rental_days:  number;
+  km: {
+    delivery_km: number; pickup_km: number; used: number;
+    allowed: number; over: number; price_per_km: number; charge: number;
+  };
+  fuel: {
+    delivery_level: number | null; pickup_level: number | null;
+    drop: number; tolerance: number; liters: number;
+    price_per_liter: number; charge: number;
+  };
+  wash: { delivery_clean: string; return_clean: string; charge: number };
+  total_charge: number;
+  applied?: boolean;
+}
+
+function formatTry(amount: number): string {
+  return `${Number(amount).toLocaleString('en-US', { maximumFractionDigits: 2 })} ₺`;
+}
+
+/** "Extra km 250 ₺ + Fuel 180 ₺ = 430 ₺" — zero-value lines are left out. */
+function chargeBreakdown(charges: PickupCharges): string {
+  const parts: string[] = [];
+  if (charges.km.charge   > 0) parts.push(`Extra km ${formatTry(charges.km.charge)}`);
+  if (charges.fuel.charge > 0) parts.push(`Fuel ${formatTry(charges.fuel.charge)}`);
+  if (charges.wash.charge > 0) parts.push(`Wash ${formatTry(charges.wash.charge)}`);
+  return `${parts.join(' + ')} = ${formatTry(charges.total_charge)}`;
+}
+
+/**
+ * Charges a finished pickup to the customer's wallet through
+ * `apply_pickup_charges`, which does the arithmetic and the ledger inserts in
+ * one transaction. Called exactly once, right after the pickup row is created —
+ * never from the report modal, which only ever previews.
+ *
+ * Returns the toast to show. A failure here is reported but never rolls the
+ * operation back: the pickup itself is already saved and the charges can be
+ * applied later.
+ */
+async function applyPickupCharges(pickupId: number, uid: string | null): Promise<ToastNotice> {
+  const { data, error } = await supabase.rpc('apply_pickup_charges', {
+    p_pickup_operation_id: pickupId,
+    p_created_by:          uid,
+  });
+
+  if (error) {
+    // The function raises this when ledger rows already carry the pickup's tag,
+    // which means someone already charged it — not something to alarm staff with.
+    if (/already applied/i.test(error.message)) {
+      return { message: 'Charges were already applied to this customer\u2019s wallet.', kind: 'info' };
+    }
+    return { message: `Operation saved, but charges failed: ${error.message}`, kind: 'error' };
+  }
+
+  const charges = data as PickupCharges | null;
+  if (!charges || Number(charges.total_charge) <= 0) {
+    return { message: 'Picked up — no extra charges.', kind: 'info' };
+  }
+  return { message: `Charged to customer wallet: ${chargeBreakdown(charges)}`, kind: 'success' };
+}
+
 // ─── Add Operation Modal ──────────────────────────────────────────────────────
 
 const EMPTY_FORM = (): AddOpForm => ({
@@ -390,7 +471,8 @@ const EMPTY_FORM = (): AddOpForm => ({
 
 const AddOperationModal: React.FC<{
   onClose: () => void;
-  onSaved: (warning?: string) => void;
+  /** Optional toast to show instead of the default "saved" one. */
+  onSaved: (notice?: ToastNotice) => void;
   editOp?: Operation;
 }> = ({ onClose, onSaved, editOp }) => {
   const isEdit = !!editOp;
@@ -694,14 +776,28 @@ const AddOperationModal: React.FC<{
       photosPayload.base_path = basePath;
 
       setSaveStep('saving');
-      const { error: insertError } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from('operations')
-        .insert({ ...corePayload, created_by: uid, photos: photosPayload });
+        .insert({ ...corePayload, created_by: uid, photos: photosPayload })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        setSaving(false);
+        setUploadTotal(0);
+        setFormError(insertError.message);
+        return;
+      }
+
+      // The one and only place charges are applied — tied to creating the
+      // pickup, not to opening its report.
+      const notice = form.type === 'PICKUP'
+        ? await applyPickupCharges((inserted as { id: number }).id, uid)
+        : undefined;
 
       setSaving(false);
       setUploadTotal(0);
-      if (insertError) { setFormError(insertError.message); return; }
-      onSaved();
+      onSaved(notice);
       return;
     }
 
@@ -721,8 +817,18 @@ const AddOperationModal: React.FC<{
 
     const insertPayload = { ...corePayload, created_by: uid, folder_url: folderUrl };
 
-    const { error: insertError } = await supabase.from('operations').insert(insertPayload);
+    const { data: inserted, error: insertError } = await supabase
+      .from('operations')
+      .insert(insertPayload)
+      .select('id')
+      .single();
     if (insertError) { setSaving(false); setFormError(insertError.message); return; }
+
+    // Edit mode returns earlier, so reaching here always means a new row. A
+    // pickup only lands on this path if it somehow skips the slot uploader.
+    const chargeNotice = form.type === 'PICKUP'
+      ? await applyPickupCharges((inserted as { id: number }).id, uid)
+      : undefined;
 
     // Upload photos if any
     if (photos.length > 0) {
@@ -742,14 +848,15 @@ const AddOperationModal: React.FC<{
         if (uploadError) failCount++;
       }
       setSaving(false);
+      // A photo failure is the more urgent of the two messages, so it wins.
       if (failCount > 0) {
-        onSaved(`${failCount} photo(s) failed to upload. Operation was saved.`);
+        onSaved({ message: `${failCount} photo(s) failed to upload. Operation was saved.`, kind: 'error' });
       } else {
-        onSaved();
+        onSaved(chargeNotice);
       }
     } else {
       setSaving(false);
-      onSaved();
+      onSaved(chargeNotice);
     }
   };
 
@@ -909,12 +1016,12 @@ const AddOperationModal: React.FC<{
 
             {/* Fuel Level */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Fuel Level (L) <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>Fuel Range (km) <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="number"
                 min="0"
                 max="2000"
-                placeholder="e.g. 45"
+                placeholder="e.g. 420"
                 value={form.fuel_level}
                 onChange={e => {
                   setFuelLevelError(null);
@@ -1473,10 +1580,65 @@ const MetricCard: React.FC<{
   </div>
 );
 
+/** One line of the charges breakdown. A zero amount is greyed rather than hidden,
+ *  so staff can see the item was considered and came to nothing. */
+const ChargeLine: React.FC<{ label: string; detail: string; amount: number }> = ({ label, detail, amount }) => (
+  <div style={{
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+    padding: '11px 16px', borderBottom: '1px solid #f0f0f0',
+  }}>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: amount > 0 ? '#0f1117' : '#9ca3af' }}>{label}</div>
+      <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 3, lineHeight: 1.45 }}>{detail}</div>
+    </div>
+    <span style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', color: amount > 0 ? '#ef4444' : '#d1d5db' }}>
+      {formatTry(amount)}
+    </span>
+  </div>
+);
+
 const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = ({ pickup, onClose }) => {
   const [delivery, setDelivery] = useState<DeliveryMatch | null>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
+
+  // Charges are read-only here. `preview_pickup_charges` never writes, and
+  // `apply_pickup_charges` is deliberately not called from this modal — the
+  // wallet is charged once, when the pickup is saved.
+  const [charges,        setCharges]        = useState<PickupCharges | null>(null);
+  const [chargesLoading, setChargesLoading] = useState(true);
+  const [chargesError,   setChargesError]   = useState<string | null>(null);
+  const [chargesApplied, setChargesApplied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setChargesLoading(true);
+    setChargesError(null);
+
+    (async () => {
+      const [previewRes, ledgerRes] = await Promise.all([
+        supabase.rpc('preview_pickup_charges', { p_pickup_operation_id: pickup.id }),
+        supabase
+          .from('customer_accounting_ledger')
+          .select('id', { count: 'exact', head: true })
+          .like('description', `${pickupChargeTag(pickup.id)}%`),
+      ]);
+
+      if (!active) return;
+
+      if (previewRes.error) {
+        setChargesError(previewRes.error.message);
+        setChargesLoading(false);
+        return;
+      }
+
+      setCharges(previewRes.data as PickupCharges);
+      setChargesApplied((ledgerRes.count ?? 0) > 0);
+      setChargesLoading(false);
+    })();
+
+    return () => { active = false; };
+  }, [pickup.id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -1685,6 +1847,89 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
               </div>
             </>
           )}
+
+          {/* ── Charges due — server-computed, display only ── */}
+          {!loading && (
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
+                  Charges Due
+                </span>
+                {chargesApplied && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '4px 10px',
+                    color: '#16a34a', background: 'rgba(22,163,74,0.12)',
+                  }}>
+                    ✓ Applied to wallet
+                  </span>
+                )}
+              </div>
+
+              {chargesLoading && (
+                <div style={{ height: 88, borderRadius: 12, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              )}
+
+              {!chargesLoading && chargesError && (
+                <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, fontSize: 13, color: '#ef4444' }}>
+                  {chargesError}
+                </div>
+              )}
+
+              {!chargesLoading && !chargesError && charges && (
+                <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, background: '#fafafa', overflow: 'hidden' }}>
+                  <ChargeLine
+                    label="Extra kilometers"
+                    detail={`${Math.round(charges.km.used).toLocaleString()} km used of ${Math.round(charges.km.allowed).toLocaleString()} allowed`
+                      + (charges.km.over > 0 ? ` · ${Math.round(charges.km.over).toLocaleString()} km over × ${formatTry(charges.km.price_per_km)}` : '')}
+                    amount={charges.km.charge}
+                  />
+                  <ChargeLine
+                    label="Fuel"
+                    detail={charges.fuel.drop > 0
+                      ? `Range down ${Math.round(charges.fuel.drop).toLocaleString()} km (tolerance ${Math.round(charges.fuel.tolerance).toLocaleString()} km) · ~${charges.fuel.liters} L to refill`
+                      : 'Returned at or above the delivery range'}
+                    amount={charges.fuel.charge}
+                  />
+                  <ChargeLine
+                    label="Car wash"
+                    detail={charges.wash.charge > 0
+                      ? 'Delivered clean, returned dirty'
+                      : 'No wash charge'}
+                    amount={charges.wash.charge}
+                  />
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                    padding: '13px 16px', background: '#fff', borderTop: '1px solid #f0f0f0',
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>Total</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.3px', color: charges.total_charge > 0 ? '#ef4444' : '#16a34a' }}>
+                      {formatTry(charges.total_charge)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* The RPC compares against the booking's delivery operation; with
+                  none recorded it reads 0 km and every figure below is unusable. */}
+              {!chargesLoading && !chargesError && charges && charges.km.delivery_km === 0 && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 10, padding: '10px 12px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <path d="M12 3l9 16H3l9-16z" stroke="#b45309" strokeWidth="1.8" strokeLinejoin="round"/>
+                    <path d="M12 10v4M12 17h.01" stroke="#b45309" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                  <span style={{ fontSize: 12, color: '#b45309', lineHeight: 1.5 }}>
+                    No reference delivery operation to compare against — these figures are incomplete.
+                  </span>
+                </div>
+              )}
+
+              {!chargesLoading && !chargesError && !chargesApplied && charges && charges.total_charge > 0 && (
+                <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 10 }}>
+                  Preview only — charges are posted to the wallet when the pickup is saved.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>,
@@ -1714,9 +1959,9 @@ const OperationsPage: React.FC = () => {
   const [deleting, setDeleting]     = useState(false);
   const [photosOp, setPhotosOp]     = useState<Operation | null>(null);
   const [reportOp, setReportOp]     = useState<Operation | null>(null);
-  const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<ToastNotice | null>(null);
 
-  const showToast = (message: string, kind: 'success' | 'error') => {
+  const showToast = (message: string, kind: ToastKind) => {
     setToast({ message, kind });
     setTimeout(() => setToast(null), 3500);
   };
@@ -2165,11 +2410,12 @@ const OperationsPage: React.FC = () => {
       {showAddModal && (
         <AddOperationModal
           onClose={() => setShowAddModal(false)}
-          onSaved={(warning) => {
+          onSaved={(notice) => {
             setShowAddModal(false);
             fetchOperations(selectedMonth);
-            if (warning) {
-              showToast(warning, 'error');
+            // A pickup reports what was charged; everything else just confirms.
+            if (notice) {
+              showToast(notice.message, notice.kind);
             } else {
               showToast('Operation saved successfully.', 'success');
             }
