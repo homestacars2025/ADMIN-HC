@@ -17,6 +17,26 @@ const REVIEW_WEBHOOK_URL: string = 'https://n8n-n8n.gdsddq.easypanel.host/webhoo
 type ReviewStatus = 'pending_review' | 'awaiting_send' | 'sent' | 'rejected';
 type TabKey = 'rate' | 'awaiting' | 'sent';
 
+/** Columns the table can be ordered by. Everything else is display-only. */
+type SortKey = 'nationality' | 'age' | 'phone' | 'plate_number' | 'booking_end_date' | 'our_rating';
+type SortDir = 'asc' | 'desc';
+
+interface SortState { key: SortKey; dir: SortDir }
+
+/**
+ * How each sortable column compares. Text uses localeCompare (numeric-aware, so
+ * plate "34 A 9" lands before "34 A 10"), numbers compare numerically, and the
+ * booking column compares parsed dates rather than the ISO strings.
+ */
+const SORT_KINDS: Record<SortKey, 'text' | 'number' | 'date'> = {
+  nationality:      'text',
+  phone:            'text',
+  plate_number:     'text',
+  age:              'number',
+  our_rating:       'number',
+  booking_end_date: 'date',
+};
+
 /** Language the outgoing message is written in — chosen per send, not stored. */
 type MessageLanguage = 'ar' | 'tr' | 'en';
 
@@ -171,6 +191,47 @@ function initials(name: string | null): string {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
   return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+}
+
+/**
+ * Sortable value for one row, normalised so the comparator never has to know
+ * which column it is looking at. Empty strings and unparseable dates collapse
+ * to null so they are treated as missing rather than sorting as "".
+ */
+function sortValue(row: ReviewCandidate, key: SortKey): string | number | null {
+  const raw = row[key];
+  if (raw == null) return null;
+  if (SORT_KINDS[key] === 'date') {
+    const ms = new Date(raw as string).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+  if (SORT_KINDS[key] === 'number') {
+    const n = Number(raw);
+    return Number.isNaN(n) ? null : n;
+  }
+  const text = String(raw).trim();
+  return text === '' ? null : text;
+}
+
+/**
+ * Orders rows by one column. Missing values always sink to the bottom, in both
+ * directions — flipping to descending should not float the blanks to the top.
+ * Returns a new array; the caller's list is never mutated.
+ */
+function sortRows(list: ReviewCandidate[], sort: SortState | null): ReviewCandidate[] {
+  if (!sort) return list;
+  const factor = sort.dir === 'asc' ? 1 : -1;
+  return [...list].sort((a, b) => {
+    const av = sortValue(a, sort.key);
+    const bv = sortValue(b, sort.key);
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    const cmp = typeof av === 'number' && typeof bv === 'number'
+      ? av - bv
+      : String(av).localeCompare(String(bv), undefined, { sensitivity: 'base', numeric: true });
+    return cmp * factor;
+  });
 }
 
 /**
@@ -416,17 +477,62 @@ const BookingCell: React.FC<{ start: string | null; end: string | null; number: 
   );
 };
 
-const Th: React.FC<{ children: React.ReactNode; align?: 'left' | 'right' | 'center' }> = ({ children, align = 'left' }) => (
-  <th style={{
-    padding: '12px 16px', textAlign: align,
-    fontSize: 10.5, fontWeight: 700, color: '#9ca3af',
-    letterSpacing: '0.7px', textTransform: 'uppercase',
-    whiteSpace: 'nowrap', background: '#fafbfc',
-    borderBottom: '1px solid #eef0f2',
-  }}>
-    {children}
-  </th>
-);
+const thBase: React.CSSProperties = {
+  padding: '12px 16px',
+  fontSize: 10.5, fontWeight: 700, color: '#9ca3af',
+  letterSpacing: '0.7px', textTransform: 'uppercase',
+  whiteSpace: 'nowrap', background: '#fafbfc',
+  borderBottom: '1px solid #eef0f2',
+};
+
+/**
+ * Column header. Passing `sortKey` turns it into a sort control: clicking sorts
+ * ascending, clicking the active column again flips the direction. The arrow
+ * slot is always rendered so headers never shift width when a column activates.
+ */
+const Th: React.FC<{
+  children: React.ReactNode;
+  align?:   'left' | 'right' | 'center';
+  sortKey?: SortKey;
+  sort?:    SortState | null;
+  onSort?:  (key: SortKey) => void;
+}> = ({ children, align = 'left', sortKey, sort, onSort }) => {
+  if (!sortKey || !onSort) {
+    return <th style={{ ...thBase, textAlign: align }}>{children}</th>;
+  }
+
+  const active = sort?.key === sortKey;
+  const dir = active ? sort!.dir : null;
+
+  return (
+    <th style={{ ...thBase, textAlign: align, padding: 0 }} aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        title={active
+          ? `Sorted ${dir === 'asc' ? 'ascending' : 'descending'} — click to reverse`
+          : 'Click to sort'}
+        style={{
+          width: '100%', minHeight: 44, padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 5,
+          justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
+          border: 'none', background: 'transparent', cursor: 'pointer',
+          font: 'inherit', fontSize: 10.5, fontWeight: 700,
+          letterSpacing: '0.7px', textTransform: 'uppercase',
+          color: active ? '#4ba6ea' : '#9ca3af',
+          transition: 'color 140ms ease',
+        }}
+        onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#6b7280'; }}
+        onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#9ca3af'; }}
+      >
+        {children}
+        <span style={{ width: 8, fontSize: 9, lineHeight: 1, color: '#4ba6ea', flexShrink: 0 }}>
+          {active ? (dir === 'asc' ? '↑' : '↓') : ''}
+        </span>
+      </button>
+    </th>
+  );
+};
 
 const td: React.CSSProperties = { padding: '12px 16px', verticalAlign: 'middle' };
 
@@ -616,6 +722,17 @@ const GoogleReviewsPage: React.FC = () => {
   const [tab,     setTab]     = useState<TabKey>('rate');
   const [search,  setSearch]  = useState('');
 
+  // Shared across tabs on purpose: switching tabs keeps whatever ordering the
+  // user picked. Null means the view's own order (newest booking end first).
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  const toggleSort = useCallback((key: SortKey) => {
+    setSort(current =>
+      current?.key === key
+        ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' });
+  }, []);
+
   const [ratingId,    setRatingId]    = useState<string | null>(null);
   const [sendingId,   setSendingId]   = useState<string | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
@@ -662,15 +779,17 @@ const GoogleReviewsPage: React.FC = () => {
   const visible = useMemo(() => {
     const list = byStatus[tab];
     const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(r =>
-      (r.full_name ?? '').toLowerCase().includes(q) ||
-      (r.phone ?? '').toLowerCase().includes(q) ||
-      (r.plate_number ?? '').toLowerCase().includes(q) ||
-      (r.latest_booking_number ?? '').toLowerCase().includes(q) ||
-      (r.nationality ?? '').toLowerCase().includes(q)
-    );
-  }, [byStatus, tab, search]);
+    const filtered = q
+      ? list.filter(r =>
+          (r.full_name ?? '').toLowerCase().includes(q) ||
+          (r.phone ?? '').toLowerCase().includes(q) ||
+          (r.plate_number ?? '').toLowerCase().includes(q) ||
+          (r.latest_booking_number ?? '').toLowerCase().includes(q) ||
+          (r.nationality ?? '').toLowerCase().includes(q)
+        )
+      : list;
+    return sortRows(filtered, sort);
+  }, [byStatus, tab, search, sort]);
 
   // ── Rating ────────────────────────────────────────────────────────────────
   // 5 stars → worth asking for a Google review; anything less is rejected.
@@ -933,14 +1052,16 @@ const GoogleReviewsPage: React.FC = () => {
             <thead>
               <tr>
                 <Th>Customer</Th>
-                {tab !== 'rate' && <Th>Our Rating</Th>}
-                <Th>Nationality</Th>
-                {tab === 'rate' && <Th>Age</Th>}
-                <Th>Phone</Th>
-                <Th>Plate</Th>
-                {tab !== 'sent' && <Th>Booking</Th>}
+                {tab !== 'rate' && <Th sortKey="our_rating" sort={sort} onSort={toggleSort}>Our Rating</Th>}
+                <Th sortKey="nationality" sort={sort} onSort={toggleSort}>Nationality</Th>
+                {tab === 'rate' && <Th sortKey="age" sort={sort} onSort={toggleSort}>Age</Th>}
+                <Th sortKey="phone" sort={sort} onSort={toggleSort}>Phone</Th>
+                <Th sortKey="plate_number" sort={sort} onSort={toggleSort}>Plate</Th>
+                {tab !== 'sent' && <Th sortKey="booking_end_date" sort={sort} onSort={toggleSort}>Booking</Th>}
                 {tab === 'sent' && <Th>Sent At</Th>}
-                <Th align="right">{tab === 'rate' ? 'Rating' : 'Action'}</Th>
+                {tab === 'rate'
+                  ? <Th align="right" sortKey="our_rating" sort={sort} onSort={toggleSort}>Rating</Th>
+                  : <Th align="right">Action</Th>}
               </tr>
             </thead>
             <tbody>
