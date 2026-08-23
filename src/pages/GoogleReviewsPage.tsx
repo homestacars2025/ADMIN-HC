@@ -3,11 +3,14 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚠️  WEBHOOK — set this to the n8n endpoint that sends the review request.
+// WEBHOOK — n8n endpoint that sends the WhatsApp review request.
+//     Payload field names must stay exactly customer_id / full_name / phone /
+//     language / booking_number: the "Prepare (chosen language)" node reads
+//     them by those names, and a rename fails silently.
 //     While it is an empty string every send is a no-op: the user gets a
 //     "Webhook not configured yet" toast and no row's status is changed.
 // ─────────────────────────────────────────────────────────────────────────────
-const REVIEW_WEBHOOK_URL = '';
+const REVIEW_WEBHOOK_URL: string = 'https://n8n-n8n.gdsddq.easypanel.host/webhook/review-request';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,9 +174,25 @@ function initials(name: string | null): string {
 }
 
 /**
+ * Normalises whatever sits in `customers.language` down to a code the workflow
+ * understands. Bulk sends have no employee-picked language, and the column
+ * holds free text ("Arabic", "TR", null), so anything unrecognised falls back
+ * to English rather than reaching the workflow as a value it cannot switch on.
+ */
+function toMessageLanguage(value: string | null | undefined): MessageLanguage {
+  const v = (value ?? '').trim().toLowerCase();
+  if (v.startsWith('ar')) return 'ar';
+  if (v.startsWith('tr') || v.startsWith('tü') || v.startsWith('tu')) return 'tr';
+  return 'en';
+}
+
+/**
  * Posts one review request. Never toasts — callers decide how to report.
  * `language` overrides the customer's stored language when the employee picked
  * one; bulk sends pass nothing and fall back to whatever is on the record.
+ *
+ * The n8n workflow answers `{ success: true }` and does the database update
+ * itself, so a 2xx with anything else in the body is treated as a failure.
  */
 async function postWebhook(
   row: ReviewCandidate,
@@ -188,11 +207,25 @@ async function postWebhook(
         customer_id:    row.customer_id,
         full_name:      row.full_name,
         phone:          row.phone,
-        language:       language ?? row.language,
+        language:       language ?? toMessageLanguage(row.language),
         booking_number: row.latest_booking_number,
       }),
     });
     if (!res.ok) return { ok: false, error: `Webhook returned HTTP ${res.status}` };
+
+    // n8n can be configured to answer with no body at all; only an explicit
+    // `success: false` (or an error message) counts as a rejected send.
+    const text = (await res.text()).trim();
+    if (text) {
+      try {
+        const payload = JSON.parse(text) as { success?: boolean; error?: string; message?: string };
+        if (payload && payload.success === false) {
+          return { ok: false, error: payload.error ?? payload.message ?? 'Webhook reported a failure' };
+        }
+      } catch {
+        // Non-JSON body from a 2xx response — treat the status code as truth.
+      }
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Network error' };
@@ -670,8 +703,11 @@ const GoogleReviewsPage: React.FC = () => {
 
     setSendingId(null);
     setLangPrompt(null);
+    // The workflow marks the row sent as well, so a failure here is not fatal —
+    // reload either way and let the fresh data decide which tab the row lands in.
     if (updateError) {
-      showToast(`Request sent, but the status update failed: ${updateError.message}`, 'error');
+      showToast(`Request sent — status not confirmed locally: ${updateError.message}`, 'error');
+      await load();
       return;
     }
     showToast(`Review request sent to ${row.full_name ?? 'customer'} in ${language.toUpperCase()}`);
