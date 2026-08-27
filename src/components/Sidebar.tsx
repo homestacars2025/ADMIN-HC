@@ -307,6 +307,50 @@ const marketingItems = [
   },
 ];
 
+const mediaItems = [
+  {
+    label: 'Ideas',
+    path: '/dashboard/media/ideas',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5a6 6 0 00-12 0c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M9 18h6M10 22h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Content Calendar',
+    path: '/dashboard/media/calendar',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M17 14h-6M13 18H7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Influencers',
+    path: '/dashboard/media/influencers',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M3 11l18-5v12L3 14v-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+        <path d="M11.6 16.8a3 3 0 11-5.8-1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Media Lists',
+    path: '/dashboard/media/lists',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M3 7l2 2 4-4M3 17l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M13 6h8M13 12h8M13 18h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+];
+
 const operationsItems = [
   {
     label: 'Inbox',
@@ -828,6 +872,23 @@ const Sidebar: React.FC = () => {
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
         {renderNavItems(marketingItems)}
+
+        {/* Media section */}
+        {!collapsed ? (
+          <div style={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            color: '#c0c4cc',
+            letterSpacing: '0.8px',
+            textTransform: 'uppercase',
+            padding: '16px 10px 8px',
+          }}>
+            Media
+          </div>
+        ) : (
+          <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
+        )}
+        {renderNavItems(mediaItems)}
       </nav>
 
       {/* Currency selector + Profile + Sign out */}

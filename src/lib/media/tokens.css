@@ -1,0 +1,121 @@
+/*
+ * Media section design tokens — Cars identity.
+ *
+ * Every token is prefixed `--m-` and scoped to `.media-scope` so nothing here can
+ * shift the tokens the rest of the dashboard already reads (--brand, --border, …).
+ *
+ * Brand role map (Stay → Cars):
+ *   brand            #e52851  →  #6ea4e7
+ *   brand darker     #8C0E2A  →  #2c7adc
+ *   approved text    #c11f43  →  #1f64bb
+ *   subtle wash      oklch(0.97 0.02 14.5)  →  oklch(0.97 0.02 258)
+ *   brand in oklch   oklch(0.53 0.21 14.5)  →  oklch(0.70 0.13 258)
+ */
+
+.media-scope {
+  --m-brand: #6ea4e7;
+  --m-brand-hover: #2c7adc;
+  --m-brand-foreground: #ffffff;
+  --m-brand-approved: #1f64bb;
+  --m-brand-subtle: oklch(0.97 0.02 258);
+  --m-brand-oklch: oklch(0.70 0.13 258);
+
+  /* Neutrals — deliberately unchanged from the source spec. */
+  --m-foreground: #0e0e10;
+  --m-muted-foreground: #8c8881;
+  --m-surface: #ffffff;
+  --m-muted: #f2eee6;
+  --m-border: #e2ded4;
+  --m-destructive: #d4183d;
+  --m-radius: 8px;
+
+  color: var(--m-foreground);
+  font-family: inherit;
+}
+
+/*
+ * Only the page container paints a surface. `.media-scope` itself is
+ * background-free because the sheet and confirm portals also carry it — an
+ * opaque background there would cover the page instead of letting the
+ * translucent backdrop show through.
+ */
+.media-page {
+  min-height: 100%;
+  background: #ffffff;
+}
+
+@keyframes m-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes m-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes m-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+@keyframes m-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes m-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sheet: slides in from the right edge, mirroring the spec's
+   data-starting-style:translate-x-[2.5rem] + opacity-0 → settled, 200ms ease-in-out. */
+@keyframes m-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(2.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes m-sheet-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(2.5rem);
+  }
+}
+
+.m-spin {
+  animation: m-spin 0.7s linear infinite;
+}

@@ -42,6 +42,11 @@ import MarketingSettingsPage from './pages/marketing/MarketingSettingsPage';
 import MarketingPlaceholderPage from './pages/marketing/MarketingPlaceholderPage';
 import OnlineUsersPage from './pages/OnlineUsersPage';
 import TeamPage from './pages/TeamPage';
+import MediaLayout from './pages/media/MediaLayout';
+import MediaIdeasPage from './pages/media/MediaIdeasPage';
+import MediaCalendarPage from './pages/media/MediaCalendarPage';
+import MediaInfluencersPage from './pages/media/MediaInfluencersPage';
+import MediaListsPage from './pages/media/MediaListsPage';
 
 const App: React.FC = () => {
   return (
@@ -99,6 +104,15 @@ const App: React.FC = () => {
             <Route path="performance"   element={<MarketingPerformancePage />} />
             <Route path="decisions"     element={<MarketingDecisionsPage />} />
             <Route path="settings"      element={<MarketingSettingsPage />} />
+          </Route>
+
+          {/* ── Media ─────────────────────────────────────── */}
+          <Route path="media" element={<MediaLayout />}>
+            <Route index element={<Navigate to="ideas" replace />} />
+            <Route path="ideas"       element={<MediaIdeasPage />} />
+            <Route path="calendar"    element={<MediaCalendarPage />} />
+            <Route path="influencers" element={<MediaInfluencersPage />} />
+            <Route path="lists"       element={<MediaListsPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
