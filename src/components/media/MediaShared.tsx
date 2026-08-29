@@ -1,14 +1,16 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn, tintedStyle, TONE_CLASSES, TONE_DOTS } from '../../lib/media/badgeColor';
-import type { MediaFormat, MediaGoal, Tone } from '../../lib/media/types';
+import type { ColorBy, MediaFormat, MediaGoal, Tone } from '../../lib/media/types';
 import {
   CalendarRange,
   CheckCircle2,
   CircleDashed,
+  ExternalLink,
   Lightbulb,
   ListChecks,
   Megaphone,
+  Palette,
   ShieldCheck,
   type IconProps,
 } from './MediaIcons';
@@ -155,16 +157,20 @@ const PILL =
 export const GoalBadge: React.FC<{
   goal?: MediaGoal;
   fallback?: string | null;
+  /** The dot marks the dimension the "Color by" toggle is currently using. */
+  dot?: boolean;
   className?: string;
-}> = ({ goal, fallback, className }) => {
+}> = ({ goal, fallback, dot = true, className }) => {
   if (!goal && !fallback) return null;
   return (
     <span className={cn(PILL, className)} style={tintedStyle(goal?.color)}>
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: goal?.color ?? 'currentColor' }}
-      />
+      {dot && (
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: goal?.color ?? 'currentColor' }}
+        />
+      )}
       {goal?.label ?? fallback}
     </span>
   );
@@ -173,15 +179,53 @@ export const GoalBadge: React.FC<{
 export const FormatBadge: React.FC<{
   format?: MediaFormat;
   fallback?: string | null;
+  dot?: boolean;
   className?: string;
-}> = ({ format, fallback, className }) => {
+}> = ({ format, fallback, dot = false, className }) => {
   if (!format && !fallback) return null;
   return (
     <span className={cn(PILL, className)} style={tintedStyle(format?.color)}>
+      {dot && (
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: format?.color ?? 'currentColor' }}
+        />
+      )}
       {format?.label ?? fallback}
     </span>
   );
 };
+
+/**
+ * The reference link, wearing the same pill geometry as Goal and Format so it
+ * sits beside them as a peer. Neutral at rest, brand on hover.
+ *
+ * Rendered only when there is a link — a disabled chip would take the same room
+ * to say nothing.
+ */
+export const ReferenceChip: React.FC<{
+  url: string;
+  label?: string;
+  className?: string;
+}> = ({ url, label = 'Reference', className }) => (
+  <a
+    href={url}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label={`${label} — opens in a new tab`}
+    className={cn(
+      PILL,
+      'border-black/[0.08] bg-black/[0.03] text-black/55 no-underline transition-colors duration-150',
+      'hover:border-[#6ea4e7]/25 hover:bg-[#6ea4e7]/[0.07] hover:text-[#6ea4e7]',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/35',
+      className,
+    )}
+  >
+    <ExternalLink size={11} strokeWidth={2} />
+    {label}
+  </a>
+);
 
 export const ToneBadge: React.FC<{
   label: string;
@@ -329,3 +373,66 @@ export const SearchInput: React.FC<{
     />
   </div>
 );
+
+// ── Color-by toggle ───────────────────────────────────────────────────────────
+
+const COLOR_BY_OPTIONS: Array<{ value: ColorBy; label: string }> = [
+  { value: 'goal', label: 'Goal' },
+  { value: 'format', label: 'Format' },
+];
+
+/**
+ * Switches which lookup dimension colours the chips, rails and legend.
+ *
+ * `scope` must be unique per mounted toggle — it keys the sliding pill, and two
+ * toggles sharing one would animate the pill between them.
+ */
+export const ColorByToggle: React.FC<{
+  value: ColorBy;
+  onChange: (next: ColorBy) => void;
+  scope: string;
+  className?: string;
+}> = ({ value, onChange, scope, className }) => {
+  const { trackRef, pillStyle } = useSlidingPill(`${scope}:${value}`);
+
+  return (
+    <div className={cn('inline-flex items-center gap-2', className)}>
+      <span className="inline-flex shrink-0 items-center gap-1 text-[11.5px] font-medium text-black/40">
+        <Palette size={12} strokeWidth={1.75} />
+        Color by:
+      </span>
+      <div
+        ref={trackRef}
+        role="group"
+        aria-label="Colour source"
+        className="relative inline-flex items-center gap-0.5 rounded-lg border border-black/[0.07] bg-black/[0.02] p-0.5"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0.5 h-[26px] rounded-[7px] bg-white shadow-[0_1px_2px_rgb(0_0_0/0.07)] ring-1 ring-black/[0.05]"
+          style={pillStyle}
+        />
+        {COLOR_BY_OPTIONS.map((option) => {
+          const active = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={active}
+              data-pill-active={active ? 'true' : 'false'}
+              onClick={() => onChange(option.value)}
+              className={cn(
+                'relative inline-flex h-[26px] items-center rounded-[7px] px-2.5 text-[12px] transition-colors duration-150',
+                active
+                  ? 'font-semibold text-black/85'
+                  : 'font-medium text-black/45 hover:text-black/70',
+              )}
+            >
+              <span className="relative">{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};

@@ -27,6 +27,7 @@ export interface MediaIdea {
   id: string;
   title: string | null;
   content: string | null;
+  reference_url: string | null;
   category: string | null;
   format_key: string | null;
   goal_key: string | null;
@@ -52,6 +53,7 @@ export interface MediaPost {
   caption: string | null;
   cta: string | null;
   media_link: string | null;
+  reference_url: string | null;
   posted: boolean;
   source_idea_id: string | null;
   created_by: string | null;
@@ -136,6 +138,7 @@ export type PostInput = {
   caption: string | null;
   cta: string | null;
   media_link: string | null;
+  reference_url: string | null;
 };
 
 export type EditablePostField = Exclude<keyof PostInput, 'id'>;
@@ -150,12 +153,17 @@ export const EDITABLE_POST_FIELDS: readonly EditablePostField[] = [
   'caption',
   'cta',
   'media_link',
+  'reference_url',
 ];
+
+/** Post fields stored as links — normalised rather than merely trimmed on write. */
+export const URL_POST_FIELDS: readonly EditablePostField[] = ['reference_url'];
 
 export type IdeaInput = {
   id?: string;
   title: string;
   content: string | null;
+  reference_url: string | null;
   category: string | null;
   goal_key: string | null;
   format_key: string | null;
@@ -174,3 +182,11 @@ export type InfluencerInput = {
   messaging_status: string | null;
   final_decision: string | null;
 };
+
+/**
+ * Which lookup dimension colours the chips, rails and legend.
+ *
+ * `MediaGoal` and `MediaFormat` are structurally identical, so everything
+ * downstream takes the resolved row and stays blind to which one it got.
+ */
+export type ColorBy = 'goal' | 'format';

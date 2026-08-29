@@ -4,6 +4,7 @@ import { formatFullDate, parseISODate } from '../../lib/media/dates';
 import type { MediaFormat, MediaGoal, MediaPost } from '../../lib/media/types';
 import { ExternalLink, Hash } from '../../components/media/MediaIcons';
 import { PostedToggle } from '../../components/media/MediaShared';
+import { ReferenceField } from '../../components/media/ReferenceField';
 import { toast } from '../../components/media/MediaToast';
 import {
   Button,
@@ -30,6 +31,7 @@ interface FormState {
   objective: string;
   visual_script: string;
   caption: string;
+  reference_url: string;
   cta: string;
   media_link: string;
 }
@@ -52,6 +54,7 @@ const PostForm: React.FC<{
     objective: post?.objective ?? '',
     visual_script: post?.visual_script ?? '',
     caption: post?.caption ?? '',
+    reference_url: post?.reference_url ?? '',
     cta: post?.cta ?? '',
     media_link: post?.media_link ?? '',
   }));
@@ -81,6 +84,7 @@ const PostForm: React.FC<{
       objective: form.objective || null,
       visual_script: form.visual_script || null,
       caption: form.caption || null,
+      reference_url: form.reference_url || null,
       cta: form.cta || null,
       media_link: form.media_link || null,
     });
@@ -201,6 +205,11 @@ const PostForm: React.FC<{
             className="resize-none"
           />
         </Field>
+
+        <ReferenceField
+          value={form.reference_url}
+          onChange={(next) => set('reference_url', next)}
+        />
 
         <Field label="CTA">
           <Input

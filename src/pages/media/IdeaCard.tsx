@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/media/badgeColor';
-import type { MediaFormat, MediaGoal, MediaIdea } from '../../lib/media/types';
+import type { ColorBy, MediaFormat, MediaGoal, MediaIdea, MediaLookup } from '../../lib/media/types';
 import {
   ApprovedToggle,
   FormatBadge,
   GoalBadge,
   PostedToggle,
+  ReferenceChip,
 } from '../../components/media/MediaShared';
 import {
   ArrowUpRight,
@@ -21,6 +22,9 @@ export const IdeaCard: React.FC<{
   idea: MediaIdea;
   goal?: MediaGoal;
   format?: MediaFormat;
+  /** The lookup row the "Color by" toggle currently points at. */
+  accent?: MediaLookup;
+  colorBy: ColorBy;
   converting: boolean;
   flagPending: boolean;
   onEdit: () => void;
@@ -32,6 +36,8 @@ export const IdeaCard: React.FC<{
   idea,
   goal,
   format,
+  accent,
+  colorBy,
   converting,
   flagPending,
   onEdit,
@@ -41,13 +47,18 @@ export const IdeaCard: React.FC<{
   onToggleApproved,
 }) => {
   const title = idea.title?.trim() || 'Untitled idea';
+  const accentColor = accent?.color?.trim() || null;
 
   return (
     <article
+      // A card with nothing set in the active dimension keeps its plain hairline
+      // rather than growing a grey rail that means nothing.
+      style={accentColor ? { borderInlineStartColor: accentColor } : undefined}
       className={cn(
-        'group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white p-5',
+        'group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white bg-clip-padding p-5',
         'transition-all duration-200 hover:-translate-y-0.5 hover:border-black/[0.1]',
         'hover:shadow-[0_8px_24px_-12px_rgb(0_0_0/0.16)]',
+        accentColor && 'border-s-[3px] hover:border-s-[3px]',
       )}
     >
       {/* Title + row actions */}
@@ -81,10 +92,13 @@ export const IdeaCard: React.FC<{
         <p className="line-clamp-3 text-[13px] leading-relaxed text-black/50">{idea.content}</p>
       )}
 
-      {(goal || idea.goal_key || format || idea.format_key) && (
+      {(goal || idea.goal_key || format || idea.format_key || idea.reference_url) && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <GoalBadge goal={goal} fallback={idea.goal_key} />
-          <FormatBadge format={format} fallback={idea.format_key} />
+          {/* Only the dot tracks the active dimension; both badges keep tinting
+              from their own lookup row. */}
+          <GoalBadge goal={goal} fallback={idea.goal_key} dot={colorBy === 'goal'} />
+          <FormatBadge format={format} fallback={idea.format_key} dot={colorBy === 'format'} />
+          {idea.reference_url && <ReferenceChip url={idea.reference_url} />}
         </div>
       )}
 

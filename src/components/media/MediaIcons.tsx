@@ -252,6 +252,14 @@ export const Tag = makeIcon(
   'Tag',
 );
 
+export const Palette = makeIcon(
+  <>
+    <path d="M12 22a10 10 0 1 1 10-10c0 1.7-1.3 3-3 3h-1.8a2 2 0 0 0-1.4 3.4 2 2 0 0 1-1.4 3.4z" />
+    <path d="M7.5 10.5h.01M10.5 7.5h.01M14.5 7.5h.01M17 11h.01" />
+  </>,
+  'Palette',
+);
+
 export const Info = makeIcon(
   <>
     <circle cx="12" cy="12" r="10" />

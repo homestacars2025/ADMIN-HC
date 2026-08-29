@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { chipStyle, cn } from '../../lib/media/badgeColor';
+import { accentFor } from '../../lib/media/colorBy';
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -13,8 +14,8 @@ import {
   toISODate,
   WEEKDAY_LABELS,
 } from '../../lib/media/dates';
-import type { MediaGoal, MediaPost } from '../../lib/media/types';
-import { Plus } from '../../components/media/MediaIcons';
+import type { ColorBy, MediaFormat, MediaGoal, MediaLookup, MediaPost } from '../../lib/media/types';
+import { ExternalLink, Plus } from '../../components/media/MediaIcons';
 
 /**
  * The month grid, Monday-first so the visual weeks line up with the ISO week
@@ -40,22 +41,27 @@ interface DragState {
   active: boolean;
 }
 
-const ChipBody: React.FC<{ post: MediaPost; goal?: MediaGoal }> = ({ post, goal }) => {
+const ChipBody: React.FC<{ post: MediaPost; accent?: MediaLookup }> = ({ post, accent }) => {
   const label = post.objective?.trim() || post.caption?.trim() || 'Untitled post';
   return (
     <div
-      style={chipStyle(goal?.color)}
-      className="rounded-md border-s-[3px] bg-clip-padding px-2 py-1.5 transition-transform duration-150 hover:-translate-y-px"
+      style={chipStyle(accent?.color)}
+      className={cn(
+        'rounded-md border-s-[3px] bg-clip-padding px-2 py-1.5 transition-transform duration-150 hover:-translate-y-px',
+        post.reference_url && 'pr-6', // room for the reference icon
+      )}
     >
       <p className="line-clamp-2 text-[11.5px] font-medium leading-tight">{label}</p>
-      {(post.posted || goal) && (
+      {(post.posted || accent) && (
         <div className="mt-1 flex items-center gap-1">
           {post.posted && (
             <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-1.5 text-[9.5px] font-semibold uppercase tracking-wide text-emerald-700">
               Posted
             </span>
           )}
-          {goal && <span className="truncate text-[10px] font-medium opacity-70">{goal.label}</span>}
+          {accent && (
+            <span className="truncate text-[10px] font-medium opacity-70">{accent.label}</span>
+          )}
         </div>
       )}
     </div>
@@ -66,10 +72,12 @@ export const PostsMonthView: React.FC<{
   month: Date;
   posts: MediaPost[];
   goals: MediaGoal[];
+  formats: MediaFormat[];
+  colorBy: ColorBy;
   onOpen: (post: MediaPost) => void;
   onCreateAt: (date: string) => void;
   onMovePost: (postId: string, date: string) => void;
-}> = ({ month, posts, goals, onOpen, onCreateAt, onMovePost }) => {
+}> = ({ month, posts, goals, formats, colorBy, onOpen, onCreateAt, onMovePost }) => {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [overDate, setOverDate] = useState<string | null>(null);
   const suppressClick = useRef(false);
@@ -104,6 +112,7 @@ export const PostsMonthView: React.FC<{
   }, [posts]);
 
   const goalMap = useMemo(() => new Map(goals.map((g) => [g.key, g])), [goals]);
+  const formatMap = useMemo(() => new Map(formats.map((f) => [f.key, f])), [formats]);
   const today = new Date();
 
   /** Which day cell sits under the pointer right now. */
@@ -229,9 +238,10 @@ export const PostsMonthView: React.FC<{
                 <div className="flex flex-col gap-1">
                   {dayPosts.map((post) => {
                     const isDragging = drag?.active && drag.postId === post.id;
+                    const chipLabel = post.objective?.trim() || 'this post';
                     return (
+                      <div key={post.id} className={cn('relative', isDragging && 'opacity-30')}>
                       <button
-                        key={post.id}
                         type="button"
                         onPointerDown={(event) => {
                           if (event.button !== 0) return;
@@ -261,14 +271,26 @@ export const PostsMonthView: React.FC<{
                           'relative z-[1] block w-full touch-none text-left focus-visible:outline-none',
                           'focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40 focus-visible:ring-offset-1',
                           'rounded-md',
-                          isDragging && 'opacity-30',
                         )}
                       >
                         <ChipBody
                           post={post}
-                          goal={post.goal_key ? goalMap.get(post.goal_key) : undefined}
+                          accent={accentFor(colorBy, post, goalMap, formatMap)}
                         />
                       </button>
+
+                      {post.reference_url && (
+                        <a
+                          href={post.reference_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Open the reference link for ${chipLabel} in a new tab`}
+                          className="absolute right-1 top-1 z-[2] rounded p-0.5 text-black/40 transition-colors duration-150 hover:text-[#6ea4e7] focus-visible:text-[#6ea4e7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40"
+                        >
+                          <ExternalLink size={10} strokeWidth={2} />
+                        </a>
+                      )}
+                      </div>
                     );
                   })}
                 </div>
@@ -292,7 +314,7 @@ export const PostsMonthView: React.FC<{
           >
             <ChipBody
               post={draggingPost}
-              goal={draggingPost.goal_key ? goalMap.get(draggingPost.goal_key) : undefined}
+              accent={accentFor(colorBy, draggingPost, goalMap, formatMap)}
             />
           </div>,
           document.body,

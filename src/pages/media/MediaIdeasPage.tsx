@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { convertIdeaToPost, deleteIdea, setIdeaFlag } from '../../lib/media/actions';
 import { cn } from '../../lib/media/badgeColor';
+import { accentFor, COLOR_BY_KEYS, useColorBy } from '../../lib/media/colorBy';
 import { getIdeas } from '../../lib/media/queries';
 import { IDEA_CATEGORIES, type MediaIdea } from '../../lib/media/types';
 import { ConfirmDialog } from '../../components/media/ConfirmDialog';
 import { Lightbulb, Plus, SearchX } from '../../components/media/MediaIcons';
 import {
+  ColorByToggle,
   MediaEmptyState,
   MediaNav,
   PageHeader,
@@ -84,6 +86,7 @@ const MediaIdeasPage: React.FC = () => {
   const [editing, setEditing] = useState<MediaIdea | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [flagPendingId, setFlagPendingId] = useState<string | null>(null);
+  const [colorBy, setColorBy] = useColorBy(COLOR_BY_KEYS.ideas);
   const confirm = useConfirm();
 
   const load = useCallback(async (signal?: { cancelled: boolean }) => {
@@ -312,12 +315,14 @@ const MediaIdeasPage: React.FC = () => {
             })}
           </div>
 
-          {/* Category tabs — the brand pill slides between them. */}
+          {/* Category tabs — the brand pill slides between them — beside the
+              colour-source toggle. */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div
             ref={trackRef}
             role="tablist"
             aria-label="Idea categories"
-            className="relative -mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1"
+            className="relative -mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 pb-1"
           >
             <span
               aria-hidden="true"
@@ -354,6 +359,14 @@ const MediaIdeasPage: React.FC = () => {
                 </button>
               );
             })}
+          </div>
+
+            <ColorByToggle
+              value={colorBy}
+              onChange={setColorBy}
+              scope="ideas"
+              className="shrink-0"
+            />
           </div>
 
           {/* Grid / empty states */}
@@ -397,6 +410,8 @@ const MediaIdeasPage: React.FC = () => {
                   idea={idea}
                   goal={idea.goal_key ? goalMap.get(idea.goal_key) : undefined}
                   format={idea.format_key ? formatMap.get(idea.format_key) : undefined}
+                  accent={accentFor(colorBy, idea, goalMap, formatMap)}
+                  colorBy={colorBy}
                   converting={convertingId === idea.id}
                   flagPending={flagPendingId === idea.id}
                   onEdit={() => {

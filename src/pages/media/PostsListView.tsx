@@ -1,7 +1,13 @@
 import React from 'react';
 import { cn } from '../../lib/media/badgeColor';
 import { formatMonthYear, formatWeekday, parseISODate } from '../../lib/media/dates';
-import type { EditablePostField, MediaFormat, MediaGoal, MediaPost } from '../../lib/media/types';
+import type {
+  ColorBy,
+  EditablePostField,
+  MediaFormat,
+  MediaGoal,
+  MediaPost,
+} from '../../lib/media/types';
 import { ExternalLink, Maximize2, Trash2 } from '../../components/media/MediaIcons';
 import { PostedToggle } from '../../components/media/MediaShared';
 import { Button } from '../../components/media/MediaUI';
@@ -62,6 +68,7 @@ const COLUMNS = [
   'Caption',
   'CTA',
   'Media Link',
+  'Reference',
   'Posted',
   '',
 ];
@@ -71,11 +78,22 @@ export const PostsListView: React.FC<{
   goals: MediaGoal[];
   formats: MediaFormat[];
   postedPendingId: string | null;
+  colorBy: ColorBy;
   onSaveField: (postId: string, field: EditablePostField, value: string | null) => Promise<boolean>;
   onTogglePosted: (post: MediaPost) => void;
   onOpen: (post: MediaPost) => void;
   onDelete: (post: MediaPost) => void;
-}> = ({ posts, goals, formats, postedPendingId, onSaveField, onTogglePosted, onOpen, onDelete }) => {
+}> = ({
+  posts,
+  goals,
+  formats,
+  postedPendingId,
+  colorBy,
+  onSaveField,
+  onTogglePosted,
+  onOpen,
+  onDelete,
+}) => {
   const groups = groupByWeek(posts);
   const goalOptions = goals.map((g) => ({ key: g.key, label: g.label, color: g.color }));
   const formatOptions = formats.map((f) => ({ key: f.key, label: f.label, color: f.color }));
@@ -83,7 +101,7 @@ export const PostsListView: React.FC<{
   return (
     <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] border-collapse text-left">
+        <table className="w-full min-w-[1320px] border-collapse text-left">
           <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm">
             <tr className="border-b border-black/[0.07]">
               {COLUMNS.map((label, i) => (
@@ -144,7 +162,7 @@ export const PostsListView: React.FC<{
                           options={goalOptions}
                           placeholder="No goal"
                           ariaLabel="Post goal"
-                          showDot
+                          showDot={colorBy === 'goal'}
                           onSave={(v) => onSaveField(post.id, 'goal_key', v)}
                         />
                       </td>
@@ -154,6 +172,7 @@ export const PostsListView: React.FC<{
                           options={formatOptions}
                           placeholder="No format"
                           ariaLabel="Post format"
+                          showDot={colorBy === 'format'}
                           onSave={(v) => onSaveField(post.id, 'format_key', v)}
                         />
                       </td>
@@ -207,6 +226,28 @@ export const PostsListView: React.FC<{
                               rel="noopener noreferrer"
                               aria-label="Open media link in a new tab"
                               className="mt-1.5 shrink-0 rounded-md p-1 text-black/30 transition-colors hover:bg-black/[0.05] hover:text-black/60"
+                            >
+                              <ExternalLink size={12} strokeWidth={1.75} />
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                      <td className="min-w-[160px] px-1 py-2">
+                        <div className="flex items-start gap-1">
+                          <InlineText
+                            value={post.reference_url}
+                            placeholder="Add reference"
+                            ariaLabel="Reference link"
+                            className="truncate"
+                            onSave={(v) => onSaveField(post.id, 'reference_url', v)}
+                          />
+                          {post.reference_url && (
+                            <a
+                              href={post.reference_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Open the reference link in a new tab"
+                              className="mt-1.5 shrink-0 rounded-md p-1 text-black/30 transition-colors hover:bg-[#6ea4e7]/[0.08] hover:text-[#6ea4e7]"
                             >
                               <ExternalLink size={12} strokeWidth={1.75} />
                             </a>

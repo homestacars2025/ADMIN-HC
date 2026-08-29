@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { saveIdea } from '../../lib/media/actions';
 import { IDEA_CATEGORIES, type MediaFormat, type MediaGoal, type MediaIdea } from '../../lib/media/types';
+import { ReferenceField } from '../../components/media/ReferenceField';
 import { toast } from '../../components/media/MediaToast';
 import {
   Button,
@@ -24,6 +25,7 @@ const NONE = '_none';
 interface FormState {
   title: string;
   content: string;
+  reference_url: string;
   category: string;
   format_key: string;
   goal_key: string;
@@ -43,6 +45,7 @@ const IdeaForm: React.FC<{
   const [form, setForm] = useState<FormState>(() => ({
     title: idea?.title ?? '',
     content: idea?.content ?? '',
+    reference_url: idea?.reference_url ?? '',
     category: idea?.category ?? defaultCategory ?? '',
     format_key: idea?.format_key ?? '',
     goal_key: idea?.goal_key ?? '',
@@ -79,6 +82,7 @@ const IdeaForm: React.FC<{
       id: idea?.id,
       title: form.title,
       content: form.content || null,
+      reference_url: form.reference_url || null,
       category: form.category || null,
       goal_key: form.goal_key || null,
       format_key: form.format_key || null,
@@ -132,6 +136,11 @@ const IdeaForm: React.FC<{
             className="resize-none"
           />
         </Field>
+
+        <ReferenceField
+          value={form.reference_url}
+          onChange={(next) => set('reference_url', next)}
+        />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Category">

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { deletePost, setPostPosted, updatePostField } from '../../lib/media/actions';
 import { cn, dotStyle } from '../../lib/media/badgeColor';
+import { COLOR_BY_KEYS, useColorBy } from '../../lib/media/colorBy';
 import {
   addMonths,
   formatDayShortMonth,
@@ -24,6 +25,7 @@ import {
   Plus,
 } from '../../components/media/MediaIcons';
 import {
+  ColorByToggle,
   MediaEmptyState,
   MediaNav,
   PageHeader,
@@ -96,6 +98,7 @@ const MediaCalendarPage: React.FC = () => {
   const [draftDate, setDraftDate] = useState<string | undefined>(undefined);
   const [postedPendingId, setPostedPendingId] = useState<string | null>(null);
   const [arrivalHandled, setArrivalHandled] = useState(false);
+  const [colorBy, setColorBy] = useColorBy(COLOR_BY_KEYS.calendar);
   const confirm = useConfirm();
 
   const load = useCallback(async (signal?: { cancelled: boolean }) => {
@@ -143,9 +146,12 @@ const MediaCalendarPage: React.FC = () => {
   const undatedPosts = useMemo(() => posts.filter((p) => !p.post_date), [posts]);
   const listPosts = useMemo(() => [...monthPosts, ...undatedPosts], [monthPosts, undatedPosts]);
 
-  const activeGoals = useMemo(
-    () => goals.filter((g) => monthPosts.some((p) => p.goal_key === g.key)),
-    [goals, monthPosts],
+  const legendItems = useMemo(
+    () =>
+      colorBy === 'goal'
+        ? goals.filter((g) => monthPosts.some((p) => p.goal_key === g.key))
+        : formats.filter((f) => monthPosts.some((p) => p.format_key === f.key)),
+    [colorBy, goals, formats, monthPosts],
   );
 
   const { trackRef, pillStyle } = useSlidingPill(view);
@@ -301,7 +307,11 @@ const MediaCalendarPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Shown in both views — it drives the month chips and the List
+                  view's dot alike. */}
+              <ColorByToggle value={colorBy} onChange={setColorBy} scope="calendar" />
+
               <div
                 ref={trackRef}
                 role="group"
@@ -343,10 +353,10 @@ const MediaCalendarPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Goal legend — month view only, and only for goals actually in use. */}
-          {view === 'month' && activeGoals.length > 0 && (
+          {/* Legend — month view only, and only for values actually in use. */}
+          {view === 'month' && legendItems.length > 0 && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              {activeGoals.map((g) => (
+              {legendItems.map((g) => (
                 <span
                   key={g.key}
                   className="inline-flex items-center gap-1.5 text-[11.5px] text-black/45"
@@ -367,6 +377,8 @@ const MediaCalendarPage: React.FC = () => {
               month={month}
               posts={posts}
               goals={goals}
+              formats={formats}
+              colorBy={colorBy}
               onOpen={openPost}
               onCreateAt={(date) => openCreate(date)}
               onMovePost={movePost}
@@ -389,6 +401,7 @@ const MediaCalendarPage: React.FC = () => {
               goals={goals}
               formats={formats}
               postedPendingId={postedPendingId}
+              colorBy={colorBy}
               onSaveField={saveField}
               onTogglePosted={togglePosted}
               onOpen={openPost}

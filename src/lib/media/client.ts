@@ -71,3 +71,14 @@ export function trimmed(value: string | null | undefined): string | null {
   const v = value?.trim();
   return v ? v : null;
 }
+
+/**
+ * Reference links only: a bare host gets `https://` so the href never resolves
+ * relative to the dashboard. Applied on the server as well as in the field, so
+ * the inline editor and every other write path get it too.
+ */
+export function normalizedUrl(value: string | null | undefined): string | null {
+  const v = trimmed(value);
+  if (!v) return null;
+  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
+}

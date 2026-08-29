@@ -1,7 +1,8 @@
-import { friendlyError, mediaDb, requireAdmin, trimmed } from './client';
+import { friendlyError, mediaDb, normalizedUrl, requireAdmin, trimmed } from './client';
 import { istanbulToday } from './dates';
 import {
   EDITABLE_POST_FIELDS,
+  URL_POST_FIELDS,
   type ActionResult,
   type ConvertResult,
   type EditablePostField,
@@ -33,6 +34,7 @@ export async function saveIdea(input: IdeaInput): Promise<SaveResult> {
   const payload = {
     title,
     content: trimmed(input.content),
+    reference_url: normalizedUrl(input.reference_url),
     category: trimmed(input.category),
     goal_key: trimmed(input.goal_key),
     format_key: trimmed(input.format_key),
@@ -108,7 +110,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
 
   const { data: idea, error: readError } = await db
     .from('ideas')
-    .select('id, title, content, goal_key, format_key, converted_post_id')
+    .select('id, title, content, reference_url, goal_key, format_key, converted_post_id')
     .eq('id', ideaId)
     .single();
 
@@ -123,6 +125,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
     id: string;
     title: string | null;
     content: string | null;
+    reference_url: string | null;
     goal_key: string | null;
     format_key: string | null;
   };
@@ -135,6 +138,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
       format_key: source.format_key,
       objective: source.title, // title  → objective
       caption: source.content, // content → caption
+      reference_url: source.reference_url, // carried across verbatim
       source_idea_id: source.id,
       created_by: auth.profileId,
     })
@@ -179,6 +183,7 @@ export async function savePost(input: PostInput): Promise<SaveResult> {
     caption: trimmed(input.caption),
     cta: trimmed(input.cta),
     media_link: trimmed(input.media_link),
+    reference_url: normalizedUrl(input.reference_url),
   };
 
   if (input.id) {
@@ -211,9 +216,13 @@ export async function updatePostField(
     return { ok: false, error: 'That field cannot be edited here.' };
   }
 
+  // A link typed into the inline cell gets the same https:// treatment the
+  // Reference field applies, so both write paths store one shape.
+  const next = URL_POST_FIELDS.includes(field) ? normalizedUrl(value) : value;
+
   const { error } = await mediaDb()
     .from('posts')
-    .update({ [field]: value })
+    .update({ [field]: next })
     .eq('id', postId);
 
   if (error) return { ok: false, error: friendlyError(error) };
