@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import Logo from './shared/Logo';
+import NotificationBell from './NotificationBell';
 
 const mainItems = [
   {
@@ -557,6 +558,20 @@ const Sidebar: React.FC = () => {
           <Logo size={34} wordmark />
         )}
 
+        {/* Notification bell — beside the collapse button when expanded */}
+        {!collapsed && (
+          <div style={{
+            position: 'absolute',
+            right: 44,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+          }}>
+            <NotificationBell collapsed={false} />
+          </div>
+        )}
+
         {/* Collapse button — visible only when expanded */}
         {!collapsed && (
           <button
@@ -595,14 +610,17 @@ const Sidebar: React.FC = () => {
         )}
       </div>
 
-      {/* Expand button — visible only when collapsed */}
+      {/* Expand button + bell — visible only when collapsed */}
       {collapsed && (
         <div style={{
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'center',
+          gap: 6,
           padding: '10px 0 6px',
           flexShrink: 0,
         }}>
+          <NotificationBell collapsed />
           <button
             onClick={() => setCollapsed(false)}
             title="Expand sidebar"
