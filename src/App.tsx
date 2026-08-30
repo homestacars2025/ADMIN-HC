@@ -43,6 +43,7 @@ import MarketingPlaceholderPage from './pages/marketing/MarketingPlaceholderPage
 import OnlineUsersPage from './pages/OnlineUsersPage';
 import TeamPage from './pages/TeamPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
+import ReminderRulesPage from './pages/notifications/ReminderRulesPage';
 import MediaLayout from './pages/media/MediaLayout';
 import MediaIdeasPage from './pages/media/MediaIdeasPage';
 import MediaCalendarPage from './pages/media/MediaCalendarPage';
@@ -90,6 +91,7 @@ const App: React.FC = () => {
           <Route path="team" element={<TeamPage />} />
           <Route path="staff-permissions" element={<StaffPermissionsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="reminder-rules" element={<ReminderRulesPage />} />
 
           {/* ── Marketing ─────────────────────────────────── */}
           <Route path="marketing" element={<MarketingLayout />}>
