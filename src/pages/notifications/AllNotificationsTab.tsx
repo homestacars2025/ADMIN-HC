@@ -7,6 +7,7 @@ import {
   markAllRead,
   markRead,
   relativeTime,
+  resolveNotificationLink,
   type NotificationCategory,
   type NotificationRow,
 } from '../../lib/notifications';
@@ -76,7 +77,8 @@ export const AllNotificationsTab: React.FC = () => {
         // The link is the point; the flag reconciles on the next load.
       }
     }
-    if (item.link) navigate(item.link);
+    const target = resolveNotificationLink(item.link);
+    if (target) navigate(target);
   }
 
   async function handleMarkAll() {
@@ -189,18 +191,19 @@ export const AllNotificationsTab: React.FC = () => {
 
         {!loading && visible.map((item) => {
           const style = CATEGORY_STYLES[item.category] ?? CATEGORY_STYLES.event;
+          const target = resolveNotificationLink(item.link);
           return (
             <div
               key={item.id}
               onClick={() => open(item)}
-              role={item.link ? 'button' : undefined}
-              tabIndex={item.link ? 0 : undefined}
-              onKeyDown={(e) => { if (item.link && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(item); } }}
+              role={target ? 'button' : undefined}
+              tabIndex={target ? 0 : undefined}
+              onKeyDown={(e) => { if (target && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(item); } }}
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: 13,
                 padding: '15px 18px', borderBottom: '1px solid #f4f4f4',
                 background: item.is_read ? '#fff' : 'rgba(75,166,234,0.04)',
-                cursor: item.link ? 'pointer' : 'default',
+                cursor: target ? 'pointer' : 'default',
                 transition: 'background 140ms ease',
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#fafbfc'; }}
@@ -240,7 +243,7 @@ export const AllNotificationsTab: React.FC = () => {
                 fontSize: 11.5, color: FAINT, whiteSpace: 'nowrap', marginTop: 2,
               }}>
                 {relativeTime(item.created_at)}
-                {item.link && (
+                {target && (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                     <path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>

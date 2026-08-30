@@ -325,6 +325,46 @@ export async function searchProfiles(query: string): Promise<ProfileOption[]> {
   return (data ?? []) as ProfileOption[];
 }
 
+
+// ── Link resolution ───────────────────────────────────────────────────────────
+
+/**
+ * Top-level sections this app actually routes, all of them under `/dashboard`.
+ * Only first segments that a notification could plausibly point at are listed.
+ */
+const DASHBOARD_SECTIONS = new Set([
+  'accounting', 'bookings', 'calendar', 'car-issues', 'cars', 'customers',
+  'fines', 'google-reviews', 'inbox', 'investors', 'kabis', 'kgm', 'marketing',
+  'media', 'model-groups', 'notifications', 'online-users', 'operations',
+  'pending-invoices', 'pricing', 'reminder-rules', 'sourcing',
+  'staff-permissions', 'tasks', 'team', 'users',
+]);
+
+/**
+ * Notification links are stored app-agnostically — `/kabis`, `/car-issues`,
+ * `/cars/57` — because the same rows feed the team app, where those are
+ * top-level routes. This admin app nests everything under `/dashboard`, and its
+ * catch-all sends an unmatched path to `/login`, so navigating to a raw stored
+ * link would sign-post the admin straight out of the page they clicked.
+ *
+ * The first segment is mapped onto the matching dashboard section. Deeper
+ * segments are dropped: no notification-relevant section here has a detail
+ * route (`/cars/57` has no `/dashboard/cars/:id` to land on), so the section
+ * index is the closest honest destination.
+ *
+ * Returns `null` when nothing sensible matches — callers then render the row as
+ * plain text instead of a dead link.
+ */
+export function resolveNotificationLink(link: string | null | undefined): string | null {
+  const raw = link?.trim();
+  if (!raw || !raw.startsWith('/')) return null;
+  if (raw === '/dashboard' || raw.startsWith('/dashboard/')) return raw;
+
+  const section = raw.split('/').filter(Boolean)[0];
+  if (!section || !DASHBOARD_SECTIONS.has(section)) return null;
+  return `/dashboard/${section}`;
+}
+
 // ── Formatting ────────────────────────────────────────────────────────────────
 
 /** "just now" · "5m ago" · "3h ago" · "2d ago" · then an absolute date. */

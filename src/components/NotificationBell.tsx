@@ -8,6 +8,7 @@ import {
   markAllRead,
   markRead,
   relativeTime,
+  resolveNotificationLink,
   type NotificationRow,
 } from '../lib/notifications';
 
@@ -108,7 +109,8 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
         // the notifications page will reconcile it.
       }
     }
-    if (item.link) navigate(item.link);
+    const target = resolveNotificationLink(item.link);
+    if (target) navigate(target);
   }
 
   async function handleMarkAll() {
@@ -236,7 +238,7 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
                   padding: '12px 16px', border: 'none', textAlign: 'left',
                   borderBottom: '1px solid #f6f6f6',
                   background: item.is_read ? '#fff' : 'rgba(75,166,234,0.045)',
-                  cursor: item.link ? 'pointer' : 'default',
+                  cursor: resolveNotificationLink(item.link) ? 'pointer' : 'default',
                   fontFamily: 'inherit',
                 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#fafbfc'; }}
