@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../../hooks/useNotificationCounts';
+import { useMessageRenderer, useTranslation } from '../../lib/i18n';
 import {
   CATEGORY_STYLES,
   getNotifications,
@@ -28,6 +29,8 @@ const CATEGORY_FILTERS: Array<{ value: NotificationCategory | 'all'; label: stri
 export const AllNotificationsTab: React.FC = () => {
   const navigate = useNavigate();
   const { unread, refreshNow } = useNotificationCounts();
+  const renderMessage = useMessageRenderer();
+  const { dir } = useTranslation();
 
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,15 +228,19 @@ export const AllNotificationsTab: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div style={{
+                <div dir={dir} style={{
                   fontSize: 13.5, fontWeight: item.is_read ? 500 : 700,
                   color: INK, lineHeight: 1.45,
+                  textAlign: dir === 'rtl' ? 'right' : 'left',
                 }}>
-                  {item.title}
+                  {renderMessage(item.i18n_key, item.vars, item.title)}
                 </div>
-                {item.body && (
-                  <div style={{ fontSize: 12.5, color: MUTED, marginTop: 3, lineHeight: 1.6 }}>
-                    {item.body}
+                {renderMessage(item.body_i18n_key, item.vars, item.body) && (
+                  <div dir={dir} style={{
+                    fontSize: 12.5, color: MUTED, marginTop: 3, lineHeight: 1.6,
+                    textAlign: dir === 'rtl' ? 'right' : 'left',
+                  }}>
+                    {renderMessage(item.body_i18n_key, item.vars, item.body)}
                   </div>
                 )}
               </div>

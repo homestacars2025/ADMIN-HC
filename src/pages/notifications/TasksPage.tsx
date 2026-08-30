@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../../hooks/useNotificationCounts';
+import { useMessageRenderer, useTranslation } from '../../lib/i18n';
 import {
   cancelTask,
   completeTask,
@@ -31,6 +32,8 @@ const AUTO_DIR: React.HTMLAttributes<HTMLElement> = { dir: 'auto' };
 const TasksPage: React.FC = () => {
   const navigate = useNavigate();
   const { openTasks, refreshNow } = useNotificationCounts();
+  const renderMessage = useMessageRenderer();
+  const { dir } = useTranslation();
 
   const [tab, setTab] = useState<TabKey>('active');
   const [rows, setRows] = useState<TaskRow[]>([]);
@@ -172,12 +175,24 @@ const TasksPage: React.FC = () => {
                   return (
                     <tr key={task.id} style={{ borderBottom: '1px solid #f4f4f4', verticalAlign: 'top' }}>
                       <td style={{ padding: '14px 16px', maxWidth: 420 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 700, color: INK, lineHeight: 1.45 }} {...AUTO_DIR}>
-                          {task.title}
+                        <div
+                          dir={dir}
+                          style={{
+                            fontSize: 13.5, fontWeight: 700, color: INK, lineHeight: 1.45,
+                            textAlign: dir === 'rtl' ? 'right' : 'left',
+                          }}
+                        >
+                          {renderMessage(task.i18n_key, task.vars, task.title)}
                         </div>
-                        {task.description && (
-                          <div style={{ fontSize: 12.5, color: MUTED, marginTop: 3, lineHeight: 1.6 }} {...AUTO_DIR}>
-                            {task.description}
+                        {renderMessage(task.body_i18n_key, task.vars, task.description) && (
+                          <div
+                            dir={dir}
+                            style={{
+                              fontSize: 12.5, color: MUTED, marginTop: 3, lineHeight: 1.6,
+                              textAlign: dir === 'rtl' ? 'right' : 'left',
+                            }}
+                          >
+                            {renderMessage(task.body_i18n_key, task.vars, task.description)}
                           </div>
                         )}
                         {task.category && (
@@ -214,7 +229,14 @@ const TasksPage: React.FC = () => {
                             )}
                           </>
                         ) : (
-                          formatDateTime(task.completed_at ?? null)
+                          <>
+                            <div>{formatDateTime(task.completed_at)}</div>
+                            {task.completed_by_name && (
+                              <div style={{ fontSize: 11.5, color: FAINT, marginTop: 3 }} {...AUTO_DIR}>
+                                by {task.completed_by_name}
+                              </div>
+                            )}
+                          </>
                         )}
                       </td>
 
@@ -285,8 +307,10 @@ const TasksPage: React.FC = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ fontSize: 13.5, color: MUTED, lineHeight: 1.6 }} {...AUTO_DIR}>
-              <strong style={{ color: INK }}>{cancelling.title}</strong> will be closed without
+            <div style={{ fontSize: 13.5, color: MUTED, lineHeight: 1.6 }}>
+              <strong style={{ color: INK }} dir={dir}>
+                {renderMessage(cancelling.i18n_key, cancelling.vars, cancelling.title)}
+              </strong> will be closed without
               being done. Cancelling is admin-only and cannot be undone from here.
             </div>
             <Field label="Reason" required hint="Recorded on the task so the team can see why.">

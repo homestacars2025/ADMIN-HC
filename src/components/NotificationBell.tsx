@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { useMessageRenderer, useTranslation } from '../lib/i18n';
 import {
   CATEGORY_STYLES,
   getNotifications,
@@ -41,6 +42,8 @@ const CategoryDot: React.FC<{ category: NotificationRow['category'] }> = ({ cate
 const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
   const navigate = useNavigate();
   const { unread, refreshNow } = useNotificationCounts();
+  const renderMessage = useMessageRenderer();
+  const { dir } = useTranslation();
 
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationRow[]>([]);
@@ -249,20 +252,20 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
               >
                 <CategoryDot category={item.category} />
 
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div dir={dir} style={{ flex: 1, minWidth: 0, textAlign: dir === 'rtl' ? 'right' : 'left' }}>
                   <div style={{
                     fontSize: 12.8, fontWeight: item.is_read ? 500 : 700,
                     color: '#0f1117', lineHeight: 1.4,
                   }}>
-                    {item.title}
+                    {renderMessage(item.i18n_key, item.vars, item.title)}
                   </div>
-                  {item.body && (
+                  {renderMessage(item.body_i18n_key, item.vars, item.body) && (
                     <div style={{
                       fontSize: 12, color: '#6b7280', marginTop: 2, lineHeight: 1.5,
                       display: '-webkit-box', WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical', overflow: 'hidden',
                     }}>
-                      {item.body}
+                      {renderMessage(item.body_i18n_key, item.vars, item.body)}
                     </div>
                   )}
                   <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>

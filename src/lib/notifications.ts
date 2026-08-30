@@ -24,6 +24,10 @@ export interface NotificationRow {
   id: string;
   category: NotificationCategory;
   event_key: string | null;
+  /** Message key; `title`/`body` below are only the stored fallback. */
+  i18n_key: string | null;
+  body_i18n_key: string | null;
+  vars: Record<string, unknown> | null;
   title: string;
   body: string | null;
   link: string | null;
@@ -37,20 +41,22 @@ export interface TaskRow {
   id: string;
   title: string;
   description: string | null;
+  /** Message key; `title`/`description` above are only the stored fallback. */
+  i18n_key: string | null;
+  body_i18n_key: string | null;
+  vars: Record<string, unknown> | null;
   category: string | null;
   status: TaskStatus;
   priority: TaskPriority;
   claimed_by: string | null;
   claimed_by_name: string | null;
+  completed_by: string | null;
+  completed_by_name: string | null;
+  completed_at: string | null;
   entity_type: string | null;
   entity_id: string | null;
   due_at: string | null;
   created_at: string;
-  /**
-   * Not returned by `my_tasks` — merged in from a follow-up read of `tasks`
-   * for the Done tab only. See `getTasks`.
-   */
-  completed_at?: string | null;
 }
 
 /** `[{ kind: 'role', value: 'staff' }, { kind: 'profile', value: '<uuid>' }]` */
@@ -150,13 +156,9 @@ export async function getOpenTasksCount(): Promise<number> {
 }
 
 /**
- * `my_tasks` decides visibility and is the only source of *which* tasks to show.
- *
- * It does not project `completed_at`, though, so the Done tab would have no
- * completion time to render. Rather than widen the contract or guess from
- * `created_at`, the ids it returned are used to read that one timestamp from
- * `tasks` — a read the admin's SELECT policy already allows. No write ever
- * bypasses the RPCs.
+ * `my_tasks` decides visibility and now projects `completed_at` and
+ * `completed_by_name` itself, so this is a single call — the follow-up read of
+ * `tasks` that previously supplied the completion time is no longer needed.
  */
 export async function getTasks(
   status: 'active' | 'done' | 'all',
@@ -169,26 +171,7 @@ export async function getTasks(
     p_offset: offset,
   });
   if (error) throw new Error(friendlyError(error));
-
-  const rows = (data ?? []) as TaskRow[];
-  if (status === 'active' || rows.length === 0) return rows;
-
-  const { data: stamps, error: stampError } = await supabase
-    .from('tasks')
-    .select('id, completed_at')
-    .in('id', rows.map((r) => r.id));
-
-  // A failure here costs a timestamp, not the list — the tasks still render.
-  if (stampError) {
-    // eslint-disable-next-line no-console
-    console.error('[notifications] completed_at lookup:', stampError.message);
-    return rows;
-  }
-
-  const byId = new Map(
-    (stamps ?? []).map((s: { id: string; completed_at: string | null }) => [s.id, s.completed_at]),
-  );
-  return rows.map((r) => ({ ...r, completed_at: byId.get(r.id) ?? null }));
+  return (data ?? []) as TaskRow[];
 }
 
 // ── Notification actions ──────────────────────────────────────────────────────
