@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import Logo from './shared/Logo';
 import NotificationBell from './NotificationBell';
+import { useNotificationCounts } from '../hooks/useNotificationCounts';
 
 const mainItems = [
   {
@@ -352,6 +353,42 @@ const mediaItems = [
   },
 ];
 
+const notificationItems = [
+  {
+    label: 'Notifications',
+    path: '/dashboard/notifications',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M13.7 21a2 2 0 01-3.4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Reminder Rules',
+    path: '/dashboard/reminder-rules',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M12 9.5V13l2.5 1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M5 3 2.5 5M19 3l2.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+];
+
+const taskItem = {
+  label: 'Tasks',
+  path: '/dashboard/tasks',
+  icon: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+      <path d="M9 11l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
+};
+
 const operationsItems = [
   {
     label: 'Inbox',
@@ -437,6 +474,7 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const { currency, setCurrency, symbol } = useCurrency();
 
+  const { openTasks } = useNotificationCounts();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('sidebar_collapsed') === 'true'; }
     catch { return false; }
@@ -475,7 +513,7 @@ const Sidebar: React.FC = () => {
 
   const W = collapsed ? COLLAPSED_W : EXPANDED_W;
 
-  const renderNavItems = (items: typeof mainItems) =>
+  const renderNavItems = (items: Array<{ label: string; path: string; icon: React.ReactNode; badge?: number }>) =>
     items.map(item => (
       <NavLink
         key={item.path}
@@ -515,10 +553,30 @@ const Sidebar: React.FC = () => {
                 background: '#4ba6ea',
               }} />
             )}
-            <span style={{ color: isActive ? '#4ba6ea' : '#9ca3af', flexShrink: 0 }}>
+            <span style={{ color: isActive ? '#4ba6ea' : '#9ca3af', flexShrink: 0, position: 'relative' }}>
               {item.icon}
+              {/* Collapsed: the count has no room, so it becomes a dot on the icon. */}
+              {collapsed && !!item.badge && item.badge > 0 && (
+                <span style={{
+                  position: 'absolute', top: -3, right: -4,
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: '#ef4444', border: '1.5px solid #fff',
+                }} />
+              )}
             </span>
             {!collapsed && item.label}
+            {!collapsed && !!item.badge && item.badge > 0 && (
+              <span style={{
+                marginLeft: 'auto',
+                minWidth: 19, padding: '0 6px', borderRadius: 10,
+                background: '#ef4444', color: '#fff',
+                fontSize: 10.5, fontWeight: 800, lineHeight: '18px',
+                textAlign: 'center', fontVariantNumeric: 'tabular-nums',
+                flexShrink: 0,
+              }}>
+                {item.badge > 99 ? '99+' : item.badge}
+              </span>
+            )}
           </>
         )}
       </NavLink>
@@ -873,6 +931,8 @@ const Sidebar: React.FC = () => {
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
         {renderNavItems(adminToolItems)}
+        {renderNavItems(notificationItems)}
+        {renderNavItems([{ ...taskItem, badge: openTasks }])}
 
         {/* Marketing section */}
         {!collapsed ? (
