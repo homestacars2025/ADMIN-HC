@@ -483,6 +483,7 @@ const AddOperationModal: React.FC<{
   const [profilesLoading, setProfilesLoading] = useState(true);
   const [customers, setCustomers]         = useState<CustomerOption[]>([]);
   const [customersLoading, setCustomersLoading] = useState(true);
+  const [customersFallback, setCustomersFallback] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [photos, setPhotos]               = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -552,28 +553,40 @@ const AddOperationModal: React.FC<{
       setCustomers([]);
       setForm(f => ({ ...f, customer_id: '', booking_id: '' }));
     }
-    supabase
-      .from('bookings')
-      .select('customer_id, customers(id, first_name, last_name)')
-      .eq('car_id', Number(form.car_id))
-      .then(({ data }) => {
-        if (!active) return;
-        if (data) {
-          const seen = new Set<string>();
-          const unique: CustomerOption[] = [];
-          for (const row of data as Array<{ customer_id: string | null; customers: CustomerOption | CustomerOption[] | null }>) {
-            const c = Array.isArray(row.customers) ? row.customers[0] : row.customers;
-            if (c && !seen.has(c.id)) {
-              seen.add(c.id);
-              unique.push(c);
-            }
-          }
-          unique.sort((a, b) => a.first_name.localeCompare(b.first_name));
-          setCustomers(unique);
+    (async () => {
+      const { data } = await supabase
+        .from('bookings')
+        .select('customer_id, customers(id, first_name, last_name)')
+        .eq('car_id', Number(form.car_id));
+      if (!active) return;
+      const seen = new Set<string>();
+      const unique: CustomerOption[] = [];
+      for (const row of (data ?? []) as Array<{ customer_id: string | null; customers: CustomerOption | CustomerOption[] | null }>) {
+        const c = Array.isArray(row.customers) ? row.customers[0] : row.customers;
+        if (c && !seen.has(c.id)) {
+          seen.add(c.id);
+          unique.push(c);
         }
-        setCustomersLoading(false);
-        skipCarResetRef.current = false;
-      });
+      }
+      unique.sort((a, b) => a.first_name.localeCompare(b.first_name));
+      if (unique.length > 0) {
+        setCustomers(unique);
+        setCustomersFallback(false);
+      } else {
+        // Delivery / pickup cannot be saved without a linked customer, so a car
+        // with no booking history would dead-end the operator. Fall back to the
+        // whole customer list rather than leaving the dropdown empty.
+        const { data: all } = await supabase
+          .from('customers')
+          .select('id, first_name, last_name')
+          .order('first_name');
+        if (!active) return;
+        setCustomers((all ?? []) as CustomerOption[]);
+        setCustomersFallback(true);
+      }
+      setCustomersLoading(false);
+      skipCarResetRef.current = false;
+    })();
     return () => { active = false; };
   }, [form.car_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -626,6 +639,16 @@ const AddOperationModal: React.FC<{
   // Every other type (and edit mode) keeps the free multi-photo uploader.
   const checklistAnswered = CHECKLIST_ITEMS.filter(item => form[item.key] !== '').length;
 
+  // A delivery / pickup must end up linked to a real customer row: kabis builds
+  // its name / id / nationality / licence columns from that link, and a name
+  // typed into the note is not a link. A booking counts too — it carries the
+  // customer itself. Historic rows saved before this rule stay editable, so
+  // edit mode only forbids *clearing* a link that is already there.
+  const isDpType         = (DP_TYPES as string[]).includes(form.type);
+  const customerLinked   = !!form.customer_id || !!form.booking_id.trim();
+  const customerRequired = isDpType && (!isEdit || editOp!.customer_id != null);
+  const customerMissing  = customerRequired && !customerLinked;
+
   const usesPhotoSlots  = !isEdit && (DP_TYPES as string[]).includes(form.type);
   const capturedSlots   = capturedSlotCount(slotFiles);
   const missingSlots    = usesPhotoSlots ? missingSlotLabels(slotFiles) : [];
@@ -646,6 +669,10 @@ const AddOperationModal: React.FC<{
     if (!form.car_id)     { setFormError('Please select a car.'); return; }
     if (!form.type)       { setFormError('Please select an operation type.'); return; }
     if (!form.handled_by) { setFormError('Please select who handled this operation.'); return; }
+    if (customerMissing) {
+      setFormError('Please select a linked customer for delivery/pickup operations.');
+      return;
+    }
 
     if (form.fuel_level === '') {
       setFuelLevelError('Fuel level is required.');
@@ -950,14 +977,25 @@ const AddOperationModal: React.FC<{
             {(DP_TYPES as string[]).includes(form.type) && (
               <>
                 <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Customer <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+                  <label style={labelStyle}>
+                    Customer{' '}
+                    {customerRequired
+                      ? <span style={{ color: '#ef4444' }}>*</span>
+                      : <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>}
+                  </label>
                   <select
                     value={form.customer_id}
                     onChange={set('customer_id')}
                     onFocus={onFocus}
                     onBlur={onBlur}
+                    required={customerRequired}
                     disabled={!form.car_id || customersLoading}
-                    style={{ ...selectStyle, color: (!form.car_id || customersLoading) ? '#9ca3af' : '#0f1117', opacity: 1 }}
+                    style={{
+                      ...selectStyle,
+                      color: (!form.car_id || customersLoading) ? '#9ca3af' : '#0f1117',
+                      opacity: 1,
+                      borderColor: customerMissing ? '#fecaca' : selectStyle.borderColor,
+                    }}
                   >
                     <option value="">
                       {!form.car_id
@@ -965,13 +1003,23 @@ const AddOperationModal: React.FC<{
                         : customersLoading
                           ? 'Loading customers…'
                           : customers.length === 0
-                            ? 'No customers found for this car'
+                            ? 'No customers found'
                             : 'Select a customer'}
                     </option>
                     {customers.map(c => (
                       <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
                     ))}
                   </select>
+                  {customerMissing && (
+                    <span style={{ marginTop: 6, fontSize: 11.5, color: '#ef4444', lineHeight: 1.45 }}>
+                      Required — pick the customer from the list. Writing the name in the note does not link them.
+                    </span>
+                  )}
+                  {!customerMissing && customersFallback && !!form.car_id && !customersLoading && (
+                    <span style={{ marginTop: 6, fontSize: 11.5, color: '#9ca3af', lineHeight: 1.45 }}>
+                      No booking history for this car — showing all customers.
+                    </span>
+                  )}
                 </div>
 
                 <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
@@ -1182,6 +1230,12 @@ const AddOperationModal: React.FC<{
 
         {/* Footer */}
         <div style={{ padding: '16px 28px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
+          {customerMissing && !saving && (
+            <div style={{ flex: '1 1 200px', minWidth: 0, fontSize: 11.5, color: '#9ca3af', lineHeight: 1.45 }}>
+              <span style={{ fontWeight: 700, color: '#ef4444' }}>Customer required</span>{' '}
+              — select a linked customer for delivery/pickup operations.
+            </div>
+          )}
           {slotsIncomplete && !saving && (
             <div style={{ flex: '1 1 200px', minWidth: 0, fontSize: 11.5, color: '#9ca3af', lineHeight: 1.45 }}>
               <span style={{ fontWeight: 700, color: '#ef4444' }}>
@@ -1199,8 +1253,8 @@ const AddOperationModal: React.FC<{
           <button
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={saving || slotsIncomplete}
-            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: (saving || slotsIncomplete) ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: (saving || slotsIncomplete) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
+            disabled={saving || slotsIncomplete || customerMissing}
+            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: (saving || slotsIncomplete || customerMissing) ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: (saving || slotsIncomplete || customerMissing) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             {saving ? (
               <>
