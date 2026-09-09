@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { createUser, deleteUser, updateUserPassword } from '../lib/adminUsers';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -430,19 +430,10 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
 
       if (profileErr) throw profileErr;
 
-      // 3. Update password via service role client (persistSession:false keeps it
-      //    out of localStorage so it doesn't trigger GoTrueClient warnings)
+      // 3. Update password through the admin-users Edge Function — this needs
+      //    the service_role key, which stays on the server.
       if (form.new_password.trim()) {
-        const serviceClient = createClient(
-          process.env.REACT_APP_SUPABASE_URL!,
-          process.env.REACT_APP_SUPABASE_SERVICE_KEY!,
-          { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
-        );
-        const { error: pwErr } = await serviceClient.auth.admin.updateUserById(
-          user.id,
-          { password: form.new_password.trim() },
-        );
-        if (pwErr) throw pwErr;
+        await updateUserPassword(user.id, form.new_password.trim());
       }
 
       onSaved();
@@ -879,30 +870,15 @@ const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast
     setSaving(true);
 
     try {
-      const serviceKey = process.env.REACT_APP_SUPABASE_SERVICE_KEY;
-      const supabaseUrl = process.env.REACT_APP_SUPABASE_URL!;
-      if (!serviceKey) {
-        throw new Error('Service role key not configured (REACT_APP_SUPABASE_SERVICE_KEY). Add it to your .env file.');
-      }
-
-      // Step 1: create auth user (email pre-confirmed)
-      const adminClient = createClient(supabaseUrl, serviceKey, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      // Creating the auth user and stamping its profile row both happen inside
+      // the admin-users Edge Function, so a failed profile write rolls the auth
+      // user back instead of leaving a half-provisioned account behind.
+      await createUser({
+        email:    form.email.trim(),
+        password: form.password.trim(),
+        fullName: form.full_name.trim(),
+        role:     form.role,
       });
-      const { data, error: createErr } = await adminClient.auth.admin.createUser({
-        email:         form.email.trim(),
-        password:      form.password.trim(),
-        email_confirm: true,
-      });
-      if (createErr) throw createErr;
-      if (!data.user) throw new Error('User creation returned no user object.');
-
-      // Step 2: patch the auto-created profile row with name + role
-      const { error: profileErr } = await supabase
-        .from('profiles')
-        .update({ full_name: form.full_name.trim(), role: form.role, status: 'active' })
-        .eq('id', data.user.id);
-      if (profileErr) throw profileErr;
 
       onSaved();
       onToast(`User ${form.email.trim()} created successfully.`, 'success');
@@ -1142,13 +1118,7 @@ const UsersPage: React.FC = () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const serviceClient = createClient(
-        process.env.REACT_APP_SUPABASE_URL!,
-        process.env.REACT_APP_SUPABASE_SERVICE_KEY!,
-        { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
-      );
-      const { error } = await serviceClient.auth.admin.deleteUser(deleteTarget.id);
-      if (error) throw error;
+      await deleteUser(deleteTarget.id);
       setDeleteTarget(null);
       showToast('User deleted successfully.', 'success');
       fetchUsers();
