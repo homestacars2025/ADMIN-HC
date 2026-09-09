@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import CarsPage from './pages/CarsPage';
 import ModelGroupsPage from './pages/ModelGroupsPage';
 import KGMPage from './pages/KGMPage';
+import HGSPage from './pages/HGSPage';
 import BookingsPage from './pages/BookingsPage';
 import CalendarPage from './pages/CalendarPage';
 import FinesPage from './pages/FinesPage';
@@ -70,6 +71,7 @@ const App: React.FC = () => {
           <Route path="cars/tracking" element={<CarTrackingPage />} />
           <Route path="model-groups" element={<ModelGroupsPage />} />
           <Route path="kgm" element={<KGMPage />} />
+          <Route path="hgs" element={<HGSPage />} />
           <Route path="bookings" element={<BookingsPage />} />
           <Route path="bookings/active" element={<ActiveBookingsPage />} />
           <Route path="pending-invoices" element={<PendingInvoicesPage />} />

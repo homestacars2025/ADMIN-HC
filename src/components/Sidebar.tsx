@@ -440,6 +440,17 @@ const operationsItems = [
     ),
   },
   {
+    label: 'HGS',
+    path: '/dashboard/hgs',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M3 20V9l5-4 5 4v11" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+        <path d="M8 5V2M3 20h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M13 20v-7h5a3 3 0 013 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     label: 'Fines',
     path: '/dashboard/fines',
     icon: (
