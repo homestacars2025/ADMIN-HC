@@ -322,16 +322,16 @@ export const STATUS_LABEL: Record<EmailSendStatus, string> = {
 /** Tailwind classes per send_status — muted for the quiet states, loud for failure. */
 export const STATUS_CLASS: Record<EmailSendStatus, string> = {
   draft: 'bg-black/[0.05] text-black/55 border-black/10',
-  pending_approval: 'bg-[#d99a3d]/10 text-[#a6702a] border-[#d99a3d]/25',
-  queued: 'bg-[#6ea4e7]/10 text-[#1f64bb] border-[#6ea4e7]/25',
-  sent: 'bg-[#3f9b6d]/10 text-[#2f7553] border-[#3f9b6d]/25',
-  failed: 'bg-[#d4183d]/10 text-[#d4183d] border-[#d4183d]/25',
+  pending_approval: 'bg-amber-500/10 text-amber-700 border-amber-500/25',
+  queued: 'bg-primary/10 text-brand-hover border-primary/25',
+  sent: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25',
+  failed: 'bg-destructive/10 text-destructive border-destructive/25',
   received: 'bg-black/[0.04] text-black/50 border-black/[0.08]',
 };
 
 export const PRIORITY_CLASS: Record<SourcePriority, string> = {
-  top: 'bg-[#d4183d]/10 text-[#d4183d] border-[#d4183d]/25',
-  high: 'bg-[#d99a3d]/12 text-[#a6702a] border-[#d99a3d]/25',
-  medium: 'bg-[#6ea4e7]/12 text-[#1f64bb] border-[#6ea4e7]/25',
+  top: 'bg-destructive/10 text-destructive border-destructive/25',
+  high: 'bg-amber-500/12 text-amber-700 border-amber-500/25',
+  medium: 'bg-primary/12 text-brand-hover border-primary/25',
   low: 'bg-black/[0.05] text-black/50 border-black/10',
 };

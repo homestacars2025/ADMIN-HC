@@ -19,7 +19,7 @@ import {
  * Shared shell pieces: the page header, the sub-nav, the badge family, the empty
  * state, and the sliding pill both segmented controls animate with.
  *
- * Brand colour throughout is Cars `#6ea4e7` (Approved text `#1f64bb`) — the only
+ * Brand colour throughout is Cars `var(--primary)` (Approved text `var(--brand-hover)`) — the only
  * values swapped from the source spec. The alpha-black neutral ladder is untouched.
  */
 
@@ -33,12 +33,12 @@ export const PageHeader: React.FC<{
 }> = ({ eyebrow, title, subtitle, className }) => (
   <div className={cn('flex flex-col', className)}>
     <div className="mb-2 flex items-center gap-2">
-      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#6ea4e7]" />
-      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#6ea4e7]">
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-primary" />
+      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
         {eyebrow}
       </span>
     </div>
-    <h1 className="text-[20px] font-semibold tracking-[-0.022em] text-[#0e0e10] sm:text-[24px]">
+    <h1 className="text-[20px] font-semibold tracking-[-0.022em] text-foreground sm:text-[24px]">
       {title}
     </h1>
     <p className="mt-1 text-[12.5px] tracking-[-0.005em] text-black/45 sm:text-[13.5px]">
@@ -136,7 +136,7 @@ export const MediaNav: React.FC = () => {
             className={cn(
               'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] tracking-[-0.006em] no-underline transition-all duration-150 sm:px-3.5',
               active
-                ? 'bg-white font-semibold text-[#6ea4e7] shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-black/[0.05]'
+                ? 'bg-white font-semibold text-primary shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-black/[0.05]'
                 : 'font-medium text-black/55 hover:bg-white/70 hover:text-black/80',
             )}
           >
@@ -217,8 +217,8 @@ export const ReferenceChip: React.FC<{
     className={cn(
       PILL,
       'border-black/[0.08] bg-black/[0.03] text-black/55 no-underline transition-colors duration-150',
-      'hover:border-[#6ea4e7]/25 hover:bg-[#6ea4e7]/[0.07] hover:text-[#6ea4e7]',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/35',
+      'hover:border-primary/25 hover:bg-primary/[0.07] hover:text-primary',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
       className,
     )}
   >
@@ -264,7 +264,7 @@ export const PostedToggle: React.FC<{
     className={cn(
       PILL,
       'cursor-pointer select-none transition-all duration-150 hover:brightness-[0.97]',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40 disabled:opacity-60',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60',
       posted
         ? 'border-emerald-500/[0.18] bg-emerald-500/[0.1] text-emerald-700'
         : 'border-black/[0.07] bg-black/[0.035] text-black/45',
@@ -297,9 +297,9 @@ export const ApprovedToggle: React.FC<{
     className={cn(
       PILL,
       'cursor-pointer select-none transition-all duration-150 hover:brightness-[0.97]',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40 disabled:opacity-60',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60',
       approved
-        ? 'border-[#6ea4e7]/20 bg-[#6ea4e7]/[0.09] text-[#1f64bb]'
+        ? 'border-primary/20 bg-primary/[0.09] text-brand-hover'
         : 'border-black/[0.07] bg-black/[0.035] text-black/45',
       className,
     )}
@@ -327,9 +327,9 @@ export const MediaEmptyState: React.FC<{
     <div className="relative flex h-14 w-14 items-center justify-center">
       <span
         aria-hidden="true"
-        className="absolute inset-0 rounded-2xl bg-gradient-to-b from-[#6ea4e7]/[0.12] to-[#6ea4e7]/[0.03]"
+        className="absolute inset-0 rounded-2xl bg-gradient-to-b from-primary/[0.12] to-primary/[0.03]"
       />
-      <Icon size={22} strokeWidth={1.5} className="relative text-[#6ea4e7]" />
+      <Icon size={22} strokeWidth={1.5} className="relative text-primary" />
     </div>
     <div className="flex max-w-sm flex-col gap-1.5">
       <p className="text-[15px] font-semibold tracking-[-0.014em] text-black/85">{title}</p>
@@ -369,7 +369,7 @@ export const SearchInput: React.FC<{
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       aria-label={ariaLabel}
-      className="h-9 w-full rounded-lg border border-[#e2ded4] bg-white pl-8 pr-3 text-[13px] text-[#0e0e10] outline-none transition-colors placeholder:text-black/30 focus-visible:border-[#6ea4e7] focus-visible:ring-[3px] focus-visible:ring-[#6ea4e7]/20"
+      className="h-9 w-full rounded-lg border border-border bg-white pl-8 pr-3 text-[13px] text-foreground outline-none transition-colors placeholder:text-black/30 focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/20"
     />
   </div>
 );

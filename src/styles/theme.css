@@ -1,0 +1,125 @@
+/*
+ * Homesta design tokens — ported from the Stay admin `globals.css`.
+ *
+ * Every oklch value below is copied verbatim from the Stay theme file EXCEPT the
+ * brand ramp, which is recomputed for the Cars blue.
+ *
+ * On the brand value: the Stay report's own token carries a comment claiming it
+ * is #e52851 when it actually renders #c80544 — the lightness is wrong. So the
+ * Cars ramp here is computed, not copied, and verified by round-trip:
+ *
+ *     #6ea4e7  ->  oklch(0.7087 0.1142 254.44)  ->  #6ea4e7
+ *
+ * The same converter reproduces the report's two published checks exactly
+ * (oklch(0.577 0.245 27.325) -> #e7000b, and #e52851 -> oklch(0.6003 0.2193
+ * 16.16)), which is what makes the number above trustworthy rather than a guess.
+ *
+ * Alpha: Tailwind's `<alpha-value>` is wired through color-mix() in
+ * tailwind.config.js, so `bg-primary/[0.05]` works while oklch stays the single
+ * source of truth here.
+ */
+
+:root {
+  /* ── Brand — Cars #6ea4e7, computed ───────────────────────────────────── */
+  --brand: oklch(0.7087 0.1142 254.44);            /* #6ea4e7 */
+  --brand-foreground: oklch(1 0 0);                /* #ffffff */
+  --brand-hover: oklch(0.6487 0.1142 254.44);      /* #5c91d3 */
+  --brand-subtle: oklch(0.97 0.02 254.44);         /* #ecf6ff */
+
+  /* ── Semantic — verbatim from Stay ────────────────────────────────────── */
+  --background: oklch(1 0 0);                      /* #ffffff */
+  --foreground: oklch(0.18 0 0);                   /* #121212 */
+  --surface: oklch(0.985 0 0);                     /* #fafafa */
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0 0);
+
+  --primary: oklch(0.7087 0.1142 254.44);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.97 0 0);                    /* #f5f5f5 */
+  --secondary-foreground: oklch(0.205 0 0);        /* #171717 */
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.50 0 0);             /* #636363 */
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.18 0 0);
+
+  --destructive: oklch(0.577 0.245 27.325);        /* #e7000b */
+  --success: oklch(0.65 0.18 145);                 /* #31aa40 */
+  --warning: oklch(0.76 0.17 60);                  /* #fd9320 */
+  --info: oklch(0.65 0.18 220);                    /* #00a5da */
+
+  --border: oklch(0.93 0 0);                       /* #e8e8e8 */
+  --input: oklch(0.93 0 0);
+  --ring: oklch(0.7087 0.1142 254.44);
+
+  /* ── Radius — one value drives the scale ──────────────────────────────── */
+  --radius: 0.5rem;                                /* 8px */
+  --radius-sm: calc(var(--radius) * 0.5);          /* 4.00px */
+  --radius-md: calc(var(--radius) * 0.67);         /* 5.36px */
+  --radius-lg: var(--radius);                      /* 8.00px */
+  --radius-xl: calc(var(--radius) * 1.33);         /* 10.64px */
+  --radius-2xl: calc(var(--radius) * 1.67);        /* 13.36px */
+  --radius-3xl: calc(var(--radius) * 2);           /* 16.00px */
+  --radius-4xl: calc(var(--radius) * 2.5);         /* 20.00px */
+
+  /* ── Sidebar ──────────────────────────────────────────────────────────── */
+  /* Stay's sidebar is the SAME white as the page, separated by a hairline. The
+   * report singles this out: "A grey sidebar is the single most common way a
+   * copy of this layout stops looking like it." */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.18 0 0);
+  --sidebar-primary: oklch(0.7087 0.1142 254.44);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.96 0 0);               /* #f2f2f2 */
+  --sidebar-accent-foreground: oklch(0.18 0 0);
+  --sidebar-border: oklch(0.93 0 0);
+  --sidebar-ring: oklch(0.7087 0.1142 254.44);
+  --sidebar-width: 15rem;                          /* 240px */
+  --sidebar-width-icon: 3.5rem;                    /* 56px */
+
+  /* ── Fonts — no webfont. Stay loads none; -apple-system renders real SF Pro
+   * on macOS. Loading Inter here would make Cars differ from Stay on every Mac
+   * in the office, which is the opposite of the goal. ───────────────────── */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Inter Display', 'Inter', system-ui, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', Menlo, Monaco, 'Cascadia Mono',
+    'Roboto Mono', monospace;
+}
+
+/* ── Base typography ────────────────────────────────────────────────────── */
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'rlig' 1, 'calt' 1, 'ss01' 1;
+  letter-spacing: -0.011em;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.022em;
+  font-feature-settings: 'ss01' 1, 'ss02' 1;
+}
+
+table, th, td {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+}
+
+/*
+ * The Stay Button carries `[a]:hover:bg-primary/80`, which compiles to
+ * `…:is(a):hover` and so never fires on a <button>. Cars' Button applies its
+ * hover unconditionally instead — see `BUTTON_VARIANTS` in MediaUI.
+ */

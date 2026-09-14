@@ -17,7 +17,7 @@ import { ChevronDown, Loader2, X } from './MediaIcons';
  * motion in the spec transfer verbatim to this CRA app.
  */
 
-const BRAND = '#6ea4e7';
+const BRAND = 'var(--primary)';
 
 // ── Button ────────────────────────────────────────────────────────────────────
 
@@ -25,17 +25,17 @@ type ButtonVariant = 'default' | 'outline' | 'secondary' | 'ghost' | 'destructiv
 type ButtonSize = 'default' | 'xs' | 'sm' | 'lg' | 'icon' | 'icon-xs' | 'icon-sm' | 'icon-lg';
 
 const BUTTON_BASE =
-  'inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none ' +
-  'focus-visible:border-[#6ea4e7] focus-visible:ring-[3px] focus-visible:ring-[#6ea4e7]/50 ' +
+  'inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-[13px] font-medium whitespace-nowrap transition-all outline-none select-none ' +
+  'focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/50 ' +
   'active:translate-y-px disabled:pointer-events-none disabled:opacity-50';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  default: 'bg-[#6ea4e7] text-white hover:bg-[#2c7adc]',
-  outline: 'border-[#e2ded4] bg-white text-[#0e0e10] hover:bg-[#f2eee6]',
-  secondary: 'bg-[#f0f2f5] text-[#0e0e10] hover:bg-[#e7eaef]',
-  ghost: 'hover:bg-[#f2eee6] hover:text-[#0e0e10]',
-  destructive: 'bg-[#d4183d]/10 text-[#d4183d] hover:bg-[#d4183d]/20',
-  link: 'text-[#6ea4e7] underline-offset-4 hover:underline',
+  default: 'bg-primary text-primary-foreground hover:bg-primary/80',
+  outline: 'border-border bg-background text-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted',
+  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary',
+  ghost: 'hover:bg-muted hover:text-foreground aria-expanded:bg-muted',
+  destructive: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
+  link: 'text-primary underline-offset-4 hover:underline',
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -77,8 +77,8 @@ Button.displayName = 'Button';
 // ── Input / Textarea / Label ──────────────────────────────────────────────────
 
 const FIELD_BASE =
-  'w-full rounded-lg border border-[#e2ded4] bg-white px-3 text-[#0e0e10] outline-none transition-colors ' +
-  'placeholder:text-black/30 focus-visible:border-[#6ea4e7] focus-visible:ring-[3px] focus-visible:ring-[#6ea4e7]/20 ' +
+  'w-full rounded-lg border border-border bg-background px-3 text-foreground outline-none transition-colors ' +
+  'placeholder:text-black/30 focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/20 ' +
   'disabled:opacity-50';
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
@@ -111,7 +111,7 @@ export const Label: React.FC<React.LabelHTMLAttributes<HTMLLabelElement>> = ({
 );
 
 export const RequiredMark: React.FC = () => (
-  <span className="text-[#d4183d]" aria-hidden="true">
+  <span className="text-destructive" aria-hidden="true">
     {' '}
     *
   </span>
@@ -120,7 +120,7 @@ export const RequiredMark: React.FC = () => (
 export const Skeleton: React.FC<{ className?: string; style?: React.CSSProperties }> = ({
   className,
   style,
-}) => <div className={cn('animate-pulse rounded-md bg-[#f2eee6]', className)} style={style} />;
+}) => <div className={cn('animate-pulse rounded-md bg-muted', className)} style={style} />;
 
 export const Spinner: React.FC<{ size?: number; className?: string }> = ({
   size = 12,
@@ -220,7 +220,7 @@ function useDismiss(
 }
 
 const POPUP_CLASS =
-  'fixed z-[10000] overflow-y-auto rounded-lg bg-white p-1 shadow-md ring-1 ring-black/10';
+  'fixed z-[10000] overflow-y-auto rounded-lg bg-background p-1 shadow-md ring-1 ring-black/10';
 
 // ── Select ────────────────────────────────────────────────────────────────────
 
@@ -250,7 +250,7 @@ export interface SelectProps {
 const SELECT_TRIGGER_BASE =
   'flex w-full items-center justify-between gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 ' +
   'whitespace-nowrap transition-colors outline-none select-none ' +
-  'focus-visible:border-[#6ea4e7] focus-visible:ring-[3px] focus-visible:ring-[#6ea4e7]/20 disabled:opacity-50';
+  'focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/20 disabled:opacity-50';
 
 export const Select: React.FC<SelectProps> = ({
   value,
@@ -327,8 +327,8 @@ export const Select: React.FC<SelectProps> = ({
                   setOpen(false);
                 }}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] transition-colors hover:bg-[#f2eee6]',
-                  option.value === value ? 'font-medium text-[#0e0e10]' : 'text-black/70',
+                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] transition-colors hover:bg-muted',
+                  option.value === value ? 'font-medium text-foreground' : 'text-black/70',
                   option.muted && 'text-black/45',
                 )}
               >
@@ -430,7 +430,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
                   item.onSelect();
                 }}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] transition-colors hover:bg-[#f2eee6]',
+                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] transition-colors hover:bg-muted',
                   item.muted ? 'text-black/45' : 'text-black/75',
                 )}
               >
@@ -480,7 +480,7 @@ export const Tooltip: React.FC<{ content: React.ReactNode; children: React.React
         ReactDOM.createPortal(
           <div
             role="tooltip"
-            className="pointer-events-none fixed z-[10001] -translate-x-1/2 -translate-y-full rounded-md bg-[#0e0e10] px-3 py-1.5 text-xs text-white shadow-md"
+            className="pointer-events-none fixed z-[10001] -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-3 py-1.5 text-xs text-white shadow-md"
             style={{ top: pos.top, left: pos.left, animation: 'm-fade-in 120ms ease-out' }}
           >
             {content}
@@ -525,7 +525,7 @@ export const Switch: React.FC<SwitchProps> = ({
     onClick={() => onChange(!checked)}
     className={cn(
       'relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full border border-transparent transition-colors duration-150 outline-none',
-      'focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40 focus-visible:ring-offset-1',
+      'focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1',
       'disabled:cursor-not-allowed disabled:opacity-60',
       checked ? activeClass : 'bg-black/[0.14]',
       className,
@@ -534,7 +534,7 @@ export const Switch: React.FC<SwitchProps> = ({
     <span
       aria-hidden="true"
       className={cn(
-        'pointer-events-none block h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform duration-150',
+        'pointer-events-none block h-[14px] w-[14px] rounded-full bg-background shadow-sm transition-transform duration-150',
         checked ? 'translate-x-[16px]' : 'translate-x-[2px]',
       )}
     />
@@ -591,7 +591,7 @@ export const Sheet: React.FC<SheetProps> = ({
         aria-modal="true"
         aria-label={ariaLabel}
         className={cn(
-          'absolute inset-y-0 right-0 flex h-full w-full flex-col border-l border-[#e2ded4] bg-white bg-clip-padding shadow-lg',
+          'absolute inset-y-0 right-0 flex h-full w-full flex-col border-l border-border bg-background bg-clip-padding shadow-lg',
           maxWidthClass,
         )}
         style={{ animation: 'm-sheet-in 200ms ease-in-out' }}
@@ -620,7 +620,7 @@ export const SheetHeader: React.FC<{ children: React.ReactNode; className?: stri
 );
 
 export const SheetTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h2 className="text-[16px] font-medium tracking-[-0.014em] text-[#0e0e10]">{children}</h2>
+  <h2 className="text-[16px] font-medium tracking-[-0.014em] text-foreground">{children}</h2>
 );
 
 export const SheetDescription: React.FC<{ children: React.ReactNode }> = ({ children }) => (

@@ -48,6 +48,24 @@ import {
 
 const PRIORITY_RANK: Record<Priority, number> = { top: 0, high: 1, medium: 2, low: 3 };
 
+/** One rail colour per stage — a neutral-to-brand ramp, never competing with status. */
+const STAGE_RAIL: Record<Stage, string> = {
+  backlog: 'rgb(0 0 0 / 0.15)',   shortlist: 'rgb(0 0 0 / 0.25)',
+  contacted: '#93c5fd',           in_discussion: '#7dd3fc',
+  demo_scheduled: '#67e8f9',      negotiation: '#5eead4',
+  contract: '#86efac',            integration: '#bef264',
+  live: '#22c55e',                on_hold: '#fcd34d',
+  rejected: '#fda4af',
+};
+
+/** A bare dot carries priority on the card; never colour alone — it has a label too. */
+const PRIORITY_DOT: Record<Priority, string> = {
+  top: 'bg-rose-500',
+  high: 'bg-amber-500',
+  medium: 'bg-sky-500',
+  low: 'bg-black/20',
+};
+
 // ── Card ──────────────────────────────────────────────────────────────────────
 
 const SourceCard: React.FC<{
@@ -65,28 +83,27 @@ const SourceCard: React.FC<{
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className={cn(
-        'cursor-pointer rounded-xl border bg-white p-2.5 transition-all',
-        'hover:border-[#6ea4e7]/40 hover:shadow-[0_2px_8px_rgb(0_0_0/0.06)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/35',
-        due === 'overdue' ? 'border-[#d4183d]/30' : 'border-black/[0.07]',
+        'cursor-grab rounded-lg border bg-white p-3 transition-shadow active:cursor-grabbing',
+        'hover:border-black/[0.12] hover:shadow-md',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
+        due === 'overdue' ? 'border-destructive/30' : 'border-black/[0.07]',
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold tracking-[-0.01em] text-[#0e0e10]">
+        <span dir="auto" className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-snug tracking-[-0.008em] text-black/85">
           {source.name}
         </span>
-        <span className={cn(
-          'inline-flex h-[18px] shrink-0 items-center rounded-full border px-1.5 text-[10px] font-medium uppercase leading-none',
-          PRIORITY_CLASS[source.priority],
-        )}>
-          {source.priority}
-        </span>
+        <span
+          aria-label={`Priority: ${source.priority}`}
+          title={`Priority: ${source.priority}`}
+          className={cn('mt-1 size-2 shrink-0 rounded-full', PRIORITY_DOT[source.priority])}
+        />
       </div>
 
-      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-black/45">
+      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-black/50">
         <span>{KIND_LABEL[source.kind] ?? humanise(source.kind)}</span>
         {source.supports_istanbul && (
-          <span className="inline-flex h-[17px] items-center rounded-full border border-[#3f9b6d]/25 bg-[#3f9b6d]/10 px-1.5 text-[10px] font-medium text-[#2f7553]">
+          <span className="inline-flex h-[17px] items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 text-[10px] font-medium text-emerald-700">
             İstanbul
           </span>
         )}
@@ -99,7 +116,7 @@ const SourceCard: React.FC<{
 
       {source.next_action && (
         <div className="mt-1.5 border-t border-black/[0.05] pt-1.5">
-          <div className="truncate text-[11.5px] text-black/60">{source.next_action}</div>
+          <div dir="auto" className="truncate text-[11.5px] text-black/60">{source.next_action}</div>
           <div className={cn('text-[10.5px] tabular-nums', DUE_CLASS[due])}>{dueLabel(source.next_action_due)}</div>
         </div>
       )}
@@ -111,7 +128,7 @@ const SourceCard: React.FC<{
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <section className="flex flex-col gap-2.5 border-t border-black/[0.06] pt-4 first:border-0 first:pt-0">
-    <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#6ea4e7]">{title}</h3>
+    <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-primary">{title}</h3>
     {children}
   </section>
 );
@@ -119,7 +136,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="grid grid-cols-1 gap-1 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-3">
     <span className="text-[12px] text-black/45">{label}</span>
-    <div className="min-w-0 text-[13px] text-[#0e0e10]">{children}</div>
+    <div className="min-w-0 text-[13px] text-foreground">{children}</div>
   </div>
 );
 
@@ -130,7 +147,7 @@ const Bool: React.FC<{ value: boolean | null; onChange: (v: boolean) => void; la
 const Link: React.FC<{ href: string | null }> = ({ href }) =>
   href ? (
     <a href={href} target="_blank" rel="noreferrer noopener"
-       className="inline-flex items-center gap-1 text-[#1f64bb] underline-offset-2 hover:underline">
+       className="inline-flex items-center gap-1 text-brand-hover underline-offset-2 hover:underline">
       <span className="truncate">{href.replace(/^https?:\/\//, '')}</span>
       <ExternalLink size={12} />
     </a>
@@ -290,9 +307,9 @@ const SourceDetail: React.FC<{
             ) : contacts.map((c) => (
               <div key={c.id} className="flex items-start gap-2 rounded-lg border border-black/[0.07] p-2.5">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-[13px] font-medium text-[#0e0e10]">
+                  <div className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
                     {c.full_name ?? '—'}
-                    {c.is_primary && <span className="rounded-full bg-[#6ea4e7]/12 px-1.5 text-[10px] font-medium text-[#1f64bb]">primary</span>}
+                    {c.is_primary && <span className="rounded-full bg-primary/12 px-1.5 text-[10px] font-medium text-brand-hover">primary</span>}
                   </div>
                   <div className="text-[11.5px] text-black/45">{c.role_title ?? '—'}</div>
                   <div className="mt-0.5 text-[12px] text-black/60">{c.email ?? '—'}{c.phone ? ` · ${c.phone}` : ''}{c.whatsapp ? ` · wa ${c.whatsapp}` : ''}</div>
@@ -302,14 +319,14 @@ const SourceDetail: React.FC<{
                 )}
                 <button type="button" aria-label="Delete contact"
                         onClick={() => { void deleteContact(c.id).then(reload); }}
-                        className="grid h-7 w-7 place-items-center rounded-md text-black/30 hover:bg-[#d4183d]/10 hover:text-[#d4183d]">
+                        className="grid h-7 w-7 place-items-center rounded-md text-black/30 hover:bg-destructive/10 hover:text-destructive">
                   <Trash2 size={14} />
                 </button>
               </div>
             ))}
 
             {draft ? (
-              <div className="flex flex-col gap-2 rounded-lg border border-[#6ea4e7]/30 bg-[#6ea4e7]/[0.04] p-2.5">
+              <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] p-2.5">
                 <Input placeholder="Full name" value={draft.full_name ?? ''} onChange={(e) => setDraft({ ...draft, full_name: e.target.value })} />
                 <Input placeholder="Role" value={draft.role_title ?? ''} onChange={(e) => setDraft({ ...draft, role_title: e.target.value })} />
                 <Input placeholder="Email" value={draft.email ?? ''} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
@@ -338,7 +355,7 @@ const SourceDetail: React.FC<{
                 {emails.map((m) => (
                   <div key={m.id} className="flex items-start gap-2 px-2.5 py-2">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12.5px] font-medium text-[#0e0e10]">{m.subject || '(no subject)'}</div>
+                      <div className="truncate text-[12.5px] font-medium text-foreground">{m.subject || '(no subject)'}</div>
                       <div className="truncate text-[11.5px] text-black/45">
                         {m.direction === 'inbound' ? 'from ' : 'to '}
                         {m.direction === 'inbound' ? (m.fromName || m.fromEmail || '—') : (m.toEmails?.[0] ?? '—')}
@@ -454,23 +471,23 @@ const SourcesPage: React.FC = () => {
         />
 
         {error && (
-          <div className="flex items-start gap-2 rounded-xl border border-[#d4183d]/20 bg-[#d4183d]/[0.05] p-3">
-            <AlertTriangle size={15} className="mt-px text-[#d4183d]" />
-            <span className="text-[12.5px] text-[#d4183d]">{error}</span>
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/[0.05] p-3">
+            <AlertTriangle size={15} className="mt-px text-destructive" />
+            <span className="text-[12.5px] text-destructive">{error}</span>
             <Button variant="outline" size="sm" className="ml-auto" onClick={() => { setLoading(true); void load(); }}>Retry</Button>
           </div>
         )}
 
         {dueNow.length > 0 && (
-          <div className="rounded-xl border border-[#d99a3d]/25 bg-[#d99a3d]/[0.06] p-3">
-            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[#a6702a]">
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3">
+            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-amber-700">
               Follow up ({dueNow.length})
             </div>
             <div className="flex flex-col gap-1">
               {dueNow.map((s) => (
                 <button key={s.id} type="button" onClick={() => setOpenId(s.id)}
                         className="flex items-center gap-2 rounded-md px-1.5 py-1 text-left hover:bg-white/60">
-                  <span className="text-[12.5px] font-medium text-[#0e0e10]">{s.name}</span>
+                  <span className="text-[12.5px] font-medium text-foreground">{s.name}</span>
                   <span className="min-w-0 flex-1 truncate text-[12px] text-black/55">{s.next_action ?? '—'}</span>
                   <span className={cn('shrink-0 text-[11px] tabular-nums', DUE_CLASS[dueState(s.next_action_due)])}>
                     {dueLabel(s.next_action_due)}
@@ -511,7 +528,8 @@ const SourcesPage: React.FC = () => {
             <div className="text-[13.5px] font-medium text-black/60">No source matches these filters</div>
           </div>
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-3">
+          <div className="-mx-1 max-h-[72vh] overflow-x-auto overflow-y-auto px-1 pb-3 scroll-smooth [scrollbar-color:rgb(0_0_0/0.18)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5">
+            <div className="flex w-max items-start gap-4">
             {STAGES.map((stage) => {
               const list = byStage.get(stage) ?? [];
               return (
@@ -519,25 +537,43 @@ const SourcesPage: React.FC = () => {
                   key={stage}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => drop(stage)}
-                  className="flex w-[248px] shrink-0 flex-col gap-2 rounded-xl bg-black/[0.02] p-2"
+                  className="flex w-[272px] shrink-0 flex-col"
                 >
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-black/55">
-                      {STAGE_LABEL[stage]}
-                    </span>
-                    <span className="text-[11px] tabular-nums text-black/35">{list.length}</span>
-                  </div>
-                  {list.map((s) => (
-                    <SourceCard key={s.id} source={s} onOpen={() => setOpenId(s.id)} onDragStart={() => { dragId.current = s.id; }} />
-                  ))}
-                  {list.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-black/[0.08] px-2 py-5 text-center text-[11.5px] text-black/25">
-                      Drop here
+                  {/* Detached header card with a 2px stage-coloured top border. */}
+                  <div
+                    className="mb-2 rounded-lg border border-black/[0.06] bg-white px-3 py-2.5"
+                    style={{ borderTopColor: STAGE_RAIL[stage], borderTopWidth: 2 }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-semibold text-black/80">{STAGE_LABEL[stage]}</span>
+                      <span className={cn(
+                        'inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+                        list.length > 0 ? 'bg-primary/10 text-primary' : 'bg-black/[0.05] text-black/30',
+                      )}>
+                        {list.length}
+                      </span>
                     </div>
-                  )}
+                  </div>
+
+                  <div className={cn(
+                    'flex flex-col gap-3 rounded-lg transition-colors',
+                    list.length === 0
+                      ? 'min-h-[160px] border border-dashed border-black/10 p-3'
+                      : 'min-h-[80px]',
+                  )}>
+                    {list.map((s) => (
+                      <SourceCard key={s.id} source={s} onOpen={() => setOpenId(s.id)} onDragStart={() => { dragId.current = s.id; }} />
+                    ))}
+                    {list.length === 0 && (
+                      <p className="px-2 py-6 text-center text-[11.5px] leading-relaxed text-black/25">
+                        No {STAGE_LABEL[stage].toLowerCase()} sources<br />Drag sources here
+                      </p>
+                    )}
+                  </div>
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </div>
@@ -555,7 +591,7 @@ const SourcesPage: React.FC = () => {
       )}
 
       {toast && (
-        <div role="status" className="fixed bottom-5 left-1/2 z-[1200] -translate-x-1/2 rounded-full border border-[#d4183d]/25 bg-[#fff5f6] px-4 py-2 text-[12.5px] text-[#d4183d] shadow-[0_6px_24px_rgb(0_0_0/0.12)]">
+        <div role="status" className="fixed bottom-5 left-1/2 z-[1200] -translate-x-1/2 rounded-full border border-destructive/25 bg-destructive px-4 py-2 text-[12.5px] text-destructive shadow-[0_6px_24px_rgb(0_0_0/0.12)]">
           {toast}
         </div>
       )}

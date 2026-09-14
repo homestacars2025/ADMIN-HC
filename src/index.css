@@ -9,7 +9,7 @@
 }
 
 :root {
-  --brand: #4ba6ea;
+  --brand: #6ea4e7;
   --brand-dark: #2e8fd4;
   --brand-light: #e8f4fd;
   --text-primary: #0f1117;
@@ -18,7 +18,7 @@
   --surface: #ffffff;
   --surface-secondary: #f9fafb;
   --border: #e5e7eb;
-  --border-focus: #4ba6ea;
+  --border-focus: #6ea4e7;
   --error: #ef4444;
   --error-bg: #fef2f2;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -35,7 +35,8 @@ html, body, #root {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  /* One stack, declared once in styles/theme.css as --font-sans. */
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--surface-secondary);

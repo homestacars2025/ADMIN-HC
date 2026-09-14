@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+// Loaded after index.css so the Stay-derived tokens win where the two overlap.
+import './styles/theme.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 

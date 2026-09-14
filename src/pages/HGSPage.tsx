@@ -81,7 +81,7 @@ function shortDirection(direction: string): string {
   return direction.trim().split(/\s+/)[0] ?? direction;
 }
 
-const DIRECTION_COLORS = ['#6ea4e7', '#8b9d77', '#c99a5b', '#a888c4', '#5fa8a0', '#c47f8a'];
+const DIRECTION_COLORS = ['var(--primary)', '#8b9d77', '#c99a5b', '#a888c4', '#5fa8a0', '#c47f8a'];
 
 /** Stable colour per fee type, so the same label always reads the same tint. */
 function directionColor(code: string): string {
@@ -118,19 +118,19 @@ const SummaryCard: React.FC<{
     <div
       className={cn(
         'rounded-xl border p-4 transition-colors',
-        warning ? 'border-[#d99a3d]/25 bg-[#d99a3d]/[0.06]' : 'border-black/[0.07] bg-white',
+        warning ? 'border-amber-500/25 bg-amber-500/[0.06]' : 'border-black/[0.07] bg-white',
       )}
     >
       <div className="flex items-center gap-1.5">
         <Icon
           size={14}
           strokeWidth={1.9}
-          className={warning ? 'text-[#a6702a]' : 'text-[#6ea4e7]'}
+          className={warning ? 'text-amber-700' : 'text-primary'}
         />
         <span
           className={cn(
             'text-[11px] font-medium uppercase tracking-[0.1em]',
-            warning ? 'text-[#a6702a]' : 'text-black/45',
+            warning ? 'text-amber-700' : 'text-black/45',
           )}
         >
           {label}
@@ -139,7 +139,7 @@ const SummaryCard: React.FC<{
       <div
         className={cn(
           'mt-2 text-[22px] font-semibold tabular-nums tracking-[-0.02em] sm:text-[26px]',
-          warning ? 'text-[#a6702a]' : 'text-[#0e0e10]',
+          warning ? 'text-amber-700' : 'text-foreground',
         )}
       >
         {value}
@@ -167,7 +167,7 @@ const TransitHistory: React.FC<{ state: HistoryState; onRetry: () => void }> = (
   if (state.status === 'error') {
     return (
       <div className="flex flex-col items-start gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-[12.5px] text-[#d4183d]">
+        <span className="text-[12.5px] text-destructive">
           {state.message ?? 'Could not load this history.'}
         </span>
         <Button variant="outline" size="sm" onClick={onRetry}>
@@ -191,7 +191,7 @@ const TransitHistory: React.FC<{ state: HistoryState; onRetry: () => void }> = (
           className="grid gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_110px] sm:items-center sm:gap-4"
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="truncate text-[13px] text-[#0e0e10]">
+            <span className="truncate text-[13px] text-foreground">
               {transit.tollLocation ?? 'Unknown exit'}
             </span>
             <DirectionBadge direction={transit.direction} />
@@ -199,7 +199,7 @@ const TransitHistory: React.FC<{ state: HistoryState; onRetry: () => void }> = (
           <span className="text-[12px] tabular-nums text-black/45 sm:text-right">
             {formatDateTime(transit.transitDatetime)}
           </span>
-          <span className="text-[13px] font-semibold tabular-nums text-[#0e0e10] sm:text-right">
+          <span className="text-[13px] font-semibold tabular-nums text-foreground sm:text-right">
             {formatLira(transit.amount)}
           </span>
         </li>
@@ -226,7 +226,7 @@ const CarRow: React.FC<{
     <div
       className={cn(
         'overflow-hidden rounded-xl border bg-white transition-colors',
-        expanded ? 'border-[#6ea4e7]/40 shadow-[0_1px_3px_rgb(0_0_0/0.05)]' : 'border-black/[0.07]',
+        expanded ? 'border-primary/40 shadow-[0_1px_3px_rgb(0_0_0/0.05)]' : 'border-black/[0.07]',
       )}
     >
       <button
@@ -237,13 +237,13 @@ const CarRow: React.FC<{
         aria-controls={openable && expanded ? panelId : undefined}
         className={cn(
           'flex min-h-[56px] w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors',
-          'focus-visible:ring-[3px] focus-visible:ring-[#6ea4e7]/25',
+          'focus-visible:ring-[3px] focus-visible:ring-primary/25',
           openable ? 'cursor-pointer hover:bg-black/[0.015]' : 'cursor-default',
         )}
       >
         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-[14px] font-semibold tracking-[-0.01em] text-[#0e0e10]">
+            <span className="truncate text-[14px] font-semibold tracking-[-0.01em] text-foreground">
               {car.plateNumber}
             </span>
             {car.hgsBarcode && (
@@ -266,7 +266,7 @@ const CarRow: React.FC<{
           </div>
         </div>
 
-        <span className="shrink-0 text-[14px] font-semibold tabular-nums text-[#0e0e10] sm:text-[15px]">
+        <span className="shrink-0 text-[14px] font-semibold tabular-nums text-foreground sm:text-[15px]">
           {formatLira(car.totalAmount)}
         </span>
 
@@ -276,7 +276,7 @@ const CarRow: React.FC<{
             strokeWidth={1.9}
             className={cn(
               'shrink-0 text-black/30 transition-transform duration-200',
-              expanded && 'rotate-180 text-[#6ea4e7]',
+              expanded && 'rotate-180 text-primary',
             )}
           />
         )}
@@ -422,11 +422,11 @@ const HGSPage: React.FC = () => {
         </div>
 
         {error && !loading && (
-          <div className="flex flex-col items-start gap-3 rounded-xl border border-[#d4183d]/20 bg-[#d4183d]/[0.05] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/[0.05] p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2">
-              <AlertTriangle size={15} strokeWidth={1.9} className="mt-px text-[#d4183d]" />
+              <AlertTriangle size={15} strokeWidth={1.9} className="mt-px text-destructive" />
               <div>
-                <div className="text-[13px] font-medium text-[#d4183d]">
+                <div className="text-[13px] font-medium text-destructive">
                   Could not load HGS data
                 </div>
                 <div className="mt-0.5 text-[12.5px] text-black/50">{error}</div>
@@ -499,14 +499,14 @@ const HGSPage: React.FC = () => {
                   onClick={() => setFilter(key)}
                   className={cn(
                     'relative z-[1] inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] tracking-[-0.006em] transition-colors duration-150 sm:px-3.5',
-                    active ? 'font-semibold text-[#6ea4e7]' : 'font-medium text-black/55 hover:text-black/80',
+                    active ? 'font-semibold text-primary' : 'font-medium text-black/55 hover:text-black/80',
                   )}
                 >
                   {label}
                   <span
                     className={cn(
                       'tabular-nums',
-                      active ? 'text-[#6ea4e7]/60' : 'text-black/30',
+                      active ? 'text-primary/60' : 'text-black/30',
                     )}
                   >
                     {formatCount(counts[key])}

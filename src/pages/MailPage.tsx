@@ -39,7 +39,11 @@ import {
 } from '../components/media/MediaUI';
 
 /**
- * Unified email inbox — the three-pane shape (filters / list / reader).
+ * Unified email inbox — two panes with a toolbar above, per the Stay spec.
+ *
+ * Deliberately NOT a three-pane Gmail shape: Stay keeps filters in a toolbar so
+ * the whole feature stays inside one page-width grid. Unread is carried by weight
+ * plus a dot and never by a row tint, because the tint means "selected".
  *
  * The one thing worth knowing before editing: message bodies are rendered inside
  * a sandboxed iframe, never with dangerouslySetInnerHTML. `body_html` is written
@@ -98,11 +102,11 @@ const StarButton: React.FC<{ on: boolean; onToggle: () => void; label: string }>
     onClick={(e) => { e.stopPropagation(); onToggle(); }}
     className={cn(
       'grid h-7 w-7 shrink-0 place-items-center rounded-md transition-colors',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/35',
-      on ? 'text-[#d99a3d]' : 'text-black/20 hover:text-black/45',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
+      on ? 'text-amber-500' : 'text-black/20 hover:text-black/45',
     )}
   >
-    <StarIcon size={15} strokeWidth={on ? 2.2 : 1.8} className={on ? 'fill-[#d99a3d]' : ''} />
+    <StarIcon size={15} strokeWidth={on ? 2.2 : 1.8} className={on ? 'fill-amber-500' : ''} />
   </button>
 );
 
@@ -123,9 +127,11 @@ const HtmlBody: React.FC<{ html: string | null; text: string | null }> = ({ html
         }</pre>`;
     return `<!doctype html><meta charset="utf-8"><base target="_blank">
 <style>
-  body{margin:0;padding:2px;font:14px/1.6 ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0e0e10;word-break:break-word}
+  /* Literal values: this is a sandboxed document of its own, so the parent's
+     custom properties do not resolve inside it. */
+  body{margin:0;padding:2px;font:13px/1.6 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#121212;word-break:break-word}
   img{max-width:100%;height:auto} table{max-width:100%}
-  a{color:#1f64bb}
+  a{color:#5c91d3}
 </style>${content}`;
   }, [html, text]);
 
@@ -392,70 +398,56 @@ const MailPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mx-5 mt-4 flex items-start gap-2 rounded-xl border border-[#d4183d]/20 bg-[#d4183d]/[0.05] p-3 sm:mx-6 lg:mx-8">
-          <AlertTriangle size={15} className="mt-px text-[#d4183d]" />
-          <span className="text-[12.5px] text-[#d4183d]">{error}</span>
+        <div className="mx-5 mt-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/[0.05] p-3 sm:mx-6 lg:mx-8">
+          <AlertTriangle size={15} className="mt-px text-destructive" />
+          <span className="text-[12.5px] text-destructive">{error}</span>
           <Button variant="outline" size="sm" className="ml-auto" onClick={() => { setLoading(true); void load(); }}>
             Retry
           </Button>
         </div>
       )}
 
-      {/* Three panes on desktop; the reader takes over the screen on mobile. */}
-      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[210px_minmax(0,360px)_minmax(0,1fr)]">
-        {/* ── Filters ──────────────────────────────────────────────────── */}
-        <aside className={cn(
-          'border-black/[0.06] px-3 py-4 lg:border-r',
-          selectedId ? 'hidden lg:block' : 'block',
-        )}>
-          <nav className="flex flex-row gap-1 overflow-x-auto lg:flex-col">
-            {FILTERS.map((f) => {
-              const active = filter === f.key;
-              return (
-                <button
-                  key={f.key}
-                  type="button"
-                  onClick={() => { setFilter(f.key); setSelectedId(null); setThread([]); }}
-                  className={cn(
-                    'flex h-9 shrink-0 items-center justify-between gap-2 rounded-lg px-3 text-[13px] transition-colors',
-                    active ? 'bg-[#6ea4e7]/10 font-semibold text-[#1f64bb]' : 'font-medium text-black/60 hover:bg-black/[0.03]',
-                  )}
-                >
-                  {f.label}
-                  {f.key === 'unread' && unread > 0 && (
-                    <span className="rounded-full bg-[#6ea4e7] px-1.5 text-[10.5px] font-semibold text-white">{unread}</span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+      {/* Toolbar — filters live here, not in a rail. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.06] px-5 py-3 sm:px-6 lg:px-8">
+        <div className="min-w-[180px] flex-1 sm:max-w-[260px]">
+          <Input value={search} onChange={(e) => setSearch(e.target.value)}
+                 placeholder="Search subject, sender, source…" aria-label="Search mail" className="h-9 text-[13px]" />
+        </div>
+        <div className="flex items-center gap-0.5 overflow-x-auto rounded-full border border-black/[0.06] bg-black/[0.02] p-1">
+          {FILTERS.map((f) => {
+            const active = filter === f.key;
+            return (
+              <button key={f.key} type="button"
+                onClick={() => { setFilter(f.key); setSelectedId(null); setThread([]); }}
+                className={cn(
+                  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] tracking-[-0.008em] transition-colors',
+                  active
+                    ? 'bg-white font-semibold text-primary shadow-[0_1px_2px_rgb(0_0_0/0.07)] ring-1 ring-black/[0.05]'
+                    : 'font-medium text-black/55 hover:text-black/80',
+                )}>
+                {f.label}
+                {f.key === 'unread' && unread > 0 && (
+                  <span className="rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-white">{unread}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="w-[170px]">
+          <Select value={sourceFilter ?? ''} options={sourceOptions}
+                  onChange={(v) => { setSourceFilter(v || null); setSelectedId(null); }}
+                  ariaLabel="Filter by source" size="sm" />
+        </div>
+        <span className="ml-auto text-[11.5px] tabular-nums text-black/35">{visible.length} shown</span>
+      </div>
 
-          <div className="mt-4 hidden lg:block">
-            <div className="mb-1.5 px-3 text-[10.5px] font-medium uppercase tracking-[0.12em] text-black/35">Source</div>
-            <Select
-              value={sourceFilter ?? ''}
-              options={sourceOptions}
-              onChange={(v) => { setSourceFilter(v || null); setSelectedId(null); }}
-              ariaLabel="Filter by source"
-              size="sm"
-            />
-          </div>
-        </aside>
-
+      {/* Two panes, each scrolling independently at the house max-h-[72vh]. */}
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
         {/* ── Message list ─────────────────────────────────────────────── */}
         <section className={cn(
-          'border-black/[0.06] lg:border-r',
+          'border-black/[0.06] lg:max-h-[72vh] lg:overflow-y-auto lg:border-r',
           selectedId ? 'hidden lg:block' : 'block',
         )}>
-          <div className="border-b border-black/[0.06] p-3">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search subject, sender, source…"
-              aria-label="Search mail"
-            />
-          </div>
-
           <div className="divide-y divide-black/[0.04]">
             {loading ? (
               Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="m-3 h-16 rounded-lg" />)
@@ -477,21 +469,21 @@ const MailPage: React.FC = () => {
                     onClick={() => void open(m)}
                     className={cn(
                       'flex w-full min-h-[64px] items-start gap-2 px-3 py-2.5 text-left transition-colors',
-                      active ? 'bg-[#6ea4e7]/[0.07]' : 'hover:bg-black/[0.015]',
+                      active ? 'bg-primary/[0.05]' : 'hover:bg-black/[0.02]',
                     )}
                   >
                     <StarButton on={m.isStarred} onToggle={() => void toggleStar(m)} label="Star message" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className={cn('truncate text-[13px]', m.isRead ? 'text-black/70' : 'font-semibold text-[#0e0e10]')}>
+                        <span dir="auto" className={cn('truncate text-[13px] tracking-[-0.008em]', m.isRead ? 'font-medium text-black/70' : 'font-semibold text-black/90')}>
                           {m.fromName || m.fromEmail || (m.toEmails[0] ?? 'Unknown')}
                         </span>
                         <span className="shrink-0 text-[11px] tabular-nums text-black/40">{relativeTime(m.emailDate)}</span>
                       </div>
-                      <div className={cn('truncate text-[12.5px]', m.isRead ? 'text-black/55' : 'font-medium text-black/80')}>
+                      <div dir="auto" className={cn('truncate text-[12.5px]', m.isRead ? 'text-black/60' : 'font-medium text-black/80')}>
                         {m.subject || '(no subject)'}
                       </div>
-                      <div className="truncate text-[12px] text-black/35">{m.preview || '—'}</div>
+                      <p dir="auto" className="line-clamp-1 text-[12px] leading-relaxed text-black/40">{m.preview || '—'}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <SourceBadge item={m} />
                         {m.direction === 'outbound' && <StatusBadge item={m} />}
@@ -510,7 +502,7 @@ const MailPage: React.FC = () => {
         </section>
 
         {/* ── Reader ───────────────────────────────────────────────────── */}
-        <section className={cn('min-w-0', selectedId ? 'block' : 'hidden lg:block')}>
+        <section className={cn('min-w-0 lg:max-h-[72vh] lg:overflow-y-auto', selectedId ? 'block' : 'hidden lg:block')}>
           {!selected ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-20 text-center">
               <Mail size={26} strokeWidth={1.5} className="text-black/20" />
@@ -527,7 +519,7 @@ const MailPage: React.FC = () => {
                 >
                   <X size={15} />
                 </button>
-                <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-[#0e0e10]">
+                <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-foreground">
                   {selected.subject || '(no subject)'}
                 </h2>
                 <StarButton on={selected.isStarred} onToggle={() => void toggleStar(selected)} label="Star message" />
@@ -542,9 +534,9 @@ const MailPage: React.FC = () => {
               </div>
 
               {!selected.sourceId && (
-                <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.06] bg-[#d99a3d]/[0.06] px-4 py-2.5">
-                  <LinkIcon size={14} className="text-[#a6702a]" />
-                  <span className="text-[12.5px] text-[#a6702a]">Not linked to a source.</span>
+                <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.06] bg-amber-500/[0.06] px-4 py-2.5">
+                  <LinkIcon size={14} className="text-amber-700" />
+                  <span className="text-[12.5px] text-amber-700">Not linked to a source.</span>
                   <div className="ml-auto w-[220px]">
                     <Select
                       value=""
@@ -570,7 +562,7 @@ const MailPage: React.FC = () => {
                         <article key={m.id} className="rounded-xl border border-black/[0.07] bg-white">
                           <header className="flex flex-wrap items-start gap-x-3 gap-y-1 border-b border-black/[0.05] px-3.5 py-2.5">
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-[13px] font-semibold text-[#0e0e10]">
+                              <div className="truncate text-[13px] font-semibold text-foreground">
                                 {m.fromName || m.fromEmail || '—'}
                                 {m.fromName && m.fromEmail && (
                                   <span className="ml-1.5 font-normal text-black/40">&lt;{m.fromEmail}&gt;</span>
@@ -638,7 +630,7 @@ const MailPage: React.FC = () => {
           role="status"
           className={cn(
             'fixed bottom-5 left-1/2 z-[1200] -translate-x-1/2 rounded-full border px-4 py-2 text-[12.5px] shadow-[0_6px_24px_rgb(0_0_0/0.12)]',
-            toast.tone === 'ok' ? 'border-black/10 bg-white text-[#0e0e10]' : 'border-[#d4183d]/25 bg-[#fff5f6] text-[#d4183d]',
+            toast.tone === 'ok' ? 'border-black/10 bg-white text-foreground' : 'border-destructive/25 bg-destructive text-destructive',
           )}
         >
           {toast.text}
