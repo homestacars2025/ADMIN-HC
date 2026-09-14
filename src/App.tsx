@@ -23,6 +23,8 @@ import OperationsPage from './pages/OperationsPage';
 import KabisManagementPage from './pages/KabisManagementPage';
 import CarIssuesPage from './pages/CarIssuesPage';
 import InboxPage from './pages/InboxPage';
+import MailPage from './pages/MailPage';
+import SourcesPage from './pages/SourcesPage';
 import StaffPermissionsPage from './pages/StaffPermissionsPage';
 import SourcingPage from './pages/SourcingPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -89,6 +91,8 @@ const App: React.FC = () => {
           <Route path="kabis" element={<KabisManagementPage />} />
           <Route path="car-issues" element={<CarIssuesPage />} />
           <Route path="inbox" element={<InboxPage />} />
+          <Route path="mail" element={<MailPage />} />
+          <Route path="sources" element={<SourcesPage />} />
           <Route path="sourcing" element={<SourcingPage />} />
           <Route path="online-users" element={<OnlineUsersPage />} />
           <Route path="team" element={<TeamPage />} />

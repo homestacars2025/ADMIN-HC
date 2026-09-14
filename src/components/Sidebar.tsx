@@ -409,6 +409,28 @@ const operationsItems = [
     ),
   },
   {
+    label: 'Mail',
+    path: '/dashboard/mail',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M3 7l9 6 9-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Distribution Sources',
+    path: '/dashboard/sources',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.8"/>
+        <circle cx="5" cy="19" r="2.5" stroke="currentColor" strokeWidth="1.8"/>
+        <circle cx="19" cy="19" r="2.5" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M12 7.5v4m0 0l-5.5 5m5.5-5l5.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
     label: 'KABIS',
     path: '/dashboard/kabis',
     icon: (
