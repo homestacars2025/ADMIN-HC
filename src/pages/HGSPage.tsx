@@ -20,6 +20,7 @@ import {
 } from '../components/media/MediaIcons';
 import { PageHeader, useSlidingPill } from '../components/media/MediaShared';
 import { Button, Skeleton, Spinner } from '../components/media/MediaUI';
+import DateRangePicker, { ALL_DATES, type DateRange } from '../components/DateRangePicker';
 
 /**
  * HGS tolls — read-only.
@@ -32,7 +33,7 @@ import { Button, Skeleton, Spinner } from '../components/media/MediaUI';
  * memory — neither triggers a request.
  */
 
-// ── Local icons (MediaIcons carries no money / vehicle / arrow glyph) ─────────
+// ── Local icons (MediaIcons carries no money or vehicle glyph) ───────────────
 
 const mk = (paths: React.ReactNode): React.FC<IconProps> => ({ size = 16, strokeWidth = 1.75, className }) => (
   <svg
@@ -44,7 +45,6 @@ const mk = (paths: React.ReactNode): React.FC<IconProps> => ({ size = 16, stroke
 
 const Banknote = mk(<><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></>);
 const CarFront = mk(<><path d="M5 17H3v-4l2-5h14l2 5v4h-2" /><path d="M5 13h14" /><circle cx="7.5" cy="17" r="1.5" /><circle cx="16.5" cy="17" r="1.5" /></>);
-const ArrowRight = mk(<path d="M5 12h14M13 6l6 6-6 6" />);
 
 // ── Sorting ───────────────────────────────────────────────────────────────────
 
@@ -97,79 +97,6 @@ function nextSort(current: SortState, col: SortCol): SortState {
   return null;
 }
 
-// ── Date range ────────────────────────────────────────────────────────────────
-
-interface Range { from: string; to: string }
-const ALL_RANGE: Range = { from: '', to: '' };
-
-/** Local calendar days — a HGS transit carries a date, never a time. */
-function isoDay(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function preset(kind: 'this' | 'last' | '3m'): Range {
-  const now = new Date();
-  if (kind === 'this') return { from: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDay(now) };
-  if (kind === 'last') {
-    return {
-      from: isoDay(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-      to: isoDay(new Date(now.getFullYear(), now.getMonth(), 0)),   // day 0 = last day of previous month
-    };
-  }
-  return { from: isoDay(new Date(now.getFullYear(), now.getMonth() - 2, 1)), to: isoDay(now) };
-}
-
-const QUICK: Array<{ key: string; label: string; make: () => Range }> = [
-  { key: 'this', label: 'This month',    make: () => preset('this') },
-  { key: 'last', label: 'Last month',    make: () => preset('last') },
-  { key: '3m',   label: 'Last 3 months', make: () => preset('3m') },
-  { key: 'all',  label: 'All',           make: () => ALL_RANGE },
-];
-
-const DateRangeFilter: React.FC<{ value: Range; onChange: (r: Range) => void }> = ({ value, onChange }) => {
-  const dateInput =
-    'h-8 rounded-lg border border-input bg-background px-2 text-[12.5px] text-foreground outline-none ' +
-    'transition-colors focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/20';
-  return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-black/[0.06] bg-black/[0.012] p-3">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {QUICK.map((q) => {
-          const r = q.make();
-          const active = value.from === r.from && value.to === r.to;
-          return (
-            <button
-              key={q.key}
-              type="button"
-              onClick={() => onChange(r)}
-              className={cn(
-                'h-7 rounded-full px-2.5 text-[11.5px] font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
-                active
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-white text-black/55 ring-1 ring-black/[0.07] hover:text-black/80',
-              )}
-            >
-              {q.label}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 text-[11.5px] text-black/45">
-          From
-          <input type="date" value={value.from} max={value.to || undefined}
-                 onChange={(e) => onChange({ ...value, from: e.target.value })} className={dateInput} />
-        </label>
-        <label className="flex items-center gap-1.5 text-[11.5px] text-black/45">
-          To
-          <input type="date" value={value.to} min={value.from || undefined}
-                 onChange={(e) => onChange({ ...value, to: e.target.value })} className={dateInput} />
-        </label>
-      </div>
-    </div>
-  );
-};
-
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
 const StatCard: React.FC<{
@@ -206,36 +133,66 @@ const StatCard: React.FC<{
 
 // ── Transit table ─────────────────────────────────────────────────────────────
 
+/** Four aligned columns above sm; a labelled stack below it, never a h-scroll. */
+const TRANSIT_GRID = 'sm:grid-cols-[104px_minmax(0,1fr)_minmax(0,1fr)_112px]';
+
+const Blank: React.FC = () => <span className="text-black/20">—</span>;
+
+const TransitRow: React.FC<{ transit: HgsTransit }> = ({ transit }) => (
+  <li className={cn(
+    'grid gap-x-3 gap-y-0.5 px-3 py-2.5 transition-colors hover:bg-black/[0.015]', TRANSIT_GRID,
+    'sm:items-center sm:py-2',
+  )}>
+    <span className="text-[12px] tabular-nums text-black/55">{formatDate(transit.transitDatetime)}</span>
+
+    <span className="flex min-w-0 items-baseline gap-1.5 text-[12.5px] text-foreground">
+      <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.08em] text-black/30 sm:hidden">
+        Entry
+      </span>
+      <span className="truncate">{transit.entryLocation ?? <Blank />}</span>
+    </span>
+
+    <span className="flex min-w-0 items-baseline gap-1.5 text-[12.5px] text-foreground">
+      <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.08em] text-black/30 sm:hidden">
+        Exit
+      </span>
+      <span className="truncate">{transit.exitLocation ?? transit.tollLocation ?? <Blank />}</span>
+    </span>
+
+    <span className={cn(
+      'text-[12.5px] font-semibold tabular-nums sm:text-right',
+      transit.amount < 0 ? 'text-destructive' : 'text-foreground',
+    )}>
+      {formatLira(transit.amount)}
+    </span>
+  </li>
+);
+
 const TransitTable: React.FC<{ rows: HgsTransit[] }> = ({ rows }) => {
   if (rows.length === 0) {
-    return <div className="rounded-lg border border-dashed border-black/[0.09] px-3 py-6 text-center text-[12px] text-black/30">
-      No transits in this range.
-    </div>;
+    return (
+      <div className="rounded-lg border border-dashed border-black/[0.09] px-3 py-6 text-center text-[12px] text-black/30">
+        No transits in this range.
+      </div>
+    );
   }
   return (
     <div className="overflow-hidden rounded-lg border border-black/[0.06] bg-white">
-      <div className="hidden grid-cols-[104px_minmax(0,1fr)_110px] gap-3 border-b border-black/[0.06] bg-black/[0.015] px-3 py-2 sm:grid">
-        {['Date', 'Route', 'Amount'].map((h, i) => (
-          <span key={h} className={cn('text-[10.5px] font-medium uppercase tracking-[0.08em] text-black/40', i === 2 && 'text-right')}>{h}</span>
+      <div className={cn('hidden gap-x-3 border-b border-black/[0.06] bg-black/[0.015] px-3 py-2 sm:grid', TRANSIT_GRID)}>
+        {(['Date', 'Entry', 'Exit', 'Amount'] as const).map((h) => (
+          <span
+            key={h}
+            className={cn(
+              'text-[10.5px] font-medium uppercase tracking-[0.08em] text-black/40',
+              h === 'Amount' && 'text-right',
+            )}
+          >
+            {h}
+          </span>
         ))}
       </div>
       <ul className="divide-y divide-black/[0.04]">
-        {rows.map((t) => (
-          <li key={t.id} className="grid gap-1 px-3 py-2 sm:grid-cols-[104px_minmax(0,1fr)_110px] sm:items-center sm:gap-3">
-            <span className="text-[12px] tabular-nums text-black/55">{formatDate(t.transitDatetime)}</span>
-            <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-[12.5px] text-foreground">
-              <span className="truncate">{t.entryLocation ?? '—'}</span>
-              <ArrowRight size={12} strokeWidth={2} className="shrink-0 text-black/25" />
-              <span className="truncate">{t.exitLocation ?? t.tollLocation ?? '—'}</span>
-            </span>
-            <span className={cn(
-              'text-[12.5px] font-semibold tabular-nums sm:text-right',
-              t.amount < 0 ? 'text-destructive' : 'text-foreground',
-            )}>
-              {formatLira(t.amount)}
-            </span>
-          </li>
-        ))}
+        {rows.map((t) => <TransitRow key={t.id} transit={t} />)}
       </ul>
     </div>
   );
@@ -262,7 +219,7 @@ const CarRow: React.FC<{
   const openable = car.transitCount > 0;
   const panelId = `hgs-history-${car.carId}`;
 
-  const [range, setRange] = useState<Range>(ALL_RANGE);
+  const [range, setRange] = useState<DateRange>(ALL_DATES);
   const [showDetails, setShowDetails] = useState(false);
 
   // String compare on the ISO day. Anything timezone-aware here would shift the
@@ -343,7 +300,15 @@ const CarRow: React.FC<{
 
           {history?.status === 'ready' && (
             <div className="flex flex-col gap-3">
-              <DateRangeFilter value={range} onChange={(r) => { setRange(r); setShowDetails(false); }} />
+              <div className="flex flex-wrap items-center gap-2">
+                <DateRangePicker
+                  value={range}
+                  onApply={(r) => { setRange(r); setShowDetails(false); }}
+                />
+                <span className="text-[11.5px] text-black/35">
+                  {ranged ? 'Filtered' : 'Showing every transit'}
+                </span>
+              </div>
 
               <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-primary/20 bg-primary/[0.05] px-4 py-3">
                 <span className="text-[12px] text-black/50">

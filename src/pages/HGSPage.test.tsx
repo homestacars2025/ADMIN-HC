@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HGSPage from './HGSPage';
 
@@ -38,15 +38,24 @@ const DASHBOARD = {
   ],
 };
 
-/** Two transits in different months, so a range filter has something to cut. */
+/**
+ * One transit today and one 200 days back, built relative to the clock so the
+ * "This month" assertion holds whatever month the suite runs in.
+ */
+const daysAgo = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00+00:00`;
+};
+
 const TRANSITS = [
   {
     id: 1, tollLocation: 'Mahmutbey', entryLocation: 'Avcılar', exitLocation: 'Mahmutbey',
-    direction: 'KMO ASYA KESIMI GECIS UCRETI', transitDatetime: '2026-09-08T00:00:00+00:00', amount: 148.5,
+    direction: 'KMO ASYA KESIMI GECIS UCRETI', transitDatetime: daysAgo(0), amount: 148.5,
   },
   {
     id: 2, tollLocation: 'İstoç', entryLocation: 'İkitelli', exitLocation: 'İstoç',
-    direction: 'KCO GECIS UCRETI', transitDatetime: '2026-07-04T00:00:00+00:00', amount: 596,
+    direction: 'KCO GECIS UCRETI', transitDatetime: daysAgo(200), amount: 596,
   },
 ];
 
@@ -102,15 +111,23 @@ test('details are collapsed until asked for, and the range total updates', async
   expect(screen.queryByText('Mahmutbey')).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: /Show details/i }));
+  // Entry and exit are separate cells now, not one joined string.
+  expect(screen.getByText('Avcılar')).toBeInTheDocument();
   expect(screen.getByText('Mahmutbey')).toBeInTheDocument();
-  expect(screen.getByText('Avcılar')).toBeInTheDocument();             // entry -> exit
 
-  // Narrow to September via the explicit inputs — deterministic whatever month
-  // the suite runs in. Selecting a range also re-collapses the detail table.
-  fireEvent.change(screen.getByLabelText(/From/i), { target: { value: '2026-09-01' } });
-  fireEvent.change(screen.getByLabelText(/To/i), { target: { value: '2026-09-30' } });
+  // Pick a range in the popover. Nothing filters until Apply, which is the
+  // whole point of staging the draft.
+  await userEvent.click(screen.getByRole('button', { name: /All dates/i }));
+  const dialog = within(screen.getByRole('dialog'));
 
-  expect(screen.getByText(/1 transit in range/)).toBeInTheDocument();
+  await userEvent.click(dialog.getByRole('button', { name: 'This month' }));
+  expect(screen.getByText(/2 transits in total/)).toBeInTheDocument();   // still unfiltered
+
+  await userEvent.click(dialog.getByRole('button', { name: 'Apply' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByText(/1 transit in range/)).toBeInTheDocument();    // July dropped
+
+  // Applying a range re-collapses the table, so re-open it.
   await userEvent.click(screen.getByRole('button', { name: /Show details/i }));
   expect(screen.getByText('Mahmutbey')).toBeInTheDocument();
   expect(screen.queryByText('İstoç')).not.toBeInTheDocument();
