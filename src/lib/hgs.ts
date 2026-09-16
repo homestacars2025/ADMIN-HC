@@ -22,6 +22,8 @@ export interface HgsCar {
   carId: number;
   plateNumber: string;
   hgsBarcode: string | null;
+  /** `model_group.name` — e.g. "Chery Tiggo 7 Pro". Null if the car has no group. */
+  modelGroup: string | null;
   transitCount: number;
   totalAmount: number;
   /** ISO timestamp, or null for a subscribed car that has never passed a toll. */
@@ -36,6 +38,9 @@ export interface HgsDashboard {
 export interface HgsTransit {
   id: number;
   tollLocation: string | null;
+  /** Where the car entered / left the toll road. Either may be absent upstream. */
+  entryLocation: string | null;
+  exitLocation: string | null;
   direction: string | null;
   transitDatetime: string;
   amount: number;
@@ -62,6 +67,7 @@ function parseCar(raw: Record<string, unknown>): HgsCar {
     carId: num(raw.car_id),
     plateNumber: text(raw.plate_number) ?? '—',
     hgsBarcode: text(raw.hgs_barcode),
+    modelGroup: text(raw.model_group),
     transitCount: num(raw.transit_count),
     totalAmount: num(raw.total_amount),
     lastTransit: text(raw.last_transit),
@@ -102,7 +108,7 @@ export async function getHgsDashboard(): Promise<HgsDashboard> {
 export async function getCarTransits(carId: number): Promise<HgsTransit[]> {
   const { data, error } = await supabase
     .from('hgs_transactions')
-    .select('id, toll_location, direction, transit_datetime, amount')
+    .select('id, toll_location, entry_location, exit_location, direction, transit_datetime, amount')
     .eq('car_id', carId)
     .order('transit_datetime', { ascending: false })
     .limit(500);
@@ -113,6 +119,8 @@ export async function getCarTransits(carId: number): Promise<HgsTransit[]> {
     return {
       id: num(raw.id),
       tollLocation: text(raw.toll_location),
+      entryLocation: text(raw.entry_location),
+      exitLocation: text(raw.exit_location),
       direction: text(raw.direction),
       transitDatetime: text(raw.transit_datetime) ?? '',
       amount: num(raw.amount),

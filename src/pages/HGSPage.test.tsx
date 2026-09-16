@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HGSPage from './HGSPage';
 
@@ -21,85 +21,127 @@ const DASHBOARD = {
   summary: { totalAmount: 1408.5, transitCount: 28, carsWithHgs: 41, carsWithoutHgs: 9 },
   cars: [
     {
-      carId: 39,
-      plateNumber: '06FHN975',
-      hgsBarcode: '1131524991',
-      transitCount: 5,
-      totalAmount: 744.5,
-      lastTransit: '2026-09-09T00:00:00+00:00',
+      carId: 39, plateNumber: '06FHN975', hgsBarcode: '1131524991',
+      modelGroup: 'Chery Tiggo 7 Pro',
+      transitCount: 5, totalAmount: 744.5, lastTransit: '2026-09-09T00:00:00+00:00',
     },
     {
-      carId: 7,
-      plateNumber: '34ABC123',
-      hgsBarcode: '1131500000',
-      transitCount: 0,
-      totalAmount: 0,
-      lastTransit: null,
+      carId: 51, plateNumber: '34HGC631', hgsBarcode: '1131524997',
+      modelGroup: 'Renault Clio',
+      transitCount: 2, totalAmount: 204.5, lastTransit: '2026-09-10T00:00:00+00:00',
+    },
+    {
+      carId: 7, plateNumber: '34ABC123', hgsBarcode: '1131500000',
+      modelGroup: null,
+      transitCount: 0, totalAmount: 0, lastTransit: null,
     },
   ],
 };
 
+/** Two transits in different months, so a range filter has something to cut. */
+const TRANSITS = [
+  {
+    id: 1, tollLocation: 'Mahmutbey', entryLocation: 'Avcılar', exitLocation: 'Mahmutbey',
+    direction: 'KMO ASYA KESIMI GECIS UCRETI', transitDatetime: '2026-09-08T00:00:00+00:00', amount: 148.5,
+  },
+  {
+    id: 2, tollLocation: 'İstoç', entryLocation: 'İkitelli', exitLocation: 'İstoç',
+    direction: 'KCO GECIS UCRETI', transitDatetime: '2026-07-04T00:00:00+00:00', amount: 596,
+  },
+];
+
 beforeEach(() => {
   mockGetHgsDashboard.mockReset().mockResolvedValue(DASHBOARD);
-  mockGetCarTransits.mockReset().mockResolvedValue([
-    {
-      id: 1,
-      tollLocation: 'Mahmutbey',
-      direction: 'KMO ASYA KESIMI GECIS UCRETI',
-      transitDatetime: '2026-09-08T07:14:00+00:00',
-      amount: 148.5,
-    },
-  ]);
+  mockGetCarTransits.mockReset().mockResolvedValue(TRANSITS);
 });
 
-test('renders summary in Turkish format and lists cars by spend', async () => {
+test('renders the summary in Turkish format and the model group column', async () => {
   render(<HGSPage />);
 
   expect(await screen.findByText('1.408,50 TL')).toBeInTheDocument();
   expect(screen.getByText('28')).toBeInTheDocument();
-  expect(screen.getByText('41')).toBeInTheDocument();
-  expect(screen.getByText('9')).toBeInTheDocument();
 
   expect(screen.getByText('06FHN975')).toBeInTheDocument();
-  expect(screen.getByText('744,50 TL')).toBeInTheDocument();
+  expect(screen.getByText('Chery Tiggo 7 Pro')).toBeInTheDocument();
+  expect(screen.getByText('Renault Clio')).toBeInTheDocument();
+  // A car with no model group falls back to an em-dash rather than blank.
+  expect(screen.getAllByText('—').length).toBeGreaterThan(0);
 });
 
-test('filters out cars with no transits', async () => {
+test('sorting cycles asc -> desc -> off on a column header', async () => {
   render(<HGSPage />);
   await screen.findByText('06FHN975');
-  expect(screen.getByText('34ABC123')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: /With transits/ }));
+  const plates = () =>
+    screen.getAllByText(/^(06FHN975|34HGC631|34ABC123)$/).map((n) => n.textContent);
 
-  expect(screen.queryByText('34ABC123')).not.toBeInTheDocument();
-  expect(screen.getByText('06FHN975')).toBeInTheDocument();
+  // Default is the RPC order: spend descending.
+  expect(plates()).toEqual(['06FHN975', '34HGC631', '34ABC123']);
+
+  const header = screen.getByRole('button', { name: /Sort by Plate/i });
+  await userEvent.click(header);
+  expect(plates()).toEqual(['06FHN975', '34ABC123', '34HGC631']);
+
+  await userEvent.click(header);
+  expect(plates()).toEqual(['34HGC631', '34ABC123', '06FHN975']);
+
+  await userEvent.click(header);   // third click clears back to the default
+  expect(plates()).toEqual(['06FHN975', '34HGC631', '34ABC123']);
 });
 
-test('expanding a car loads its history once', async () => {
+test('details are collapsed until asked for, and the range total updates', async () => {
   render(<HGSPage />);
   const row = await screen.findByText('06FHN975');
 
   await userEvent.click(row);
+  await waitFor(() => expect(mockGetCarTransits).toHaveBeenCalledTimes(1));
 
-  expect(await screen.findByText('Mahmutbey')).toBeInTheDocument();
-  expect(screen.getByText('148,50 TL')).toBeInTheDocument();
-  // The full provider label is the tooltip; the pill shows the leading token.
-  expect(screen.getByTitle('KMO ASYA KESIMI GECIS UCRETI')).toHaveTextContent('KMO');
-  expect(mockGetCarTransits).toHaveBeenCalledTimes(1);
+  // Both transits, summed, and no detail table yet.
+  expect(await screen.findByText('744,50 TL')).toBeInTheDocument();     // the row total
+  expect(screen.getByText(/2 transits in total/)).toBeInTheDocument();
+  expect(screen.queryByText('Mahmutbey')).not.toBeInTheDocument();
 
-  // Collapse and re-open — the kept entry must not trigger a second query.
+  await userEvent.click(screen.getByRole('button', { name: /Show details/i }));
+  expect(screen.getByText('Mahmutbey')).toBeInTheDocument();
+  expect(screen.getByText('Avcılar')).toBeInTheDocument();             // entry -> exit
+
+  // Narrow to September via the explicit inputs — deterministic whatever month
+  // the suite runs in. Selecting a range also re-collapses the detail table.
+  fireEvent.change(screen.getByLabelText(/From/i), { target: { value: '2026-09-01' } });
+  fireEvent.change(screen.getByLabelText(/To/i), { target: { value: '2026-09-30' } });
+
+  expect(screen.getByText(/1 transit in range/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /Show details/i }));
+  expect(screen.getByText('Mahmutbey')).toBeInTheDocument();
+  expect(screen.queryByText('İstoç')).not.toBeInTheDocument();
+});
+
+test('expanding a car fetches its history only once', async () => {
+  render(<HGSPage />);
+  const row = await screen.findByText('06FHN975');
+
   await userEvent.click(row);
-  await userEvent.click(row);
-  await waitFor(() => expect(screen.getByText('Mahmutbey')).toBeInTheDocument());
+  await waitFor(() => expect(mockGetCarTransits).toHaveBeenCalledTimes(1));
+  await userEvent.click(row);            // collapse
+  await userEvent.click(row);            // re-open — served from the kept entry
+  await waitFor(() => expect(screen.getByText(/2 transits in total/)).toBeInTheDocument());
   expect(mockGetCarTransits).toHaveBeenCalledTimes(1);
 });
 
 test('a car with no transits is not expandable', async () => {
   render(<HGSPage />);
   await screen.findByText('34ABC123');
+  expect(screen.getByText('34ABC123').closest('button')).toBeDisabled();
+});
 
-  const button = screen.getByText('34ABC123').closest('button');
-  expect(button).toBeDisabled();
+test('the All cars / With transits filter still works', async () => {
+  render(<HGSPage />);
+  await screen.findByText('06FHN975');
+  expect(screen.getByText('34ABC123')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: /With transits/ }));
+  expect(screen.queryByText('34ABC123')).not.toBeInTheDocument();
+  expect(screen.getByText('06FHN975')).toBeInTheDocument();
 });
 
 test('surfaces a load failure with a retry', async () => {
@@ -109,6 +151,6 @@ test('surfaces a load failure with a retry', async () => {
   expect(await screen.findByText('Could not load HGS data')).toBeInTheDocument();
   expect(screen.getByText('network down')).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: /Try again/ }));
+  await userEvent.click(screen.getAllByRole('button', { name: /Try again/ })[0]);
   expect(await screen.findByText('06FHN975')).toBeInTheDocument();
 });
