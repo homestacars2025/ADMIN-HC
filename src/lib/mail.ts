@@ -23,6 +23,34 @@ export type EmailSendStatus =
 
 export type SourcePriority = 'top' | 'high' | 'medium' | 'low';
 
+/**
+ * A mailbox the company sends and receives from. Rows live in `email_accounts`;
+ * nothing here hardcodes an address, so adding a third mailbox is a row, not a
+ * deploy.
+ */
+export interface EmailAccount {
+  id: string;
+  slug: string | null;
+  emailAddress: string;
+  label: string | null;
+  /** Hex, straight from the row — used for the dot beside a message. */
+  color: string | null;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+/**
+ * "Partners", "Info" — the one word that fits on a badge.
+ *
+ * Taken from the slug rather than the label because the labels are long by
+ * design ("Homesta Cars — Info / Customers") and a badge has room for a word.
+ */
+export function shortAccountName(account: Pick<EmailAccount, 'slug' | 'emailAddress'>): string {
+  const tail = (account.slug ?? '').split('-').pop() ?? '';
+  const word = tail || account.emailAddress.split('@')[0];
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : '—';
+}
+
 export interface InboxItem {
   id: string;
   direction: EmailDirection;
@@ -43,6 +71,12 @@ export interface InboxItem {
   contactId: string | null;
   contactName: string | null;
   preview: string | null;
+  /** Which mailbox this message belongs to. Null only for pre-accounts rows. */
+  accountId: string | null;
+  accountSlug: string | null;
+  accountLabel: string | null;
+  accountEmail: string | null;
+  accountColor: string | null;
 }
 
 export interface EmailAttachment {
@@ -74,7 +108,8 @@ export type InboxFilter =
 const VIEW_COLUMNS =
   'id, direction, send_status, subject, from_email, from_name, to_emails, email_date, ' +
   'is_read, is_archived, is_starred, thread_key, source_id, source_name, source_slug, ' +
-  'source_priority, contact_id, contact_name, preview';
+  'source_priority, contact_id, contact_name, preview, ' +
+  'account_id, account_slug, account_label, account_email, account_color';
 
 function strArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
@@ -101,7 +136,49 @@ function mapItem(raw: Record<string, unknown>): InboxItem {
     contactId: (raw.contact_id as string) ?? null,
     contactName: (raw.contact_name as string) ?? null,
     preview: (raw.preview as string) ?? null,
+    accountId: (raw.account_id as string) ?? null,
+    accountSlug: (raw.account_slug as string) ?? null,
+    accountLabel: (raw.account_label as string) ?? null,
+    accountEmail: (raw.account_email as string) ?? null,
+    accountColor: (raw.account_color as string) ?? null,
   };
+}
+
+// ── Accounts ──────────────────────────────────────────────────────────────────
+
+export async function listAccounts(): Promise<EmailAccount[]> {
+  const { data, error } = await supabase
+    .from('email_accounts')
+    .select('id, slug, email_address, label, color, is_default, sort_order')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((r) => {
+    const raw = r as unknown as Record<string, unknown>;
+    return {
+      id: String(raw.id),
+      slug: (raw.slug as string) ?? null,
+      emailAddress: String(raw.email_address ?? ''),
+      label: (raw.label as string) ?? null,
+      color: (raw.color as string) ?? null,
+      isDefault: raw.is_default === true,
+      sortOrder: typeof raw.sort_order === 'number' ? raw.sort_order : 0,
+    };
+  });
+}
+
+/** Unread inbound per mailbox, keyed by account id — one request for all tabs. */
+export async function unreadByAccount(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('email_unread_counts').select('account_id, unread');
+  if (error) throw new Error(error.message);
+
+  const out: Record<string, number> = {};
+  for (const r of data ?? []) {
+    const raw = r as unknown as Record<string, unknown>;
+    out[String(raw.account_id)] = Number(raw.unread ?? 0);
+  }
+  return out;
 }
 
 // ── Reads ─────────────────────────────────────────────────────────────────────
@@ -110,7 +187,11 @@ function mapItem(raw: Record<string, unknown>): InboxItem {
  * The archived filter is the only one that *shows* archived mail; every other
  * filter hides it, which is what makes archiving useful at all.
  */
-export async function listInbox(filter: InboxFilter, sourceId?: string | null): Promise<InboxItem[]> {
+export async function listInbox(
+  filter: InboxFilter,
+  sourceId?: string | null,
+  accountId?: string | null,
+): Promise<InboxItem[]> {
   let q = supabase.from('inbox_view').select(VIEW_COLUMNS);
 
   if (filter === 'archived') q = q.eq('is_archived', true);
@@ -121,6 +202,7 @@ export async function listInbox(filter: InboxFilter, sourceId?: string | null): 
   if (filter === 'inbound') q = q.eq('direction', 'inbound');
   if (filter === 'outbound') q = q.eq('direction', 'outbound');
   if (sourceId) q = q.eq('source_id', sourceId);
+  if (accountId) q = q.eq('account_id', accountId);
 
   const { data, error } = await q.order('email_date', { ascending: false, nullsFirst: false }).limit(500);
   if (error) throw new Error(error.message);
@@ -197,6 +279,13 @@ export interface SendInput {
   inReplyTo?: string | null;
   sourceId?: string | null;
   contactId?: string | null;
+  /**
+   * The mailbox to send from. `accountId` stamps the row; `accountSlug` is what
+   * the Edge Function resolves the actual From address from — it re-resolves
+   * server-side rather than trusting either of these.
+   */
+  accountId?: string | null;
+  accountSlug?: string | null;
 }
 
 /**
@@ -223,6 +312,7 @@ export async function sendEmail(input: SendInput): Promise<string> {
       in_reply_to: input.inReplyTo ?? null,
       source_id: input.sourceId ?? null,
       contact_id: input.contactId ?? null,
+      account_id: input.accountId ?? null,
       email_date: new Date().toISOString(),
       is_read: true,
     })
@@ -239,6 +329,7 @@ export async function sendEmail(input: SendInput): Promise<string> {
       subject: input.subject,
       body_html: input.bodyHtml,
       message_row_id: rowId,
+      account_slug: input.accountSlug ?? undefined,
     },
   });
 

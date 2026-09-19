@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../lib/media/tokens.css';
 import { cn } from '../lib/media/badgeColor';
 import {
@@ -379,7 +380,11 @@ const SourceDetail: React.FC<{
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+/** Sources are B2B platforms, so mail to them leaves from the partnerships box. */
+const PARTNER_ACCOUNT_SLUG = 'homestacars-partners';
+
 const SourcesPage: React.FC = () => {
+  const navigate = useNavigate();
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -584,8 +589,14 @@ const SourcesPage: React.FC = () => {
           onClose={() => setOpenId(null)}
           onPatch={(fields) => void patch(open.id, fields)}
           onCompose={(email, name) => {
-            // The Mail page owns composing; this hands the address over.
-            window.location.assign(`/dashboard/mail?to=${encodeURIComponent(email)}&subject=${encodeURIComponent(name)}`);
+            // The Mail page owns composing; this hands the address over, along
+            // with the mailbox to use. A distribution source is a B2B platform,
+            // so it is partners@ and not the customer-facing inbox.
+            navigate(
+              `/dashboard/mail?to=${encodeURIComponent(email)}` +
+              `&subject=${encodeURIComponent(name)}` +
+              `&account=${encodeURIComponent(PARTNER_ACCOUNT_SLUG)}`,
+            );
           }}
         />
       )}

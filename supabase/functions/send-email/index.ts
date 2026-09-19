@@ -11,6 +11,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
  * The row itself is created by the caller before invoking this. That ordering is
  * deliberate — a message that exists but failed to send is recoverable from the
  * inbox, one that was never written is simply lost.
+ *
+ * It also decides which of the mailboxes in `email_accounts` the message leaves
+ * from, and stamps that account onto the row.
  */
 
 const CORS: Record<string, string> = {
@@ -34,7 +37,18 @@ interface Payload {
   subject?: string;
   body_html?: string;
   message_row_id?: string;
+  /** Which mailbox to send from, e.g. `homestacars-partners`. Optional. */
+  account_slug?: string;
 }
+
+interface Account {
+  id: string;
+  slug: string | null;
+  email_address: string;
+  label: string | null;
+}
+
+const ACCOUNT_COLUMNS = 'id, slug, email_address, label';
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -96,12 +110,62 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // used to trigger sends for arbitrary ids.
   const { data: row, error: rowErr } = await admin
     .from('email_messages')
-    .select('id, direction, send_status')
+    .select('id, direction, send_status, account_id')
     .eq('id', rowId)
     .single();
   if (rowErr || !row) return json({ error: 'That message row does not exist.' }, 404);
   if (row.direction !== 'outbound') return json({ error: 'That row is not an outbound message.' }, 400);
   if (row.send_status === 'sent') return json({ error: 'That message has already been sent.' }, 409);
+
+  // ── Resolve the sending mailbox ────────────────────────────────────────────
+  //
+  // Resolved here rather than taken from the browser: the From address is what
+  // the recipient replies to, and a reply that lands in the wrong inbox is not
+  // something the dashboard should be able to cause by sending a stray field.
+  //
+  // An unknown slug is refused outright. Quietly falling back to the default
+  // would send partner mail from info@, which is the exact confusion the second
+  // mailbox exists to prevent.
+  const slug = (payload.account_slug ?? '').trim();
+  let account: Account | null = null;
+
+  if (slug) {
+    const { data } = await admin
+      .from('email_accounts')
+      .select(ACCOUNT_COLUMNS)
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!data) return json({ error: `No active mailbox with the slug "${slug}".` }, 400);
+    account = data as Account;
+  } else if (row.account_id) {
+    // A reply inherits the mailbox of the conversation it belongs to.
+    const { data } = await admin
+      .from('email_accounts')
+      .select(ACCOUNT_COLUMNS)
+      .eq('id', row.account_id)
+      .maybeSingle();
+    account = (data as Account) ?? null;
+  }
+
+  if (!account) {
+    const { data } = await admin
+      .from('email_accounts')
+      .select(ACCOUNT_COLUMNS)
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .maybeSingle();
+    account = (data as Account) ?? null;
+  }
+
+  if (!account) {
+    return json({ error: 'No active sending mailbox is configured in email_accounts.' }, 500);
+  }
+
+  // Keep the row honest: it must show the mailbox the message actually left from.
+  if (row.account_id !== account.id) {
+    await admin.from('email_messages').update({ account_id: account.id }).eq('id', rowId);
+  }
 
   // ── Forward ────────────────────────────────────────────────────────────────
   let upstream: Response;
@@ -115,6 +179,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
         subject,
         body_html: bodyHtml,
         message_row_id: rowId,
+        // n8n uses these for the Resend `from` and `reply_to`; it falls back to
+        // its own env defaults only if they are missing.
+        account_slug: account.slug,
+        from_email: account.email_address,
+        from_name: account.label ?? '',
       }),
     });
   } catch (err) {
@@ -136,5 +205,5 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // means the UI never shows a handed-off message as a draft.
   await admin.from('email_messages').update({ send_status: 'queued' }).eq('id', rowId);
 
-  return json({ ok: true, message_row_id: rowId });
+  return json({ ok: true, message_row_id: rowId, from: account.email_address });
 });

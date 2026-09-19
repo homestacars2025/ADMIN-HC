@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import '../lib/media/tokens.css';
 import { cn } from '../lib/media/badgeColor';
 import {
@@ -6,16 +7,20 @@ import {
   assignSource,
   getBody,
   getThread,
+  listAccounts,
   listInbox,
   markRead,
   relativeTime,
   sendEmail,
   setArchived,
   setStarred,
+  shortAccountName,
   subscribeToMail,
+  unreadByAccount,
   PRIORITY_CLASS,
   STATUS_CLASS,
   STATUS_LABEL,
+  type EmailAccount,
   type EmailBody,
   type InboxFilter,
   type InboxItem,
@@ -90,6 +95,30 @@ const SourceBadge: React.FC<{ item: InboxItem }> = ({ item }) => {
       title={item.sourceSlug ?? undefined}
     >
       {item.sourceName}
+    </span>
+  );
+};
+
+/**
+ * Which mailbox a message belongs to, as a dot in the account's own colour.
+ *
+ * The colour comes from the row, never from a lookup table here — a third
+ * mailbox should need no change in this file.
+ */
+const AccountBadge: React.FC<{ item: InboxItem }> = ({ item }) => {
+  if (!item.accountSlug && !item.accountEmail) return null;
+  const name = shortAccountName({ slug: item.accountSlug, emailAddress: item.accountEmail ?? '' });
+  return (
+    <span
+      className="inline-flex h-[19px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-black/10 bg-black/[0.02] px-2 text-[10.5px] font-medium leading-none text-black/55"
+      title={item.accountEmail ?? undefined}
+    >
+      <span
+        aria-hidden="true"
+        className="h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: item.accountColor ?? '#9aa5b1' }}
+      />
+      {name}
     </span>
   );
 };
@@ -182,21 +211,37 @@ interface ComposeState {
   inReplyTo: string | null;
   sourceId: string | null;
   contactId: string | null;
+  /** The mailbox this will be sent from. Null falls back to the default. */
+  accountId: string | null;
 }
 
 const EMPTY_COMPOSE: ComposeState = {
   open: false, to: '', cc: '', subject: '', body: '',
-  threadKey: null, inReplyTo: null, sourceId: null, contactId: null,
+  threadKey: null, inReplyTo: null, sourceId: null, contactId: null, accountId: null,
 };
+
+/** Partnerships for anything aimed at a distribution source, otherwise the default. */
+const PARTNER_SLUG = 'homestacars-partners';
+
+function pickAccount(accounts: EmailAccount[], forSource: boolean): string | null {
+  if (accounts.length === 0) return null;
+  const partner = accounts.find((a) => a.slug === PARTNER_SLUG);
+  if (forSource && partner) return partner.id;
+  return (accounts.find((a) => a.isDefault) ?? accounts[0]).id;
+}
 
 const MailPage: React.FC = () => {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [accounts, setAccounts] = useState<EmailAccount[]>([]);
+  const [unreadPerAccount, setUnreadPerAccount] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [accountFilter, setAccountFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [thread, setThread] = useState<InboxItem[]>([]);
@@ -220,9 +265,14 @@ const MailPage: React.FC = () => {
 
   const load = useCallback(async () => {
     try {
-      const rows = await listInbox(filter, sourceFilter);
+      // Both in flight together: the tab badges must not wait on the list.
+      const [rows, unreadMap] = await Promise.all([
+        listInbox(filter, sourceFilter, accountFilter),
+        unreadByAccount().catch(() => ({} as Record<string, number>)),
+      ]);
       if (!mounted.current) return;
       setItems(rows);
+      setUnreadPerAccount(unreadMap);
       setError(null);
     } catch (err) {
       if (!mounted.current) return;
@@ -230,13 +280,43 @@ const MailPage: React.FC = () => {
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, [filter, sourceFilter]);
+  }, [filter, sourceFilter, accountFilter]);
 
   useEffect(() => { setLoading(true); void load(); }, [load]);
 
   useEffect(() => {
     listSources().then((s) => mounted.current && setSources(s)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    listAccounts()
+      .then((a) => mounted.current && setAccounts(a))
+      .catch((err) => mounted.current && setError(err instanceof Error ? err.message : 'Could not load mailboxes.'));
+  }, []);
+
+  /**
+   * Sources hands an address over as `?to=…&subject=…&account=<slug>`. It waits
+   * on the accounts because the slug in the URL has to resolve to an id before
+   * the composer can show which mailbox it is about to send from; the params are
+   * then cleared so a refresh does not reopen the sheet.
+   */
+  useEffect(() => {
+    if (accounts.length === 0) return;
+    const to = searchParams.get('to');
+    if (!to) return;
+
+    const slug = searchParams.get('account');
+    const matched = slug ? accounts.find((a) => a.slug === slug) : undefined;
+
+    setCompose({
+      ...EMPTY_COMPOSE,
+      open: true,
+      to,
+      subject: searchParams.get('subject') ?? '',
+      accountId: matched?.id ?? pickAccount(accounts, Boolean(slug)),
+    });
+    setSearchParams({}, { replace: true });
+  }, [accounts, searchParams, setSearchParams]);
 
   // Realtime keeps the list live; the 30s poll is the fallback for when the
   // socket cannot connect at all.
@@ -328,8 +408,17 @@ const MailPage: React.FC = () => {
       inReplyTo: body?.messageId ?? null,
       sourceId: item.sourceId,
       contactId: item.contactId,
+      // A reply always leaves from the mailbox the conversation lives in, so the
+      // next reply comes back to the same place.
+      accountId: item.accountId ?? pickAccount(accounts, Boolean(item.sourceId)),
     });
-  }, [bodies]);
+  }, [bodies, accounts]);
+
+  /** The mailbox the composer will send from — falls back to the default. */
+  const composeAccount = useMemo(
+    () => accounts.find((a) => a.id === compose.accountId) ?? accounts.find((a) => a.isDefault) ?? null,
+    [accounts, compose.accountId],
+  );
 
   const submitCompose = useCallback(async () => {
     if (!compose.to.trim() || !compose.subject.trim() || !compose.body.trim()) {
@@ -352,6 +441,8 @@ const MailPage: React.FC = () => {
         inReplyTo: compose.inReplyTo,
         sourceId: compose.sourceId,
         contactId: compose.contactId,
+        accountId: composeAccount?.id ?? null,
+        accountSlug: composeAccount?.slug ?? null,
       });
       if (!mounted.current) return;
       setCompose(EMPTY_COMPOSE);
@@ -362,7 +453,7 @@ const MailPage: React.FC = () => {
     } finally {
       if (mounted.current) setSending(false);
     }
-  }, [compose, load, showToast]);
+  }, [compose, composeAccount, load, showToast]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -391,7 +482,17 @@ const MailPage: React.FC = () => {
             title="Mail"
             subtitle="Every message to and from the distribution sources, in one place."
           />
-          <Button variant="default" size="sm" className="self-start" onClick={() => setCompose({ ...EMPTY_COMPOSE, open: true })}>
+          <Button
+            variant="default"
+            size="sm"
+            className="self-start"
+            onClick={() => setCompose({
+              ...EMPTY_COMPOSE,
+              open: true,
+              // Composing while a source is filtered is B2B by definition.
+              accountId: accountFilter ?? pickAccount(accounts, Boolean(sourceFilter)),
+            })}
+          >
             New message
           </Button>
         </div>
@@ -404,6 +505,62 @@ const MailPage: React.FC = () => {
           <Button variant="outline" size="sm" className="ml-auto" onClick={() => { setLoading(true); void load(); }}>
             Retry
           </Button>
+        </div>
+      )}
+
+      {/* Mailbox switcher — the primary axis, so it sits above the filters and
+          not among them. Scrolls rather than wraps on a phone. */}
+      {accounts.length > 1 && (
+        <div className="flex items-center gap-2 border-b border-black/[0.06] px-5 py-2.5 sm:px-6 lg:px-8">
+          <div
+            role="tablist"
+            aria-label="Mailbox"
+            className="flex items-center gap-0.5 overflow-x-auto rounded-full border border-black/[0.06] bg-black/[0.02] p-1"
+          >
+            {[null, ...accounts].map((account) => {
+              const id = account?.id ?? null;
+              const active = accountFilter === id;
+              const unreadHere = account
+                ? unreadPerAccount[account.id] ?? 0
+                : Object.values(unreadPerAccount).reduce((sum, n) => sum + n, 0);
+
+              return (
+                <button
+                  key={id ?? 'all'}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  title={account?.emailAddress}
+                  onClick={() => { setAccountFilter(id); setSelectedId(null); setThread([]); }}
+                  className={cn(
+                    'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] tracking-[-0.008em] transition-colors',
+                    active
+                      ? 'bg-white font-semibold text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.07)] ring-1 ring-black/[0.05]'
+                      : 'font-medium text-black/55 hover:text-black/80',
+                  )}
+                >
+                  {account && (
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: account.color ?? '#9aa5b1' }}
+                    />
+                  )}
+                  {account ? shortAccountName(account) : 'All'}
+                  {unreadHere > 0 && (
+                    <span className="rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-white">
+                      {unreadHere}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <span className="hidden truncate text-[11.5px] text-black/35 sm:inline">
+            {accountFilter
+              ? accounts.find((a) => a.id === accountFilter)?.emailAddress
+              : accounts.map((a) => a.emailAddress).join(' · ')}
+          </span>
         </div>
       )}
 
@@ -485,6 +642,7 @@ const MailPage: React.FC = () => {
                       </div>
                       <p dir="auto" className="line-clamp-1 text-[12px] leading-relaxed text-black/40">{m.preview || '—'}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <AccountBadge item={m} />
                         <SourceBadge item={m} />
                         {m.direction === 'outbound' && <StatusBadge item={m} />}
                         {!m.sourceId && (
@@ -574,6 +732,7 @@ const MailPage: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
+                              <AccountBadge item={m} />
                               {m.direction === 'outbound' && <StatusBadge item={m} />}
                               <span className="text-[11px] tabular-nums text-black/40">{absoluteTime(m.emailDate)}</span>
                             </div>
@@ -608,6 +767,21 @@ const MailPage: React.FC = () => {
         </SheetHeader>
         <SheetBody>
           <div className="flex flex-col gap-3">
+            {accounts.length > 1 && (
+              <Field label="From">
+                <Select
+                  value={composeAccount?.id ?? ''}
+                  options={accounts.map((a) => ({
+                    value: a.id,
+                    label: `${shortAccountName(a)} — ${a.emailAddress}`,
+                    color: a.color,
+                  }))}
+                  onChange={(v) => setCompose((c) => ({ ...c, accountId: v || null }))}
+                  ariaLabel="Send from which mailbox"
+                  size="lg"
+                />
+              </Field>
+            )}
             <Field label="To"><Input value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="name@example.com, other@example.com" /></Field>
             <Field label="Cc"><Input value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Optional" /></Field>
             <Field label="Subject"><Input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} /></Field>
