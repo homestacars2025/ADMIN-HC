@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { cn } from '../lib/media/badgeColor';
 import { Button } from './media/MediaUI';
 
@@ -176,6 +177,29 @@ const MonthGrid: React.FC<{
   );
 };
 
+// ── Placement ─────────────────────────────────────────────────────────────────
+//
+// The panel is portalled to the body and placed in viewport coordinates, the
+// same way Select and DropdownMenu in MediaUI do it. Anchoring it absolutely
+// inside the trigger's own wrapper is what broke it: on the HGS page the picker
+// lives in an expanded car row that is `overflow-hidden`, so the calendar was
+// clipped by its ancestor instead of floating over the rows beneath.
+
+const PANEL_WIDTH = 290;   // the calendar's natural width
+const GAP = 6;             // breathing room between the trigger and the panel
+const EDGE = 8;            // keep-out margin from every viewport edge
+const MOBILE = 640;        // Tailwind's `sm`; below it the panel centres itself
+
+interface PanelPos {
+  top: number;
+  left: number;
+  width: number;
+}
+
+function samePos(a: PanelPos | null, b: PanelPos): a is PanelPos {
+  return a !== null && a.top === b.top && a.left === b.left && a.width === b.width;
+}
+
 // ── Picker ────────────────────────────────────────────────────────────────────
 
 const DateRangePicker: React.FC<{
@@ -187,7 +211,10 @@ const DateRangePicker: React.FC<{
   const [draft, setDraft] = useState<DateRange>(value);
   const [hovered, setHovered] = useState<string | null>(null);
   const [month, setMonth] = useState<Date>(() => startOfMonth(fromIso(value.from) ?? new Date()));
+  const [pos, setPos] = useState<PanelPos | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Opening always starts from what is currently applied, so cancelling by
   // clicking away cannot leave a stale half-selection behind.
@@ -200,17 +227,73 @@ const DateRangePicker: React.FC<{
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      // The panel lives in a body portal, so it is not inside the wrapper.
+      if (wrapRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  /**
+   * Places the panel against the trigger in viewport coordinates: below by
+   * default, flipped above when the space below cannot hold it and the space
+   * above holds more, and clamped so neither edge leaves the screen.
+   */
+  const place = useCallback(() => {
+    const trigger = triggerRef.current;
+    const panel = panelRef.current;
+    if (!trigger || !panel) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = Math.min(PANEL_WIDTH, vw - EDGE * 2);
+    const height = panel.offsetHeight;   // already capped by the panel's max-height
+
+    const below = vh - rect.bottom - GAP - EDGE;
+    const above = rect.top - GAP - EDGE;
+    const top = height > below && above > below ? rect.top - GAP - height : rect.bottom + GAP;
+
+    // On a phone the panel reads as a sheet, so it centres rather than tracking
+    // a trigger that may sit hard against one edge.
+    const left = vw < MOBILE ? (vw - width) / 2 : rect.left;
+
+    const next: PanelPos = {
+      top: Math.round(Math.max(EDGE, Math.min(top, vh - height - EDGE))),
+      left: Math.round(Math.max(EDGE, Math.min(left, vw - width - EDGE))),
+      width,
+    };
+    setPos((p) => (samePos(p, next) ? p : next));
+  }, []);
+
+  // Deliberately unkeyed: the panel's height changes as the month grid goes
+  // from five rows to six, so every render re-places it. `place` no-ops unless
+  // the result actually moved, so this cannot loop.
+  useLayoutEffect(() => { if (open) place(); });
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    // Capture phase, so a scroll inside any container moves the panel with it.
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, place]);
 
   const pick = useCallback((iso: string) => {
     setDraft((d) => {
@@ -236,8 +319,9 @@ const DateRangePicker: React.FC<{
   const isFiltered = Boolean(value.from || value.to);
 
   return (
-    <div ref={wrapRef} className={cn('relative', className)}>
+    <div ref={wrapRef} className={cn('inline-flex', className)}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => (open ? setOpen(false) : openPicker())}
         aria-haspopup="dialog"
@@ -263,75 +347,90 @@ const DateRangePicker: React.FC<{
         </svg>
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Choose a date range"
-          className={cn(
-            'absolute left-0 z-50 mt-1.5 w-[290px] max-w-[calc(100vw-2.5rem)] rounded-xl border border-black/[0.08]',
-            'bg-white p-3 shadow-[0_8px_24px_-12px_rgb(0_0_0/0.24)]',
-          )}
-        >
-          {/* Presets */}
-          <div className="flex flex-wrap gap-1.5 pb-2.5">
-            {PRESETS.map((p) => {
-              const r = p.make();
-              const active = sameRange(draft, r);
-              return (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => {
-                    setDraft(r);
-                    const anchor = fromIso(r.from);
-                    if (anchor) setMonth(startOfMonth(anchor));
-                  }}
-                  className={cn(
-                    'h-6 rounded-full px-2.5 text-[11px] font-medium transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
-                    active
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-black/[0.04] text-black/55 hover:bg-black/[0.07] hover:text-black/75',
-                  )}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
+      {open && ReactDOM.createPortal(
+        <>
+          {/* Phone-only scrim: the panel covers the row it belongs to, so it
+              needs to read as modal rather than as a stray floating card. */}
+          <div aria-hidden="true" className="fixed inset-0 z-[9999] bg-black/20 sm:hidden" />
 
-          {/* Month header */}
-          <div className="flex items-center justify-between border-t border-black/[0.06] pt-2.5">
-            <button
-              type="button" aria-label="Previous month" onClick={() => setMonth((m) => addMonths(m, -1))}
-              className="grid size-7 place-items-center rounded-md text-black/45 transition-colors hover:bg-black/[0.05] hover:text-black/70"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-            <span className="text-[12.5px] font-semibold capitalize tracking-[-0.008em] text-black/75">
-              {MONTH_YEAR.format(month)}
-            </span>
-            <button
-              type="button" aria-label="Next month" onClick={() => setMonth((m) => addMonths(m, 1))}
-              className="grid size-7 place-items-center rounded-md text-black/45 transition-colors hover:bg-black/[0.05] hover:text-black/70"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-            </button>
-          </div>
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-label="Choose a date range"
+            style={{
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              width: pos?.width ?? PANEL_WIDTH,
+              // Hidden for the single layout pass that measures it, before paint.
+              opacity: pos ? 1 : 0,
+            }}
+            className={cn(
+              'fixed z-[10000] max-h-[calc(100vh-1rem)] overflow-y-auto rounded-xl border border-black/[0.08]',
+              'bg-white p-3 shadow-[0_8px_24px_-12px_rgb(0_0_0/0.24)]',
+            )}
+          >
+            {/* Presets */}
+            <div className="flex flex-wrap gap-1.5 pb-2.5">
+              {PRESETS.map((p) => {
+                const r = p.make();
+                const active = sameRange(draft, r);
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => {
+                      setDraft(r);
+                      const anchor = fromIso(r.from);
+                      if (anchor) setMonth(startOfMonth(anchor));
+                    }}
+                    className={cn(
+                      'h-6 rounded-full px-2.5 text-[11px] font-medium transition-colors',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-black/[0.04] text-black/55 hover:bg-black/[0.07] hover:text-black/75',
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="pt-1.5">
-            <MonthGrid month={month} draft={draft} hovered={hovered} onPick={pick} onHover={setHovered} />
-          </div>
+            {/* Month header */}
+            <div className="flex items-center justify-between border-t border-black/[0.06] pt-2.5">
+              <button
+                type="button" aria-label="Previous month" onClick={() => setMonth((m) => addMonths(m, -1))}
+                className="grid size-7 place-items-center rounded-md text-black/45 transition-colors hover:bg-black/[0.05] hover:text-black/70"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+              <span className="text-[12.5px] font-semibold capitalize tracking-[-0.008em] text-black/75">
+                {MONTH_YEAR.format(month)}
+              </span>
+              <button
+                type="button" aria-label="Next month" onClick={() => setMonth((m) => addMonths(m, 1))}
+                className="grid size-7 place-items-center rounded-md text-black/45 transition-colors hover:bg-black/[0.05] hover:text-black/70"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+              </button>
+            </div>
 
-          {/* Staged selection + actions */}
-          <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-black/[0.06] pt-2.5">
-            <span className="min-w-0 truncate text-[11.5px] text-black/45">{formatRangeLabel(draft)}</span>
-            <div className="flex shrink-0 gap-1.5">
-              <Button variant="ghost" size="sm" onClick={clear}>Clear</Button>
-              <Button variant="default" size="sm" onClick={apply}>Apply</Button>
+            <div className="pt-1.5">
+              <MonthGrid month={month} draft={draft} hovered={hovered} onPick={pick} onHover={setHovered} />
+            </div>
+
+            {/* Staged selection + actions */}
+            <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-black/[0.06] pt-2.5">
+              <span className="min-w-0 truncate text-[11.5px] text-black/45">{formatRangeLabel(draft)}</span>
+              <div className="flex shrink-0 gap-1.5">
+                <Button variant="ghost" size="sm" onClick={clear}>Clear</Button>
+                <Button variant="default" size="sm" onClick={apply}>Apply</Button>
+              </div>
             </div>
           </div>
-        </div>
+        </>,
+        document.body,
       )}
     </div>
   );
