@@ -6,6 +6,7 @@ import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet, type ReplacementSheet } from '../lib/printReplacementSheet';
 import { useCurrency } from '../lib/CurrencyContext';
 import { LANGUAGE_OPTIONS, normalizeLanguage, type CustomerLanguage } from './CustomersPage';
+import { MonthNav } from '../components/shared/MonthNav';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -365,33 +366,6 @@ const Toast: React.FC<ToastState> = ({ message, type }) =>
     document.body,
   );
 
-// Month arrow nav button
-const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }> = ({ direction, onClick }) => {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: 36, height: 36, borderRadius: 10,
-        border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`,
-        background: hovered ? 'rgba(75,166,234,0.06)' : '#fff',
-        color: hovered ? '#4ba6ea' : '#6b7280',
-        cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 140ms ease', flexShrink: 0,
-      }}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-        {direction === 'left'
-          ? <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          : <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-        }
-      </svg>
-    </button>
-  );
-};
 
 // Table header cell
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
@@ -3757,13 +3731,12 @@ const BookingsPage: React.FC = () => {
         </div>
 
         {/* ── Month navigation ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 28 }}>
-          <MonthArrow direction="left"  onClick={() => setSelectedMonth(m => addMonths(m, -1))} />
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.4px', minWidth: 160, textAlign: 'center' }}>
-            {formatMonthLabel(selectedMonth)}
-          </span>
-          <MonthArrow direction="right" onClick={() => setSelectedMonth(m => addMonths(m, 1))} />
-        </div>
+        <MonthNav
+          label={formatMonthLabel(selectedMonth)}
+          onPrev={() => setSelectedMonth(m => addMonths(m, -1))}
+          onNext={() => setSelectedMonth(m => addMonths(m, 1))}
+          style={{ marginBottom: 28 }}
+        />
 
         {/* ── Stat cards ── */}
         <div className="bk-stats">
