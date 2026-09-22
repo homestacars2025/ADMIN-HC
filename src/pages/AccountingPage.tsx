@@ -4899,9 +4899,420 @@ const CompanyExpensesTab: React.FC = () => {
   );
 };
 
+// ─── Tab 5: Booking Accounts ──────────────────────────────────────────────────
+
+/** One money event from `booking_accounts_view` — a charge, a payment or a deposit. */
+interface BookingAccountRow {
+  ledger_id: string;
+  month_key: string;
+  booking_id: number;
+  booking_number: string | null;
+  customer_name: string | null;
+  car_id: number | null;
+  plate_number: string | null;
+  entry_type: string;
+  direction: string;
+  amount: number;
+  currency: string;
+  description: string | null;
+  created_at: string;
+  seq_in_type: number | null;
+  is_followup_charge: boolean;
+  received_from_customer: boolean;
+  received_by_manager: boolean;
+  logged_in_car_sheet: boolean;
+  car_sheet_transaction_id: number | null;
+  booking_balance: number | null;
+}
+
+type SettlementField = 'received_from_customer' | 'received_by_manager' | 'logged_in_car_sheet';
+
+const STEP_LABEL: Record<SettlementField, string> = {
+  received_from_customer: 'From customer',
+  received_by_manager:    'To manager',
+  logged_in_car_sheet:    'In car sheet',
+};
+
+/** Row tint by how many of the three steps are done. Soft fill, saturated rail. */
+function settlementTone(done: number): { bg: string; rail: string } {
+  if (done >= 3) return { bg: '#f0fdf4', rail: '#16a34a' };
+  if (done > 0)  return { bg: '#fffbeb', rail: '#b45309' };
+  return { bg: '#fef2f2', rail: '#ef4444' };
+}
+
+const ENTRY_CHIP: Record<string, { bg: string; fg: string }> = {
+  rental:  { bg: '#eef2ff', fg: '#4338ca' },
+  payment: { bg: '#ecfdf5', fg: '#047857' },
+  deposit: { bg: '#f5f3ff', fg: '#6d28d9' },
+};
+
+/** One settlement step: a pill that fills in when the step is done. */
+const TickButton: React.FC<{ on: boolean; label: string; busy: boolean; onClick: () => void }> = ({ on, label, busy, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={busy}
+    aria-pressed={on}
+    title={label}
+    style={{
+      display: 'flex', alignItems: 'center', gap: 5,
+      padding: '5px 9px', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
+      fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap',
+      border: on ? '1px solid #16a34a' : '1px solid #e5e7eb',
+      background: on ? '#16a34a' : '#fff',
+      color: on ? '#fff' : '#9ca3af',
+      opacity: busy ? 0.55 : 1,
+      transition: 'all 130ms ease',
+    }}
+  >
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+      {on
+        ? <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        : <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />}
+    </svg>
+    {label}
+  </button>
+);
+
+/**
+ * Booking Accounts.
+ *
+ * One row per money event, not per booking: a booking extended twice carries
+ * three rental charges, and each is collected, handed to the manager and
+ * written into the car sheet on its own.
+ *
+ * Membership and the extension badge both come from `type` and the charge's
+ * position within its booking — never from matching the description, because
+ * the hand-typed ones ('3 GUN EXTRA', 'باقي 290 دولار') match no pattern.
+ */
+const BookingAccountsTab: React.FC = () => {
+  const { fmt } = useCurrency();
+
+  const [monthKey, setMonthKey] = useState(currentMonthKey());
+  const [rows,     setRows]     = useState<BookingAccountRow[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [search,   setSearch]   = useState('');
+  const [busyIds,  setBusyIds]  = useState<Set<string>>(new Set());
+
+  // The row awaiting an optional car-sheet link, plus its candidate rows.
+  const [linking, setLinking] = useState<{ row: BookingAccountRow; options: FinancialTransaction[] } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    supabase
+      .from('booking_accounts_view')
+      .select('*')
+      .eq('month_key', monthKey)
+      .order('created_at', { ascending: false })
+      .then(({ data, error: err }) => {
+        if (cancelled) return;
+        if (err) { setError(err.message); setLoading(false); return; }
+        setRows(((data ?? []) as unknown as BookingAccountRow[]).map(r => ({ ...r, amount: Number(r.amount) })));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [monthKey]);
+
+  const markBusy = (id: string, on: boolean) =>
+    setBusyIds(prev => {
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+
+  /**
+   * Writes one step. The upsert names only that step's own columns, so the
+   * ON CONFLICT update touches just those and the other two steps already on
+   * the row are left as they were.
+   */
+  const applyTick = async (
+    row: BookingAccountRow,
+    field: SettlementField,
+    nextValue: boolean,
+    carSheetTxId?: number | null,
+  ) => {
+    markBusy(row.ledger_id, true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const payload: Record<string, unknown> = {
+      ledger_id:       row.ledger_id,
+      booking_id:      row.booking_id,
+      [field]:         nextValue,
+      [`${field}_by`]: nextValue ? (user?.id ?? null) : null,
+      [`${field}_at`]: nextValue ? new Date().toISOString() : null,
+    };
+    if (field === 'logged_in_car_sheet') {
+      payload.car_sheet_transaction_id = nextValue ? (carSheetTxId ?? null) : null;
+    }
+
+    // Optimistic — the tick should feel instant; a failure puts it back.
+    const before = row;
+    setRows(prev => prev.map(r => r.ledger_id === row.ledger_id
+      ? {
+          ...r,
+          [field]: nextValue,
+          ...(field === 'logged_in_car_sheet'
+            ? { car_sheet_transaction_id: nextValue ? (carSheetTxId ?? null) : null }
+            : {}),
+        }
+      : r));
+
+    const { error: err } = await supabase
+      .from('booking_settlement_status')
+      .upsert(payload, { onConflict: 'ledger_id' });
+
+    if (err) {
+      setRows(prev => prev.map(r => (r.ledger_id === row.ledger_id ? before : r)));
+      setError(err.message);
+    }
+    markBusy(row.ledger_id, false);
+  };
+
+  /**
+   * Ticking "in car sheet" on offers the matching Rent Collection rows first.
+   * The link is optional but worth asking for: `financial_transactions` has no
+   * booking_id, so this is the only moment the connection is knowable.
+   */
+  const handleCarSheetTick = async (row: BookingAccountRow, nextValue: boolean) => {
+    if (!nextValue)          { await applyTick(row, 'logged_in_car_sheet', false); return; }
+    if (row.car_id == null)  { await applyTick(row, 'logged_in_car_sheet', true);  return; }
+
+    const { data } = await supabase
+      .from('financial_transactions')
+      .select('*')
+      .eq('sheet_type', 'car')
+      .eq('category', 'Rent Collection')
+      .eq('car_id', row.car_id)
+      .eq('month_key', monthKey);
+
+    const options = (data ?? []) as FinancialTransaction[];
+    if (options.length === 0) { await applyTick(row, 'logged_in_car_sheet', true); return; }
+    setLinking({ row, options });
+  };
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(r =>
+      (r.booking_number ?? '').toLowerCase().includes(q) ||
+      (r.customer_name  ?? '').toLowerCase().includes(q) ||
+      (r.plate_number   ?? '').toLowerCase().includes(q) ||
+      (r.description    ?? '').toLowerCase().includes(q));
+  }, [rows, search]);
+
+  const stats = useMemo(() => {
+    const done      = rows.filter(r =>  r.received_from_customer &&  r.received_by_manager &&  r.logged_in_car_sheet).length;
+    const untouched = rows.filter(r => !r.received_from_customer && !r.received_by_manager && !r.logged_in_car_sheet).length;
+    return {
+      done,
+      untouched,
+      partial:    rows.length - done - untouched,
+      bookings:   new Set(rows.map(r => r.booking_id)).size,
+      extensions: rows.filter(r => r.is_followup_charge).length,
+    };
+  }, [rows]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* ── Toolbar ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+        <MonthNavigator monthKey={monthKey} onChange={setMonthKey} />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search booking, customer, plate…"
+          style={{
+            flex: '1 1 220px', maxWidth: 320, padding: '9px 13px', borderRadius: 10,
+            border: '1px solid #e5e7eb', fontSize: 13, fontFamily: 'inherit', color: '#0f1117', outline: 'none',
+          }}
+        />
+      </div>
+
+      {error && (
+        <div style={{ padding: '12px 16px', borderRadius: 11, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
+      {/* ── Counters ── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Money events', value: rows.length,      tint: '#0f1117', bg: '#f3f4f6' },
+          { label: 'Bookings',     value: stats.bookings,   tint: '#0f1117', bg: '#f3f4f6' },
+          { label: 'Extensions',   value: stats.extensions, tint: '#4338ca', bg: '#eef2ff' },
+          { label: 'Settled 3/3',  value: stats.done,       tint: '#16a34a', bg: '#f0fdf4' },
+          { label: 'Partial',      value: stats.partial,    tint: '#b45309', bg: '#fffbeb' },
+          { label: 'Not started',  value: stats.untouched,  tint: '#dc2626', bg: '#fef2f2' },
+        ].map(c => (
+          <div key={c.label} style={{ background: c.bg, borderRadius: 11, padding: '11px 16px', minWidth: 104 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{c.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: c.tint, letterSpacing: '-0.6px', marginTop: 2 }}>{c.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Table ── */}
+      {loading ? (
+        <div style={{ height: 260, borderRadius: 14, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      ) : visible.length === 0 ? (
+        <div style={{ padding: '54px 20px', textAlign: 'center', background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>No money events this month</div>
+          <div style={{ fontSize: 13, color: '#9ca3af' }}>
+            {search ? 'Nothing matches that search.' : `Nothing was charged, paid or deposited in ${monthLabel(monthKey)}.`}
+          </div>
+        </div>
+      ) : (
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1080 }}>
+              <thead>
+                <tr style={{ background: '#f8f9fb' }}>
+                  {['Booking', 'Customer', 'Plate', 'Entry', 'Amount', 'Date', 'Settlement'].map((h, i) => (
+                    <th key={h} style={{
+                      padding: '11px 14px', textAlign: i === 4 ? 'right' : 'left',
+                      fontSize: 10.5, fontWeight: 700, color: '#6b7280',
+                      textTransform: 'uppercase', letterSpacing: '0.7px',
+                      borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map(r => {
+                  const done = Number(r.received_from_customer) + Number(r.received_by_manager) + Number(r.logged_in_car_sheet);
+                  const tone = settlementTone(done);
+                  const chip = ENTRY_CHIP[r.entry_type] ?? { bg: '#f3f4f6', fg: '#6b7280' };
+                  const busy = busyIds.has(r.ledger_id);
+                  const isIn = r.direction?.toUpperCase() === 'IN';
+
+                  return (
+                    <tr key={r.ledger_id} style={{ background: tone.bg, borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '11px 14px', borderLeft: `3px solid ${tone.rail}`, whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0f1117' }}>{r.booking_number ?? `#${r.booking_id}`}</div>
+                        {r.is_followup_charge && (
+                          <span style={{
+                            display: 'inline-block', marginTop: 3, padding: '1px 7px', borderRadius: 999,
+                            background: '#eef2ff', color: '#4338ca', fontSize: 10, fontWeight: 700,
+                            textTransform: 'uppercase', letterSpacing: '0.5px',
+                          }}>
+                            Extension #{(r.seq_in_type ?? 2) - 1}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 12.5, color: '#374151', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {r.customer_name || '—'}
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 12.5, color: '#6b7280', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        {r.plate_number ?? '—'}
+                      </td>
+                      <td style={{ padding: '11px 14px', maxWidth: 230 }}>
+                        <span style={{
+                          display: 'inline-block', padding: '1px 7px', borderRadius: 6, marginRight: 6,
+                          background: chip.bg, color: chip.fg, fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                        }}>{r.entry_type}</span>
+                        <span style={{ fontSize: 12, color: '#6b7280' }}>{r.description || '—'}</span>
+                      </td>
+                      <td style={{ padding: '11px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{
+                          fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                          color: isIn ? '#16a34a' : '#0f1117',
+                        }}>
+                          {isIn ? '+' : '−'}{fmt(r.amount)}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: '#9ca3af', fontWeight: 600 }}>{r.direction}</div>
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 12, color: '#6b7280', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        {new Date(r.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}
+                      </td>
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <TickButton
+                            on={r.received_from_customer} busy={busy} label={STEP_LABEL.received_from_customer}
+                            onClick={() => void applyTick(r, 'received_from_customer', !r.received_from_customer)}
+                          />
+                          <TickButton
+                            on={r.received_by_manager} busy={busy} label={STEP_LABEL.received_by_manager}
+                            onClick={() => void applyTick(r, 'received_by_manager', !r.received_by_manager)}
+                          />
+                          <TickButton
+                            on={r.logged_in_car_sheet} busy={busy}
+                            label={r.car_sheet_transaction_id ? `${STEP_LABEL.logged_in_car_sheet} ·linked` : STEP_LABEL.logged_in_car_sheet}
+                            onClick={() => void handleCarSheetTick(r, !r.logged_in_car_sheet)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Optional car-sheet link ── */}
+      {linking && (
+        <div
+          onClick={() => setLinking(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15,17,23,0.42)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 520, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Link to a car-sheet row</div>
+              <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>
+                Rent Collection on {linking.row.plate_number ?? 'this car'} · {monthLabel(monthKey)}. Optional — but the car sheet has no booking id, so this is the only moment the link can be recorded.
+              </div>
+            </div>
+            <div style={{ maxHeight: 320, overflowY: 'auto', padding: 12 }}>
+              {linking.options.map(tx => (
+                <button
+                  key={tx.id}
+                  onClick={() => { const l = linking; setLinking(null); void applyTick(l.row, 'logged_in_car_sheet', true, tx.id); }}
+                  style={{
+                    display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                    padding: '11px 13px', marginBottom: 7, borderRadius: 10, cursor: 'pointer',
+                    border: '1px solid #e5e7eb', background: '#fff', fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums' }}>{fmt(tx.amount)}</div>
+                    <div style={{ fontSize: 11.5, color: '#9ca3af' }}>{tx.note || '—'}</div>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: '#6b7280', whiteSpace: 'nowrap' }}>{tx.date}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{ padding: '13px 22px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 9 }}>
+              <button
+                onClick={() => setLinking(null)}
+                style={{ padding: '8px 15px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { const l = linking; setLinking(null); void applyTick(l.row, 'logged_in_car_sheet', true, null); }}
+                style={{ padding: '8px 15px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Tick without linking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type AccountingTab = 'overview' | 'investor' | 'customer' | 'expenses';
+type AccountingTab = 'overview' | 'investor' | 'customer' | 'expenses' | 'bookings';
 
 const AccountingPage: React.FC = () => {
   const [activeTab,        setActiveTab]        = useState<AccountingTab>('overview');
@@ -4971,6 +5382,7 @@ const AccountingPage: React.FC = () => {
           { key: 'investor',  label: 'Investor Sheets'   },
           { key: 'customer',  label: 'Customer Sheets'   },
           { key: 'expenses',  label: 'Company Expenses'  },
+          { key: 'bookings',  label: 'Booking Accounts'  },
         ] as { key: AccountingTab; label: string }[]).map(tab => (
           <button
             key={tab.key}
@@ -4994,6 +5406,7 @@ const AccountingPage: React.FC = () => {
       {activeTab === 'investor'  && <InvestorSheetsTab   key={refreshKey} onViewReport={handleViewReport} />}
       {activeTab === 'customer'  && <CustomerSheetsTab   key={refreshKey} />}
       {activeTab === 'expenses'  && <CompanyExpensesTab  key={refreshKey} />}
+      {activeTab === 'bookings'  && <BookingAccountsTab  key={refreshKey} />}
 
       {/* Global Add Transaction */}
       {showAddTx && (
