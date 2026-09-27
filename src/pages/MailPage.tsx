@@ -26,7 +26,7 @@ import {
   type InboxItem,
 } from '../lib/mail';
 import { listSources, type Source } from '../lib/sources';
-import { AlertTriangle, Mail, SearchX, X, type IconProps } from '../components/media/MediaIcons';
+import { AlertTriangle, ArrowDown, ArrowUp, Mail, SearchX, X, type IconProps } from '../components/media/MediaIcons';
 import { PageHeader } from '../components/media/MediaShared';
 import { standaloneFontCss } from '../lib/standaloneFonts';
 import {
@@ -120,6 +120,46 @@ const AccountBadge: React.FC<{ item: InboxItem }> = ({ item }) => {
         style={{ backgroundColor: item.accountColor ?? '#9aa5b1' }}
       />
       {name}
+    </span>
+  );
+};
+
+/**
+ * Who the message is with — the recipient for something we sent, the sender for
+ * something we received.
+ *
+ * Outbound rows carry no `from_email` (the sender is decided by the Edge
+ * Function at send time, not stored on the row), so reading the counterparty off
+ * `from_*` alone showed the wrong party for half the inbox.
+ */
+function counterparty(item: InboxItem): string {
+  if (item.direction === 'outbound') return item.toEmails.join(', ') || 'Unknown';
+  return item.fromName || item.fromEmail || 'Unknown';
+}
+
+/**
+ * Direction, as an arrow plus a word. Both channels carry it — colour for a
+ * glance, the arrow and the label for everyone who cannot rely on colour alone.
+ */
+const DirectionBadge: React.FC<{ item: InboxItem }> = ({ item }) => {
+  const out = item.direction === 'outbound';
+  const Arrow = out ? ArrowUp : ArrowDown;
+  return (
+    <span
+      className={cn(
+        'inline-flex h-[19px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 text-[10.5px] font-medium leading-none',
+        out
+          ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700'
+          : 'border-primary/25 bg-primary/[0.08] text-brand-hover',
+      )}
+      title={out ? 'Sent by us' : 'Received'}
+    >
+      <Arrow
+        size={11}
+        strokeWidth={2.6}
+        className={out ? 'text-emerald-600' : 'text-destructive'}
+      />
+      {out ? 'Sent' : 'Received'}
     </span>
   );
 };
@@ -464,6 +504,9 @@ const MailPage: React.FC = () => {
       (m.subject ?? '').toLowerCase().includes(q) ||
       (m.fromName ?? '').toLowerCase().includes(q) ||
       (m.fromEmail ?? '').toLowerCase().includes(q) ||
+      // Recipients are now the displayed identity on sent mail, so searching the
+      // name the row shows has to find it.
+      m.toEmails.some((t) => t.toLowerCase().includes(q)) ||
       (m.preview ?? '').toLowerCase().includes(q) ||
       (m.sourceName ?? '').toLowerCase().includes(q));
   }, [items, search]);
@@ -634,8 +677,14 @@ const MailPage: React.FC = () => {
                     <StarButton on={m.isStarred} onToggle={() => void toggleStar(m)} label="Star message" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span dir="auto" className={cn('truncate text-[13px] tracking-[-0.008em]', m.isRead ? 'font-medium text-black/70' : 'font-semibold text-black/90')}>
-                          {m.fromName || m.fromEmail || (m.toEmails[0] ?? 'Unknown')}
+                        <span dir="auto" className={cn('flex min-w-0 items-center gap-1.5 text-[13px] tracking-[-0.008em]', m.isRead ? 'font-medium text-black/70' : 'font-semibold text-black/90')}>
+                          {m.direction === 'outbound'
+                            ? <ArrowUp size={12} strokeWidth={2.6} className="shrink-0 text-emerald-600" />
+                            : <ArrowDown size={12} strokeWidth={2.6} className="shrink-0 text-destructive" />}
+                          <span className="shrink-0 font-normal text-black/40">
+                            {m.direction === 'outbound' ? 'To:' : 'From:'}
+                          </span>
+                          <span className="truncate">{counterparty(m)}</span>
                         </span>
                         <span className="shrink-0 text-[11px] tabular-nums text-black/40">{relativeTime(m.emailDate)}</span>
                       </div>
@@ -644,6 +693,7 @@ const MailPage: React.FC = () => {
                       </div>
                       <p dir="auto" className="line-clamp-1 text-[12px] leading-relaxed text-black/40">{m.preview || '—'}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <DirectionBadge item={m} />
                         <AccountBadge item={m} />
                         <SourceBadge item={m} />
                         {m.direction === 'outbound' && <StatusBadge item={m} />}
@@ -722,10 +772,16 @@ const MailPage: React.FC = () => {
                         <article key={m.id} className="rounded-xl border border-black/[0.07] bg-white">
                           <header className="flex flex-wrap items-start gap-x-3 gap-y-1 border-b border-black/[0.05] px-3.5 py-2.5">
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-[13px] font-semibold text-foreground">
-                                {m.fromName || m.fromEmail || '—'}
-                                {m.fromName && m.fromEmail && (
-                                  <span className="ml-1.5 font-normal text-black/40">&lt;{m.fromEmail}&gt;</span>
+                              <div className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                                {m.direction === 'outbound'
+                                  ? <ArrowUp size={12} strokeWidth={2.6} className="shrink-0 text-emerald-600" />
+                                  : <ArrowDown size={12} strokeWidth={2.6} className="shrink-0 text-destructive" />}
+                                <span className="shrink-0 font-normal text-black/40">
+                                  {m.direction === 'outbound' ? 'To:' : 'From:'}
+                                </span>
+                                <span className="truncate">{counterparty(m)}</span>
+                                {m.direction === 'inbound' && m.fromName && m.fromEmail && (
+                                  <span className="truncate font-normal text-black/40">&lt;{m.fromEmail}&gt;</span>
                                 )}
                               </div>
                               <div className="truncate text-[11.5px] text-black/45">
@@ -734,6 +790,7 @@ const MailPage: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
+                              <DirectionBadge item={m} />
                               <AccountBadge item={m} />
                               {m.direction === 'outbound' && <StatusBadge item={m} />}
                               <span className="text-[11px] tabular-nums text-black/40">{absoluteTime(m.emailDate)}</span>
