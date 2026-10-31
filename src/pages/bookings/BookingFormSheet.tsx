@@ -190,6 +190,10 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     rental: null, deposit: null, payment: null,
   });
 
+  // An extension adds its own rental and payment rows. The form edits only the first
+  // of each, as it always has, so the summary adds the rest to stay truthful.
+  const [otherLedger, setOtherLedger] = useState({ rental: 0, paid: 0 });
+
   const busyCars = useBusyCars(form.start_date, form.end_date, editId);
   const selectedCar = cars.find((car) => String(car.id) === form.car_id) ?? null;
   const carIsBusy = Boolean(form.car_id && busyCars?.has(Number(form.car_id)));
@@ -299,6 +303,10 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
         const rental = rows.find((row) => row.type === 'rental') ?? null;
         const deposit = rows.find((row) => row.type === 'deposit') ?? null;
         const payment = rows.find((row) => row.type === 'payment') ?? null;
+        const sumOthers = (type: string, first: LedgerRow | null) => rows
+          .filter((row) => row.type === type && row.id !== first?.id)
+          .reduce((sum, row) => sum + Number(row.amount), 0);
+        setOtherLedger({ rental: sumOthers('rental', rental), paid: sumOthers('payment', payment) });
         setExistingLedger({
           rental: rental && { id: rental.id, amount: rental.amount },
           deposit: deposit && { id: deposit.id, amount: deposit.amount },
@@ -738,8 +746,8 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
   const isChanged = (field: string) => mode === 'edit' && changed.includes(field);
 
   const days = rangeDays(form.start_date, form.end_date);
-  const total = toTry(parseAmount(form.fin_rental_amount), form.fin_currency, usdRate);
-  const paid = toTry(parseAmount(form.fin_paid_amount), form.fin_currency, usdRate);
+  const total = toTry(parseAmount(form.fin_rental_amount), form.fin_currency, usdRate) + otherLedger.rental;
+  const paid = toTry(parseAmount(form.fin_paid_amount), form.fin_currency, usdRate) + otherLedger.paid;
   const insuranceLabel = PRESET_LABELS[form.insurance_type_select] && form.insurance_type_select !== OTHER_PRESET
     ? PRESET_LABELS[form.insurance_type_select]
     : insuranceValue(form);
@@ -1064,6 +1072,11 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
       <MoneyField label="Rental amount" value={form.fin_rental_amount} currency={form.fin_currency} rate={usdRate} changed={isChanged('fin_rental_amount')} onChange={(value) => set('fin_rental_amount', value)} />
       <MoneyField label="Deposit" value={form.fin_deposit_amount} currency={form.fin_currency} rate={usdRate} changed={isChanged('fin_deposit_amount')} onChange={(value) => set('fin_deposit_amount', value)} />
       <MoneyField label="Paid amount" value={form.fin_paid_amount} currency={form.fin_currency} rate={usdRate} changed={isChanged('fin_paid_amount')} onChange={(value) => set('fin_paid_amount', value)} />
+      {(otherLedger.rental > 0 || otherLedger.paid > 0) && (
+        <Notice tone="blue" span>
+          This booking also has {formatLira(otherLedger.rental)} in other rental charges and {formatLira(otherLedger.paid)} in other payments, from extensions. The summary includes them. Change those in Accounting.
+        </Notice>
+      )}
       {form.fin_currency === 'USD' && !usdRate && (
         <Notice tone="amber" span>Today's USD rate hasn't loaded yet.</Notice>
       )}
