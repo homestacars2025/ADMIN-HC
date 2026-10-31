@@ -22,7 +22,8 @@ import AccountingPage, { InvestorReportPage, CarCustomerSheetPage } from './page
 import CarTrackingPage from './pages/CarTrackingPage';
 import ActiveBookingsPage from './pages/ActiveBookingsPage';
 import PendingInvoicesPage from './pages/PendingInvoicesPage';
-import CustomersPage from './pages/CustomersPage';
+import CustomersPage from './pages/customers/CustomersPage';
+import CustomerProfilePage from './pages/customers/CustomerProfilePage';
 import GoogleReviewsPage from './pages/GoogleReviewsPage';
 import OperationsPage from './pages/OperationsPage';
 import KabisManagementPage from './pages/KabisManagementPage';
@@ -96,6 +97,7 @@ const App: React.FC = () => {
           <Route path="accounting/report" element={<InvestorReportPage />} />
           <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
           <Route path="customers" element={<CustomersPage />} />
+          <Route path="customers/:id" element={<CustomerProfilePage />} />
           <Route path="google-reviews" element={<GoogleReviewsPage />} />
           <Route path="operations" element={<OperationsPage />} />
           <Route path="kabis" element={<KabisManagementPage />} />

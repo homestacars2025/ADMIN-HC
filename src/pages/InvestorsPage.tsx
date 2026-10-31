@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/media/MediaUI';
+import { InvestorAvatar } from '../components/shared/PersonAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,19 +36,6 @@ interface EditForm {
 type FilterStatus = 'all' | 'active' | 'inactive';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getInitials(name: string | null): string {
-  if (!name) return '?';
-  return name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(id: string | number): string {
-  const colors = ['#4ba6ea', '#22c55e', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#ef4444'];
-  const key = String(id);
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
-}
 
 function formatRate(rate: number | null): string {
   if (rate == null) return '—';
@@ -550,33 +538,9 @@ const SkeletonRow: React.FC = () => (
 );
 
 // Avatar
-const Avatar: React.FC<{ investor: Investor; size?: number }> = ({ investor, size = 34 }) => {
-  const [imgError, setImgError] = useState(false);
-  const initials = getInitials(investor.full_name);
-  const color = getAvatarColor(investor.profile_id ?? investor.id);
-
-  if (investor.avatar_url && !imgError) {
-    return (
-      <img
-        src={investor.avatar_url}
-        alt={investor.full_name ?? ''}
-        onError={() => setImgError(true)}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    );
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: color,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <span style={{ fontSize: size * 0.33, fontWeight: 600, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
-        {initials}
-      </span>
-    </div>
-  );
-};
+const Avatar: React.FC<{ investor: Investor; size?: number }> = ({ investor, size = 34 }) => (
+  <InvestorAvatar person={investor} alt={investor.full_name ?? ''} size={size} />
+);
 
 // Field style
 const FIELD_STYLE: React.CSSProperties = {

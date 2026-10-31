@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { CustomerAvatar } from '../components/shared/PersonAvatar';
 
 interface ActiveBookingRow {
   booking_id: number;
@@ -247,9 +249,13 @@ const ActiveBookingsPage: React.FC = () => {
 
                       {/* Customer */}
                       <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontSize: 13, fontWeight: 500, color: '#0f1117' }}>
+                        <Link
+                          to={`/dashboard/customers/${row.customer_id}`}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, color: '#0f1117', textDecoration: 'none' }}
+                        >
+                          <CustomerAvatar size={28} />
                           {row.customer_full_name || '—'}
-                        </span>
+                        </Link>
                       </td>
 
                       {/* Phone */}

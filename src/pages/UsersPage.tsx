@@ -5,6 +5,7 @@ import { createUser, deleteUser, updateUserPassword } from '../lib/adminUsers';
 import { StaffDetailDrawer } from '../components/staff/StaffDetailDrawer';
 import { StaffIndicatorCell, useStaffIndicators } from '../components/staff/StaffIndicators';
 import StaffAvatar from '../components/shared/StaffAvatar';
+import { ProfileAvatar } from '../components/shared/PersonAvatar';
 import { COUNTRIES, parsePhone } from '../lib/phone';
 import { Button } from '../components/media/MediaUI';
 
@@ -1143,7 +1144,7 @@ const UsersPage: React.FC = () => {
                       {/* Name + Avatar */}
                       <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <StaffAvatar profile={user} alt={user.full_name ?? ''} size={34} />
+                          <ProfileAvatar profile={user} alt={user.full_name ?? ''} size={34} />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', lineHeight: 1.3 }}>
                               {user.full_name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>—</span>}

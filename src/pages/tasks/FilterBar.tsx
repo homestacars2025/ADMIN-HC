@@ -6,7 +6,7 @@ import { cn } from '../../lib/media/badgeColor';
 import type { TaskFilters } from '../../lib/tasks';
 import { staffName, type DepartmentOption, type StaffOption } from './shared';
 
-interface FilterOption {
+export interface FilterOption {
   value: string;
   label: string;
 }
@@ -14,7 +14,7 @@ interface FilterOption {
 const PILL = 'inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] transition-colors md:h-9';
 
 /** A filter that names its value once chosen, and clears from its own ×. */
-const FilterPill: React.FC<{
+export const FilterPill: React.FC<{
   label: string;
   value: string;
   options: FilterOption[];

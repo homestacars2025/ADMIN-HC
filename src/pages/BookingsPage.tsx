@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet, type ReplacementSheet } from '../lib/printReplacementSheet';
 import { useCurrency } from '../lib/CurrencyContext';
-import { LANGUAGE_OPTIONS, normalizeLanguage, type CustomerLanguage } from './CustomersPage';
+import { LANGUAGE_OPTIONS, normalizeLanguage, type CustomerLanguage } from '../lib/customers';
+import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { MonthNav } from '../components/shared/MonthNav';
 import { Button } from '../components/media/MediaUI';
 
@@ -468,7 +469,14 @@ const BookingTableRow: React.FC<RowProps> = ({
       </span>
     </td>
     <td style={{ padding: '9px 12px' }}>
-      <span style={{ fontSize: 13, color: '#374151' }}>{booking.customer_name}</span>
+      <Link
+        to={`/dashboard/customers/${booking.customer_id}`}
+        onClick={e => e.stopPropagation()}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151', textDecoration: 'none' }}
+      >
+        <CustomerAvatar size={26} />
+        {booking.customer_name}
+      </Link>
     </td>
     <td style={{ padding: '9px 12px' }}>
       <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
@@ -1086,13 +1094,15 @@ interface FormModalProps {
   initial: BookingFormData;
   editId?: number;
   editCustomerId?: number;
+  /** Add a booking for this customer rather than creating a new customer record. */
+  existingCustomerId?: string;
   onClose: () => void;
   onSaved: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
 
 const BookingFormModal: React.FC<FormModalProps> = ({
-  mode, initial, editId, editCustomerId, onClose, onSaved, showToast,
+  mode, initial, editId, editCustomerId, existingCustomerId, onClose, onSaved, showToast,
 }) => {
   const { rates } = useCurrency();
   const [form, setForm] = useState<BookingFormData>(initial);
@@ -1201,14 +1211,15 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     return () => { active = false; };
   }, [mode]);
 
-  // Fetch existing customer data in edit mode
+  // Fetch the customer this booking belongs to
   useEffect(() => {
-    if (mode !== 'edit' || !editCustomerId) return;
+    const customerId = mode === 'edit' ? editCustomerId : existingCustomerId;
+    if (!customerId) return;
     let active = true;
     supabase
       .from('customers')
       .select('*')
-      .eq('id', editCustomerId)
+      .eq('id', customerId)
       .single()
       .then(({ data, error }) => {
         if (!active || error || !data) return;
@@ -1249,7 +1260,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         });
       });
     return () => { active = false; };
-  }, [mode, editCustomerId]);
+  }, [mode, editCustomerId, existingCustomerId]);
 
   const set = <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
@@ -1308,7 +1319,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
   // ── ID-number auto-fill (add mode only, 500 ms debounce) ─────────────────
   useEffect(() => {
-    if (mode !== 'add') return;
+    if (mode !== 'add' || existingCustomerId) return;
     const idNum = form.cust_id_number.trim();
     if (!idNum) { setIdLookup('idle'); return; }
     setIdLookup('searching');
@@ -1344,7 +1355,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       setIdLookup('found');
     }, 500);
     return () => clearTimeout(t);
-  }, [form.cust_id_number, mode]);
+  }, [form.cust_id_number, mode, existingCustomerId]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -1373,29 +1384,28 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     setSaving(true);
 
     if (mode === 'add') {
-      // Step 1: create customer
+      // Step 1: create the customer, or update the one this booking was started from
       const phone = form.cust_phone
         ? `${form.cust_phone_dial}${form.cust_phone}`
         : null;
 
-      const { data: custData, error: custError } = await supabase
-        .from('customers')
-        .insert({
-          id_type:             form.cust_id_type,
-          id_number:           form.cust_id_number   || null,
-          first_name:          form.cust_first_name,
-          last_name:           form.cust_last_name,
-          phone:               phone,
-          nationality:         form.cust_nationality        || null,
-          language:            normalizeLanguage(form.cust_language),
-          driving_license_number: form.cust_driving_license || null,
-          address:             form.cust_address            || null,
-          birth_date:          form.cust_birth_date         || null,
-          license_issue_date:  form.cust_license_issue_date || null,
-          notes:               form.cust_notes              || null,
-        })
-        .select('id')
-        .single();
+      const customerFields = {
+        id_type:             form.cust_id_type,
+        id_number:           form.cust_id_number   || null,
+        first_name:          form.cust_first_name,
+        last_name:           form.cust_last_name,
+        phone:               phone,
+        nationality:         form.cust_nationality        || null,
+        language:            normalizeLanguage(form.cust_language),
+        driving_license_number: form.cust_driving_license || null,
+        address:             form.cust_address            || null,
+        birth_date:          form.cust_birth_date         || null,
+        license_issue_date:  form.cust_license_issue_date || null,
+        notes:               form.cust_notes              || null,
+      };
+      const { data: custData, error: custError } = existingCustomerId
+        ? await supabase.from('customers').update(customerFields).eq('id', existingCustomerId).select('id').single()
+        : await supabase.from('customers').insert(customerFields).select('id').single();
 
       if (custError) {
         setSaving(false);
@@ -3454,7 +3464,7 @@ const DeleteConfirm: React.FC<{
 
 const BookingsPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => getMonthStart(new Date()));
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [bookings, setBookings]           = useState<Booking[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
@@ -3474,6 +3484,21 @@ const BookingsPage: React.FC = () => {
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
   const [modal, setModal]                 = useState<null | 'add' | 'replacement' | { mode: 'edit'; booking: Booking }>(null);
+  const [bookingFor, setBookingFor]       = useState<string | undefined>(undefined);
+
+  // "New booking" on a customer opens the form for that customer, once.
+  useEffect(() => {
+    const customer = searchParams.get('customer');
+    if (searchParams.get('new') !== '1' || !customer) return;
+    setBookingFor(customer);
+    setModal('add');
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      next.delete('new');
+      next.delete('customer');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [sheetsRefresh, setSheetsRefresh]  = useState(0);
   const [deleteTarget, setDeleteTarget]   = useState<Booking | null>(null);
   const [extendTarget, setExtendTarget]   = useState<Booking | null>(null);
@@ -3913,8 +3938,9 @@ const BookingsPage: React.FC = () => {
         <BookingFormModal
           mode="add"
           initial={EMPTY_FORM}
+          existingCustomerId={bookingFor}
           showToast={showToast}
-          onClose={() => setModal(null)}
+          onClose={() => { setModal(null); setBookingFor(undefined); }}
           onSaved={() => {
             showToast('Booking added successfully', 'success');
             fetchStats(selectedMonth);

@@ -6,6 +6,7 @@ import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
 import { MonthNav } from '../components/shared/MonthNav';
 import StaffAvatar from '../components/shared/StaffAvatar';
+import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -3338,12 +3339,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                     {/* Name + booking */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                          <circle cx="12" cy="8" r="4" stroke="#4ba6ea" strokeWidth="1.8"/>
-                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/>
-                        </svg>
-                      </div>
+                      <CustomerAvatar size={36} />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', letterSpacing: '0.2px' }}>{custName.toUpperCase()}</div>
                         <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bookingLine || (cust.phone ?? '—')}</div>

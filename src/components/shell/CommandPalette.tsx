@@ -1,3 +1,4 @@
+import { CustomerAvatar } from '../shared/PersonAvatar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -143,8 +144,11 @@ export const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) =
                         active && 'bg-brand-strong/[0.08]',
                       )}
                     >
-                      <span className={cn('truncate text-[13.5px] text-foreground', (group === 'Cars' || group === 'Bookings') && 'font-mono tabular-nums')}>
-                        {result.title}
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        {group === 'Customers' && <CustomerAvatar size={28} />}
+                        <span className={cn('truncate text-[13.5px] text-foreground', (group === 'Cars' || group === 'Bookings') && 'font-mono tabular-nums')}>
+                          {result.title}
+                        </span>
                       </span>
                       <span className="shrink-0 truncate text-[12px] text-black/45">{result.subtitle}</span>
                     </button>

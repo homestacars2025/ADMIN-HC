@@ -118,7 +118,7 @@ export async function searchRecords(query: string): Promise<SearchResult[]> {
         group: 'Customers',
         title: name,
         subtitle: customer.phone ?? '',
-        to: `/dashboard/customers?q=${encodeURIComponent(name)}`,
+        to: `/dashboard/customers/${customer.id}`,
       };
     }),
   ];

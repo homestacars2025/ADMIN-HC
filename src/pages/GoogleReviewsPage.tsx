@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/media/MediaUI';
+import { CustomerAvatar } from '../components/shared/PersonAvatar';
+import { nationalityToFlag, whatsAppUrl } from '../lib/countries';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WEBHOOK — n8n endpoint that sends the WhatsApp review request.
@@ -70,75 +72,6 @@ interface ReviewCandidate {
   review_sent_at:        string | null;
 }
 
-// ─── Nationality → flag ───────────────────────────────────────────────────────
-
-/**
- * Nationality strings as they appear in `customers.nationality`, mapped to ISO
- * 3166-1 alpha-2. Keys are lowercased at lookup time, so casing here is free.
- * Anything unmapped falls back to a neutral globe rather than a wrong flag.
- */
-const NATIONALITY_TO_ISO: Record<string, string> = {
-  // Present in the data today
-  libya: 'LY', syria: 'SY', turkey: 'TR', 'türkiye': 'TR', turkiye: 'TR',
-  jordan: 'JO', yemen: 'YE', egypt: 'EG', algeria: 'DZ', morocco: 'MA',
-  tunisia: 'TN', palestine: 'PS', iraq: 'IQ', australia: 'AU', lebanon: 'LB',
-  nigeria: 'NG', canada: 'CA', austria: 'AT', kazakhstan: 'KZ', spain: 'ES',
-  'saudi arabia': 'SA', kenya: 'KE', sudan: 'SD', cuba: 'CU',
-  afghanistan: 'AF', 'south africa': 'ZA',
-  'united kingdom': 'GB', uk: 'GB', 'great britain': 'GB', england: 'GB', britain: 'GB',
-  'united states': 'US', usa: 'US', us: 'US', america: 'US',
-  // Common neighbours / likely future values
-  germany: 'DE', kuwait: 'KW', qatar: 'QA', bahrain: 'BH', oman: 'OM',
-  'united arab emirates': 'AE', uae: 'AE', 'saudi': 'SA',
-  france: 'FR', italy: 'IT', netherlands: 'NL', belgium: 'BE', switzerland: 'CH',
-  sweden: 'SE', norway: 'NO', denmark: 'DK', finland: 'FI', ireland: 'IE',
-  portugal: 'PT', greece: 'GR', cyprus: 'CY', poland: 'PL', romania: 'RO',
-  bulgaria: 'BG', serbia: 'RS', croatia: 'HR', albania: 'AL', 'bosnia and herzegovina': 'BA',
-  russia: 'RU', ukraine: 'UA', belarus: 'BY', moldova: 'MD', georgia: 'GE',
-  armenia: 'AM', azerbaijan: 'AZ', uzbekistan: 'UZ', turkmenistan: 'TM',
-  kyrgyzstan: 'KG', tajikistan: 'TJ', iran: 'IR', israel: 'IL',
-  india: 'IN', pakistan: 'PK', bangladesh: 'BD', china: 'CN', japan: 'JP',
-  'south korea': 'KR', indonesia: 'ID', malaysia: 'MY', philippines: 'PH',
-  somalia: 'SO', ethiopia: 'ET', ghana: 'GH', senegal: 'SN', mauritania: 'MR',
-  chad: 'TD', niger: 'NE', mali: 'ML', 'ivory coast': 'CI', cameroon: 'CM',
-  brazil: 'BR', argentina: 'AR', mexico: 'MX', 'new zealand': 'NZ',
-};
-
-/** ISO alpha-2 → regional-indicator flag emoji. */
-function isoToFlag(iso: string): string {
-  return iso
-    .toUpperCase()
-    .replace(/[^A-Z]/g, '')
-    .replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
-}
-
-/** Nationality string → { flag, label }. Unknown values get a neutral globe. */
-export function nationalityToFlag(nationality: string | null | undefined): { flag: string; label: string } {
-  const raw = (nationality ?? '').trim();
-  if (!raw) return { flag: '🌐', label: '—' };
-  const iso = NATIONALITY_TO_ISO[raw.toLowerCase()];
-  return { flag: iso ? isoToFlag(iso) : '🌐', label: raw };
-}
-
-// ─── Phone → WhatsApp ─────────────────────────────────────────────────────────
-
-/**
- * Reduces a stored phone to the bare digits wa.me expects: drop a leading '+',
- * strip every separator, then drop a leading international '00' prefix.
- * Returns null when nothing dialable is left.
- */
-export function toWhatsAppDigits(phone: string | null | undefined): string | null {
-  if (!phone) return null;
-  let digits = phone.trim().replace(/^\+/, '').replace(/\D/g, '');
-  if (digits.startsWith('00')) digits = digits.slice(2);
-  return digits.length >= 6 ? digits : null;
-}
-
-function whatsAppUrl(phone: string | null | undefined): string | null {
-  const digits = toWhatsAppDigits(phone);
-  return digits ? `https://wa.me/${digits}` : null;
-}
-
 // ─── De-duplication ───────────────────────────────────────────────────────────
 
 /**
@@ -186,12 +119,6 @@ function dash(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return '—';
   const s = String(v).trim();
   return s ? s : '—';
-}
-
-function initials(name: string | null): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
 /**
@@ -426,14 +353,7 @@ const NationalityCell: React.FC<{ nationality: string | null }> = ({ nationality
 
 const CustomerCell: React.FC<{ name: string | null; email: string | null }> = ({ name, email }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-    <div style={{
-      width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg, rgba(75,166,234,0.16) 0%, rgba(75,166,234,0.08) 100%)',
-      color: '#2e8fd4', fontSize: 11.5, fontWeight: 600,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      {initials(name)}
-    </div>
+    <CustomerAvatar alt={name ?? ''} size={32} />
     <div style={{ minWidth: 0 }}>
       <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f1117', whiteSpace: 'nowrap' }}>{dash(name)}</div>
       {email && (
