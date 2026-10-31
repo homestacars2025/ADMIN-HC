@@ -640,6 +640,53 @@ export async function setCustomerBan(customerId: string, banned: boolean, reason
   if (error) throw new Error(friendlyCustomerError(error.message).text);
 }
 
+/** OUT − IN across every booking, the same figure `extend_booking` works from. */
+export async function fetchCustomerBalance(customerId: string): Promise<number> {
+  const rows = await fetchAll<Pick<LedgerRow, 'amount' | 'direction'>>((from, to) => supabase
+    .from('customer_accounting_ledger')
+    .select('amount, direction')
+    .eq('customer_id', customerId)
+    .order('id')
+    .range(from, to));
+  return ledgerBalance(rows);
+}
+
+/**
+ * Hands a booking's money records to its new customer. Not one transaction: the
+ * booking itself has already moved, so a failure here is reported rather than undone.
+ */
+export async function moveBookingToCustomer(bookingId: number, customerId: string): Promise<void> {
+  const results = await Promise.all([
+    supabase.from('customer_accounting_ledger').update({ customer_id: customerId }).eq('booking_id', bookingId),
+    supabase.from('hgs_transactions').update({ customer_id: customerId }).eq('booking_id', bookingId),
+    supabase.from('replacement_sheets').update({ customer_id: customerId }).eq('original_booking_id', bookingId),
+  ]);
+  if (results.some((result) => result.error)) {
+    throw new Error("The booking moved, but some of its records didn't. Check its ledger.");
+  }
+}
+
+/** `extend_booking` writes its own descriptions, so a USD note goes on afterwards. */
+export async function appendLedgerNote(bookingId: number, type: 'rental' | 'payment', amount: number, note: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('customer_accounting_ledger')
+    .select('id, description')
+    .eq('booking_id', bookingId)
+    .eq('type', type)
+    .eq('amount', amount)
+    .like('description', type === 'rental' ? 'Rental extension%' : 'Extension payment%')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) throw new Error(error?.message ?? 'Ledger row not found');
+  const row = data as { id: string; description: string };
+  const { error: updateError } = await supabase
+    .from('customer_accounting_ledger')
+    .update({ description: `${row.description} ${note}` })
+    .eq('id', row.id);
+  if (updateError) throw new Error(updateError.message);
+}
+
 /** What someone typed into the search, sorted into the field it belongs in. */
 export function prefillFromQuery(query: string): { first_name?: string; last_name?: string; id_number?: string; phone?: string } {
   const text = query.trim().replace(/\s+/g, ' ');

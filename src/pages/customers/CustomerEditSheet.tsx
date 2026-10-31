@@ -101,7 +101,7 @@ const FieldError: React.FC<{ message?: string }> = ({ message }) => (
   message ? <p role="alert" className="text-[12px] text-[#B91C1C]">{message}</p> : null
 );
 
-const DialCodePicker: React.FC<{ value: string; onChange: (dial: string) => void }> = ({ value, onChange }) => {
+export const DialCodePicker: React.FC<{ value: string; onChange: (dial: string) => void }> = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);

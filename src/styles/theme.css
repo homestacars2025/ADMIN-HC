@@ -177,6 +177,14 @@ b, strong, th {
 
 /* ── Premium tiles ──────────────────────────────────────────────────────── */
 
+/* Team's `.surface-depth` for a white card: an inner top edge and a long quiet shadow. */
+.surface-depth {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 1px 2px rgb(16 24 40 / 0.04),
+    0 8px 24px -12px rgb(16 24 40 / 0.12);
+}
+
 /* The same soft lift as Team's `.surface-depth`: a highlight in the top corner,
    an inner top edge, and a long quiet shadow. */
 .tile-depth {

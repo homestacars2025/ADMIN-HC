@@ -55,7 +55,8 @@ const ResultRow: React.FC<{ row: CustomerSearchResult; onSelect: (row: CustomerS
 /** Finds an existing customer for a booking. Banned people show up, but can't be picked. */
 export const CustomerPicker: React.FC<{
   onSelect: (row: CustomerSearchResult) => void;
-  onNew: (query: string) => void;
+  /** Left out where a new customer can't be created, like when editing a booking. */
+  onNew?: (query: string) => void;
 }> = ({ onSelect, onNew }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CustomerSearchResult[]>([]);
@@ -143,13 +144,15 @@ export const CustomerPicker: React.FC<{
         <p className="text-[13px] text-black/50">No customer matches “{term}”.</p>
       )}
 
-      <button
-        type="button"
-        onClick={() => onNew(query)}
-        className="inline-flex h-11 items-center gap-1.5 self-start rounded-[10px] border border-subtle bg-surface px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-black/[0.03]"
-      >
-        <Plus size={14} /> New customer
-      </button>
+      {onNew && (
+        <button
+          type="button"
+          onClick={() => onNew(query)}
+          className="inline-flex h-11 items-center gap-1.5 self-start rounded-[10px] border border-subtle bg-surface px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-black/[0.03]"
+        >
+          <Plus size={14} /> New customer
+        </button>
+      )}
     </div>
   );
 };
