@@ -258,12 +258,15 @@ function isoToFlag(iso: string): string {
     .replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
 }
 
-/** Nationality string → { flag, label }. Unknown values get a neutral globe. */
+const ISO_BY_COUNTRY_NAME = new Map(COUNTRIES.map((country) => [country.name.toLowerCase(), country.code]));
+
+/** Nationality string → { flag, label }. Unknown values get no flag at all. */
 export function nationalityToFlag(nationality: string | null | undefined): { flag: string; label: string } {
   const raw = (nationality ?? '').trim();
-  if (!raw) return { flag: '🌐', label: '—' };
-  const iso = NATIONALITY_TO_ISO[raw.toLowerCase()];
-  return { flag: iso ? isoToFlag(iso) : '🌐', label: raw };
+  if (!raw) return { flag: '', label: '—' };
+  const key = raw.toLowerCase();
+  const iso = NATIONALITY_TO_ISO[key] ?? ISO_BY_COUNTRY_NAME.get(key);
+  return { flag: iso ? isoToFlag(iso) : '', label: raw };
 }
 
 // ─── Phone → WhatsApp ─────────────────────────────────────────────────────────

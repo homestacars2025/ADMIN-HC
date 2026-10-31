@@ -62,6 +62,50 @@ export const StarIcon: React.FC<{ size?: number; filled?: boolean }> = ({ size =
   </svg>
 );
 
+export const UsersIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
+  <svg width={size} height={size} {...ICON}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
+  </svg>
+);
+
+export const WalletIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
+  <svg width={size} height={size} {...ICON}>
+    <path d="M20 7H5a2 2 0 0 1 0-4h13v4" />
+    <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1" />
+    <path d="M17 14h.01" />
+  </svg>
+);
+
+export const UserPlusIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
+  <svg width={size} height={size} {...ICON}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M19 8v6M22 11h-6" />
+  </svg>
+);
+
+export const ClockIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
+  <svg width={size} height={size} {...ICON}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
+
+export const ReceiptIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
+  <svg width={size} height={size} {...ICON}>
+    <path d="M5 3v18l2.5-1.5L10 21l2-1.5L14 21l2.5-1.5L19 21V3l-2.5 1.5L14 3l-2 1.5L10 3 7.5 4.5 5 3z" />
+    <path d="M9 9h6M9 13h6" />
+  </svg>
+);
+
+export const RoadIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
+  <svg width={size} height={size} {...ICON}>
+    <path d="M7 3 3 21M17 3l4 18M12 5v3M12 11v3M12 17v3" />
+  </svg>
+);
+
 export const PlateChip: React.FC<{ plate: string | null; className?: string }> = ({ plate, className }) => (
   <span className={cn('inline-block whitespace-nowrap rounded-md border border-subtle bg-black/[0.03] px-2 py-0.5 font-mono text-[12px] font-semibold tabular-nums text-foreground', className)}>
     {plate ?? '—'}
@@ -70,28 +114,27 @@ export const PlateChip: React.FC<{ plate: string | null; className?: string }> =
 
 export const Flag: React.FC<{ nationality: string | null }> = ({ nationality }) => {
   const { flag, label } = nationalityToFlag(nationality);
+  if (!flag) return null;
   return <span role="img" aria-label={label} title={label} className="shrink-0 text-[14px] leading-none">{flag}</span>;
 };
 
 /** Red when the customer owes us, green when we hold their money, grey at zero. */
 export const BalancePill: React.FC<{ balance: number; className?: string }> = ({ balance, className }) => {
   const state = balanceState(balance);
-  const amount = <bdi className="tabular-nums">{formatLira(Math.abs(balance))}</bdi>;
+  const amount = formatLira(Math.abs(balance));
   return (
     <span
-      lang="ar"
-      dir="rtl"
       className={cn(
-        'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-medium',
+        'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-medium tabular-nums',
         state === 'owes' && 'bg-[#DC2626]/10 text-[#B91C1C]',
         state === 'credit' && 'bg-[#16A34A]/10 text-[#15803D]',
         state === 'clear' && 'bg-black/[0.05] text-black/50',
         className,
       )}
     >
-      {state === 'owes' && <>عليه {amount}</>}
-      {state === 'credit' && <>له {amount}</>}
-      {state === 'clear' && 'صفر'}
+      {state === 'owes' && `Owes ${amount}`}
+      {state === 'credit' && `Credit ${amount}`}
+      {state === 'clear' && 'Settled'}
     </span>
   );
 };

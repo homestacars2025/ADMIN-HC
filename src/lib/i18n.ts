@@ -1,47 +1,17 @@
-import { useCallback, useSyncExternalStore } from 'react';
-import ar from '../locales/ar';
+import { useCallback } from 'react';
 import en from '../locales/en';
 
 /**
- * A small translation runtime for notification and task messages.
+ * Renders notification and task messages from their `i18n_key`.
  *
- * The API mirrors the i18next surface the team app uses — `t`, `exists`,
- * `changeLanguage`, `useTranslation` — so both apps read the same way and the
- * same locale key files transfer between them. It is implemented locally rather
- * than by adding i18next because this app ships no i18n dependency and the
- * feature needs exactly this much: nested key lookup, `{{var}}` interpolation
- * and a language switch that re-renders.
- *
- * Scope is deliberately narrow. The dashboard chrome is written in English in
- * the source; only database-authored messages pass through here.
+ * Admin is English only. The dashboard chrome is written in the source; only
+ * database-authored messages pass through here, and the same key files are
+ * shared in shape with the team app, which also ships Arabic.
  */
 
-export type Lang = 'en' | 'ar';
-
-const BUNDLES: Record<Lang, unknown> = { en, ar };
-const STORAGE_KEY = 'admin:lang';
-const DEFAULT_LANG: Lang = 'en';
-
-function isLang(value: unknown): value is Lang {
-  return value === 'en' || value === 'ar';
-}
-
-function readStored(): Lang {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (isLang(stored)) return stored;
-  } catch {
-    // Blocked storage — the default is a fine answer.
-  }
-  return DEFAULT_LANG;
-}
-
-let current: Lang = readStored();
-const listeners = new Set<() => void>();
-
 /** Walks a dotted key (`reminder.missing_insurance.title`) into the bundle. */
-function lookup(lang: Lang, key: string): string | undefined {
-  let node: unknown = BUNDLES[lang];
+function lookup(key: string): string | undefined {
+  let node: unknown = en;
   for (const part of key.split('.')) {
     if (typeof node !== 'object' || node === null) return undefined;
     node = (node as Record<string, unknown>)[part];
@@ -68,62 +38,15 @@ export function hasGaps(rendered: string): boolean {
   return PLACEHOLDER.test(rendered);
 }
 
-export function exists(key: string | null | undefined, lang: Lang = current): boolean {
+export function exists(key: string | null | undefined): boolean {
   if (!key) return false;
-  return lookup(lang, key) !== undefined;
+  return lookup(key) !== undefined;
 }
 
-export function t(
-  key: string,
-  vars?: Record<string, unknown> | null,
-  lang: Lang = current,
-): string {
-  const template = lookup(lang, key);
+export function t(key: string, vars?: Record<string, unknown> | null): string {
+  const template = lookup(key);
   if (template === undefined) return key;
   return interpolate(template, vars);
-}
-
-export function getLanguage(): Lang {
-  return current;
-}
-
-export function dirFor(lang: Lang = current): 'ltr' | 'rtl' {
-  return lang === 'ar' ? 'rtl' : 'ltr';
-}
-
-export function changeLanguage(next: Lang): void {
-  if (!isLang(next) || next === current) return;
-  current = next;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, next);
-  } catch {
-    // Not persisting is survivable; the switch still applies for this session.
-  }
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-/**
- * Components read the language through this so a `changeLanguage` call
- * re-renders them immediately — no refetch, no reload.
- */
-export function useTranslation() {
-  const language = useSyncExternalStore(subscribe, getLanguage, () => DEFAULT_LANG);
-
-  const translate = useCallback(
-    (key: string, vars?: Record<string, unknown> | null) => t(key, vars, language),
-    [language],
-  );
-
-  const keyExists = useCallback((key: string | null | undefined) => exists(key, language), [language]);
-
-  return { t: translate, exists: keyExists, language, dir: dirFor(language), changeLanguage };
 }
 
 /**
@@ -141,37 +64,13 @@ export function renderMessage(
   key: string | null | undefined,
   vars: Record<string, unknown> | null | undefined,
   fallback: string | null | undefined,
-  translate: (key: string, vars?: Record<string, unknown> | null) => string,
-  keyExists: (key: string | null | undefined) => boolean,
 ): string {
-  if (!key || !keyExists(key)) return fallback ?? '';
-  const rendered = translate(key, vars);
+  if (!key || !exists(key)) return fallback ?? '';
+  const rendered = t(key, vars);
   if (hasGaps(rendered)) return fallback ?? rendered;
   return rendered;
 }
 
-/** Binds `renderMessage` to the active language for use inside a component. */
 export function useMessageRenderer() {
-  const { t: translate, exists: keyExists } = useTranslation();
-  return useCallback(
-    (
-      key: string | null | undefined,
-      vars: Record<string, unknown> | null | undefined,
-      fallback: string | null | undefined,
-    ) => renderMessage(key, vars, fallback, translate, keyExists),
-    [translate, keyExists],
-  );
-}
-
-// Exposed so the language can be flipped from the browser console, which is how
-// the switch is exercised until a language picker exists in the UI.
-if (typeof window !== 'undefined') {
-  (window as unknown as { i18n: unknown }).i18n = {
-    t,
-    exists,
-    changeLanguage,
-    get language() {
-      return current;
-    },
-  };
+  return useCallback(renderMessage, []);
 }

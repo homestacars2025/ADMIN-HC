@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { CalendarPlus, ChevronLeft, Mail, Pencil, Plus } from '../../components/media/MediaIcons';
+import { AlertTriangle, CalendarDays, CalendarPlus, ChevronLeft, Mail, Pencil, Plus } from '../../components/media/MediaIcons';
 import { MediaToaster, toast } from '../../components/media/MediaToast';
 import { Button } from '../../components/media/MediaUI';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
@@ -28,8 +28,9 @@ import { cn } from '../../lib/media/badgeColor';
 import { AddPaymentSheet } from './AddPaymentSheet';
 import { CustomerEditSheet } from './CustomerEditSheet';
 import { DocumentsTab } from './DocumentsTab';
+import { PremiumTile } from './PremiumTile';
 import { BookingsTab, FinesHgsTab, NotesTab, OverviewTab, WalletTab } from './ProfileTabs';
-import { BalancePill, Flag, ICON_BUTTON, PhoneIcon, WhatsAppIcon } from './ui';
+import { ClockIcon, Flag, ICON_BUTTON, PhoneIcon, ReceiptIcon, RoadIcon, WalletIcon, WhatsAppIcon } from './ui';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -55,18 +56,11 @@ const Tag: React.FC<{ tone: 'gold' | 'red' | 'amber'; children: React.ReactNode 
   </span>
 );
 
-const Kpi: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div className="min-w-0 rounded-2xl border border-subtle bg-surface px-4 py-3">
-    <div className="truncate text-[12px] text-black/50">{label}</div>
-    <div className="mt-1 truncate text-[17px] font-semibold tracking-[-0.01em] tabular-nums text-foreground sm:text-[19px]">{children}</div>
-  </div>
-);
-
 const ProfileSkeleton: React.FC = () => (
   <div className="mt-4 flex flex-col gap-4" aria-busy="true" aria-label="Loading customer">
     <div className="h-[168px] animate-pulse rounded-2xl bg-black/[0.04]" />
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-      {[0, 1, 2, 3, 4, 5].map((index) => <div key={index} className="h-[72px] animate-pulse rounded-2xl bg-black/[0.04]" />)}
+      {[0, 1, 2, 3, 4, 5].map((index) => <div key={index} className="h-[112px] animate-pulse rounded-[20px] bg-black/[0.04]" />)}
     </div>
     <div className="h-[280px] animate-pulse rounded-2xl bg-black/[0.04]" />
   </div>
@@ -261,12 +255,19 @@ const CustomerProfilePage: React.FC = () => {
       </header>
 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Bookings">{bookings.filter((booking) => booking.status !== 'cancelled').length}</Kpi>
-        <Kpi label="Days rented">{totals.days}</Kpi>
-        <Kpi label="Total spent">{totals.spent > 0 ? formatLira(totals.spent) : '—'}</Kpi>
-        <Kpi label="Balance"><BalancePill balance={totals.balance} className="!text-[13.5px]" /></Kpi>
-        <Kpi label="Fines">{fines.length}</Kpi>
-        <Kpi label="HGS total">{formatLira(totals.hgs)}</Kpi>
+        <PremiumTile compact tone="blue" icon={<CalendarDays size={14} />} label="Bookings" value={bookings.filter((booking) => booking.status !== 'cancelled').length} />
+        <PremiumTile compact tone="teal" icon={<ClockIcon size={14} />} label="Days rented" value={totals.days} />
+        <PremiumTile compact tone="violet" icon={<WalletIcon size={14} />} label="Total spent" value={totals.spent > 0 ? formatLira(totals.spent) : '—'} />
+        <PremiumTile
+          compact
+          tone={totals.balance > 0 ? 'red' : totals.balance < 0 ? 'green' : 'neutral'}
+          icon={<ReceiptIcon size={14} />}
+          label="Balance"
+          value={totals.balance === 0 ? 'Settled' : formatLira(Math.abs(totals.balance))}
+          hint={totals.balance > 0 ? 'Owes us' : totals.balance < 0 ? 'In credit' : undefined}
+        />
+        <PremiumTile compact tone="amber" icon={<AlertTriangle size={14} />} label="Fines" value={fines.length} />
+        <PremiumTile compact tone="neutral" icon={<RoadIcon size={14} />} label="HGS total" value={formatLira(totals.hgs)} />
       </div>
 
       <div

@@ -545,7 +545,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
       if (data && data.status === 'pending_review') {
         clearInterval(pollIntervalRef.current!);
         setPolling(false);
-        showToast('✍️ أعاد الكاتب صياغة البوست — جاهز للمراجعة', 'success');
+        showToast('✍️ The writer revised this post — ready for review', 'success');
         onUpdated(data as ContentPost);
       }
     }, 4000);
@@ -568,7 +568,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
   };
 
   const handleRejectConfirm = async () => {
-    if (!rejectNote.trim()) { showToast('سبب الرفض مطلوب', 'error'); return; }
+    if (!rejectNote.trim()) { showToast('A rejection reason is required', 'error'); return; }
     setBusy(true);
     const note = rejectNote.trim();
     const { data, error } = await socialFrom('sm_content_social')
@@ -586,7 +586,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
       body: JSON.stringify({ mode: 'revise', post_id: post.id, review_note: note }),
     }).catch(() => {});
 
-    showToast('تم الرفض — كاتب المحتوى يعيد كتابة البوست الآن…', 'info');
+    showToast('Rejected — the content writer is rewriting this post now…', 'info');
     onUpdated(data as ContentPost);
     setMode('view');
     setRejectNote('');
@@ -801,27 +801,26 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
           {/* Reject: note textarea */}
           {mode === 'reject' && (
             <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: '16px', display: 'flex', flexDirection: 'column', gap: 10, animation: 'spFadeIn 150ms ease' }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#dc2626', direction: 'rtl', textAlign: 'right' }}>لماذا رفضت هذا البوست؟</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#dc2626' }}>Why are you rejecting this post?</div>
               <textarea
                 value={rejectNote}
                 onChange={e => setRejectNote(e.target.value)}
                 rows={4}
                 autoFocus
-                dir="rtl"
-                lang="ar"
-                placeholder="اكتب سبب الرفض هنا… مثال: الكابشن طويل، اختصره وخلي النبرة أبسط"
-                style={{ ...inp, borderColor: '#fca5a5', resize: 'vertical', lineHeight: 1.65, direction: 'rtl', textAlign: 'right', fontFamily: 'var(--font-sans)' }}
+                dir="auto"
+                placeholder="Write the rejection reason here… e.g. the caption is too long, shorten it and simplify the tone"
+                style={{ ...inp, borderColor: '#fca5a5', resize: 'vertical', lineHeight: 1.65, fontFamily: 'var(--font-sans)' }}
                 onFocus={e => (e.target.style.borderColor = '#ef4444')}
                 onBlur={e => (e.target.style.borderColor = '#fca5a5')}
               />
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setMode('view')} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer' }}>إلغاء</button>
+                <button onClick={() => setMode('view')} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer' }}>Cancel</button>
                 <button
                   onClick={handleRejectConfirm}
                   disabled={busy || !rejectNote.trim()}
                   style={{ flex: 2, padding: '10px 0', borderRadius: 8, border: 'none', background: (!rejectNote.trim() || busy) ? '#f3f4f6' : '#dc2626', color: (!rejectNote.trim() || busy) ? '#9ca3af' : '#fff', fontSize: 13, fontWeight: 600, cursor: (!rejectNote.trim() || busy) ? 'not-allowed' : 'pointer', transition: 'all 140ms ease' }}
                 >
-                  {busy ? '…' : 'تأكيد الرفض'}
+                  {busy ? '…' : 'Confirm rejection'}
                 </button>
               </div>
             </div>
@@ -831,7 +830,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
           {polling && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 10, animation: 'spFadeIn 200ms ease' }}>
               <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #f59e0b', borderTopColor: 'transparent', animation: 'spSpin 0.8s linear infinite', flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: '#92400e', fontWeight: 500 }}>كاتب المحتوى يعيد كتابة البوست…</span>
+              <span style={{ fontSize: 13, color: '#92400e', fontWeight: 500 }}>The content writer is rewriting this post…</span>
             </div>
           )}
 

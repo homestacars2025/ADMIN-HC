@@ -51,9 +51,10 @@ type Joined<T> = T | T[] | null;
 const one = <T,>(value: Joined<T> | undefined): T | null =>
   (Array.isArray(value) ? value[0] ?? null : value ?? null);
 
-interface DirectoryBooking {
+export interface DirectoryBooking {
   id: number;
   customer_id: string;
+  car_id: number;
   start_date: string;
   end_date: string;
   status: string | null;
@@ -70,11 +71,14 @@ export interface LedgerRow {
   direction: 'IN' | 'OUT';
 }
 
-export interface LedgerEntry extends LedgerRow {
+export interface DatedLedgerRow extends LedgerRow {
+  created_at: string | null;
+}
+
+export interface LedgerEntry extends DatedLedgerRow {
   id: string;
   car_id: number;
   description: string | null;
-  created_at: string | null;
 }
 
 interface DirectoryReview {
@@ -85,7 +89,7 @@ interface DirectoryReview {
 export interface CustomerDirectory {
   customers: Customer[];
   bookings: DirectoryBooking[];
-  ledger: LedgerRow[];
+  ledger: DatedLedgerRow[];
   reviews: DirectoryReview[];
 }
 
@@ -385,56 +389,6 @@ export function matchesSearch(summary: CustomerSummary, query: string): boolean 
   );
 }
 
-export interface CustomerInsights {
-  nationalities: Array<{ nationality: string; count: number }>;
-  withNationality: number;
-  averageDays: number;
-  topCustomer: { name: string; count: number } | null;
-  longestRental: { name: string; days: number } | null;
-}
-
-export function buildInsights(directory: CustomerDirectory): CustomerInsights {
-  const names = new Map(directory.customers.map((customer) => [customer.id, customerName(customer)]));
-
-  const nationalityCounts = new Map<string, number>();
-  directory.customers.forEach((customer) => {
-    const nationality = customer.nationality?.trim();
-    if (nationality) nationalityCounts.set(nationality, (nationalityCounts.get(nationality) ?? 0) + 1);
-  });
-  const ranked = Array.from(nationalityCounts, ([nationality, count]) => ({ nationality, count }))
-    .sort((a, b) => b.count - a.count);
-
-  const rentals = directory.bookings
-    .map((booking) => ({
-      customerId: booking.customer_id,
-      name: names.get(booking.customer_id) ?? 'Unknown',
-      days: daysBetween(booking.start_date, booking.end_date),
-    }))
-    .filter((rental) => rental.days > 0);
-
-  const counts = new Map<string, { name: string; count: number }>();
-  rentals.forEach((rental) => {
-    const entry = counts.get(rental.customerId);
-    if (entry) entry.count += 1;
-    else counts.set(rental.customerId, { name: rental.name, count: 1 });
-  });
-
-  const longest = rentals.reduce<typeof rentals[number] | null>(
-    (best, rental) => (!best || rental.days > best.days ? rental : best),
-    null,
-  );
-
-  return {
-    nationalities: ranked.slice(0, 5),
-    withNationality: ranked.reduce((sum, row) => sum + row.count, 0),
-    averageDays: rentals.length
-      ? Math.round(rentals.reduce((sum, rental) => sum + rental.days, 0) / rentals.length)
-      : 0,
-    topCustomer: Array.from(counts.values()).sort((a, b) => b.count - a.count)[0] ?? null,
-    longestRental: longest ? { name: longest.name, days: longest.days } : null,
-  };
-}
-
 // ─── Reading ──────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 1000;
@@ -465,12 +419,12 @@ export async function fetchCustomerDirectory(): Promise<CustomerDirectory> {
       .from('customers').select(CUSTOMER_COLUMNS).order('first_name').order('id').range(from, to)),
     fetchAll<DirectoryBooking>((from, to) => supabase
       .from('bookings')
-      .select('id, customer_id, start_date, end_date, status, total_amount, is_currently_active, cars(plate_number)')
+      .select('id, customer_id, car_id, start_date, end_date, status, total_amount, is_currently_active, cars(plate_number)')
       .order('id')
       .range(from, to)),
-    fetchAll<LedgerRow>((from, to) => supabase
+    fetchAll<DatedLedgerRow>((from, to) => supabase
       .from('customer_accounting_ledger')
-      .select('booking_id, customer_id, type, amount, direction')
+      .select('booking_id, customer_id, type, amount, direction, created_at')
       .order('id')
       .range(from, to)),
     fetchAll<DirectoryReview>((from, to) => supabase

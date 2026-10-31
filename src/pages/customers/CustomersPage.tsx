@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, List, Pencil, Search, X } from '../../components/media/MediaIcons';
+import { CalendarPlus, ChevronLeft, ChevronRight, List, Pencil, Search, X } from '../../components/media/MediaIcons';
 import { PageHeader } from '../../components/media/MediaShared';
 import { MediaToaster, toast } from '../../components/media/MediaToast';
 import { Button, Input } from '../../components/media/MediaUI';
@@ -9,7 +9,6 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { whatsAppUrl } from '../../lib/countries';
 import {
   LANGUAGE_OPTIONS,
-  buildInsights,
   customerStats,
   fetchCustomerDirectory,
   formatDate,
@@ -21,112 +20,48 @@ import {
   summarizeCustomers,
   type Customer,
   type CustomerDirectory,
-  type CustomerInsights,
   type CustomerSegment,
   type CustomerSummary,
 } from '../../lib/customers';
+import { customerTrends } from '../../lib/customerInsights';
 import { cn } from '../../lib/media/badgeColor';
 import { Eye } from '../tasks/icons';
 import { FilterPill, type FilterOption } from '../tasks/FilterBar';
 import { CustomerEditSheet } from './CustomerEditSheet';
+import { CustomerInsights } from './CustomerInsights';
+import { PremiumTile, TileSkeleton } from './PremiumTile';
 import {
   BalancePill,
+  CarIcon,
   DocumentsRing,
   Flag,
   GridIcon,
   ICON_BUTTON,
   PlateChip,
   RatingBadge,
+  UserPlusIcon,
+  UsersIcon,
+  WalletIcon,
   WhatsAppIcon,
 } from './ui';
 
 const PAGE_SIZE = 24;
 
-const SEGMENTS: Array<{ key: CustomerSegment; label: string; arabic: boolean }> = [
-  { key: 'all', label: 'الكل', arabic: true },
-  { key: 'active', label: 'نشط الآن', arabic: true },
-  { key: 'owes', label: 'عليه مبلغ', arabic: true },
-  { key: 'credit', label: 'لنا عنده رصيد', arabic: true },
-  { key: 'documents', label: 'مستندات ناقصة', arabic: true },
-  { key: 'vip', label: 'VIP', arabic: false },
-  { key: 'low', label: 'تقييم منخفض', arabic: true },
-  { key: 'new', label: 'جديد هذا الشهر', arabic: true },
+const SEGMENTS: Array<{ key: CustomerSegment; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'active', label: 'Active now' },
+  { key: 'owes', label: 'Owes us' },
+  { key: 'credit', label: 'In credit' },
+  { key: 'documents', label: 'Docs missing' },
+  { key: 'vip', label: 'VIP' },
+  { key: 'low', label: 'Low rating' },
+  { key: 'new', label: 'New this month' },
 ];
 
 const isSegment = (value: string | null): value is CustomerSegment =>
   SEGMENTS.some((segment) => segment.key === value);
 
 const newBookingPath = (customerId: string) => `/dashboard/bookings?new=1&customer=${customerId}`;
-
-// ── Header ───────────────────────────────────────────────────────────────────
-
-const StatTile: React.FC<{ label: string; value: React.ReactNode; hint?: string; danger?: boolean }> = ({ label, value, hint, danger }) => (
-  <div className="min-w-0 rounded-2xl border border-subtle bg-surface p-4">
-    <div className="text-[12.5px] leading-snug text-black/50">{label}</div>
-    <div className={cn('mt-1 text-[22px] font-semibold leading-none tracking-[-0.02em] tabular-nums sm:text-[26px]', danger ? 'text-[#B91C1C]' : 'text-foreground')}>
-      {value}
-    </div>
-    {hint && <div className={cn('mt-1.5 truncate text-[12.5px] font-medium tabular-nums', danger ? 'text-[#B91C1C]' : 'text-black/45')}>{hint}</div>}
-  </div>
-);
-
-const InsightRow: React.FC<{ label: string; value: string; detail?: string }> = ({ label, value, detail }) => (
-  <div className="flex items-center justify-between gap-3 border-b border-black/[0.05] py-2.5 last:border-b-0">
-    <span className="text-[13px] text-black/55">{label}</span>
-    <span className="min-w-0 text-right">
-      <span className="block truncate text-[13px] font-medium text-foreground">{value}</span>
-      {detail && <span className="block text-[11.5px] text-black/45">{detail}</span>}
-    </span>
-  </div>
-);
-
-const InsightsPanel: React.FC<{ insights: CustomerInsights; total: number }> = ({ insights, total }) => {
-  const largest = insights.nationalities[0]?.count ?? 1;
-  return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      <section className="rounded-2xl border border-subtle bg-surface p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[13.5px] font-medium text-foreground">Customer nationalities</h2>
-          <span className="text-[12px] text-black/45">{total} total</span>
-        </div>
-        {insights.nationalities.length === 0 ? (
-          <p className="py-4 text-center text-[13px] text-black/45">No nationality data.</p>
-        ) : (
-          <ul className="flex flex-col gap-2.5">
-            {insights.nationalities.map(({ nationality, count }) => (
-              <li key={nationality}>
-                <div className="mb-1 flex items-center justify-between gap-2 text-[13px]">
-                  <span className="flex min-w-0 items-center gap-1.5 text-foreground"><Flag nationality={nationality} /><span className="truncate">{nationality}</span></span>
-                  <span className="shrink-0 tabular-nums text-black/50">
-                    {count} · {Math.round((count / insights.withNationality) * 100)}%
-                  </span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.05]">
-                  <div className="h-full rounded-full bg-[#6EA4E7]" style={{ width: `${Math.round((count / largest) * 100)}%` }} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-subtle bg-surface p-4">
-        <h2 className="mb-1 text-[13.5px] font-medium text-foreground">Booking insights</h2>
-        <InsightRow label="Avg. rental duration" value={`${insights.averageDays} days`} />
-        <InsightRow
-          label="Most frequent customer"
-          value={insights.topCustomer?.name ?? '—'}
-          detail={insights.topCustomer ? `${insights.topCustomer.count} bookings` : undefined}
-        />
-        <InsightRow
-          label="Longest rental"
-          value={insights.longestRental?.name ?? '—'}
-          detail={insights.longestRental ? `${insights.longestRental.days} days` : undefined}
-        />
-      </section>
-    </div>
-  );
-};
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
 
@@ -305,7 +240,7 @@ const CustomersPage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [editing, setEditing] = useState<Customer | null>(null);
-  const [insightsOpen, setInsightsOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -326,6 +261,7 @@ const CustomersPage: React.FC = () => {
   const language = params.get('language') ?? '';
   const cardView = params.get('view') === 'cards';
   const requestedPage = Math.max(Number(params.get('page')) || 1, 1);
+  const insightsOpen = params.get('insights') !== 'hidden';
 
   const update = useCallback((changes: Record<string, string>) => {
     setParams((current) => {
@@ -339,12 +275,19 @@ const CustomersPage: React.FC = () => {
     }, { replace: true });
   }, [setParams]);
 
+  const today = istanbulDate();
   const summaries = useMemo(
-    () => (directory ? summarizeCustomers(directory, istanbulDate()) : []),
-    [directory],
+    () => (directory ? summarizeCustomers(directory, today) : []),
+    [directory, today],
   );
   const stats = useMemo(() => customerStats(summaries), [summaries]);
-  const insights = useMemo(() => (directory ? buildInsights(directory) : null), [directory]);
+  const trends = useMemo(() => (directory ? customerTrends(directory, today) : null), [directory, today]);
+
+  /** A tile or a chart filters what's below it, so bring that into view. */
+  const showInList = useCallback((changes: Record<string, string>) => {
+    update(changes);
+    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [update]);
 
   const nationalityOptions = useMemo<FilterOption[]>(() => {
     const counts = new Map<string, number>();
@@ -382,35 +325,73 @@ const CustomersPage: React.FC = () => {
       <MediaToaster />
       <PageHeader eyebrow="Management" title="Customers" subtitle="Browse customers, what they owe, and their rental history." />
 
-      {!directory && !loadError ? (
-        <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {[0, 1, 2, 3].map((index) => <div key={index} className="h-[92px] animate-pulse rounded-2xl bg-black/[0.04]" />)}
-        </div>
-      ) : directory && (
-        <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <StatTile label="Total customers" value={stats.total} />
-          <StatTile label="Active rentals now" value={stats.active} />
-          <StatTile label="Customers who owe us" value={stats.owingCount} hint={formatLira(stats.owingTotal)} danger={stats.owingCount > 0} />
-          <StatTile label="New this month" value={stats.newThisMonth} />
-        </div>
+      <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {!directory && !loadError && <TileSkeleton />}
+        {directory && trends && (
+          <>
+            <PremiumTile
+              tone="blue"
+              icon={<UsersIcon size={16} />}
+              label="Total customers"
+              value={stats.total}
+              hint={`+${trends.total.addedThisMonth} this month`}
+              change={trends.total.change}
+              spark={trends.total.series}
+              active={segment === 'all'}
+              onClick={() => showInList({ segment: '' })}
+            />
+            <PremiumTile
+              tone="teal"
+              icon={<CarIcon size={16} />}
+              label="Active rentals now"
+              value={trends.active.rentals}
+              hint={`${trends.active.carsOut} ${trends.active.carsOut === 1 ? 'car' : 'cars'} out today`}
+              change={trends.active.change}
+              spark={trends.active.series}
+              active={segment === 'active'}
+              onClick={() => showInList({ segment: 'active' })}
+            />
+            <PremiumTile
+              tone="red"
+              icon={<WalletIcon size={16} />}
+              label="Owe us"
+              value={stats.owingCount}
+              hint={`${formatLira(stats.owingTotal)} total`}
+              change={trends.owed.change}
+              upIsBad
+              spark={trends.owed.series}
+              active={segment === 'owes'}
+              onClick={() => showInList({ segment: 'owes' })}
+            />
+            <PremiumTile
+              tone="violet"
+              icon={<UserPlusIcon size={16} />}
+              label="New this month"
+              value={stats.newThisMonth}
+              hint={`${trends.newCustomers.previous} by this day last month`}
+              change={trends.newCustomers.change}
+              spark={trends.newCustomers.series}
+              active={segment === 'new'}
+              onClick={() => showInList({ segment: 'new' })}
+            />
+          </>
+        )}
+      </div>
+
+      {directory && (
+        <CustomerInsights
+          directory={directory}
+          summaries={summaries}
+          today={today}
+          open={insightsOpen}
+          onToggle={() => update({ insights: insightsOpen ? 'hidden' : '', page: params.get('page') ?? '' })}
+          onSelectNationality={(value) => showInList({ nationality: value })}
+        />
       )}
 
-      {directory && insights && (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setInsightsOpen((open) => !open)}
-            aria-expanded={insightsOpen}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg text-[12.5px] font-medium text-black/55 hover:text-foreground md:min-h-[32px]"
-          >
-            Nationalities and booking insights
-            <ChevronDown size={13} className={cn('transition-transform', insightsOpen && 'rotate-180')} />
-          </button>
-          {insightsOpen && <div className="mt-2"><InsightsPanel insights={insights} total={summaries.length} /></div>}
-        </div>
-      )}
+      <div ref={listRef} className="scroll-mt-20" />
 
-      <div className="-mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Customer segments">
+      <div className="-mx-4 mt-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Customer segments">
         {SEGMENTS.map((item) => {
           const active = item.key === segment;
           const count = directory ? summaries.filter((summary) => inSegment(summary, item.key)).length : null;
@@ -425,7 +406,7 @@ const CustomersPage: React.FC = () => {
                 active ? 'border-[#6EA4E7] bg-[#6EA4E7]/[0.12] font-medium text-brand-strong' : 'border-subtle bg-surface text-black/60 hover:bg-black/[0.03]',
               )}
             >
-              <span lang={item.arabic ? 'ar' : undefined} dir={item.arabic ? 'rtl' : undefined}>{item.label}</span>
+              {item.label}
               {count !== null && <span className="text-[11.5px] tabular-nums opacity-60">{count}</span>}
             </button>
           );

@@ -43,10 +43,10 @@ const SORT_KINDS: Record<SortKey, 'text' | 'number' | 'date'> = {
 /** Language the outgoing message is written in — chosen per send, not stored. */
 type MessageLanguage = 'ar' | 'tr' | 'en';
 
-const LANGUAGE_CHOICES: { code: MessageLanguage; native: string; english: string }[] = [
-  { code: 'ar', native: 'العربية', english: 'Arabic'  },
-  { code: 'tr', native: 'Türkçe',  english: 'Turkish' },
-  { code: 'en', native: 'English', english: 'English' },
+const LANGUAGE_CHOICES: { code: MessageLanguage; label: string }[] = [
+  { code: 'ar', label: 'Arabic'  },
+  { code: 'tr', label: 'Turkish' },
+  { code: 'en', label: 'English' },
 ];
 
 interface ReviewCandidate {
@@ -568,12 +568,7 @@ const LanguageModal: React.FC<{
                 b.style.background = '#fff';
               }}
             >
-              <span style={{ display: 'flex', alignItems: 'baseline', gap: 9, minWidth: 0 }}>
-                <span style={{ fontSize: 15, fontWeight: 600, color: '#0f1117' }}>{choice.native}</span>
-                {choice.english !== choice.native && (
-                  <span style={{ fontSize: 12, color: '#9ca3af' }}>{choice.english}</span>
-                )}
-              </span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#0f1117' }}>{choice.label}</span>
               <span style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
                 color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '2px 7px',

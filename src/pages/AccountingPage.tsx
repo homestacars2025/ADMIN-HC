@@ -4836,7 +4836,7 @@ const CompanyExpensesTab: React.FC = () => {
       {/* ── Company Expenses: Section 4 — Staff custody ─────────────────── */}
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
-          Staff custody (<span style={{ letterSpacing: 'normal' }}>الوديعة</span>)
+          Staff custody
         </div>
         {walletsLoading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
@@ -5216,7 +5216,7 @@ const SettlementMenu: React.FC<{
  *
  * Membership and the extension badge both come from `type` and the charge's
  * position within its booking — never from matching the description, because
- * the hand-typed ones ('3 GUN EXTRA', 'باقي 290 دولار') match no pattern.
+ * the hand-typed ones ('3 GUN EXTRA', or a note in Arabic) match no pattern.
  */
 const BookingAccountsTab: React.FC = () => {
   const { fmt } = useCurrency();

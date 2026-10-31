@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
-import { useMessageRenderer, useTranslation } from '../lib/i18n';
+import { useMessageRenderer } from '../lib/i18n';
 import { notificationArrived } from '../lib/notificationEvents';
 import {
   CATEGORY_STYLES,
@@ -43,7 +43,6 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
   const navigate = useNavigate();
   const { unread, refreshNow } = useNotificationCounts();
   const renderMessage = useMessageRenderer();
-  const { dir } = useTranslation();
 
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationRow[]>([]);
@@ -269,7 +268,7 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
               >
                 <CategoryDot category={item.category} />
 
-                <div dir={dir} style={{ flex: 1, minWidth: 0, textAlign: dir === 'rtl' ? 'right' : 'left' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: 12.8, fontWeight: item.is_read ? 500 : 600,
                     color: '#0f1117', lineHeight: 1.4,

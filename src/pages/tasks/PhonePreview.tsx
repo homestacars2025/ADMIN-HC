@@ -9,7 +9,7 @@ const STRIPE: Partial<Record<TaskPriority, string>> = {
   low: 'bg-gray-300',
 };
 
-/** The same card Team's Tasks page draws, in the Arabic staff read it in. */
+/** The same card Team's Tasks page draws. */
 export const PhonePreview: React.FC<{
   title: string;
   description: string;
@@ -24,8 +24,6 @@ export const PhonePreview: React.FC<{
   return (
     <div className="mx-auto w-full max-w-[340px] rounded-[28px] bg-black/[0.03] p-3">
       <article
-        dir="rtl"
-        lang="ar"
         data-testid="phone-preview"
         className="relative flex gap-3 overflow-hidden rounded-2xl border border-subtle bg-surface p-4"
       >
@@ -42,7 +40,7 @@ export const PhonePreview: React.FC<{
         </span>
 
         <div className="min-w-0 flex-1">
-          <h4 className="text-[15px] font-semibold leading-snug text-[#0f1117]">{title.trim() || 'عنوان المهمة'}</h4>
+          <h4 className="text-[15px] font-semibold leading-snug text-[#0f1117]">{title.trim() || 'Task title'}</h4>
           {description.trim() && <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-gray-600">{description}</p>}
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-gray-500">
@@ -52,7 +50,7 @@ export const PhonePreview: React.FC<{
                   <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.9" />
                   <path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                {relativeDue(dueIso, new Date(), 'ar')}
+                {relativeDue(dueIso)}
               </span>
             )}
             {recurring && (
@@ -60,16 +58,16 @@ export const PhonePreview: React.FC<{
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M4 12a8 8 0 0113.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 01-13.7 5.6L4 15M4 20v-5h5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                متكررة
+                Recurring
               </span>
             )}
             {requiresProof && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-[11.5px] font-medium text-gray-600">📷 صورة</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-[11.5px] font-medium text-gray-600">📷 Photo</span>
             )}
             {from?.full_name && (
               <span className="inline-flex items-center gap-1.5">
                 <StaffAvatar profile={from} size={18} />
-                من {from.full_name}
+                From {from.full_name}
               </span>
             )}
           </div>

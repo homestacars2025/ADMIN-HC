@@ -2,7 +2,6 @@ import {
   balanceState,
   bookingCountdown,
   buildActivity,
-  buildInsights,
   checkAge,
   customerName,
   customerStats,
@@ -42,12 +41,12 @@ const customer = (over: Partial<Customer> = {}): Customer => ({
 });
 
 const directoryBooking = (id: number, customerId: string, over = {}) => ({
-  id, customer_id: customerId, start_date: '2026-09-01', end_date: '2026-09-05', status: 'completed',
+  id, customer_id: customerId, car_id: id, start_date: '2026-09-01', end_date: '2026-09-05', status: 'completed',
   total_amount: null, is_currently_active: false, cars: { plate_number: '34 ABC 123' }, ...over,
 });
 
 const ledger = (bookingId: number, customerId: string, direction: 'IN' | 'OUT', amount: number, type = 'rental') =>
-  ({ booking_id: bookingId, customer_id: customerId, direction, amount, type });
+  ({ booking_id: bookingId, customer_id: customerId, direction, amount, type, created_at: '2026-09-01T10:00:00Z' });
 
 const booking = (over: Partial<ProfileBooking> = {}): ProfileBooking => ({
   id: 1, booking_number: 'HOM-1', car_id: 9, start_date: '2026-09-01', end_date: '2026-09-05', status: 'completed',
@@ -174,26 +173,6 @@ describe('summarizeCustomers', () => {
     expect(matchesSearch(first, '34xyz')).toBe(true);
     expect(matchesSearch(second, '34xyz')).toBe(false);
     expect(matchesSearch(first, '   ')).toBe(true);
-  });
-});
-
-describe('insights', () => {
-  it('keeps the nationality and booking figures the old page showed', () => {
-    const insights = buildInsights({
-      customers: [customer({ id: 'a' }), customer({ id: 'b', first_name: 'Omar', nationality: 'Libya' }), customer({ id: 'c', nationality: ' Libya ' })],
-      bookings: [
-        directoryBooking(1, 'a', { start_date: '2026-01-01', end_date: '2026-01-03' }),
-        directoryBooking(2, 'a', { start_date: '2026-02-01', end_date: '2026-02-05' }),
-        directoryBooking(3, 'b', { start_date: '2026-03-01', end_date: '2026-03-13' }),
-      ],
-      ledger: [],
-      reviews: [],
-    });
-    expect(insights.nationalities[0]).toEqual({ nationality: 'Libya', count: 2 });
-    expect(insights.withNationality).toBe(3);
-    expect(insights.averageDays).toBe(6);
-    expect(insights.topCustomer).toEqual({ name: 'Ayşe Yılmaz', count: 2 });
-    expect(insights.longestRental).toEqual({ name: 'Omar Yılmaz', days: 12 });
   });
 });
 
