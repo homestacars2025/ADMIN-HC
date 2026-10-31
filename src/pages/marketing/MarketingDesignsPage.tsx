@@ -255,7 +255,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ design, onClose, onStatusChan
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #f3f4f6' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>{design.title}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>{design.title}</div>
             <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
               <TypeBadge type={design.design_type} />
               <StatusBadge status={design.status} />
@@ -316,7 +316,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ design, onClose, onStatusChan
                   {design.brand_colors_used.map((c, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 20, height: 20, borderRadius: 4, background: c, border: '1px solid rgba(0,0,0,0.1)' }} />
-                      <span style={{ fontSize: 12, color: '#6b7280', fontFamily: 'monospace' }}>{c}</span>
+                      <span style={{ fontSize: 12, color: '#6b7280', fontFamily: 'var(--font-mono)' }}>{c}</span>
                     </div>
                   ))}
                 </div>
@@ -491,7 +491,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onCreated, showToast
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 600, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.18)', animation: 'dsSlideUp 200ms ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #f3f4f6' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Upload Design</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Upload Design</div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
@@ -650,7 +650,7 @@ const MarketingDesignsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes dsPulse { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
         @keyframes dsSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -664,7 +664,7 @@ const MarketingDesignsPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f1117', margin: 0 }}>Designs</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Designs</h1>
           <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>Visual assets and creative outputs from the team</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -686,7 +686,7 @@ const MarketingDesignsPage: React.FC = () => {
           return (
             <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#4ba6ea') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
               {tab === 'all' ? 'All' : (STATUS_STYLE[tab]?.label ?? tab)}
-              {counts[tab] !== undefined && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>}
+              {counts[tab] !== undefined && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>}
             </button>
           );
         })}
@@ -770,7 +770,7 @@ const MarketingDesignsPage: React.FC = () => {
                 <div style={{ position: 'absolute', top: 8, right: 8, width: 10, height: 10, borderRadius: '50%', background: STATUS_STYLE[d.status]?.color ?? '#9ca3af', border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                 {/* Type badge */}
                 {d.design_type && (
-                  <div style={{ position: 'absolute', top: 8, left: 8, padding: '2px 7px', borderRadius: 20, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: '0.03em' }}>
+                  <div style={{ position: 'absolute', top: 8, left: 8, padding: '2px 7px', borderRadius: 20, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', fontSize: 10, fontWeight: 600, color: '#fff', letterSpacing: '0.03em' }}>
                     {DESIGN_TYPE_LABELS[d.design_type] ?? d.design_type}
                   </div>
                 )}
@@ -798,7 +798,7 @@ const MarketingDesignsPage: React.FC = () => {
             <thead>
               <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                 {['Design', 'Type', 'Dimensions', 'Status', 'Created', ''].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -835,8 +835,8 @@ const MarketingDesignsPage: React.FC = () => {
         <div style={{ marginTop: 40, padding: '20px 24px', background: 'linear-gradient(135deg, rgba(75,166,234,0.06) 0%, rgba(139,92,246,0.04) 100%)', borderRadius: 16, border: '1.5px solid rgba(75,166,234,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', marginBottom: 4 }}>Brand Guidelines</div>
-              <div style={{ fontSize: 13, color: '#6b7280' }}>Primary: <b style={{ fontFamily: 'monospace', color: '#4ba6ea' }}>#4ba6ea</b> · All designs should use Inter or SF Pro Display · Logo available in the approved designs above</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', marginBottom: 4 }}>Brand Guidelines</div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>Primary: <b style={{ fontFamily: 'var(--font-mono)', color: '#4ba6ea' }}>#4ba6ea</b> · All designs should use Inter or SF Pro Display · Logo available in the approved designs above</div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {BRAND_COLORS.map(c => (

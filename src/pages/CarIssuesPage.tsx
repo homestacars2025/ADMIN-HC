@@ -178,7 +178,7 @@ const onFieldBlur  = (e: React.FocusEvent<HTMLElement>) => { e.target.style.bord
 const TypeBadge: React.FC<{ type: IssueType }> = ({ type }) => {
   const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.other;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ color: cfg.color, flexShrink: 0 }}>{cfg.icon}</svg>
       {cfg.label}
     </span>
@@ -188,7 +188,7 @@ const TypeBadge: React.FC<{ type: IssueType }> = ({ type }) => {
 const StatusBadge: React.FC<{ status: IssueStatus }> = ({ status }) => {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.open;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
       {cfg.label}
     </span>
@@ -323,13 +323,13 @@ const CarSelect: React.FC<{
                     width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
                     padding: '9px 12px', fontSize: 12.5, fontFamily: 'inherit',
                     background: isSel ? 'rgba(75,166,234,0.08)' : '#fff',
-                    color: isSel ? '#2e8fd4' : '#374151', fontWeight: isSel ? 700 : 500,
+                    color: isSel ? '#2e8fd4' : '#374151', fontWeight: isSel ? 600 : 500,
                     display: 'flex', alignItems: 'center', gap: 8, minHeight: 44,
                   }}
                   onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#f9fafb'; }}
                   onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = '#fff'; }}
                 >
-                  <span style={{ fontWeight: 700 }}>{c.plate_number}</span>
+                  <span className="font-mono tabular-nums" style={{ fontWeight: 600 }}>{c.plate_number}</span>
                   {c.model_group?.name && <span style={{ color: '#9ca3af', fontWeight: 500 }}>— {c.model_group.name}</span>}
                 </button>
               );
@@ -401,7 +401,7 @@ const PhotoPicker: React.FC<{
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
         <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WEBP · up to {MAX_PHOTOS} photos</span>
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: files.length > 0 ? '#4ba6ea' : '#9ca3af' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: files.length > 0 ? '#4ba6ea' : '#9ca3af' }}>
           {files.length} / {MAX_PHOTOS}
         </span>
       </div>
@@ -504,7 +504,7 @@ const ModalShell: React.FC<{
 const ModalHeader: React.FC<{ title: string; subtitle?: React.ReactNode; onClose: () => void }> = ({ title, subtitle, onClose }) => (
   <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 18, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>{title}</div>
+      <div style={{ fontSize: 18, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>{title}</div>
       {subtitle && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{subtitle}</div>}
     </div>
     <button
@@ -537,7 +537,7 @@ const PrimaryButton: React.FC<{
       disabled={disabled}
       style={{
         height: 42, padding: '0 22px', borderRadius: 10, border: 'none',
-        background: disabled ? '#cbd5e1' : base, fontSize: 13, fontWeight: 700, color: '#fff',
+        background: disabled ? '#cbd5e1' : base, fontSize: 13, fontWeight: 600, color: '#fff',
         cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
         transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8,
         justifyContent: 'center', whiteSpace: 'nowrap',
@@ -806,7 +806,7 @@ const AddIssueModal: React.FC<{ onClose: () => void; onSaved: () => void }> = ({
       <div style={{ padding: '16px 26px 22px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
         {!saving && photos.length === 0 && (
           <div style={{ flex: '1 1 180px', fontSize: 11.5, color: '#9ca3af' }}>
-            <span style={{ fontWeight: 700, color: '#ef4444' }}>At least 1 damage photo</span> is required to save.
+            <span style={{ fontWeight: 600, color: '#ef4444' }}>At least 1 damage photo</span> is required to save.
           </div>
         )}
         <GhostButton onClick={onClose} disabled={saving}>Cancel</GhostButton>
@@ -903,16 +903,16 @@ const IssueDetailModal: React.FC<{
 
   const metaRow = (label: string, value: React.ReactNode) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{label}</span>
+      <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{label}</span>
       <span style={{ fontSize: 13, color: '#374151', fontWeight: 500, wordBreak: 'break-word' }}>{value}</span>
     </div>
   );
 
   const sectionTitle = (text: string, count?: number) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{text}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{text}</span>
       {count !== undefined && (
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', borderRadius: 20, padding: '2px 8px' }}>{count}</span>
+        <span style={{ fontSize: 10.5, fontWeight: 600, color: '#6b7280', background: '#f3f4f6', borderRadius: 20, padding: '2px 8px' }}>{count}</span>
       )}
     </div>
   );
@@ -922,7 +922,7 @@ const IssueDetailModal: React.FC<{
       <ModalShell onClose={close} maxWidth={680}>
         <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div className="font-mono tabular-nums" style={{ fontSize: 18, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               {issue.plate_number ?? '—'}
             </div>
             <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 3 }}>{issue.model_name ?? 'Unknown model'}</div>
@@ -993,7 +993,7 @@ const IssueDetailModal: React.FC<{
                   <path d="M10 11v5M14 11v5" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
               </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', marginBottom: 8 }}>Delete this issue?</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', marginBottom: 8 }}>Delete this issue?</div>
               <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>
                 It will be removed from the list. The photos stay in storage.
               </div>
@@ -1008,7 +1008,7 @@ const IssueDetailModal: React.FC<{
                 {metaRow('Discovered', formatDate(issue.discovered_at))}
                 {metaRow('Reported by', issue.discovered_by_name ?? '—')}
                 {issue.customer_name && metaRow('Customer', issue.customer_name)}
-                {issue.booking_number && metaRow('Booking', issue.booking_number)}
+                {issue.booking_number && metaRow('Booking', <span className="font-mono tabular-nums">{issue.booking_number}</span>)}
                 {issue.status === 'resolved' && metaRow('Resolved', formatDate(issue.resolved_at))}
                 {issue.status === 'resolved' && issue.days_to_resolve !== null &&
                   metaRow('Time to resolve', `${issue.days_to_resolve} day${issue.days_to_resolve === 1 ? '' : 's'}`)}
@@ -1112,7 +1112,7 @@ const IssueCard: React.FC<{ issue: Issue; onClick: () => void }> = ({ issue, onC
         <span style={{ position: 'absolute', top: 8, left: 8 }}><TypeBadge type={issue.type} /></span>
         <span style={{ position: 'absolute', top: 8, right: 8 }}><StatusBadge status={issue.status} /></span>
         {issue.damage_photos.length > 1 && (
-          <span style={{ position: 'absolute', bottom: 8, right: 8, fontSize: 10.5, fontWeight: 700, color: '#fff', background: 'rgba(15,17,23,0.7)', borderRadius: 20, padding: '3px 9px' }}>
+          <span style={{ position: 'absolute', bottom: 8, right: 8, fontSize: 10.5, fontWeight: 600, color: '#fff', background: 'rgba(15,17,23,0.7)', borderRadius: 20, padding: '3px 9px' }}>
             +{issue.damage_photos.length - 1}
           </span>
         )}
@@ -1120,7 +1120,7 @@ const IssueCard: React.FC<{ issue: Issue; onClick: () => void }> = ({ issue, onC
 
       <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>{issue.plate_number ?? '—'}</div>
+          <div className="font-mono tabular-nums" style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>{issue.plate_number ?? '—'}</div>
           <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{issue.model_name ?? 'Unknown model'}</div>
         </div>
 
@@ -1141,7 +1141,7 @@ const IssueCard: React.FC<{ issue: Issue; onClick: () => void }> = ({ issue, onC
         </div>
 
         {issue.status === 'resolved' && issue.days_to_resolve !== null && (
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(22,163,74,0.1)', borderRadius: 20, padding: '3px 9px', alignSelf: 'flex-start' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(22,163,74,0.1)', borderRadius: 20, padding: '3px 9px', alignSelf: 'flex-start' }}>
             Resolved in {issue.days_to_resolve} day{issue.days_to_resolve === 1 ? '' : 's'}
           </div>
         )}
@@ -1159,8 +1159,8 @@ const StatCard: React.FC<{ label: string; value: number | string; color: string;
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: color, borderRadius: '14px 14px 0 0' }} />
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>{label}</div>
-        <div style={{ fontSize: 36, fontWeight: 800, color: '#0f1117', letterSpacing: '-1.4px', lineHeight: 1 }}>{loading ? '—' : value}</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>{label}</div>
+        <div style={{ fontSize: 36, fontWeight: 600, color: '#0f1117', letterSpacing: '-1.4px', lineHeight: 1 }}>{loading ? '—' : value}</div>
       </div>
       <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">{icon}</svg>
@@ -1243,9 +1243,9 @@ const CarIssuesPage: React.FC = () => {
       <div style={{ marginBottom: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>Operations</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>Operations</span>
         </div>
-        <h1 style={{ fontSize: 'clamp(23px, 4vw, 30px)', fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>Car Issues</h1>
+        <h1 style={{ fontSize: 'clamp(23px, 4vw, 30px)', fontWeight: 500, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>Car Issues</h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
           Damages, accidents, sounds and mechanical problems — from report to repair
         </p>
@@ -1332,7 +1332,7 @@ const CarIssuesPage: React.FC = () => {
             <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5" />
             <path d="M8 12h8M12 8v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>
             {issues.length === 0 ? 'No issues logged yet' : 'No issues match your filters'}
           </div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 5 }}>

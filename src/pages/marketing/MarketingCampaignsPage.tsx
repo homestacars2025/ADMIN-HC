@@ -337,7 +337,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
         <div style={{ padding: '18px 24px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>{campaign.name}</div>
+              <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117' }}>{campaign.name}</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
                 <span style={{ fontSize: 12, color: PLATFORMS[campaign.platform ?? '']?.color ?? '#6b7280', fontWeight: 600 }}>{PLATFORMS[campaign.platform ?? '']?.label ?? campaign.platform ?? 'Unknown Platform'}</span>
                 <span style={{ padding: '2px 8px', borderRadius: 20, background: st.bg, border: `1px solid ${st.border}`, fontSize: 11, fontWeight: 600, color: st.color }}>{st.label}</span>
@@ -432,7 +432,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                   { label: 'Expected ROAS', val: campaign.expected_roas != null ? `${campaign.expected_roas}×` : '—' },
                 ].map(({ label, val }) => (
                   <div key={label} style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#0f1117' }}>{val}</div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: '#0f1117' }}>{val}</div>
                     <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{label}</div>
                   </div>
                 ))}
@@ -523,7 +523,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                 ].map(({ label, val, color }) => (
                   <div key={label} style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px' }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>{label}</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color }}>{val}</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color }}>{val}</div>
                   </div>
                 ))}
               </div>
@@ -548,7 +548,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                   { label: 'ROAS', val: roas != null ? `${roas}×` : '—', color: roas && roas >= 2 ? '#059669' : '#ef4444' },
                 ].map(({ label, val, color }) => (
                   <div key={label} style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color }}>{val}</div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color }}>{val}</div>
                     <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{label}</div>
                   </div>
                 ))}
@@ -697,7 +697,7 @@ const MarketingCampaignsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes cpPulse { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
         @keyframes cpSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -712,7 +712,7 @@ const MarketingCampaignsPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f1117', margin: 0 }}>Ad Campaigns</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Ad Campaigns</h1>
           <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>Bot-proposed campaigns — review, approve, and track performance</p>
         </div>
         <button onClick={() => showToast('New campaign proposals come from the Ads Manager bot. Use the Approvals page to review incoming proposals.', 'info')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
@@ -733,7 +733,7 @@ const MarketingCampaignsPage: React.FC = () => {
               <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
               {icon}
             </div>
-            <div style={{ fontSize: 24, fontWeight: 800, color }}>{value}</div>
+            <div style={{ fontSize: 24, fontWeight: 600, color }}>{value}</div>
           </div>
         ))}
       </div>
@@ -746,7 +746,7 @@ const MarketingCampaignsPage: React.FC = () => {
           return (
             <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#4ba6ea') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
               {tab === 'all' ? 'All' : (STATUS_STYLE[tab]?.label ?? tab)}
-              <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>
+              <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>
             </button>
           );
         })}
@@ -789,7 +789,7 @@ const MarketingCampaignsPage: React.FC = () => {
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 12, color: platColor, fontWeight: 600 }}>{PLATFORMS[c.platform ?? '']?.label ?? c.platform ?? '—'}</span>
                     <span style={{ padding: '2px 8px', borderRadius: 20, background: st.bg, border: `1px solid ${st.border}`, fontSize: 11, fontWeight: 600, color: st.color }}>{st.label}</span>
@@ -799,13 +799,13 @@ const MarketingCampaignsPage: React.FC = () => {
 
                 {/* Budget */}
                 <div style={{ textAlign: 'center', minWidth: 80 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117' }}>{fmtCurrency(c.actual_budget ?? c.proposed_budget)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117' }}>{fmtCurrency(c.actual_budget ?? c.proposed_budget)}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{c.actual_budget ? 'actual' : 'proposed'}</div>
                 </div>
 
                 {/* ROAS */}
                 <div style={{ textAlign: 'center', minWidth: 60 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: roas && roas >= 2 ? '#059669' : roas ? '#d97706' : '#9ca3af' }}>{roas != null ? `${roas}×` : '—'}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: roas && roas >= 2 ? '#059669' : roas ? '#d97706' : '#9ca3af' }}>{roas != null ? `${roas}×` : '—'}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>ROAS</div>
                 </div>
 

@@ -317,14 +317,14 @@ const ChatThread: React.FC<Props> = ({
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#6b7280" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
 
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 600, flexShrink: 0, overflow: 'hidden' }}>
           {conversation.contact?.avatar_url
             ? <img src={conversation.contact.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : initials(name)}
         </div>
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
           <div style={{ fontSize: 11.5, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {conversation.contact?.identifier ?? '—'} · {channelLabel(conversation.channel)}
           </div>
@@ -365,7 +365,7 @@ const ChatThread: React.FC<Props> = ({
         {groups.map(group => (
           <div key={group.key}>
             <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0 8px' }}>
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: '#6b7280', background: '#e9edf2', borderRadius: 20, padding: '3px 11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: '#6b7280', background: '#e9edf2', borderRadius: 20, padding: '3px 11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 {group.label}
               </span>
             </div>
@@ -400,7 +400,7 @@ const ChatThread: React.FC<Props> = ({
 
             {templatesOpen && templates.length > 0 && (
               <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, width: 290, maxHeight: 280, overflowY: 'auto', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 11, boxShadow: '0 12px 32px rgba(0,0,0,0.14)', zIndex: 40 }}>
-                <div style={{ padding: '9px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
+                <div style={{ padding: '9px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
                   Canned replies
                 </div>
                 {templates.map(t => (
@@ -412,7 +412,7 @@ const ChatThread: React.FC<Props> = ({
                     onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
                   >
-                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#0f1117' }}>{t.title}</span>
+                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#0f1117' }}>{t.title}</span>
                     <span style={{ display: 'block', fontSize: 11.5, color: '#6b7280', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.body}</span>
                   </button>
                 ))}

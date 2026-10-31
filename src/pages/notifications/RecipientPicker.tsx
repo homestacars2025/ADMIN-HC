@@ -99,7 +99,7 @@ export const RecipientPicker: React.FC<{
                 border: `1px solid ${active ? BRAND : '#e5e7eb'}`,
                 background: active ? 'rgba(75,166,234,0.10)' : '#fff',
                 color: active ? BRAND : MUTED,
-                fontSize: 12.5, fontWeight: active ? 700 : 500,
+                fontSize: 12.5, fontWeight: active ? 600 : 500,
                 fontFamily: 'inherit', cursor: 'pointer',
                 transition: 'all 140ms ease',
               }}

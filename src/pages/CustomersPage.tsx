@@ -712,11 +712,11 @@ const EditCustomerModal: React.FC<{
 
         {/* Header */}
         <div style={{ padding: '20px 24px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: pal.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.text, fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: pal.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.text, fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
             {initials(customer)}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Edit Customer</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Edit Customer</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{customer.first_name} {customer.last_name}</div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}>
@@ -824,7 +824,7 @@ const EditCustomerModal: React.FC<{
               <div style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea', flexShrink: 0 }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Customer Documents</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Customer Documents</span>
               <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
@@ -880,7 +880,7 @@ const CustomerDetailView: React.FC<{
   const pal = avatarPalette(`${cust.first_name} ${cust.last_name}`);
 
   const th: React.CSSProperties = {
-    padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
+    padding: '10px 16px', fontSize: 11, fontWeight: 600, color: '#9ca3af',
     textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left',
     borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap',
     background: '#fafafa', position: 'sticky', top: 0, zIndex: 1,
@@ -905,12 +905,12 @@ const CustomerDetailView: React.FC<{
           </button>
           <div style={{ width: 1, height: 24, background: '#e5e7eb', flexShrink: 0 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: pal.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.text, fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: pal.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.text, fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
               {initials(cust)}
             </div>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 2 }}>Customer</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{cust.first_name} {cust.last_name}</div>
+              <div style={{ fontSize: 22, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{cust.first_name} {cust.last_name}</div>
             </div>
           </div>
         </div>
@@ -922,7 +922,7 @@ const CustomerDetailView: React.FC<{
 
       {/* Info card */}
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 20 }}>Customer Information</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 20 }}>Customer Information</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 22 }}>
           <InfoField label="Phone"           value={cust.phone} />
           <InfoField label="Nationality"     value={cust.nationality} />
@@ -943,7 +943,7 @@ const CustomerDetailView: React.FC<{
       {/* Booking history */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', letterSpacing: '0.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Booking History</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', letterSpacing: '0.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Booking History</span>
           {!loading && (
             <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(75,166,234,0.1)', color: '#4ba6ea', whiteSpace: 'nowrap' }}>
               {bookings.length} {bookings.length === 1 ? 'rental' : 'rentals'}
@@ -975,13 +975,13 @@ const CustomerDetailView: React.FC<{
                     const carLabel = carRaw ? `${carRaw.plate_number}${mg ? ` — ${mg.name}` : ''}` : `Car #${b.car_id}`;
                     return (
                       <tr key={b.id}>
-                        <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', fontSize: 12, letterSpacing: '0.3px' }}>{b.booking_number}</td>
+                        <td className="font-mono tabular-nums" style={{ ...td, fontWeight: 600, fontSize: 12, letterSpacing: '0.3px' }}>{b.booking_number}</td>
                         <td style={{ ...td, fontWeight: 500 }}>{carLabel}</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(b.start_date)}</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(b.end_date)}</td>
                         <td style={{ ...td, color: '#6b7280' }}>{b.insurance_type ?? '—'}</td>
                         <td style={td}>
-                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg, textTransform: 'capitalize' }}>
+                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: sc.color, background: sc.bg, textTransform: 'capitalize' }}>
                             {b.status ?? '—'}
                           </span>
                         </td>
@@ -1112,7 +1112,7 @@ const CustomersPage: React.FC = () => {
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Management</span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 5px', lineHeight: 1.1 }}>Customers</h1>
+        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 5px', lineHeight: 1.1 }}>Customers</h1>
         <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Browse customer profiles and rental history.</p>
       </div>
 
@@ -1122,7 +1122,7 @@ const CustomersPage: React.FC = () => {
         {/* Nationality Breakdown */}
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Customer Nationalities</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Customer Nationalities</span>
             {!loading && totalWithNat > 0 && (
               <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>{customers.length} total</span>
             )}
@@ -1139,7 +1139,7 @@ const CustomersPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                       <span style={{ fontSize: 13, fontWeight: 500, color: '#0f1117' }}>{nat}</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>{count}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{count}</span>
                         <span style={{ fontSize: 11, color: '#9ca3af', minWidth: 30, textAlign: 'right' }}>{pct}%</span>
                       </div>
                     </div>
@@ -1155,7 +1155,7 @@ const CustomersPage: React.FC = () => {
 
         {/* Booking Insights */}
         <div style={cardStyle}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 16 }}>Booking Insights</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 16 }}>Booking Insights</div>
           {insightsLoading ? <Spinner /> : !insights ? (
             <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: '14px 0' }}>No data yet.</div>
           ) : (
@@ -1165,7 +1165,7 @@ const CustomersPage: React.FC = () => {
                   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#4ba6ea" strokeWidth="1.8"/><path d="M12 7v5l3 3" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/></svg>,
                   iconBg: 'rgba(75,166,234,0.08)',
                   label: 'Avg. rental duration',
-                  right: <span style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>{insights.avgDays} <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af' }}>days</span></span>,
+                  right: <span style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>{insights.avgDays} <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af' }}>days</span></span>,
                   border: true,
                 },
                 {
@@ -1173,7 +1173,7 @@ const CustomersPage: React.FC = () => {
                   iconBg: 'rgba(22,163,74,0.07)',
                   label: 'Most frequent customer',
                   right: insights.topCustomer
-                    ? <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>{insights.topCustomer.name}</div><div style={{ fontSize: 11, color: '#9ca3af' }}>{insights.topCustomer.count} bookings</div></div>
+                    ? <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{insights.topCustomer.name}</div><div style={{ fontSize: 11, color: '#9ca3af' }}>{insights.topCustomer.count} bookings</div></div>
                     : <span style={{ fontSize: 13, color: '#9ca3af' }}>—</span>,
                   border: true,
                 },
@@ -1182,7 +1182,7 @@ const CustomersPage: React.FC = () => {
                   iconBg: 'rgba(217,119,6,0.07)',
                   label: 'Longest rental',
                   right: insights.longestRental
-                    ? <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>{insights.longestRental.name}</div><div style={{ fontSize: 11, color: '#9ca3af' }}>{insights.longestRental.days} days</div></div>
+                    ? <div style={{ textAlign: 'right' }}><div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{insights.longestRental.name}</div><div style={{ fontSize: 11, color: '#9ca3af' }}>{insights.longestRental.days} days</div></div>
                     : <span style={{ fontSize: 13, color: '#9ca3af' }}>—</span>,
                   border: false,
                 },
@@ -1246,7 +1246,7 @@ const CustomersPage: React.FC = () => {
                 <tr>
                   {['Full Name', 'Phone', 'Nationality', 'ID Number', 'Driving License', ''].map((h, i) => (
                     <th key={i} style={{
-                      padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
+                      padding: '10px 16px', fontSize: 11, fontWeight: 600, color: '#9ca3af',
                       textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left',
                       borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap',
                       background: '#fff', position: 'sticky', top: 0, zIndex: 1,
@@ -1267,7 +1267,7 @@ const CustomersPage: React.FC = () => {
                     >
                       <td style={{ padding: '10px 16px', fontWeight: 600, fontSize: 13, color: '#0f1117' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: pal.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.text, fontSize: 11, fontWeight: 700, flexShrink: 0, letterSpacing: '0.5px' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: pal.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pal.text, fontSize: 11, fontWeight: 600, flexShrink: 0, letterSpacing: '0.5px' }}>
                             {initials(c)}
                           </div>
                           {c.first_name} {c.last_name}
@@ -1275,8 +1275,8 @@ const CustomersPage: React.FC = () => {
                       </td>
                       <td style={{ padding: '10px 16px', fontSize: 13, color: c.phone ? '#6b7280' : '#d1d5db' }}>{c.phone || '—'}</td>
                       <td style={{ padding: '10px 16px', fontSize: 13, color: c.nationality ? '#374151' : '#d1d5db' }}>{c.nationality || '—'}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, fontFamily: 'monospace', color: c.id_number ? '#374151' : '#d1d5db' }}>{c.id_number || '—'}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, fontFamily: 'monospace', color: c.driving_license_number ? '#374151' : '#d1d5db' }}>{c.driving_license_number || '—'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, fontFamily: 'var(--font-mono)', color: c.id_number ? '#374151' : '#d1d5db' }}>{c.id_number || '—'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, fontFamily: 'var(--font-mono)', color: c.driving_license_number ? '#374151' : '#d1d5db' }}>{c.driving_license_number || '—'}</td>
                       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
                         <button
                           onClick={e => { e.stopPropagation(); setEditModal(c); }}

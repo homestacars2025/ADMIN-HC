@@ -120,7 +120,7 @@ export const AllNotificationsTab: React.FC = () => {
                 onClick={() => changeFilter(opt.value)}
                 style={{
                   height: 30, padding: '0 13px', borderRadius: 8, border: 'none',
-                  fontSize: 12.5, fontWeight: active ? 700 : 500, fontFamily: 'inherit',
+                  fontSize: 12.5, fontWeight: active ? 600 : 500, fontFamily: 'inherit',
                   cursor: 'pointer',
                   color: active ? BRAND : MUTED,
                   background: active ? 'rgba(75,166,234,0.10)' : 'transparent',
@@ -148,7 +148,7 @@ export const AllNotificationsTab: React.FC = () => {
                   border: `1px solid ${active ? (style?.color ?? BRAND) : '#e5e7eb'}`,
                   background: active ? (style?.bg ?? 'rgba(75,166,234,0.10)') : '#fff',
                   color: active ? (style?.color ?? BRAND) : MUTED,
-                  fontSize: 12, fontWeight: active ? 700 : 500,
+                  fontSize: 12, fontWeight: active ? 600 : 500,
                   fontFamily: 'inherit', cursor: 'pointer',
                   transition: 'all 140ms ease',
                 }}
@@ -223,13 +223,13 @@ export const AllNotificationsTab: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
                   <Chip label={style.label} color={style.color} bg={style.bg} />
                   {item.event_key && (
-                    <span style={{ fontSize: 11, color: FAINT, fontFamily: 'ui-monospace, monospace' }}>
+                    <span style={{ fontSize: 11, color: FAINT, fontFamily: 'var(--font-mono)' }}>
                       {item.event_key}
                     </span>
                   )}
                 </div>
                 <div dir={dir} style={{
-                  fontSize: 13.5, fontWeight: item.is_read ? 500 : 700,
+                  fontSize: 13.5, fontWeight: item.is_read ? 500 : 600,
                   color: INK, lineHeight: 1.45,
                   textAlign: dir === 'rtl' ? 'right' : 'left',
                 }}>

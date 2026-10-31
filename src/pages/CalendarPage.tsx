@@ -33,7 +33,7 @@ const TEXT_DARK   = '#222222';
 const TEXT_MID    = '#717171';
 const TEXT_LIGHT  = '#aaaaaa';
 const BORDER_SOFT = '#f0f0f0';
-const FONT        = "'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const FONT        = 'var(--font-sans)';
 
 const LEFT_W = 200;
 const COL_W  = 40;
@@ -194,7 +194,7 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
         </span>
       </div>
       {entry.customer_name && (
-        <div style={{ fontSize: 14, fontWeight: 700, color: TEXT_DARK, marginBottom: 10, lineHeight: 1.3 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: TEXT_DARK, marginBottom: 10, lineHeight: 1.3 }}>
           {entry.customer_name}
         </div>
       )}
@@ -337,8 +337,8 @@ const SelectionActionMenu: React.FC<SelectionActionMenuProps> = ({
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: TEXT_DARK, lineHeight: 1.2 }}>
-            {car.plate_number}
+          <div style={{ fontSize: 15, fontWeight: 600, color: TEXT_DARK, lineHeight: 1.2 }}>
+            <span className="font-mono tabular-nums">{car.plate_number}</span>
             <span style={{ fontWeight: 400, color: TEXT_MID, marginLeft: 6 }}>{car.model_name}</span>
           </div>
           <div style={{
@@ -474,8 +474,8 @@ const BlockPopup: React.FC<BlockPopupProps> = ({
             </span>
           </div>
           {/* Car info */}
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: TEXT_DARK, lineHeight: 1.2 }}>
-            {car.plate_number}
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: TEXT_DARK, lineHeight: 1.2 }}>
+            <span className="font-mono tabular-nums">{car.plate_number}</span>
             <span style={{ fontWeight: 400, color: TEXT_MID, marginLeft: 5 }}>{car.model_name}</span>
           </div>
           {/* Customer for booked */}
@@ -1063,7 +1063,7 @@ const CalendarPage: React.FC = () => {
             Fleet Calendar
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 6px', lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 6px', lineHeight: 1.1 }}>
           Fleet Calendar
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
@@ -1119,7 +1119,7 @@ const CalendarPage: React.FC = () => {
           </button>
 
           <span style={{
-            fontSize: 18, fontWeight: 700, color: TEXT_DARK,
+            fontSize: 18, fontWeight: 600, color: TEXT_DARK,
             minWidth: 168, textAlign: 'center', letterSpacing: '-0.4px',
             userSelect: 'none',
           }}>
@@ -1337,7 +1337,7 @@ const CalendarPage: React.FC = () => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <span style={{
-                        fontSize: 13, fontWeight: 700, color: 'white',
+                        fontSize: 13, fontWeight: 600, color: 'white',
                         lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                       }}>
                         {day}
@@ -1389,8 +1389,8 @@ const CalendarPage: React.FC = () => {
                     width: LEFT_W,
                     gap: 2,
                   }}>
-                    <div style={{
-                      fontSize: 15, fontWeight: 700, color: TEXT_DARK, lineHeight: 1.2,
+                    <div className="font-mono tabular-nums" style={{
+                      fontSize: 15, fontWeight: 600, color: TEXT_DARK, lineHeight: 1.2,
                     }}>
                       {car.plate_number || '—'}
                     </div>
@@ -1502,7 +1502,7 @@ const CalendarPage: React.FC = () => {
                         }}>
                           <span style={{
                             fontSize: 13,
-                            fontWeight: isSelected && (isSelStart || isSelEnd) ? 700 : calEntry ? 600 : isToday ? 700 : 400,
+                            fontWeight: isSelected && (isSelStart || isSelEnd) ? 600 : calEntry ? 600 : isToday ? 600 : 400,
                             color: isSelected ? (isSelStart || isSelEnd ? 'white' : BRAND_BLUE) : circleColor,
                             fontVariantNumeric: 'tabular-nums', lineHeight: 1,
                             userSelect: 'none',

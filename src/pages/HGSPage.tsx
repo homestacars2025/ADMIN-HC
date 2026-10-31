@@ -160,7 +160,7 @@ const TransitRow: React.FC<{ transit: HgsTransit }> = ({ transit }) => (
     </span>
 
     <span className={cn(
-      'text-[12.5px] font-semibold tabular-nums sm:text-right',
+      'text-[12.5px] font-mono font-semibold tabular-nums sm:text-right',
       transit.amount < 0 ? 'text-destructive' : 'text-foreground',
     )}>
       {formatLira(transit.amount)}
@@ -265,8 +265,8 @@ const CarRow: React.FC<{
             )}
           />
           <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px] font-semibold tracking-[-0.008em] text-black/85">{car.plateNumber}</span>
-            {car.hgsBarcode && <span className="truncate text-[11px] tabular-nums text-black/30">{car.hgsBarcode}</span>}
+            <span className="truncate text-[13px] font-semibold tracking-[-0.008em] text-black/85 font-mono tabular-nums">{car.plateNumber}</span>
+            {car.hgsBarcode && <span className="truncate text-[11px] text-black/30 font-mono tabular-nums">{car.hgsBarcode}</span>}
           </span>
         </span>
 
@@ -278,7 +278,7 @@ const CarRow: React.FC<{
           <span className="lg:hidden">Transits </span>{formatCount(car.transitCount)}
         </span>
         <span className="text-[12px] tabular-nums text-black/45 lg:text-right">{formatDate(car.lastTransit)}</span>
-        <span className="col-span-2 pl-6 text-[13px] font-semibold tabular-nums text-foreground lg:col-span-1 lg:pl-0 lg:text-right">
+        <span className="col-span-2 pl-6 font-mono text-[13px] font-semibold tabular-nums text-foreground lg:col-span-1 lg:pl-0 lg:text-right">
           {formatLira(car.totalAmount)}
         </span>
       </button>

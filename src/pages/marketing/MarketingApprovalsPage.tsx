@@ -117,7 +117,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ action, onConfirm, onCanc
         boxShadow: '0 24px 80px rgba(0,0,0,0.18)', padding: '24px',
         animation: 'apSlideUp 180ms ease',
       }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', marginBottom: 6 }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', marginBottom: 6 }}>
           {action === 'reject' ? 'Reject Item' : 'Request Changes'}
         </div>
         <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 14 }}>
@@ -444,7 +444,7 @@ const MarketingApprovalsPage: React.FC = () => {
           {STATUS_TABS.map(tab => (
             <button key={tab.key} onClick={() => setStatusFilter(tab.key)} style={{
               padding: '5px 14px', borderRadius: 8, border: 'none', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: statusFilter === tab.key ? 600 : 450,
+              fontSize: 13, fontWeight: statusFilter === tab.key ? 600 : 500,
               background: statusFilter === tab.key ? 'rgba(75,166,234,0.10)' : 'transparent',
               color: statusFilter === tab.key ? '#4ba6ea' : '#6b7280',
               cursor: 'pointer', transition: 'all 120ms ease',
@@ -489,7 +489,7 @@ const MarketingApprovalsPage: React.FC = () => {
         {/* Stats */}
         {urgentCount > 0 && (
           <span style={{
-            fontSize: 12, fontWeight: 700, color: '#ef4444',
+            fontSize: 12, fontWeight: 600, color: '#ef4444',
             background: 'rgba(239,68,68,0.08)', borderRadius: 20, padding: '3px 10px',
           }}>
             {urgentCount} urgent
@@ -577,7 +577,7 @@ const MarketingApprovalsPage: React.FC = () => {
                           {item.title}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: ps.color, background: ps.bg, borderRadius: 20, padding: '1px 7px' }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: ps.color, background: ps.bg, borderRadius: 20, padding: '1px 7px' }}>
                             {ps.label}
                           </span>
                           <span style={{ fontSize: 11, color: '#9ca3af' }}>
@@ -631,12 +631,12 @@ const MarketingApprovalsPage: React.FC = () => {
                     {itemTypeIcon(selectedItem.item_type)}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px', marginBottom: 5 }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px', marginBottom: 5 }}>
                       {selectedItem.title}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {(() => { const ps = PRIORITY[selectedItem.priority] ?? PRIORITY.normal; return (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: ps.color, background: ps.bg, borderRadius: 20, padding: '2px 9px' }}>{ps.label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: ps.color, background: ps.bg, borderRadius: 20, padding: '2px 9px' }}>{ps.label}</span>
                       );})()}
                       <span style={{ fontSize: 12, color: '#6b7280' }}>{ITEM_TYPE_LABEL[selectedItem.item_type] ?? selectedItem.item_type}</span>
                       <span style={{ color: '#e5e7eb' }}>·</span>
@@ -650,7 +650,7 @@ const MarketingApprovalsPage: React.FC = () => {
                 {/* Content preview */}
                 {selectedItem.content && (
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
                       Content Preview
                     </div>
                     <div style={{
@@ -666,7 +666,7 @@ const MarketingApprovalsPage: React.FC = () => {
                 {/* Bot reasoning */}
                 {selectedItem.reasoning && (
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
                       Bot Reasoning
                     </div>
                     <div style={{
@@ -688,7 +688,7 @@ const MarketingApprovalsPage: React.FC = () => {
                 {/* Notes */}
                 {selectedItem.notes && (
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
                       Notes
                     </div>
                     <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>
@@ -700,7 +700,7 @@ const MarketingApprovalsPage: React.FC = () => {
                 {/* Reviewer feedback (if reviewed) */}
                 {selectedItem.user_feedback && (
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
                       Review Feedback
                     </div>
                     <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#78350f', lineHeight: 1.6 }}>
@@ -785,7 +785,7 @@ const MarketingApprovalsPage: React.FC = () => {
                   display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
                 }}>
                   <span style={{
-                    fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20,
+                    fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20,
                     color: selectedItem.status === 'approved' ? '#10b981' : '#ef4444',
                     background: selectedItem.status === 'approved' ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)',
                   }}>

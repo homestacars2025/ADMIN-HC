@@ -122,7 +122,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, sub }) =
       {value === null ? (
         <Sk w={60} h={32} r={8} mb={6} />
       ) : (
-        <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: '#0f1117', lineHeight: 1, marginBottom: 6 }}>
+        <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-1px', color: '#0f1117', lineHeight: 1, marginBottom: 6 }}>
           {value}
         </div>
       )}
@@ -147,7 +147,7 @@ const SectionCard: React.FC<{ title: string; action?: React.ReactNode; children:
       padding: '18px 22px 14px',
       borderBottom: '1px solid #f5f5f5',
     }}>
-      <span style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px' }}>{title}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px' }}>{title}</span>
       {action}
     </div>
     {children}
@@ -196,7 +196,7 @@ const CmoMessageRow: React.FC<{ msg: SmChatMessage; onClick: () => void; last: b
         </p>
         {!msg.is_read && (
           <div style={{ marginTop: 5 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#4ba6ea', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '1px 7px' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#4ba6ea', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '1px 7px' }}>
               Unread
             </span>
           </div>
@@ -248,7 +248,7 @@ const ApprovalRow: React.FC<{ item: SmApproval; onClick: () => void; last: boole
             {item.title}
           </span>
           <span style={{
-            fontSize: 10, fontWeight: 700, color: ps.color,
+            fontSize: 10, fontWeight: 600, color: ps.color,
             background: ps.bg, borderRadius: 20, padding: '1px 7px',
             whiteSpace: 'nowrap', flexShrink: 0,
           }}>
@@ -325,7 +325,7 @@ const BotCardComp: React.FC<BotCardProps> = ({ name, role, status, color, pendin
 
         {pendingTasks > 0 && (
           <span style={{
-            fontSize: 10, fontWeight: 700, color: '#f59e0b',
+            fontSize: 10, fontWeight: 600, color: '#f59e0b',
             background: 'rgba(245,158,11,0.10)',
             borderRadius: 20, padding: '2px 8px',
           }}>
@@ -334,7 +334,7 @@ const BotCardComp: React.FC<BotCardProps> = ({ name, role, status, color, pendin
         )}
       </div>
 
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f1117', marginBottom: 2, letterSpacing: '-0.2px' }}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f1117', marginBottom: 2, letterSpacing: '-0.2px' }}>
         {name}
       </div>
       <div style={{ fontSize: 11.5, color: '#9ca3af', marginBottom: 10 }}>{role}</div>
@@ -377,7 +377,7 @@ const QuickAction: React.FC<{ label: string; sub: string; icon: React.ReactNode;
         {icon}
       </div>
       <div>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f1117', marginBottom: 3, letterSpacing: '-0.2px' }}>{label}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f1117', marginBottom: 3, letterSpacing: '-0.2px' }}>{label}</div>
         <div style={{ fontSize: 12, color: '#9ca3af' }}>{sub}</div>
       </div>
     </button>
@@ -469,7 +469,7 @@ const MarketingOverviewPage: React.FC = () => {
             Marketing
           </span>
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.7px', color: '#0f1117', marginBottom: 5 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.7px', color: '#0f1117', marginBottom: 5 }}>
           Overview
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280' }}>
@@ -617,7 +617,7 @@ const MarketingOverviewPage: React.FC = () => {
       {/* C. Team Status */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>Team Status</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>Team Status</span>
           <span style={{ fontSize: 12, color: '#9ca3af' }}>8 bots</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -636,7 +636,7 @@ const MarketingOverviewPage: React.FC = () => {
 
       {/* D. Quick Actions */}
       <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', marginBottom: 14 }}>Quick Actions</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 14 }}>Quick Actions</div>
         <div style={{ display: 'flex', gap: 14 }}>
           <QuickAction
             label="Chat with CMO"

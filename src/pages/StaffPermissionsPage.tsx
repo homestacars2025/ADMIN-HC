@@ -211,9 +211,9 @@ const StaffPermissionsPage: React.FC = () => {
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>Admin Tools</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>Admin Tools</span>
         </div>
-        <h1 style={{ fontSize: 'clamp(23px, 4vw, 30px)', fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
+        <h1 style={{ fontSize: 'clamp(23px, 4vw, 30px)', fontWeight: 500, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
           Staff Permissions
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
@@ -260,9 +260,9 @@ const StaffPermissionsPage: React.FC = () => {
       {/* No restricted sections configured */}
       {!loading && !error && sections.length === 0 && (
         <div style={{ ...CARD_STYLE, padding: '52px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>No restricted sections configured</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>No restricted sections configured</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 5 }}>
-            Add rows to <code style={{ fontFamily: 'monospace', background: '#f3f4f6', borderRadius: 4, padding: '1px 5px' }}>restricted_sections</code> and they will appear here automatically.
+            Add rows to <code style={{ fontFamily: 'var(--font-mono)', background: '#f3f4f6', borderRadius: 4, padding: '1px 5px' }}>restricted_sections</code> and they will appear here automatically.
           </div>
         </div>
       )}
@@ -270,7 +270,7 @@ const StaffPermissionsPage: React.FC = () => {
       {/* No staff */}
       {!loading && !error && sections.length > 0 && staff.length === 0 && (
         <div style={{ ...CARD_STYLE, padding: '52px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>No staff members yet</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>No staff members yet</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 5 }}>
             Accounts with the “staff” role will appear here.
           </div>
@@ -287,13 +287,13 @@ const StaffPermissionsPage: React.FC = () => {
                 {/* Identity */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.2px', wordBreak: 'break-word' }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px', wordBreak: 'break-word' }}>
                       {person.full_name?.trim() || 'Unnamed staff'}
                     </div>
                     <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3, wordBreak: 'break-all' }}>{person.email}</div>
                   </div>
                   <span style={{
-                    flexShrink: 0, fontSize: 10.5, fontWeight: 700, borderRadius: 20, padding: '3px 9px', whiteSpace: 'nowrap',
+                    flexShrink: 0, fontSize: 10.5, fontWeight: 600, borderRadius: 20, padding: '3px 9px', whiteSpace: 'nowrap',
                     color: granted > 0 ? '#2e8fd4' : '#9ca3af',
                     background: granted > 0 ? 'rgba(75,166,234,0.12)' : '#f3f4f6',
                   }}>

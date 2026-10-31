@@ -291,11 +291,11 @@ function DiffPanel({ before, after }: { before: string | null; after: string | n
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
       {[{ label: 'Before', value: before, color: '#ef4444', bg: '#fff1f2' }, { label: 'After', value: after, color: '#10b981', bg: '#f0fdf4' }].map(side => (
         <div key={side.label} style={{ border: `1px solid ${side.color}40`, borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ background: side.bg, padding: '8px 14px', fontSize: 11, fontWeight: 700, color: side.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ background: side.bg, padding: '8px 14px', fontSize: 11, fontWeight: 600, color: side.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {side.label}
           </div>
           <pre style={{
-            margin: 0, padding: 14, fontSize: 12, fontFamily: 'monospace', color: '#334155',
+            margin: 0, padding: 14, fontSize: 12, fontFamily: 'var(--font-mono)', color: '#334155',
             background: '#fff', overflowX: 'auto', whiteSpace: isMarkdown(side.value) ? 'pre-wrap' : 'pre',
             maxHeight: 240, overflowY: 'auto',
           }}>
@@ -319,13 +319,13 @@ function DetailModal({ decision: d, onClose }: { decision: SmDecision; onClose: 
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', background: cfg.bg, color: cfg.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', background: cfg.bg, color: cfg.color, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ color: cfg.color }}>{cfg.icon}</span>
                 {cfg.label}
               </span>
               <span style={{ fontSize: 12, color: '#94a3b8' }}>{fmtFull(d.created_at)}</span>
             </div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a', lineHeight: 1.3 }}>{d.title}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: '#0f172a', lineHeight: 1.3 }}>{d.title}</h2>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8', lineHeight: 1, padding: '0 0 0 16px', flexShrink: 0 }}>✕</button>
         </div>
@@ -336,7 +336,7 @@ function DetailModal({ decision: d, onClose }: { decision: SmDecision; onClose: 
             <div>
               <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Made By</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: d.made_by === 'admin' ? '#4ba6ea' : '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: d.made_by === 'admin' ? '#4ba6ea' : '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#fff', textTransform: 'uppercase' }}>
                   {(d.made_by ?? 'U').slice(0, 1)}
                 </div>
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', textTransform: 'capitalize' }}>
@@ -407,11 +407,11 @@ function TimelineCard({ decision: d, onClick }: { decision: SmDecision; onClick:
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', background: cfg.bg, color: cfg.color }}>
+            <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', background: cfg.bg, color: cfg.color }}>
               {cfg.label}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 18, height: 18, borderRadius: '50%', background: d.made_by === 'admin' ? '#4ba6ea' : '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', textTransform: 'uppercase', flexShrink: 0 }}>
+              <div style={{ width: 18, height: 18, borderRadius: '50%', background: d.made_by === 'admin' ? '#4ba6ea' : '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 600, color: '#fff', textTransform: 'uppercase', flexShrink: 0 }}>
                 {(d.made_by ?? 'U').slice(0, 1)}
               </div>
               <span style={{ fontSize: 12, color: '#64748b', textTransform: 'capitalize' }}>{d.made_by ?? 'unknown'}</span>
@@ -422,7 +422,7 @@ function TimelineCard({ decision: d, onClick }: { decision: SmDecision; onClick:
           </span>
         </div>
 
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 6 }}>{d.title}</div>
+        <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 6 }}>{d.title}</div>
 
         {d.description && (
           <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
@@ -560,7 +560,7 @@ export default function MarketingDecisionsPage() {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1100, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ padding: '24px', maxWidth: 1100, margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes dlPulse  { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes dlSlide  { from{transform:translateX(20px);opacity:0} to{transform:translateX(0);opacity:1} }
@@ -571,7 +571,7 @@ export default function MarketingDecisionsPage() {
       {/* header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#0f172a' }}>Decisions Log</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 500, color: '#0f172a' }}>Decisions Log</h1>
           <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>Complete history of all marketing decisions and changes</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -605,7 +605,7 @@ export default function MarketingDecisionsPage() {
           { label: 'By Bots', value: byBots, color: '#f59e0b' },
         ].map(s => (
           <div key={s.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 18px' }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>
+            <div style={{ fontSize: 22, fontWeight: 600, color: s.color }}>
               {loading ? <Skeleton h={22} w={40} /> : s.value}
             </div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{s.label}</div>
@@ -680,7 +680,7 @@ export default function MarketingDecisionsPage() {
         <div>
           {grouped.map(group => (
             <div key={group.label} style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
                 {group.label}
                 <span style={{ flex: 1, height: 1, background: '#f1f5f9' }} />
                 <span style={{ fontSize: 11, color: '#cbd5e1' }}>{group.items.length} decision{group.items.length !== 1 ? 's' : ''}</span>
@@ -717,7 +717,7 @@ export default function MarketingDecisionsPage() {
                         <div>{new Date(d.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
                       <td style={{ padding: '10px 16px' }}>
-                        <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', background: cfg.bg, color: cfg.color }}>
+                        <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', background: cfg.bg, color: cfg.color }}>
                           {cfg.label}
                         </span>
                       </td>
@@ -727,7 +727,7 @@ export default function MarketingDecisionsPage() {
                       </td>
                       <td style={{ padding: '10px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: d.made_by === 'admin' ? '#4ba6ea' : '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', textTransform: 'uppercase', flexShrink: 0 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: d.made_by === 'admin' ? '#4ba6ea' : '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 600, color: '#fff', textTransform: 'uppercase', flexShrink: 0 }}>
                             {(d.made_by ?? 'U').slice(0, 1)}
                           </div>
                           <span style={{ fontSize: 13, color: '#475569', textTransform: 'capitalize' }}>{d.made_by ?? '—'}</span>

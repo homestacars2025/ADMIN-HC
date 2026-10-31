@@ -77,7 +77,7 @@ const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 32 }) 
       background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <span style={{ fontSize: size * 0.33, fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+      <span style={{ fontSize: size * 0.33, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
         {initials(name)}
       </span>
     </div>
@@ -88,7 +88,7 @@ const ActiveBadge: React.FC<{ active: boolean }> = ({ active }) => (
   <span style={{
     display: 'inline-flex', alignItems: 'center', gap: 5,
     padding: '2px 9px', borderRadius: 20,
-    fontSize: 11, fontWeight: 700,
+    fontSize: 11, fontWeight: 600,
     color: active ? '#059669' : '#9ca3af',
     background: active ? 'rgba(16,185,129,0.1)' : '#f3f4f6',
   }}>
@@ -105,7 +105,7 @@ const AccountingBadge: React.FC<{ can: boolean }> = ({ can }) =>
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
       padding: '2px 9px', borderRadius: 20,
-      fontSize: 11, fontWeight: 700,
+      fontSize: 11, fontWeight: 600,
       color: '#4ba6ea', background: 'rgba(75,166,234,0.1)',
       border: '1px solid rgba(75,166,234,0.2)',
     }}>
@@ -149,14 +149,14 @@ const TeamPage: React.FC = () => {
   const headers = ['Team Member', 'Phone', 'Position', 'Active', 'Accounting', 'Last Seen'];
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes teamSpin { to { transform: rotate(360deg); } }
       `}</style>
 
       {/* ── Page header ── */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f1117', margin: '0 0 6px' }}>Team</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: '0 0 6px' }}>Team</h1>
         <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
           Team members &amp; permissions
         </p>
@@ -189,7 +189,7 @@ const TeamPage: React.FC = () => {
               <thead>
                 <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                   {headers.map(h => (
-                    <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                    <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}

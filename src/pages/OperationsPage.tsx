@@ -243,8 +243,8 @@ const StatCard: React.FC<{ label: string; value: number; bg: string; loading: bo
   label, value, bg, loading,
 }) => (
   <div style={{ background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff', display: 'flex', flexDirection: 'column', gap: 6 }}>
-    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.82 }}>{label}</div>
-    <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>{loading ? '—' : value}</div>
+    <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.82 }}>{label}</div>
+    <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: '-1.5px', lineHeight: 1 }}>{loading ? '—' : value}</div>
   </div>
 );
 
@@ -269,7 +269,7 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
 const TypeBadge: React.FC<{ type: OperationType }> = ({ type }) => {
   const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.OTHER;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
       {cfg.label}
     </span>
@@ -287,7 +287,7 @@ const SkeletonRow: React.FC<{ cols: number }> = ({ cols }) => (
 );
 
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
-  <th style={{ padding: '9px 12px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', background: '#fff', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap', ...style }} {...rest}>
+  <th style={{ padding: '9px 12px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', background: '#fff', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap', ...style }} {...rest}>
     {children}
   </th>
 );
@@ -360,7 +360,7 @@ const YesNoResult: React.FC<{ value: boolean | null }> = ({ value }) => {
   if (value == null) return <span style={{ fontSize: 13, color: '#d1d5db' }}>—</span>;
   const tone = value ? '#16a34a' : '#ef4444';
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: tone }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: tone }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
         {value
           ? <path d="M20 6L9 17l-5-5" stroke={tone} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -918,7 +918,7 @@ const AddOperationModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '24px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>{isEdit ? 'Edit Operation' : 'New Operation'}</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>{isEdit ? 'Edit Operation' : 'New Operation'}</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{isEdit ? 'Update the operation details below' : 'Fill in the details below to log a new operation'}</div>
           </div>
           <button onClick={onClose}
@@ -933,7 +933,7 @@ const AddOperationModal: React.FC<{
         <form onSubmit={handleSubmit} style={{ overflowY: 'auto', flex: 1, padding: '24px 28px' }}>
 
           {/* Section: Operation Details */}
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 14 }}>
             Operation Details
           </div>
 
@@ -1112,7 +1112,7 @@ const AddOperationModal: React.FC<{
                   <path d="M9 11l3 3 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
                 </svg>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
                   Delivery Checklist <span style={{ color: '#ef4444' }}>*</span>
                 </span>
                 <span style={{
@@ -1232,13 +1232,13 @@ const AddOperationModal: React.FC<{
         <div style={{ padding: '16px 28px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
           {customerMissing && !saving && (
             <div style={{ flex: '1 1 200px', minWidth: 0, fontSize: 11.5, color: '#9ca3af', lineHeight: 1.45 }}>
-              <span style={{ fontWeight: 700, color: '#ef4444' }}>Customer required</span>{' '}
+              <span style={{ fontWeight: 600, color: '#ef4444' }}>Customer required</span>{' '}
               — select a linked customer for delivery/pickup operations.
             </div>
           )}
           {slotsIncomplete && !saving && (
             <div style={{ flex: '1 1 200px', minWidth: 0, fontSize: 11.5, color: '#9ca3af', lineHeight: 1.45 }}>
-              <span style={{ fontWeight: 700, color: '#ef4444' }}>
+              <span style={{ fontWeight: 600, color: '#ef4444' }}>
                 {missingSlots.length} photo{missingSlots.length > 1 ? 's' : ''} still missing
               </span>{' '}
               ({capturedSlots} / {OPERATION_PHOTO_SLOTS.length} captured) — {missingSlots.join(', ')}
@@ -1254,7 +1254,7 @@ const AddOperationModal: React.FC<{
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
             disabled={saving || slotsIncomplete || customerMissing}
-            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: (saving || slotsIncomplete || customerMissing) ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: (saving || slotsIncomplete || customerMissing) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: (saving || slotsIncomplete || customerMissing) ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 600, color: '#fff', cursor: (saving || slotsIncomplete || customerMissing) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             {saving ? (
               <>
@@ -1302,7 +1302,7 @@ const ConfirmDeleteDialog: React.FC<{
             <path d="M10 11v5M14 11v5" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
         </div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', marginBottom: 8, letterSpacing: '-0.3px' }}>Delete Operation?</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', marginBottom: 8, letterSpacing: '-0.3px' }}>Delete Operation?</div>
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
           This will permanently delete this operation and all associated photos.<br/>This action cannot be undone.
         </div>
@@ -1319,7 +1319,7 @@ const ConfirmDeleteDialog: React.FC<{
           <button
             onClick={onConfirm}
             disabled={deleting}
-            style={{ flex: 1, height: 42, borderRadius: 10, border: 'none', background: deleting ? '#fca5a5' : '#ef4444', fontSize: 14, fontWeight: 700, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+            style={{ flex: 1, height: 42, borderRadius: 10, border: 'none', background: deleting ? '#fca5a5' : '#ef4444', fontSize: 14, fontWeight: 600, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
             onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#dc2626'; }}
             onMouseLeave={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#ef4444'; }}
           >
@@ -1419,7 +1419,7 @@ const PhotosModal: React.FC<{
           {/* Header */}
           <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>Operation Photos</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>Operation Photos</div>
               {!fetching && !fetchErr && (
                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
                   {presentCount} photo{presentCount !== 1 ? 's' : ''}
@@ -1442,7 +1442,7 @@ const PhotosModal: React.FC<{
               <div style={{ marginBottom: 20, border: '1.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
                 <div style={{
                   padding: '10px 14px', background: '#fafafa', borderBottom: '1px solid #f0f0f0',
-                  fontSize: 12, fontWeight: 700, color: '#374151',
+                  fontSize: 12, fontWeight: 600, color: '#374151',
                   textTransform: 'uppercase', letterSpacing: '0.6px',
                 }}>
                   Delivery Checklist
@@ -1620,10 +1620,10 @@ const MetricCard: React.FC<{
   warning?: string | null;
 }> = ({ label, value, raw, incomplete, warning }) => (
   <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px', background: '#fafafa' }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
+    <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
       {label}
     </div>
-    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.6px', lineHeight: 1.1 }}>{value}</div>
+    <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.6px', lineHeight: 1.1 }}>{value}</div>
     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>{raw}</div>
     {incomplete && (
       <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, fontWeight: 600 }}>Incomplete data</div>
@@ -1645,7 +1645,7 @@ const ChargeLine: React.FC<{ label: string; detail: string; amount: number }> = 
       <div style={{ fontSize: 13, fontWeight: 600, color: amount > 0 ? '#0f1117' : '#9ca3af' }}>{label}</div>
       <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 3, lineHeight: 1.45 }}>{detail}</div>
     </div>
-    <span style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', color: amount > 0 ? '#ef4444' : '#d1d5db' }}>
+    <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', color: amount > 0 ? '#ef4444' : '#d1d5db' }}>
       {formatTry(amount)}
     </span>
   </div>
@@ -1778,8 +1778,8 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
         {/* Header */}
         <div style={{ padding: '22px 26px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              Pickup Report — {pickup.plate_number}
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              Pickup Report — <span className="font-mono tabular-nums">{pickup.plate_number}</span>
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>
               Picked up on {formatDate(pickup.operation_date)}
@@ -1826,7 +1826,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                   Matched delivery: <strong>{formatDate(delivery.operation_date)}</strong>
                 </span>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '4px 10px',
+                  fontSize: 11, fontWeight: 600, borderRadius: 20, padding: '4px 10px',
                   color:      delivery.method === 'booking' ? '#16a34a' : '#b45309',
                   background: delivery.method === 'booking' ? 'rgba(22,163,74,0.12)' : 'rgba(245,158,11,0.14)',
                 }}>
@@ -1877,7 +1877,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                   incomplete={!cleanKnown}
                   value={cleanKnown
                     ? <span style={{
-                        display: 'inline-block', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '5px 12px',
+                        display: 'inline-block', fontSize: 12, fontWeight: 600, borderRadius: 20, padding: '5px 12px',
                         color:      washNeeded ? '#ef4444' : '#16a34a',
                         background: washNeeded ? 'rgba(239,68,68,0.12)' : 'rgba(22,163,74,0.12)',
                       }}>
@@ -1892,7 +1892,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
 
               {/* Damage Inspection placeholder */}
               <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
                   Damage Inspection
                 </div>
                 <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '26px 16px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
@@ -1906,12 +1906,12 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
           {!loading && (
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
                   Charges Due
                 </span>
                 {chargesApplied && (
                   <span style={{
-                    fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '4px 10px',
+                    fontSize: 11, fontWeight: 600, borderRadius: 20, padding: '4px 10px',
                     color: '#16a34a', background: 'rgba(22,163,74,0.12)',
                   }}>
                     ✓ Applied to wallet
@@ -1955,8 +1955,8 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                     padding: '13px 16px', background: '#fff', borderTop: '1px solid #f0f0f0',
                   }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>Total</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.3px', color: charges.total_charge > 0 ? '#ef4444' : '#16a34a' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>Total</span>
+                    <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.3px', color: charges.total_charge > 0 ? '#ef4444' : '#16a34a' }}>
                       {formatTry(charges.total_charge)}
                     </span>
                   </div>
@@ -2160,7 +2160,7 @@ const OperationsPage: React.FC = () => {
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Operations</span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>Car Operations</h1>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>Car Operations</h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Deliveries, pickups, washes, maintenance and more</p>
         </div>
 
@@ -2180,7 +2180,7 @@ const OperationsPage: React.FC = () => {
         {/* Add Operation button */}
         <button
           onClick={() => setShowAddModal(true)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 22px', borderRadius: 12, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 12px rgba(75,166,234,0.35)', transition: 'background 140ms ease, box-shadow 140ms ease', flexShrink: 0 }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 22px', borderRadius: 12, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 12px rgba(75,166,234,0.35)', transition: 'background 140ms ease, box-shadow 140ms ease', flexShrink: 0 }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3b96da'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 18px rgba(75,166,234,0.45)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 12px rgba(75,166,234,0.35)'; }}
         >
@@ -2202,7 +2202,7 @@ const OperationsPage: React.FC = () => {
             onClick={() => handleTabChange(t.key)}
             style={{
               padding: '8px 20px', borderRadius: 9, border: 'none',
-              fontSize: 13, fontWeight: tab === t.key ? 700 : 500,
+              fontSize: 13, fontWeight: tab === t.key ? 600 : 500,
               color: tab === t.key ? '#0f1117' : '#6b7280',
               background: tab === t.key ? '#fff' : 'transparent',
               boxShadow: tab === t.key ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
@@ -2225,7 +2225,7 @@ const OperationsPage: React.FC = () => {
       {/* ── Month nav + search + filter ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <MonthArrow direction="left"  onClick={() => setSelectedMonth(m => addMonths(m, -1))} />
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', minWidth: 160, textAlign: 'center' }}>
+        <span style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', minWidth: 160, textAlign: 'center' }}>
           {formatMonthLabel(selectedMonth)}
         </span>
         <MonthArrow direction="right" onClick={() => setSelectedMonth(m => addMonths(m, 1))} />
@@ -2308,7 +2308,7 @@ const OperationsPage: React.FC = () => {
 
                   <td style={td}><TypeBadge type={op.type} /></td>
 
-                  <td style={{ ...td, fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{op.plate_number}</td>
+                  <td className="font-mono tabular-nums" style={{ ...td, fontSize: 12, fontWeight: 600 }}>{op.plate_number}</td>
 
                   <td style={{ ...td, color: op.handler_name ? '#374151' : '#d1d5db' }}>
                     {op.handler_name ?? '—'}

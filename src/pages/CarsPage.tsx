@@ -214,7 +214,7 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
         <div>
           <div style={{
             fontSize: 52,
-            fontWeight: 800,
+            fontWeight: 600,
             letterSpacing: '-3px',
             color: '#0f1117',
             lineHeight: 1,
@@ -346,7 +346,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               Add New Car
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -869,7 +869,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Edit Car</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>Edit Car</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Update vehicle details and registration info</div>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
@@ -889,7 +889,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
             <>
               {/* Section 1 */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14 }}>
                   Car Info
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -923,7 +923,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
 
               {/* Section 2 */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14 }}>
                   Registration Info
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -966,7 +966,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
 
               {/* Section 3: Car Photos */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>Car Photos</span>
                   <span style={{ fontSize: 10, fontWeight: 500, color: '#d1d5db', textTransform: 'none', letterSpacing: 0 }}>
                     {photos.length} photo{photos.length !== 1 ? 's' : ''}
@@ -1235,7 +1235,7 @@ const CarsPage: React.FC = () => {
           </div>
           <h1 style={{
             fontSize: 30,
-            fontWeight: 800,
+            fontWeight: 500,
             letterSpacing: '-0.8px',
             color: '#0f1117',
             marginBottom: 6,
@@ -1417,7 +1417,7 @@ const CarsPage: React.FC = () => {
                         key={col}
                         onClick={() => handleSort(col)}
                         style={{
-                          padding: '9px 14px', fontSize: 11, fontWeight: 700,
+                          padding: '9px 14px', fontSize: 11, fontWeight: 600,
                           color: active ? '#4ba6ea' : '#9ca3af',
                           textTransform: 'uppercase', letterSpacing: '0.7px',
                           textAlign: 'left', background: '#fff',
@@ -1457,7 +1457,7 @@ const CarsPage: React.FC = () => {
                     const tot  = cars.length;
                     return (
                       <th key={col.key} style={{
-                        padding: '9px 14px', fontSize: 11, fontWeight: 700,
+                        padding: '9px 14px', fontSize: 11, fontWeight: 600,
                         color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
                         textAlign: 'center', background: '#fff',
                         borderBottom: '1.5px solid #f0f0f0',
@@ -1473,7 +1473,7 @@ const CarsPage: React.FC = () => {
                     );
                   })}
                   <th style={{
-                    padding: '9px 14px', fontSize: 11, fontWeight: 700,
+                    padding: '9px 14px', fontSize: 11, fontWeight: 600,
                     color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
                     textAlign: 'center', background: '#fff',
                     borderBottom: '1.5px solid #f0f0f0',
@@ -1531,7 +1531,7 @@ const CarsPage: React.FC = () => {
                   return filtered.map((car, idx) => (
                     <tr key={car.plate_number + idx} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
                       <td style={{ padding: '12px 14px' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
+                        <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.3px' }}>
                           {car.plate_number}
                         </span>
                       </td>

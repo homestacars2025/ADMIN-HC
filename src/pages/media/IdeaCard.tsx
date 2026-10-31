@@ -63,7 +63,7 @@ export const IdeaCard: React.FC<{
     >
       {/* Title + row actions */}
       <div className="flex items-start gap-2">
-        <h3 className="min-w-0 flex-1 text-[14.5px] font-semibold leading-snug tracking-[-0.012em] text-black/[0.88]">
+        <h3 className="min-w-0 flex-1 text-[14.5px] font-medium leading-snug tracking-[-0.012em] text-black/[0.88]">
           {title}
         </h3>
         <div className="-mt-0.5 -mr-1.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/idea:opacity-100">

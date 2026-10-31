@@ -119,7 +119,7 @@ const LangBadge: React.FC<{ lang: string | null }> = ({ lang }) => {
   if (!lang) return null;
   const c = LANG_COLORS[lang] ?? { color: '#6b7280', bg: '#f3f4f6' };
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 7px', borderRadius: 6, background: c.bg, fontSize: 11, fontWeight: 700, color: c.color, letterSpacing: '0.04em' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 7px', borderRadius: 6, background: c.bg, fontSize: 11, fontWeight: 600, color: c.color, letterSpacing: '0.04em' }}>
       {lang.toUpperCase()}
     </span>
   );
@@ -255,7 +255,7 @@ const ImageSection: React.FC<{
   };
 
   const sectionLabel: React.CSSProperties = {
-    fontSize: 10.5, fontWeight: 700, color: '#9ca3af',
+    fontSize: 10.5, fontWeight: 600, color: '#9ca3af',
     textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 6,
   };
 
@@ -295,7 +295,7 @@ const ImageSection: React.FC<{
               padding: '11px 24px', borderRadius: 10, border: 'none',
               background: generating ? '#e5e7eb' : '#4ba6ea',
               color: generating ? '#9ca3af' : '#fff',
-              fontSize: 14, fontWeight: 700, cursor: generating ? 'not-allowed' : 'pointer',
+              fontSize: 14, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer',
               transition: 'background 140ms ease',
             }}
           >
@@ -389,7 +389,7 @@ const ImageSection: React.FC<{
         {/* Reject note textarea */}
         {rejectMode ? (
           <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: 14, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10, animation: 'spFadeIn 150ms ease' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>What should be fixed?</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#dc2626' }}>What should be fixed?</div>
             <textarea
               value={rejectNote}
               onChange={e => setRejectNote(e.target.value)}
@@ -415,14 +415,14 @@ const ImageSection: React.FC<{
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={handleApproveImage}
-              style={{ flex: 2, padding: '11px 0', borderRadius: 10, border: 'none', background: '#059669', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+              style={{ flex: 2, padding: '11px 0', borderRadius: 10, border: 'none', background: '#059669', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="#fff" strokeWidth="1.8"/></svg>
               Approve Image
             </button>
             <button
               onClick={() => setRejectMode(true)}
-              style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1.5px solid #fca5a5', background: '#fff', color: '#dc2626', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+              style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1.5px solid #fca5a5', background: '#fff', color: '#dc2626', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
             >
               Reject &amp; Redo
             </button>
@@ -447,7 +447,7 @@ const ImageSection: React.FC<{
               onClick={() => setLightboxOpen(true)}
               style={{ width: '100%', borderRadius: 12, border: '2px solid #6ee7b7', cursor: 'zoom-in', display: 'block' }}
             />
-            <span style={{ position: 'absolute', top: 10, right: 10, background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+            <span style={{ position: 'absolute', top: 10, right: 10, background: '#059669', color: '#fff', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
               ✓ Approved
             </span>
           </div>
@@ -632,7 +632,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
     (e.target.style.borderColor = '#e5e7eb');
 
   const sectionLabel: React.CSSProperties = {
-    fontSize: 10.5, fontWeight: 700, color: '#9ca3af',
+    fontSize: 10.5, fontWeight: 600, color: '#9ca3af',
     textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 6,
   };
 
@@ -670,7 +670,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
                   </span>
                 )}
               </div>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f1117', lineHeight: 1.35 }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, color: '#0f1117', lineHeight: 1.35 }}>
                 {mode === 'edit' ? 'Editing post' : (post.headline || <span style={{ color: '#9ca3af', fontStyle: 'italic', fontWeight: 400 }}>No headline</span>)}
               </h2>
               <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 5 }}>
@@ -746,12 +746,12 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
                   onChange={e => setEditImageBrief(e.target.value)}
                   rows={4}
                   placeholder="Visual instructions for the designer…"
-                  style={{ ...inp, resize: 'vertical', fontFamily: 'ui-monospace, "Cascadia Code", monospace', fontSize: 12 }}
+                  style={{ ...inp, resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 12 }}
                   onFocus={onFocusBlue}
                   onBlur={onBlurGray}
                 />
               ) : post.image_brief
-                ? <pre style={{ margin: 0, padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, fontSize: 12, lineHeight: 1.65, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'ui-monospace, "Cascadia Code", monospace' }}>{post.image_brief}</pre>
+                ? <pre style={{ margin: 0, padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, fontSize: 12, lineHeight: 1.65, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-mono)' }}>{post.image_brief}</pre>
                 : <span style={{ fontSize: 13, color: '#9ca3af' }}>No brief provided</span>
             }
           </div>
@@ -777,7 +777,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
                 { label: 'Created',         value: fmtDate(post.created_at) },
               ].map(({ label, value }) => (
                 <div key={label} style={{ background: '#f9fafb', borderRadius: 9, padding: '10px 13px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>{label}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', textTransform: 'capitalize' }}>{value}</div>
                 </div>
               ))}
@@ -792,7 +792,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
           {/* Existing rejection note (view mode) */}
           {post.status === 'rejected' && post.review_note && mode === 'view' && (
             <div style={{ padding: '12px 14px', background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Rejection Note</div>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Rejection Note</div>
               <p style={{ margin: 0, fontSize: 13, color: '#7f1d1d', lineHeight: 1.55 }}>{post.review_note}</p>
             </div>
           )}
@@ -800,7 +800,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
           {/* Reject: note textarea */}
           {mode === 'reject' && (
             <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: '16px', display: 'flex', flexDirection: 'column', gap: 10, animation: 'spFadeIn 150ms ease' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', direction: 'rtl', textAlign: 'right' }}>لماذا رفضت هذا البوست؟</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#dc2626', direction: 'rtl', textAlign: 'right' }}>لماذا رفضت هذا البوست؟</div>
               <textarea
                 value={rejectNote}
                 onChange={e => setRejectNote(e.target.value)}
@@ -809,7 +809,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
                 dir="rtl"
                 lang="ar"
                 placeholder="اكتب سبب الرفض هنا… مثال: الكابشن طويل، اختصره وخلي النبرة أبسط"
-                style={{ ...inp, borderColor: '#fca5a5', resize: 'vertical', lineHeight: 1.65, direction: 'rtl', textAlign: 'right', fontFamily: '"Segoe UI", -apple-system, sans-serif' }}
+                style={{ ...inp, borderColor: '#fca5a5', resize: 'vertical', lineHeight: 1.65, direction: 'rtl', textAlign: 'right', fontFamily: 'var(--font-sans)' }}
                 onFocus={e => (e.target.style.borderColor = '#ef4444')}
                 onBlur={e => (e.target.style.borderColor = '#fca5a5')}
               />
@@ -962,7 +962,7 @@ const MarketingSocialPostsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes spPulse  { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
         @keyframes spSlide  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -984,7 +984,7 @@ const MarketingSocialPostsPage: React.FC = () => {
 
       {/* Page header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f1117', margin: 0 }}>Social Posts</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Social Posts</h1>
         <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>
           Review and approve content from the Content Writer bot
         </p>
@@ -1015,7 +1015,7 @@ const MarketingSocialPostsPage: React.FC = () => {
                 minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20,
                 background: active ? (s?.color ?? '#4ba6ea') : '#e5e7eb',
                 color: active ? '#fff' : '#6b7280',
-                fontSize: 10, fontWeight: 700,
+                fontSize: 10, fontWeight: 600,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {counts[tab] ?? 0}
@@ -1059,7 +1059,7 @@ const MarketingSocialPostsPage: React.FC = () => {
           <thead>
             <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
               {['Headline', 'Type', 'Audience', 'Lang', 'Status', 'Created', ''].map(h => (
-                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>

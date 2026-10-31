@@ -28,6 +28,7 @@ import {
 import { listSources, type Source } from '../lib/sources';
 import { AlertTriangle, Mail, SearchX, X, type IconProps } from '../components/media/MediaIcons';
 import { PageHeader } from '../components/media/MediaShared';
+import { standaloneFontCss } from '../lib/standaloneFonts';
 import {
   Button,
   Field,
@@ -151,14 +152,15 @@ const HtmlBody: React.FC<{ html: string | null; text: string | null }> = ({ html
   const srcDoc = useMemo(() => {
     const content = html
       ? html
-      : `<pre style="white-space:pre-wrap;font:14px/1.6 ui-sans-serif,system-ui,sans-serif;margin:0">${
+      : `<pre style="white-space:pre-wrap;font:14px/1.6 var(--font-sans);margin:0">${
           (text ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string))
         }</pre>`;
     return `<!doctype html><meta charset="utf-8"><base target="_blank">
 <style>
-  /* Literal values: this is a sandboxed document of its own, so the parent's
-     custom properties do not resolve inside it. */
-  body{margin:0;padding:2px;font:13px/1.6 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#121212;word-break:break-word}
+  /* This is a sandboxed document of its own, so the parent's custom properties
+     do not resolve inside it: colours are literal and the fonts are copied in. */
+  ${standaloneFontCss()}
+  body{margin:0;padding:2px;font:13px/1.6 var(--font-sans);color:#121212;word-break:break-word}
   img{max-width:100%;height:auto} table{max-width:100%}
   a{color:#5c91d3}
 </style>${content}`;
@@ -677,7 +679,7 @@ const MailPage: React.FC = () => {
                 >
                   <X size={15} />
                 </button>
-                <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+                <h2 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-foreground">
                   {selected.subject || '(no subject)'}
                 </h2>
                 <StarButton on={selected.isStarred} onToggle={() => void toggleStar(selected)} label="Star message" />

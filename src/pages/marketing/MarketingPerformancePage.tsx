@@ -253,7 +253,7 @@ function ReportModal({ report: r, onClose }: { report: SmPerformanceAnalysis; on
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 680, maxHeight: '88vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'pfSlideUp 0.3s ease' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{r.title}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: '#0f172a' }}>{r.title}</h2>
             <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
               {r.analysis_type} · {fmtDate(r.period_start)} – {fmtDate(r.period_end)}
             </div>
@@ -273,7 +273,7 @@ function ReportModal({ report: r, onClose }: { report: SmPerformanceAnalysis; on
             ].map(k => (
               <div key={k.label} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>{k.label}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{k.value}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a' }}>{k.value}</div>
               </div>
             ))}
           </div>
@@ -281,25 +281,25 @@ function ReportModal({ report: r, onClose }: { report: SmPerformanceAnalysis; on
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {r.strengths && r.strengths.length > 0 && (
               <div style={{ background: '#f0fdf4', borderRadius: 10, padding: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', marginBottom: 8 }}>Strengths</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#10b981', textTransform: 'uppercase', marginBottom: 8 }}>Strengths</div>
                 {r.strengths.map((s, i) => <div key={i} style={{ fontSize: 13, color: '#065f46', marginBottom: 6 }}>• {s}</div>)}
               </div>
             )}
             {r.weaknesses && r.weaknesses.length > 0 && (
               <div style={{ background: '#fff1f2', borderRadius: 10, padding: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', marginBottom: 8 }}>Weaknesses</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', textTransform: 'uppercase', marginBottom: 8 }}>Weaknesses</div>
                 {r.weaknesses.map((w, i) => <div key={i} style={{ fontSize: 13, color: '#991b1b', marginBottom: 6 }}>• {w}</div>)}
               </div>
             )}
             {r.recommendations && r.recommendations.length > 0 && (
               <div style={{ background: '#fffbeb', borderRadius: 10, padding: 14, gridColumn: '1/-1' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 8 }}>Recommendations</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 8 }}>Recommendations</div>
                 {r.recommendations.map((rec, i) => <div key={i} style={{ fontSize: 13, color: '#78350f', marginBottom: 6 }}>• {rec}</div>)}
               </div>
             )}
             {r.market_position && (
               <div style={{ background: '#f0f9ff', borderRadius: 10, padding: 14, gridColumn: '1/-1' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#0ea5e9', textTransform: 'uppercase', marginBottom: 8 }}>Market Position</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#0ea5e9', textTransform: 'uppercase', marginBottom: 8 }}>Market Position</div>
                 <div style={{ fontSize: 13, color: '#0c4a6e', lineHeight: 1.6 }}>{r.market_position}</div>
               </div>
             )}
@@ -405,7 +405,7 @@ export default function MarketingPerformancePage() {
   const reachChange = latest && prev ? change(latest.reach, prev.reach) : null;
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes pfPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes pfSlide { from{transform:translateX(20px);opacity:0} to{transform:translateX(0);opacity:1} }
@@ -416,7 +416,7 @@ export default function MarketingPerformancePage() {
       {/* header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#0f172a' }}>Performance</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 500, color: '#0f172a' }}>Performance</h1>
           <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>Marketing KPIs, analytics, and reports</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -463,7 +463,7 @@ export default function MarketingPerformancePage() {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: k.color, marginBottom: 4 }}>
+            <div style={{ fontSize: 22, fontWeight: 600, color: k.color, marginBottom: 4 }}>
               {loading ? <Skeleton h={24} w={80} /> : k.value}
             </div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>{k.label}</div>
@@ -476,14 +476,14 @@ export default function MarketingPerformancePage() {
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>
         {/* revenue vs posts line chart */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Revenue vs Content Output</div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Revenue vs Content Output</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Monthly trend</div>
           <LineChart data={lineData} h={180} />
         </div>
 
         {/* bookings bar chart */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Monthly Bookings</div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Monthly Bookings</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Attributed to marketing</div>
           <BarChart
             data={monthlyMetrics.map((m, i) => ({ label: fmtMonth(m.month), value: m.bookings, color: i === monthlyMetrics.length - 1 ? '#f59e0b' : '#fde68a' }))}
@@ -496,7 +496,7 @@ export default function MarketingPerformancePage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
         {/* content heatmap */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Content Mix Heatmap</div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Content Mix Heatmap</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Platform × content type (post count)</div>
           <div style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: 340 }}>
@@ -530,7 +530,7 @@ export default function MarketingPerformancePage() {
 
         {/* top posts */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Top Performing Posts</div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Top Performing Posts</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Ranked by likes</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {topPosts.map((p, i) => {
@@ -542,7 +542,7 @@ export default function MarketingPerformancePage() {
                     <span style={{ fontSize: 12, color: '#334155', flex: 1, marginRight: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.title}
                     </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>❤️ {fmt(p.likes)}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap' }}>❤️ {fmt(p.likes)}</span>
                   </div>
                   <div style={{ height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${(p.likes / maxLikes) * 100}%`, height: '100%', background: barColors[i], borderRadius: 4, transition: 'width 0.4s ease' }} />
@@ -564,26 +564,26 @@ export default function MarketingPerformancePage() {
         <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: 20, marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#0369a1' }}>Latest Insights</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#0369a1' }}>Latest Insights</div>
               <div style={{ fontSize: 12, color: '#0284c7', marginTop: 2 }}>From {latestReport.title}</div>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
             {latestReport.strengths && latestReport.strengths.length > 0 && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', marginBottom: 8 }}>✅ Strengths</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#10b981', textTransform: 'uppercase', marginBottom: 8 }}>✅ Strengths</div>
                 {latestReport.strengths.map((s, i) => <div key={i} style={{ fontSize: 13, color: '#065f46', marginBottom: 6 }}>• {s}</div>)}
               </div>
             )}
             {latestReport.weaknesses && latestReport.weaknesses.length > 0 && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', marginBottom: 8 }}>⚠️ Weaknesses</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', textTransform: 'uppercase', marginBottom: 8 }}>⚠️ Weaknesses</div>
                 {latestReport.weaknesses.map((w, i) => <div key={i} style={{ fontSize: 13, color: '#991b1b', marginBottom: 6 }}>• {w}</div>)}
               </div>
             )}
             {latestReport.recommendations && latestReport.recommendations.length > 0 && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 8 }}>🎯 Action Items</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 8 }}>🎯 Action Items</div>
                 {latestReport.recommendations.map((r, i) => <div key={i} style={{ fontSize: 13, color: '#78350f', marginBottom: 6 }}>• {r}</div>)}
               </div>
             )}
@@ -594,7 +594,7 @@ export default function MarketingPerformancePage() {
       {/* reports list */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Analysis Reports</div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>Analysis Reports</div>
           <span style={{ fontSize: 12, color: '#94a3b8' }}>{analyses.length} reports</span>
         </div>
         <div style={{ padding: 20 }}>
@@ -626,11 +626,11 @@ export default function MarketingPerformancePage() {
                   </div>
                   <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#4ba6ea' }}>₺{fmt(r.revenue)}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#4ba6ea' }}>₺{fmt(r.revenue)}</div>
                       <div style={{ fontSize: 11, color: '#94a3b8' }}>Revenue</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#8b5cf6' }}>{r.avg_engagement_rate ?? '—'}%</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#8b5cf6' }}>{r.avg_engagement_rate ?? '—'}%</div>
                       <div style={{ fontSize: 11, color: '#94a3b8' }}>Engagement</div>
                     </div>
                     <span style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 600, whiteSpace: 'nowrap' }}>View →</span>

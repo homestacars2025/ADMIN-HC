@@ -105,7 +105,7 @@ const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
     <span style={{
       display: 'inline-flex', alignItems: 'center',
       padding: '2px 8px', borderRadius: 20,
-      fontSize: 10.5, fontWeight: 700, textTransform: 'capitalize',
+      fontSize: 10.5, fontWeight: 600, textTransform: 'capitalize',
       color: s.color, background: s.bg,
     }}>
       {role || 'user'}
@@ -121,7 +121,7 @@ const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 38 }) 
       background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <span style={{ fontSize: size * 0.33, fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+      <span style={{ fontSize: size * 0.33, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
         {initials(name)}
       </span>
     </div>
@@ -191,13 +191,13 @@ const AppSection: React.FC<{ app: AppName; users: PresenceUser[] }> = ({ app, us
             width: 8, height: 8, borderRadius: '50%',
             background: users.length > 0 ? cfg.color : '#d1d5db',
           }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>{cfg.label}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{cfg.label}</span>
         </div>
         <span style={{
           minWidth: 22, height: 22, padding: '0 7px', borderRadius: 20,
           background: users.length > 0 ? cfg.bg : '#f3f4f6',
           border: `1px solid ${users.length > 0 ? cfg.border : '#e5e7eb'}`,
-          fontSize: 11, fontWeight: 700,
+          fontSize: 11, fontWeight: 600,
           color: users.length > 0 ? cfg.color : '#9ca3af',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         }}>
@@ -307,7 +307,7 @@ const OnlineUsersPage: React.FC = () => {
   void tick;
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes ouPulse {
           0%   { transform: scale(1);   opacity: 0.5; }
@@ -319,13 +319,13 @@ const OnlineUsersPage: React.FC = () => {
       {/* ── Page header ── */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f1117', margin: 0 }}>Online Users</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Online Users</h1>
           {total > 0 && (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '3px 11px', borderRadius: 20,
               background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
-              fontSize: 12, fontWeight: 700, color: '#059669',
+              fontSize: 12, fontWeight: 600, color: '#059669',
             }}>
               <span style={{ position: 'relative', display: 'inline-flex', width: 8, height: 8 }}>
                 <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#10b981', opacity: 0.5, animation: 'ouPulse 1.6s ease-out infinite' }} />
@@ -376,7 +376,7 @@ const OnlineUsersPage: React.FC = () => {
       {/* ── All users — last seen ── */}
       <div>
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', margin: '0 0 4px' }}>
+          <h2 style={{ fontSize: 17, fontWeight: 500, color: '#0f1117', margin: '0 0 4px' }}>
             All Users — Last Seen
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
@@ -401,7 +401,7 @@ const OnlineUsersPage: React.FC = () => {
               <thead>
                 <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                   {['User', 'Role', 'Status', 'Last Seen'].map(h => (
-                    <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                    <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}

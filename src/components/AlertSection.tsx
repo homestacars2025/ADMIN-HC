@@ -139,7 +139,7 @@ const RowItem: React.FC<{ row: AlertRow; divider: boolean }> = ({ row, divider }
       borderBottom: divider ? '1px solid #f5f5f5' : 'none',
     }}>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', letterSpacing: '0.3px', marginBottom: 3 }}>
+        <div className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.3px', marginBottom: 3 }}>
           {row.plate_number}
         </div>
         <div style={{ fontSize: 12, color: '#9ca3af' }}>
@@ -148,7 +148,7 @@ const RowItem: React.FC<{ row: AlertRow; divider: boolean }> = ({ row, divider }
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         <span style={{
-          fontSize: 12, fontWeight: 700,
+          fontSize: 12, fontWeight: 600,
           color: badge.color, background: badge.bg,
           borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
         }}>
@@ -236,7 +236,7 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
             {icon}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px' }}>
               {title}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{rows.length} total</div>
@@ -434,7 +434,7 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
           {icon}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px' }}>
             {title}
           </div>
           {!loading && !error && (

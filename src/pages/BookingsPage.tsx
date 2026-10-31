@@ -277,10 +277,10 @@ const StatCard: React.FC<{ label: string; value: number; bg: string; loading: bo
     background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff',
     display: 'flex', flexDirection: 'column', gap: 6,
   }}>
-    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.80 }}>
+    <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.80 }}>
       {label}
     </div>
-    <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>
+    <div style={{ fontSize: 36, fontWeight: 600, letterSpacing: '-1.5px', lineHeight: 1 }}>
       {loading ? '—' : value}
     </div>
   </div>
@@ -322,7 +322,7 @@ const StatusBadge: React.FC<{ status: BookingStatus }> = ({ status }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      fontSize: 11, fontWeight: 700,
+      fontSize: 11, fontWeight: 600,
       color: cfg.color, background: cfg.bg,
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
@@ -397,7 +397,7 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
   <th
     style={{
-      padding: '9px 12px', fontSize: 11, fontWeight: 700,
+      padding: '9px 12px', fontSize: 11, fontWeight: 600,
       color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
       textAlign: 'left', background: '#fff',
       borderBottom: '1.5px solid #f0f0f0',
@@ -464,7 +464,7 @@ const BookingTableRow: React.FC<RowProps> = ({
         style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#4ba6ea' }} />
     </td>
     <td style={{ padding: '9px 12px' }}>
-      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', letterSpacing: '0.1px' }}>
+      <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.1px' }}>
         {booking.booking_number}
       </span>
     </td>
@@ -485,9 +485,9 @@ const BookingTableRow: React.FC<RowProps> = ({
       <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{booking.car_model}</span>
     </td>
     <td style={{ padding: '9px 12px' }}>
-      <span style={{
+      <span className="font-mono tabular-nums" style={{
         display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
-        padding: '2px 8px', fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
+        padding: '2px 8px', fontSize: 12, fontWeight: 600, color: '#0f1117', letterSpacing: '0.2px',
       }}>
         {booking.plate_number}
       </span>
@@ -1099,7 +1099,7 @@ const SectionHeading: React.FC<{ icon: React.ReactNode; title: string }> = ({ ic
     }}>
       {icon}
     </div>
-    <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
       {title}
     </span>
     <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
@@ -1668,7 +1668,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
         }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               {mode === 'add' ? 'New Booking' : 'Edit Booking'}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -1698,10 +1698,10 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             />
 
             <Field label="Booking Number">
-              <div style={{
+              <div className="font-mono tabular-nums" style={{
                 ...INPUT_STYLE, display: 'flex', alignItems: 'center',
                 background: '#f9fafb', color: bookingNumLoading ? '#9ca3af' : '#0f1117',
-                fontWeight: bookingNumLoading ? 400 : 700, letterSpacing: bookingNumLoading ? 0 : '0.3px',
+                fontWeight: bookingNumLoading ? 400 : 600, letterSpacing: bookingNumLoading ? 0 : '0.3px',
                 cursor: 'default',
               }}>
                 {bookingNumLoading ? 'Generating…' : form.booking_number}
@@ -2199,7 +2199,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   <span style={{ color: '#4ba6ea', display: 'flex', alignItems: 'center' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7v1m0 8v1M9 10h6M9 14h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Financial Information</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Financial Information</span>
                 </div>
                 {/* Currency toggle */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, border: '1.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
@@ -2210,7 +2210,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                       onClick={() => handleFinCurrencyChange(cur)}
                       style={{
                         height: 32, padding: '0 14px',
-                        fontSize: 12, fontWeight: 700,
+                        fontSize: 12, fontWeight: 600,
                         border: 'none', cursor: 'pointer',
                         fontFamily: 'inherit',
                         background: form.fin_currency === cur ? '#4ba6ea' : '#fff',
@@ -2644,7 +2644,7 @@ const ReplacementFormModal: React.FC<ReplacementModalProps> = ({ onClose, onSave
           padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
         }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               Replacement Car
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -2699,7 +2699,7 @@ const ReplacementFormModal: React.FC<ReplacementModalProps> = ({ onClose, onSave
                   marginBottom: 14,
                 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>
+                    <div className="font-mono tabular-nums" style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>
                       {originalCar.plate_number}
                     </div>
                     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
@@ -2746,7 +2746,7 @@ const ReplacementFormModal: React.FC<ReplacementModalProps> = ({ onClose, onSave
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}
                       >
-                        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f1117' }}>
+                        <span className="font-mono tabular-nums" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#0f1117' }}>
                           {c.plate_number}
                         </span>
                         <span style={{ display: 'block', fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
@@ -2837,7 +2837,7 @@ const ReplacementFormModal: React.FC<ReplacementModalProps> = ({ onClose, onSave
               {chosenCar && (
                 <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{
-                    fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+                    fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
                     color: carStatus(chosenCar.status).color,
                     background: carStatus(chosenCar.status).bg,
                   }}>
@@ -2953,7 +2953,7 @@ const SectionHeadingBlock: React.FC<{ icon: React.ReactNode; title: string }> = 
     }}>
       {icon}
     </div>
-    <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
       {title}
     </span>
     <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
@@ -3108,11 +3108,11 @@ const ExtendBookingModal: React.FC<ExtendModalProps> = ({ booking, onClose, onSa
           padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
         }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               Extend Booking
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              {booking.booking_number} · {booking.customer_name}
+              <span className="font-mono tabular-nums">{booking.booking_number}</span> · {booking.customer_name}
             </div>
           </div>
           <button
@@ -3148,7 +3148,7 @@ const ExtendBookingModal: React.FC<ExtendModalProps> = ({ booking, onClose, onSa
             marginBottom: 18,
           }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>{booking.plate_number}</div>
+              <div className="font-mono tabular-nums" style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>{booking.plate_number}</div>
               <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>{booking.car_model}</div>
             </div>
           </div>
@@ -3324,7 +3324,7 @@ const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey
           style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 150ms ease', flexShrink: 0 }}>
           <path d="M9 6l6 6-6 6" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>Replacement Sheets</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>Replacement Sheets</span>
         <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '2px 9px' }}>
           {loading ? '…' : rows.length}
         </span>
@@ -3362,21 +3362,21 @@ const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey
                 <tbody>
                   {rows.map((r, idx) => (
                     <tr key={r.id} className="bk-row" style={{ background: idx % 2 === 1 ? '#fcfcfd' : '#fff' }}>
-                      <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#0f1117', whiteSpace: 'nowrap' }}>
                         {r.sheet_number}
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151' }}>
                         {r.customer_name}
                         {r.original_booking_number && (
-                          <span style={{ display: 'block', fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
+                          <span className="font-mono tabular-nums" style={{ display: 'block', fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
                             {r.original_booking_number}
                           </span>
                         )}
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: '#9ca3af' }}>{r.original_plate ?? '—'}</span>
+                        <span className="font-mono tabular-nums" style={{ color: '#9ca3af' }}>{r.original_plate ?? '—'}</span>
                         <span style={{ margin: '0 7px', color: '#4ba6ea' }}>→</span>
-                        <strong style={{ color: '#0f1117' }}>{r.replacement_plate}</strong>
+                        <strong className="font-mono tabular-nums" style={{ color: '#0f1117' }}>{r.replacement_plate}</strong>
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
                         {formatDateDisplay(r.start_date)} – {formatDateDisplay(r.end_date)}
@@ -3451,9 +3451,9 @@ const DeleteConfirm: React.FC<{
             <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', marginBottom: 8 }}>Delete Booking?</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', marginBottom: 8 }}>Delete Booking?</div>
         <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 24, lineHeight: 1.6 }}>
-          Booking <strong style={{ color: '#0f1117' }}>{booking.booking_number}</strong> for{' '}
+          Booking <strong className="font-mono tabular-nums" style={{ color: '#0f1117' }}>{booking.booking_number}</strong> for{' '}
           <strong style={{ color: '#0f1117' }}>{booking.customer_name}</strong> will be permanently deleted.
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -3698,7 +3698,7 @@ const BookingsPage: React.FC = () => {
                 Operations
               </span>
             </div>
-            <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
+            <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
               Bookings
             </h1>
             <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Monthly bookings control center</p>
@@ -3759,7 +3759,7 @@ const BookingsPage: React.FC = () => {
         {/* ── Month navigation ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 28 }}>
           <MonthArrow direction="left"  onClick={() => setSelectedMonth(m => addMonths(m, -1))} />
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.4px', minWidth: 160, textAlign: 'center' }}>
+          <span style={{ fontSize: 18, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.4px', minWidth: 160, textAlign: 'center' }}>
             {formatMonthLabel(selectedMonth)}
           </span>
           <MonthArrow direction="right" onClick={() => setSelectedMonth(m => addMonths(m, 1))} />

@@ -456,7 +456,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({ dial, number, onDialChange, onN
                 }}
               >
                 <span style={{ fontSize: 17, lineHeight: 1, flexShrink: 0 }}>{c.flag}</span>
-                <span style={{ flex: 1, fontSize: 13, color: '#374151', fontWeight: 450 }}>{c.name}</span>
+                <span style={{ flex: 1, fontSize: 13, color: '#374151', fontWeight: 500 }}>{c.name}</span>
                 <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 600, flexShrink: 0 }}>{c.dial}</span>
               </button>
             ))}
@@ -525,7 +525,7 @@ const ToggleSwitch: React.FC<{
 // Table header cell
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
   <th style={{
-    padding: '9px 12px', fontSize: 11, fontWeight: 700,
+    padding: '9px 12px', fontSize: 11, fontWeight: 600,
     color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
     textAlign: 'left', background: '#fff',
     borderBottom: '1.5px solid #f0f0f0',
@@ -570,7 +570,7 @@ const Avatar: React.FC<{ investor: Investor; size?: number }> = ({ investor, siz
       background: color,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <span style={{ fontSize: size * 0.33, fontWeight: 700, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
+      <span style={{ fontSize: size * 0.33, fontWeight: 600, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
         {initials}
       </span>
     </div>
@@ -758,7 +758,7 @@ const EditInvestorModal: React.FC<EditModalProps> = ({ investor, onClose, onSave
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               Edit Investor
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -1048,11 +1048,11 @@ const InvestorsPage: React.FC = () => {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
             Management
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
           Investors
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
@@ -1268,7 +1268,7 @@ const InvestorsPage: React.FC = () => {
                           <span style={{
                             display: 'inline-block',
                             background: 'rgba(75,166,234,0.1)', borderRadius: 6,
-                            padding: '2px 8px', fontSize: 12, fontWeight: 700,
+                            padding: '2px 8px', fontSize: 12, fontWeight: 600,
                             color: '#4ba6ea', letterSpacing: '0.1px',
                           }}>
                             {formatRate(inv.commission_rate)}

@@ -30,7 +30,7 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
       <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9' }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{title}</div>
+        <div style={{ fontWeight: 600, fontSize: 15, color: '#0f172a' }}>{title}</div>
         {description && <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>{description}</div>}
       </div>
       <div style={{ padding: 24 }}>{children}</div>
@@ -185,7 +185,7 @@ export default function MarketingSettingsPage() {
   const brandBot = CONSTITUTION_DEFS.find(c => c.bot_name === 'brand_guardian');
 
   return (
-    <div style={{ padding: '24px', maxWidth: 880, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ padding: '24px', maxWidth: 880, margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes stSlide { from{transform:translateX(20px);opacity:0} to{transform:translateX(0);opacity:1} }
         @keyframes stPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
@@ -194,7 +194,7 @@ export default function MarketingSettingsPage() {
 
       {/* header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#0f172a' }}>Settings</h1>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 500, color: '#0f172a' }}>Settings</h1>
         <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>Bot management, integrations, and system preferences</p>
       </div>
 
@@ -219,7 +219,7 @@ export default function MarketingSettingsPage() {
               {/* info */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{bot.name}</span>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{bot.name}</span>
                   {bot.taskCount > 0 && (
                     <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 20, background: '#fef3c7', color: '#92400e' }}>
                       {bot.taskCount} tasks
@@ -332,7 +332,7 @@ export default function MarketingSettingsPage() {
               {g.type === 'color' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 20, height: 20, borderRadius: 5, background: g.value, border: '1px solid rgba(0,0,0,0.1)' }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#334155', fontFamily: 'monospace' }}>{g.value}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#334155', fontFamily: 'var(--font-mono)' }}>{g.value}</span>
                 </div>
               ) : (
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{g.value}</div>
@@ -410,7 +410,7 @@ export default function MarketingSettingsPage() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 9, background: '#fef2f2', border: '1px solid #fecaca' }}>
                 <span style={{ fontSize: 12, color: '#dc2626' }}>Delete all seeded data?</span>
-                <button onClick={handleClearTestData} disabled={clearing} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                <button onClick={handleClearTestData} disabled={clearing} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                   {clearing ? 'Clearing…' : 'Yes, delete'}
                 </button>
                 <button onClick={() => setConfirmClear(false)} style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#475569' }}>
@@ -422,8 +422,8 @@ export default function MarketingSettingsPage() {
 
           {/* SQL snippets for reference */}
           <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, border: '1px solid #e2e8f0' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>Pending SQL — Run in Supabase</div>
-            <pre style={{ margin: 0, fontSize: 11, fontFamily: 'monospace', color: '#334155', overflow: 'auto', lineHeight: 1.6 }}>{`-- Notifications table
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>Pending SQL — Run in Supabase</div>
+            <pre style={{ margin: 0, fontSize: 11, fontFamily: 'var(--font-mono)', color: '#334155', overflow: 'auto', lineHeight: 1.6 }}>{`-- Notifications table
 CREATE TABLE IF NOT EXISTS social.sm_notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type TEXT NOT NULL,

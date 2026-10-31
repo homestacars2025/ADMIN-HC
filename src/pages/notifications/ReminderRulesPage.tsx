@@ -178,7 +178,7 @@ const ReminderRulesPage: React.FC = () => {
           ...CARD_STYLE, padding: '13px 18px', marginBottom: 18,
           background: 'rgba(75,166,234,0.05)', borderColor: 'rgba(75,166,234,0.22)',
         }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, marginBottom: 7 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: INK, marginBottom: 7 }}>
             Last run
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -188,7 +188,7 @@ const ReminderRulesPage: React.FC = () => {
               }}>
                 <span style={{ color: MUTED, minWidth: 0 }} {...AUTO_DIR}>{r.rule_name}</span>
                 <span style={{
-                  color: r.generated > 0 ? BRAND : FAINT, fontWeight: 700,
+                  color: r.generated > 0 ? BRAND : FAINT, fontWeight: 600,
                   fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                 }}>
                   {r.generated > 0 ? `generated ${r.generated}` : 'nothing to generate'}
@@ -220,7 +220,7 @@ const ReminderRulesPage: React.FC = () => {
                 <tr style={{ borderBottom: `1px solid ${LINE}`, background: '#fafbfc' }}>
                   {['Rule', 'Mode', 'Sends to', 'Last run', 'Active', ''].map((h) => (
                     <th key={h} style={{
-                      padding: '11px 16px', fontSize: 11, fontWeight: 700, color: FAINT,
+                      padding: '11px 16px', fontSize: 11, fontWeight: 600, color: FAINT,
                       letterSpacing: '0.5px', textTransform: 'uppercase', whiteSpace: 'nowrap',
                     }}>
                       {h}
@@ -234,7 +234,7 @@ const ReminderRulesPage: React.FC = () => {
                   return (
                     <tr key={rule.id} style={{ borderBottom: '1px solid #f4f4f4' }}>
                       <td style={{ padding: '13px 16px', maxWidth: 340 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 700, color: INK }} {...AUTO_DIR}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: INK }} {...AUTO_DIR}>
                           {rule.name}
                         </div>
                         {rule.description && (
@@ -381,7 +381,7 @@ const ReminderRulesPage: React.FC = () => {
 
             {/* The dangerous field. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12.5, fontWeight: 700, color: INK }}>Check query</label>
+              <label style={{ fontSize: 12.5, fontWeight: 600, color: INK }}>Check query</label>
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: 9,
                 background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.2)',
@@ -406,7 +406,7 @@ const ReminderRulesPage: React.FC = () => {
                 dir="ltr"
                 style={{
                   ...textareaStyle,
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontFamily: 'var(--font-mono)',
                   fontSize: 12.5,
                   lineHeight: 1.65,
                   background: '#fafbfc',

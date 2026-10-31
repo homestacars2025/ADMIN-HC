@@ -41,14 +41,14 @@ export const PageHeader: React.FC<{
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: BRAND }} />
         <span style={{
-          fontSize: 11, fontWeight: 700, color: FAINT,
+          fontSize: 11, fontWeight: 600, color: FAINT,
           letterSpacing: '1px', textTransform: 'uppercase',
         }}>
           {eyebrow}
         </span>
       </div>
       <h1 style={{
-        fontSize: 'clamp(23px, 4vw, 30px)', fontWeight: 800, color: INK,
+        fontSize: 'clamp(23px, 4vw, 30px)', fontWeight: 500, color: INK,
         letterSpacing: '-0.8px', margin: 0,
       }}>
         {title}
@@ -121,7 +121,7 @@ export const Field: React.FC<{
   children: React.ReactNode;
 }> = ({ label, hint, required, children }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-    <label style={{ fontSize: 12.5, fontWeight: 700, color: INK }}>
+    <label style={{ fontSize: 12.5, fontWeight: 600, color: INK }}>
       {label}
       {required && <span style={{ color: '#dc2626' }}> *</span>}
     </label>
@@ -139,7 +139,7 @@ export const Chip: React.FC<{
   <span style={{
     display: 'inline-flex', alignItems: 'center', gap: 6,
     padding: '3px 9px', borderRadius: 20,
-    fontSize: 11.5, fontWeight: 700, color, background: bg,
+    fontSize: 11.5, fontWeight: 600, color, background: bg,
     whiteSpace: 'nowrap',
   }}>
     {label}
@@ -187,7 +187,7 @@ export function Tabs<T extends string>({ value, onChange, tabs }: {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
               height: 34, padding: '0 14px', borderRadius: 9, border: 'none',
-              fontSize: 13, fontWeight: active ? 700 : 500,
+              fontSize: 13, fontWeight: active ? 600 : 500,
               fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
               color: active ? BRAND : MUTED,
               background: active ? 'rgba(75,166,234,0.10)' : 'transparent',
@@ -198,7 +198,7 @@ export function Tabs<T extends string>({ value, onChange, tabs }: {
             {typeof tab.count === 'number' && (
               <span style={{
                 minWidth: 18, padding: '0 5px', borderRadius: 9,
-                fontSize: 10.5, fontWeight: 800, lineHeight: '17px', textAlign: 'center',
+                fontSize: 10.5, fontWeight: 600, lineHeight: '17px', textAlign: 'center',
                 fontVariantNumeric: 'tabular-nums',
                 background: active ? 'rgba(75,166,234,0.18)' : '#f3f4f6',
                 color: active ? BRAND : FAINT,
@@ -252,7 +252,7 @@ export const EmptyState: React.FC<{ title: string; description: string; action?:
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
     padding: '56px 24px', textAlign: 'center',
   }}>
-    <div style={{ fontSize: 15, fontWeight: 700, color: INK }}>{title}</div>
+    <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>{title}</div>
     <div style={{ fontSize: 13, color: MUTED, maxWidth: 420, lineHeight: 1.6 }}>{description}</div>
     {action}
   </div>
@@ -326,7 +326,7 @@ export const Modal: React.FC<{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 12, padding: '18px 22px', borderBottom: `1px solid ${LINE}`,
         }}>
-          <div style={{ fontSize: 15.5, fontWeight: 800, color: INK, letterSpacing: '-0.2px' }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: INK, letterSpacing: '-0.2px' }}>
             {title}
           </div>
           <button

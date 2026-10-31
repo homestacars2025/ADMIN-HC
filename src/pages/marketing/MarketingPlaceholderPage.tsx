@@ -38,7 +38,7 @@ const MarketingPlaceholderPage: React.FC = () => {
             Marketing
           </span>
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.7px', color: '#0f1117', marginBottom: 6 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.7px', color: '#0f1117', marginBottom: 6 }}>
           {info.title}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280' }}>{info.description}</p>
@@ -71,10 +71,10 @@ const MarketingPlaceholderPage: React.FC = () => {
           </svg>
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 10 }}>
           Phase 2
         </div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.4px', marginBottom: 10 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.4px', marginBottom: 10 }}>
           Coming in the next phase
         </h2>
         <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.65, marginBottom: 28, maxWidth: 400 }}>

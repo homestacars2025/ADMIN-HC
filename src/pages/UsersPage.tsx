@@ -207,7 +207,7 @@ const RoleBadge: React.FC<{ role: UserRole }> = ({ role }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      fontSize: 11, fontWeight: 700,
+      fontSize: 11, fontWeight: 600,
       color: cfg.color, background: cfg.bg,
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
@@ -223,7 +223,7 @@ const StatusBadge: React.FC<{ status: UserStatus }> = ({ status }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      fontSize: 11, fontWeight: 700,
+      fontSize: 11, fontWeight: 600,
       color: cfg.color, background: cfg.bg,
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
@@ -236,7 +236,7 @@ const StatusBadge: React.FC<{ status: UserStatus }> = ({ status }) => {
 // Table header cell
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
   <th style={{
-    padding: '9px 12px', fontSize: 11, fontWeight: 700,
+    padding: '9px 12px', fontSize: 11, fontWeight: 600,
     color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
     textAlign: 'left', background: '#fff',
     borderBottom: '1.5px solid #f0f0f0',
@@ -297,7 +297,7 @@ const Avatar: React.FC<{ user: UserProfile; size?: number }> = ({ user, size = 3
       background: color,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <span style={{ fontSize: size * 0.35, fontWeight: 700, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
+      <span style={{ fontSize: size * 0.35, fontWeight: 600, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
         {initials}
       </span>
     </div>
@@ -464,7 +464,7 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
                 Edit User
               </div>
               <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -506,7 +506,7 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '2px solid #e5e7eb',
                 }}>
-                  <span style={{ fontSize: 22, fontWeight: 700, color: '#fff', lineHeight: 1 }}>
+                  <span style={{ fontSize: 22, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
                     {getInitials(form.full_name || user.full_name)}
                   </span>
                 </div>
@@ -907,7 +907,7 @@ const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
                 Add User
               </div>
               <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -1151,11 +1151,11 @@ const UsersPage: React.FC = () => {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
             Management
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
           Users
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
@@ -1392,7 +1392,7 @@ const UsersPage: React.FC = () => {
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', marginBottom: 5 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 5 }}>
                     Delete User
                   </div>
                   <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.55 }}>

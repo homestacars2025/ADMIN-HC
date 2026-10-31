@@ -190,7 +190,7 @@ const LookupPanel: React.FC<{
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-black/[0.07] bg-white p-5">
       <div className="flex flex-col gap-1">
-        <h2 className="inline-flex items-center gap-2 text-[15px] font-semibold tracking-[-0.014em] text-black/85">
+        <h2 className="inline-flex items-center gap-2 text-[15px] font-medium tracking-[-0.014em] text-black/85">
           <Tag size={15} strokeWidth={1.75} className="text-[#6ea4e7]" />
           {title}
         </h2>

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { standaloneFontCss } from './standaloneFonts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -243,14 +244,14 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Contract – ${booking.booking_number}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
+  ${standaloneFontCss()}
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  b, strong, th { font-weight: 600; }
 
   body {
-    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    font-family: var(--font-sans);
     font-size: 10.5px;
     color: #111;
     background: #fff;
@@ -276,7 +277,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    font-family: var(--font-sans);
     font-size: 13px;
     font-weight: 500;
   }
@@ -287,7 +288,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     border-radius: 8px;
     padding: 9px 22px;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
     letter-spacing: 0.3px;
@@ -306,7 +307,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   .brand-block {}
   .brand-name {
     font-size: 20px;
-    font-weight: 900;
+    font-weight: 600;
     color: #1a2942;
     letter-spacing: 1.5px;
     line-height: 1;
@@ -314,7 +315,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   .brand-sub {
     font-size: 8px;
     color: #4ba6ea;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 2.5px;
     text-transform: uppercase;
     margin-top: 3px;
@@ -327,7 +328,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .company-info .co-name {
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     letter-spacing: 0.3px;
   }
@@ -341,7 +342,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .contract-title-tr {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -353,13 +354,13 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .contract-title-en {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     color: #374151;
     letter-spacing: 1px;
     text-transform: uppercase;
   }
   .contract-title-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 12px;
     font-weight: 700;
     color: #374151;
@@ -381,7 +382,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     color: #fff;
     padding: 5px 10px;
     font-size: 8.5px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
     display: flex;
@@ -389,7 +390,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     gap: 6px;
   }
   .section-bar .bar-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9px;
     font-weight: 400;
     letter-spacing: 0;
@@ -433,7 +434,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   .lbl-tr {
     display: block;
     font-size: 7.5px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -448,7 +449,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .lbl-ar {
     display: block;
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8px;
     color: #9ca3af;
     direction: rtl;
@@ -523,7 +524,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     color: #9ca3af;
   }
   .vehicle-note .ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     direction: rtl;
     display: block;
     font-style: normal;
@@ -557,7 +558,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .bono-title {
     font-size: 15px;
-    font-weight: 900;
+    font-weight: 600;
     letter-spacing: 5px;
     text-transform: uppercase;
   }
@@ -586,7 +587,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .bono-field-label {
     font-size: 7.5px;
-    font-weight: 700;
+    font-weight: 600;
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -608,7 +609,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .bono-amount-label {
     font-size: 8px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -616,7 +617,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .bono-amount-val {
     font-size: 20px;
-    font-weight: 900;
+    font-weight: 600;
     color: #111;
     min-height: 26px;
     border-bottom: 1.5px solid #9ca3af;
@@ -649,7 +650,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .bono-debtor-label {
     font-size: 7.5px;
-    font-weight: 700;
+    font-weight: 600;
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.4px;
@@ -686,14 +687,14 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .sig-title {
     font-size: 8.5px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 2px;
   }
   .sig-title-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9px;
     color: #6b7280;
     direction: rtl;
@@ -731,7 +732,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   .terms-title {
     text-align: center;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 1.5px;
@@ -751,14 +752,14 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     color: #fff;
     text-align: center;
     font-size: 8px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 1.5px;
     text-transform: uppercase;
     padding: 4px 6px;
     margin-bottom: 8px;
   }
   .terms-col-header.ar-col {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 10px;
     letter-spacing: 0;
   }
@@ -767,7 +768,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   }
   .clause-title {
     font-size: 8px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -784,13 +785,13 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     text-align: right;
   }
   .terms-col-ar .clause-title {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8.5px;
     letter-spacing: 0;
     text-transform: none;
   }
   .terms-col-ar .clause-body {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8px;
     text-align: right;
   }
@@ -847,7 +848,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     <span class="contract-title-divider">/</span>
     <span class="contract-title-ar">عقد إيجار سيارة</span>
     <div class="contract-meta">
-      S&ouml;zle&scedil;me No / Contract No: <strong>${booking.booking_number}</strong>
+      S&ouml;zle&scedil;me No / Contract No: <strong class="mono">${booking.booking_number}</strong>
       &nbsp;&nbsp;&middot;&nbsp;&nbsp;
       Tarih / Date: <strong>${today}</strong>
     </div>
@@ -882,7 +883,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
         <span class="bar-ar">معلومات الحجز</span>
       </div>
       <table class="info-table">
-        ${infoRow('PLAKA', 'Plate', 'رقم اللوحة', fmt(booking.plate_number))}
+        ${infoRow('PLAKA', 'Plate', 'رقم اللوحة', `<span class="mono">${fmt(booking.plate_number)}</span>`)}
         ${infoRow('MODEL', 'Model', 'موديل السيارة', fmt(booking.car_model))}
         ${infoRowPair(
           'TESL&#304;M TAR&#304;H&#304;', 'Delivery Date', 'تاريخ الاستلام', fmtDate(booking.start_date),
@@ -999,7 +1000,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="terms-header-ref">
-      <strong>S&ouml;zle&scedil;me No:</strong> ${booking.booking_number}<br/>
+      <strong>S&ouml;zle&scedil;me No:</strong> <span class="mono">${booking.booking_number}</span><br/>
       <strong>Kiraci:</strong> ${fmt(fullName)}<br/>
       <strong>Tarih:</strong> ${today}
     </div>
@@ -1062,7 +1063,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     &nbsp;&middot;&nbsp;
     Bu s&ouml;zle&scedil;me elektronik ortamda olu&scedil;turulmu&scedil;tur / This contract was generated electronically.
     &nbsp;&middot;&nbsp;
-    Booking: ${booking.booking_number} &nbsp;&middot;&nbsp; ${today}
+    Booking: <span class="mono">${booking.booking_number}</span> &nbsp;&middot;&nbsp; ${today}
   </div>
 
 </div>

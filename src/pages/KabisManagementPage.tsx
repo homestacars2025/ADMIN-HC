@@ -132,8 +132,8 @@ const StatCard: React.FC<{ label: string; value: string | number; bg: string; lo
   label, value, bg, loading,
 }) => (
   <div style={{ background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff', display: 'flex', flexDirection: 'column', gap: 6 }}>
-    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.82 }}>{label}</div>
-    <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1.4px', lineHeight: 1 }}>{loading ? '—' : value}</div>
+    <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.82 }}>{label}</div>
+    <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-1.4px', lineHeight: 1 }}>{loading ? '—' : value}</div>
   </div>
 );
 
@@ -149,7 +149,7 @@ const Badge: React.FC<{ label: string; color: string; bg: string }> = ({ label, 
 const Th: React.FC<{ children: React.ReactNode; align?: 'left' | 'right' | 'center' }> = ({ children, align = 'left' }) => (
   <th style={{
     padding: '11px 14px', textAlign: align,
-    fontSize: 11, fontWeight: 700, color: '#9ca3af',
+    fontSize: 11, fontWeight: 600, color: '#9ca3af',
     letterSpacing: '0.5px', textTransform: 'uppercase',
     whiteSpace: 'nowrap', background: '#fafafa',
   }}>
@@ -221,10 +221,10 @@ const EditModal: React.FC<{
     );
   };
 
-  const field = (label: string, value: string) => (
+  const field = (label: string, value: string, mono = false) => (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
-      <div style={{ fontSize: 13, color: '#0f1117', marginTop: 3 }}>{value}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
+      <div className={mono ? 'font-mono tabular-nums' : undefined} style={{ fontSize: 13, color: '#0f1117', marginTop: 3 }}>{value}</div>
     </div>
   );
 
@@ -245,7 +245,7 @@ const EditModal: React.FC<{
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Correct KABIS Entry</span>
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Correct KABIS Entry</span>
               <Badge {...ACTION_CONFIG[entry.action_type]} />
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Status and note only — the rest is generated</div>
@@ -264,10 +264,10 @@ const EditModal: React.FC<{
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 14,
             padding: '14px', borderRadius: 10, background: '#fafafa', border: '1px solid #f0f0f0', marginBottom: 18,
           }}>
-            {field('Plate', dash(entry.plate_number))}
+            {field('Plate', dash(entry.plate_number), true)}
             {field('Customer', dash(entry.customer_name))}
             {field('ID Number', dash(entry.customer_id_number))}
-            {field('Booking #', dash(entry.booking_number))}
+            {field('Booking #', dash(entry.booking_number), true)}
             {field('Operation Date', formatDate(entry.operation_date))}
             {field('KM', formatKm(entry.km))}
           </div>
@@ -477,13 +477,13 @@ const KabisManagementPage: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 22 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.5px' }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.5px' }}>
               KABIS Management
             </h1>
             {!loading && (
               <span style={{
                 background: 'linear-gradient(135deg, rgba(75,166,234,0.12) 0%, rgba(75,166,234,0.07) 100%)',
-                color: '#4ba6ea', fontSize: 12, fontWeight: 700,
+                color: '#4ba6ea', fontSize: 12, fontWeight: 600,
                 padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(75,166,234,0.2)',
               }}>
                 {stats.total} {stats.total === 1 ? 'entry' : 'entries'}
@@ -656,7 +656,7 @@ const KabisManagementPage: React.FC = () => {
                 visible.map(r => (
                   <tr key={r.id} className="kb-tr" style={{ borderBottom: '1px solid #f5f5f5' }}>
                     <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
-                      <span style={{ background: '#f3f4f6', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: '0.4px' }}>
+                      <span className="font-mono tabular-nums" style={{ background: '#f3f4f6', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 600, color: '#374151', letterSpacing: '0.4px' }}>
                         {dash(r.plate_number)}
                       </span>
                     </td>
@@ -664,12 +664,12 @@ const KabisManagementPage: React.FC = () => {
                       {dash(r.customer_name)}
                     </td>
                     <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12.5, color: r.customer_id_number ? '#374151' : '#d1d5db' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: r.customer_id_number ? '#374151' : '#d1d5db' }}>
                         {dash(r.customer_id_number)}
                       </span>
                     </td>
                     <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 600, color: '#4ba6ea' }}>
+                      <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea' }}>
                         {dash(r.booking_number)}
                       </span>
                     </td>

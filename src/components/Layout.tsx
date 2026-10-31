@@ -35,7 +35,7 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
           </svg>
         </div>
 
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', marginBottom: 8, letterSpacing: '-0.3px' }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', marginBottom: 8, letterSpacing: '-0.3px' }}>
           Still there?
         </div>
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
@@ -47,7 +47,7 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
           style={{
             width: '100%', height: 44, borderRadius: 11, border: 'none',
             background: '#4ba6ea', color: '#fff',
-            fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer',
             fontFamily: 'inherit', transition: 'background 140ms ease',
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3b96da'; }}

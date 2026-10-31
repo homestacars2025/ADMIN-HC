@@ -134,7 +134,7 @@ const LegendChip: React.FC<{ color: string; label: string }> = ({ color, label }
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, color: '#9ca3af',
+  fontSize: 11, fontWeight: 600, color: '#9ca3af',
   textTransform: 'uppercase', letterSpacing: '0.7px',
 };
 
@@ -200,7 +200,7 @@ const OperationPhotoGrid: React.FC<Props> = ({
           Required Photos <span style={{ color: '#ef4444' }}>*</span>
         </div>
         <div style={{
-          fontSize: 11.5, fontWeight: 700, letterSpacing: '0.2px',
+          fontSize: 11.5, fontWeight: 600, letterSpacing: '0.2px',
           color: complete ? '#16a34a' : '#4ba6ea',
           background: complete ? 'rgba(22,163,74,0.10)' : 'rgba(75,166,234,0.10)',
           borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
@@ -262,7 +262,7 @@ const OperationPhotoGrid: React.FC<Props> = ({
                     background: 'linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0))',
                     padding: '14px 6px 6px', display: 'flex', flexDirection: 'column', gap: 2,
                   }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{slot.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>{slot.label}</span>
                     <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>Tap to retake</span>
                   </span>
                 </>
@@ -270,7 +270,7 @@ const OperationPhotoGrid: React.FC<Props> = ({
                 <>
                   <span style={{
                     position: 'absolute', top: 6, left: 8,
-                    fontSize: 10, fontWeight: 700, color: '#d1d5db',
+                    fontSize: 10, fontWeight: 600, color: '#d1d5db',
                   }}>
                     {i + 1}
                   </span>
@@ -342,7 +342,7 @@ const OperationPhotoGrid: React.FC<Props> = ({
               <span style={{
                 position: 'absolute', left: 0, right: 0, bottom: 0,
                 background: 'linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0))',
-                padding: '14px 6px 6px', fontSize: 11, fontWeight: 700, color: '#fff',
+                padding: '14px 6px 6px', fontSize: 11, fontWeight: 600, color: '#fff',
               }}>
                 Scratch {i + 1}
               </span>

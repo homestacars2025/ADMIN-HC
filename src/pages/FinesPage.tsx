@@ -123,7 +123,7 @@ const StatusBadge: React.FC<{ status: FineStatus }> = ({ status }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      fontSize: 11, fontWeight: 700,
+      fontSize: 11, fontWeight: 600,
       color: cfg.color, background: cfg.bg,
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
@@ -137,7 +137,7 @@ const StatusBadge: React.FC<{ status: FineStatus }> = ({ status }) => {
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
   <th
     style={{
-      padding: '9px 12px', fontSize: 11, fontWeight: 700,
+      padding: '9px 12px', fontSize: 11, fontWeight: 600,
       color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
       textAlign: 'left', background: '#fff',
       borderBottom: '1.5px solid #f0f0f0',
@@ -374,7 +374,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
         {/* Header */}
         <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Add Fine</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>Add Fine</div>
             <button onClick={onClose} style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb',
               background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -714,7 +714,7 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
       }}>
         <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Edit Fine</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>Edit Fine</div>
             <button onClick={onClose} style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb',
               background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -908,12 +908,12 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>{fine.violation_number}</div>
+                <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>{fine.violation_number}</div>
                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{formatDateDisplay(fine.violation_date)}</div>
               </div>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg,
+                fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg,
                 borderRadius: 20, padding: '3px 10px',
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
@@ -949,7 +949,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
 
           {(fine.fine_image_url || fine.fine_pdf_url || fine.payment_receipt_url) && (
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
                 Attachments
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1085,7 +1085,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
       }}>
         <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Confirm Payment</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>Confirm Payment</div>
             <button onClick={onClose} style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb',
               background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
@@ -1113,16 +1113,16 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Plate Number</span>
-              <span style={{
+              <span className="font-mono tabular-nums" style={{
                 background: '#f3f4f6', borderRadius: 6, padding: '2px 8px',
-                fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
+                fontSize: 12, fontWeight: 600, color: '#0f1117', letterSpacing: '0.2px',
               }}>
                 {fine.plate_number}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Fine Amount</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: '#ef4444', letterSpacing: '-0.5px' }}>
+              <span style={{ fontSize: 22, fontWeight: 600, color: '#ef4444', letterSpacing: '-0.5px' }}>
                 {formatAmount(fine.amount)}
               </span>
             </div>
@@ -1204,9 +1204,9 @@ const DeleteModal: React.FC<{
             <path d="M3 6h18M19 6l-1 14H6L5 6M10 6V4h4v2" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', marginBottom: 8 }}>Delete Fine</div>
+        <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', marginBottom: 8 }}>Delete Fine</div>
         <div style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.5, marginBottom: 24 }}>
-          Are you sure you want to delete fine <strong style={{ color: '#0f1117' }}>{fine.violation_number}</strong> for plate <strong style={{ color: '#0f1117' }}>{fine.plate_number}</strong>? This action cannot be undone.
+          Are you sure you want to delete fine <strong style={{ color: '#0f1117' }}>{fine.violation_number}</strong> for plate <strong className="font-mono tabular-nums" style={{ color: '#0f1117' }}>{fine.plate_number}</strong>? This action cannot be undone.
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} style={{
@@ -1354,11 +1354,11 @@ const FinesPage: React.FC = () => {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
             Operations
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
           Traffic Fines
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
@@ -1399,10 +1399,10 @@ const FinesPage: React.FC = () => {
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: '#4ba6ea', borderRadius: '14px 14px 0 0' }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
                 Total Fines
               </div>
-              <div style={{ fontSize: 40, fontWeight: 800, color: '#0f1117', letterSpacing: '-1.5px', lineHeight: 1 }}>
+              <div style={{ fontSize: 40, fontWeight: 600, color: '#0f1117', letterSpacing: '-1.5px', lineHeight: 1 }}>
                 {loading ? '—' : totalCount}
               </div>
             </div>
@@ -1435,10 +1435,10 @@ const FinesPage: React.FC = () => {
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: '#ef4444', borderRadius: '14px 14px 0 0' }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
                 Total Unpaid
               </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: '#ef4444', letterSpacing: '-1px', lineHeight: 1 }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: '#ef4444', letterSpacing: '-1px', lineHeight: 1 }}>
                 {loading ? '—' : formatAmount(totalUnpaid)}
               </div>
             </div>
@@ -1554,9 +1554,9 @@ const FinesPage: React.FC = () => {
                   : filtered.map((fine, idx) => (
                     <tr key={fine.id} className="fine-row" style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'background 100ms ease' }}>
                       <td style={{ padding: '11px 12px' }}>
-                        <span style={{
+                        <span className="font-mono tabular-nums" style={{
                           display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
-                          padding: '2px 8px', fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
+                          padding: '2px 8px', fontSize: 12, fontWeight: 600, color: '#0f1117', letterSpacing: '0.2px',
                         }}>
                           {fine.plate_number}
                         </span>
@@ -1570,7 +1570,7 @@ const FinesPage: React.FC = () => {
                         </span>
                       </td>
                       <td style={{ padding: '11px 12px', textAlign: 'right' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: fine.status === 'unpaid' ? '#ef4444' : '#0f1117' }}>
+                        <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: fine.status === 'unpaid' ? '#ef4444' : '#0f1117' }}>
                           {formatAmount(fine.amount)}
                         </span>
                       </td>
@@ -1599,7 +1599,7 @@ const FinesPage: React.FC = () => {
                               style={{
                                 height: 28, padding: '0 10px', borderRadius: 7, border: 'none',
                                 background: 'rgba(34,197,94,0.1)', color: '#22c55e',
-                                fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                                fontSize: 11, fontWeight: 600, cursor: 'pointer',
                                 fontFamily: 'inherit', transition: 'all 140ms ease',
                                 whiteSpace: 'nowrap',
                               }}

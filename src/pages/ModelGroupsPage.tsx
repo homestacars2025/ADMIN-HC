@@ -201,7 +201,7 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               {mode === 'add' ? 'Add Model Group' : 'Edit Model Group'}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -616,14 +616,14 @@ const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, show
 
       {/* Identity */}
       <div style={{ flex: '0 0 210px', minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {group.name}
         </div>
         <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 7 }}>
           {group.brand} · {group.model}
         </div>
         <span style={{
-          display: 'inline-block', fontSize: 10.5, fontWeight: 700,
+          display: 'inline-block', fontSize: 10.5, fontWeight: 600,
           color: cat.color, background: cat.bg,
           borderRadius: 20, padding: '2px 9px', letterSpacing: '0.2px',
         }}>
@@ -641,7 +641,7 @@ const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, show
           ))}
         </div>
         <div>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#4ba6ea' }}>{fmtUSD(group.price)}</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#4ba6ea' }}>{fmtUSD(group.price)}</span>
           <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 2 }}>/day</span>
         </div>
       </div>
@@ -649,7 +649,7 @@ const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, show
       {/* Cars count + edit */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <span style={{
-          fontSize: 11, fontWeight: 700,
+          fontSize: 11, fontWeight: 600,
           color: '#4ba6ea', background: 'rgba(75,166,234,0.10)',
           borderRadius: 20, padding: '4px 12px', whiteSpace: 'nowrap',
         }}>
@@ -743,7 +743,7 @@ const ModelGroupsPage: React.FC = () => {
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Fleet</span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
             Model Groups
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280' }}>
@@ -808,7 +808,7 @@ const ModelGroupsPage: React.FC = () => {
               background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
             }}>
               <span style={{
-                fontSize: 11.5, fontWeight: 700,
+                fontSize: 11.5, fontWeight: 600,
                 color: cat.color, background: cat.bg,
                 borderRadius: 20, padding: '4px 12px',
                 letterSpacing: '0.3px',

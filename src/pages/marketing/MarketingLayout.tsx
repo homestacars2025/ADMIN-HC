@@ -64,7 +64,7 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
       >
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>Keyboard Shortcuts</div>
+            <div style={{ fontWeight: 600, fontSize: 16, color: '#0f172a' }}>Keyboard Shortcuts</div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Press <kbd style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>Esc</kbd> to close</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8' }}>✕</button>
@@ -72,7 +72,7 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
         <div style={{ overflowY: 'auto', padding: '16px 24px' }}>
           {SHORTCUTS.map(s => (
             <div key={s.section} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
                 {s.section}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -81,7 +81,7 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
                     <span style={{ fontSize: 13, color: '#475569' }}>{item.label}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {item.keys.map(k => (
-                        <kbd key={k} style={{ padding: '2px 8px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 12, fontFamily: 'monospace', color: '#334155', boxShadow: '0 1px 0 #e2e8f0' }}>
+                        <kbd key={k} style={{ padding: '2px 8px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 12, fontFamily: 'var(--font-mono)', color: '#334155', boxShadow: '0 1px 0 #e2e8f0' }}>
                           {k}
                         </kbd>
                       ))}
@@ -242,7 +242,7 @@ function GlobalSearchModal({ onClose, onNavigate }: { onClose: () => void; onNav
           ) : (
             Object.entries(grouped).map(([cat, items]) => (
               <div key={cat}>
-                <div style={{ padding: '10px 18px 6px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{cat}</div>
+                <div style={{ padding: '10px 18px 6px', fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{cat}</div>
                 {items.map(item => {
                   flatIdx++;
                   const fi = flatIdx;
@@ -355,7 +355,7 @@ function NotificationBell() {
             position: 'absolute', top: -2, right: -2,
             minWidth: 16, height: 16, padding: '0 4px',
             background: '#ef4444', color: '#fff',
-            fontSize: 9, fontWeight: 700, borderRadius: 20,
+            fontSize: 9, fontWeight: 600, borderRadius: 20,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '2px solid #fff',
           }}>
@@ -373,7 +373,7 @@ function NotificationBell() {
         }}>
           {/* header */}
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>
+            <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>
               Notifications {unread > 0 && <span style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 600 }}>({unread} new)</span>}
             </div>
             {unread > 0 && (
@@ -407,7 +407,7 @@ function NotificationBell() {
                 >
                   <span style={{ fontSize: 18, flexShrink: 0 }}>{sv.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: n.is_read ? 500 : 700, color: '#0f172a', marginBottom: 2 }}>{n.title}</div>
+                    <div style={{ fontSize: 13, fontWeight: n.is_read ? 500 : 600, color: '#0f172a', marginBottom: 2 }}>{n.title}</div>
                     {n.message && <div style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.message}</div>}
                     <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{timeAgo(n.created_at)}</div>
                   </div>
@@ -551,7 +551,7 @@ const MarketingLayout: React.FC = () => {
             </svg>
             <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>CMO</span>
             {unreadCmo !== null && unreadCmo > 0 && (
-              <span style={{ minWidth: 18, height: 18, padding: '0 5px', background: '#4ba6ea', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ minWidth: 18, height: 18, padding: '0 5px', background: '#4ba6ea', color: '#fff', fontSize: 10, fontWeight: 600, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {unreadCmo > 99 ? '99+' : unreadCmo}
               </span>
             )}
@@ -571,7 +571,7 @@ const MarketingLayout: React.FC = () => {
             </svg>
             <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Approvals</span>
             {pendingApprovals !== null && pendingApprovals > 0 && (
-              <span style={{ minWidth: 18, height: 18, padding: '0 5px', background: '#f59e0b', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ minWidth: 18, height: 18, padding: '0 5px', background: '#f59e0b', color: '#fff', fontSize: 10, fontWeight: 600, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {pendingApprovals > 99 ? '99+' : pendingApprovals}
               </span>
             )}
@@ -584,7 +584,7 @@ const MarketingLayout: React.FC = () => {
           <button
             onClick={() => setShowShortcuts(true)}
             title="Keyboard shortcuts (?)"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: '50%', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', color: '#6b7280', fontSize: 14, fontWeight: 700, transition: 'all 140ms ease' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: '50%', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', color: '#6b7280', fontSize: 14, fontWeight: 600, transition: 'all 140ms ease' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
           >

@@ -110,7 +110,7 @@ const FIELD_STYLE: React.CSSProperties = {
 const SectionHeader: React.FC<{ title: string; subtitle: string; action?: React.ReactNode }> = ({ title, subtitle, action }) => (
   <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16 }}>
     <div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>{title}</div>
+      <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>{title}</div>
       <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 2 }}>{subtitle}</div>
     </div>
     {action}
@@ -178,14 +178,14 @@ const ExchangeRateCard: React.FC<{
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 22 }}>{flag}</span>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>{rate.currency}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{rate.currency}</div>
           <div style={{ fontSize: 11, color: '#9ca3af' }}>{name}</div>
         </div>
       </div>
 
       {/* Rate — inline editable */}
       <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>
           Rate to TRY
         </div>
         {editing ? (
@@ -201,7 +201,7 @@ const ExchangeRateCard: React.FC<{
               onBlur={save}
               style={{
                 width: '100%', height: 36, padding: '0 10px',
-                fontSize: 20, fontWeight: 700, color: '#0f1117',
+                fontSize: 20, fontWeight: 600, color: '#0f1117',
                 background: '#f9fafb', border: '1.5px solid #4ba6ea',
                 borderRadius: 8, outline: 'none', fontFamily: 'inherit',
                 boxSizing: 'border-box',
@@ -216,7 +216,7 @@ const ExchangeRateCard: React.FC<{
             onClick={() => setEditing(true)}
             title="Click to edit"
             style={{
-              fontSize: 26, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.5px',
+              fontSize: 26, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.5px',
               cursor: 'text', display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '2px 4px', borderRadius: 6, margin: '-2px -4px',
               transition: 'background 120ms ease',
@@ -295,7 +295,7 @@ const AddTierModal: React.FC<{
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Add Discount Tier</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>Add Discount Tier</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Define a new duration-based discount</div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
@@ -460,7 +460,7 @@ const TierRow: React.FC<{
             onBlur={() => saveField(field, editVal)}
             style={{
               width, height: 30, padding: suffix ? '0 20px 0 8px' : '0 8px',
-              fontSize: 13, fontWeight: 700, color: '#0f1117',
+              fontSize: 13, fontWeight: 600, color: '#0f1117',
               background: '#fff', border: '1.5px solid #4ba6ea',
               borderRadius: 7, outline: 'none', fontFamily: 'inherit',
               boxSizing: 'border-box',
@@ -475,7 +475,7 @@ const TierRow: React.FC<{
         onClick={() => startEdit(field)}
         title="Click to edit"
         style={{
-          fontSize: 13, fontWeight: field === 'discount_percent' ? 700 : 500,
+          fontSize: 13, fontWeight: field === 'discount_percent' ? 600 : 500,
           color: field === 'discount_percent' ? '#0f1117' : '#374151',
           cursor: 'text', padding: '2px 4px', borderRadius: 5, margin: '-2px -4px',
           display: 'inline-block', transition: 'background 120ms ease',
@@ -499,7 +499,7 @@ const TierRow: React.FC<{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 28, height: 28, borderRadius: 8,
           background: tierColor.bg, color: tierColor.color,
-          fontSize: 12, fontWeight: 800, letterSpacing: '0.2px',
+          fontSize: 12, fontWeight: 600, letterSpacing: '0.2px',
         }}>
           {label}
         </span>
@@ -521,7 +521,7 @@ const TierRow: React.FC<{
           <InlineNumInput field="discount_percent" suffix="%" width={80} />
           {editingField !== 'discount_percent' && tier.discount_percent > 0 && tier.is_active && (
             <span style={{
-              fontSize: 10.5, fontWeight: 700,
+              fontSize: 10.5, fontWeight: 600,
               color: '#22c55e', background: 'rgba(34,197,94,0.10)',
               borderRadius: 20, padding: '2px 8px',
             }}>
@@ -670,7 +670,7 @@ const ModelPricingCard: React.FC<{
           position: 'absolute', top: 10, right: 10,
           background: 'rgba(15,17,23,0.65)', backdropFilter: 'blur(4px)',
           borderRadius: 8, padding: '3px 8px',
-          fontSize: 11, fontWeight: 700, color: '#fff',
+          fontSize: 11, fontWeight: 600, color: '#fff',
         }}>
           {model.total_cars} units
         </div>
@@ -678,7 +678,7 @@ const ModelPricingCard: React.FC<{
 
       {/* Info */}
       <div style={{ padding: '14px 16px' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', marginBottom: 2 }}>{model.name}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 2 }}>{model.name}</div>
         <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 12 }}>{model.brand} · {model.model}</div>
 
         {/* Base price */}
@@ -690,7 +690,7 @@ const ModelPricingCard: React.FC<{
           <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Base / day</span>
           {editingPrice ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>$</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>$</span>
               <input
                 ref={priceInputRef}
                 type="number"
@@ -703,7 +703,7 @@ const ModelPricingCard: React.FC<{
                   if (e.key === 'Escape') cancelEdit();
                 }}
                 style={{
-                  width: 72, padding: '3px 6px', fontSize: 14, fontWeight: 700,
+                  width: 72, padding: '3px 6px', fontSize: 14, fontWeight: 600,
                   border: '1.5px solid #4ba6ea', borderRadius: 6, outline: 'none',
                   color: '#0f1117', textAlign: 'right', background: '#fff',
                 }}
@@ -751,7 +751,7 @@ const ModelPricingCard: React.FC<{
                   <path d="M5 13l4 4L19 7" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
                 {fmtUSD(model.price)}
               </span>
               <button
@@ -796,7 +796,7 @@ const ModelPricingCard: React.FC<{
                     width: 22, height: 22, borderRadius: 6, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: `${color}20`, color,
-                    fontSize: 10, fontWeight: 800,
+                    fontSize: 10, fontWeight: 600,
                   }}>
                     {label}
                   </span>
@@ -809,7 +809,7 @@ const ModelPricingCard: React.FC<{
                   {/* Discount badge */}
                   {tier.discount_percent > 0 && (
                     <span style={{
-                      fontSize: 10, fontWeight: 700, color: '#22c55e',
+                      fontSize: 10, fontWeight: 600, color: '#22c55e',
                       background: 'rgba(34,197,94,0.12)', borderRadius: 20, padding: '1px 6px',
                       flexShrink: 0,
                     }}>
@@ -819,7 +819,7 @@ const ModelPricingCard: React.FC<{
 
                   {/* Per day price */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f1117' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117' }}>
                       {fmtUSD(discountedDaily)}/d
                     </div>
                     <div style={{ fontSize: 10, color: '#9ca3af' }}>
@@ -839,7 +839,7 @@ const ModelPricingCard: React.FC<{
 // Table header cell
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
   <th style={{
-    padding: '9px 12px', fontSize: 11, fontWeight: 700,
+    padding: '9px 12px', fontSize: 11, fontWeight: 600,
     color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
     textAlign: 'left', background: '#fff',
     borderBottom: '1.5px solid #f0f0f0',
@@ -938,11 +938,11 @@ const PricingPage: React.FC = () => {
       <div style={{ marginBottom: 36 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
             Operations
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
           Pricing
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
@@ -1091,7 +1091,7 @@ const PricingPage: React.FC = () => {
       <div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Model Pricing</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>Model Pricing</div>
             <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 2 }}>
               Base price in USD · converted using live exchange rates
             </div>

@@ -288,7 +288,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{c.name}</h2>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 500, color: '#0f172a' }}>{c.name}</h2>
                 <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', background: threatColor(c.threat_level) + '20', color: threatColor(c.threat_level) }}>
                   {c.threat_level} threat
                 </span>
@@ -398,7 +398,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
                             <td style={{ padding: '10px 12px', fontWeight: 600, color: '#0f172a' }}>{p.car_make} {p.car_model}</td>
                             <td style={{ padding: '10px 12px', color: '#64748b' }}>{p.category}</td>
                             <td style={{ padding: '10px 12px', color: '#64748b' }}>{p.car_year}</td>
-                            <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>₺{fmt(p.daily_price)}</td>
+                            <td className="font-mono tabular-nums" style={{ padding: '10px 12px', fontWeight: 600, color: '#0f172a' }}>₺{fmt(p.daily_price)}</td>
                             <td style={{ padding: '10px 12px' }}>
                               {diff !== null ? (
                                 <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: diff > 0 ? '#dcfce7' : '#fee2e2', color: diff > 0 ? '#166534' : '#991b1b' }}>
@@ -483,25 +483,25 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       {r.key_findings && r.key_findings.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', marginBottom: 6 }}>Key Findings</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', marginBottom: 6 }}>Key Findings</div>
                           {r.key_findings.map((f, i) => <div key={i} style={{ fontSize: 12, color: '#475569', marginBottom: 4 }}>• {f}</div>)}
                         </div>
                       )}
                       {r.opportunities && r.opportunities.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', marginBottom: 6 }}>Our Opportunities</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#10b981', textTransform: 'uppercase', marginBottom: 6 }}>Our Opportunities</div>
                           {r.opportunities.map((o, i) => <div key={i} style={{ fontSize: 12, color: '#475569', marginBottom: 4 }}>• {o}</div>)}
                         </div>
                       )}
                       {r.threats && r.threats.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', marginBottom: 6 }}>Threats</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', textTransform: 'uppercase', marginBottom: 6 }}>Threats</div>
                           {r.threats.map((t, i) => <div key={i} style={{ fontSize: 12, color: '#475569', marginBottom: 4 }}>• {t}</div>)}
                         </div>
                       )}
                       {r.recommendations && r.recommendations.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 6 }}>Recommendations</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 6 }}>Recommendations</div>
                           {r.recommendations.map((rec, i) => <div key={i} style={{ fontSize: 12, color: '#475569', marginBottom: 4 }}>• {rec}</div>)}
                         </div>
                       )}
@@ -652,7 +652,7 @@ export default function MarketingCompetitorsPage() {
   // ── render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes cpPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes cpSlide { from{transform:translateX(20px);opacity:0} to{transform:translateX(0);opacity:1} }
@@ -663,7 +663,7 @@ export default function MarketingCompetitorsPage() {
       {/* page header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#0f172a' }}>Competitors</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 500, color: '#0f172a' }}>Competitors</h1>
           <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>Market intelligence & competitive analysis</p>
         </div>
         <button onClick={handleSeed} disabled={seeding || loading} style={{
@@ -687,7 +687,7 @@ export default function MarketingCompetitorsPage() {
         ].map(s => (
           <div key={s.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px' }}>
             <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>
+            <div style={{ fontSize: 22, fontWeight: 600, color: s.color }}>
               {loading ? <Skeleton h={24} w={60} /> : s.value}
             </div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{s.label}</div>
@@ -779,10 +779,10 @@ export default function MarketingCompetitorsPage() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{c.name}</div>
+                            <div style={{ fontWeight: 600, fontSize: 15, color: '#0f172a' }}>{c.name}</div>
                             {c.name_ar && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{c.name_ar}</div>}
                           </div>
-                          <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', background: threatColor(c.threat_level) + '20', color: threatColor(c.threat_level), whiteSpace: 'nowrap' }}>
+                          <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', background: threatColor(c.threat_level) + '20', color: threatColor(c.threat_level), whiteSpace: 'nowrap' }}>
                             {c.threat_level}
                           </span>
                         </div>
@@ -849,7 +849,7 @@ export default function MarketingCompetitorsPage() {
                     return (
                       <div key={cat} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
                         <div style={{ background: '#f8fafc', padding: '10px 16px', borderBottom: '1px solid #e2e8f0' }}>
-                          <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{cat}</span>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{cat}</span>
                           <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 8 }}>{rows.length} competitors</span>
                         </div>
                         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -857,8 +857,8 @@ export default function MarketingCompetitorsPage() {
                           {myRate && (
                             <div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: '#4ba6ea' }}>HomestaCars (us)</span>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: '#4ba6ea' }}>₺{fmt(myRate)}</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#4ba6ea' }}>HomestaCars (us)</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#4ba6ea' }}>₺{fmt(myRate)}</span>
                               </div>
                               <div style={{ height: 10, background: '#dbeafe', borderRadius: 5, overflow: 'hidden' }}>
                                 <div style={{ width: `${(myRate / maxRate) * 100}%`, height: '100%', background: '#4ba6ea', borderRadius: 5 }} />
@@ -880,7 +880,7 @@ export default function MarketingCompetitorsPage() {
                                         {diff > 0 ? '+' : ''}{diff.toFixed(0)}% vs us
                                       </span>
                                     )}
-                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>₺{fmt(row.price)}</span>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>₺{fmt(row.price)}</span>
                                   </div>
                                 </div>
                                 <div style={{ height: 10, background: '#f1f5f9', borderRadius: 5, overflow: 'hidden' }}>
@@ -932,7 +932,7 @@ export default function MarketingCompetitorsPage() {
                         borderRadius: 12, padding: 16, position: 'relative',
                       }}>
                         {p.is_winning && (
-                          <div style={{ position: 'absolute', top: 12, right: 12, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>⭐ Winning</div>
+                          <div style={{ position: 'absolute', top: 12, right: 12, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>⭐ Winning</div>
                         )}
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ color: '#4ba6ea', display: 'flex' }}>{platformIcon(p.platform)}</span>
@@ -989,7 +989,7 @@ export default function MarketingCompetitorsPage() {
                   <div key={r.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
                     <div style={{ background: '#f8fafc', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, borderBottom: '1px solid #e2e8f0' }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{r.title}</div>
+                        <div style={{ fontWeight: 600, fontSize: 15, color: '#0f172a' }}>{r.title}</div>
                         <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
                           {comp && <span style={{ color: threatColor(comp.threat_level), fontWeight: 600, marginRight: 8 }}>{comp.name}</span>}
                           {r.report_type} · {fmtDate(r.period_start)} – {fmtDate(r.period_end)}
@@ -1002,25 +1002,25 @@ export default function MarketingCompetitorsPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
                         {r.key_findings && r.key_findings.length > 0 && (
                           <div style={{ background: '#eff6ff', borderRadius: 10, padding: 14 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', marginBottom: 8 }}>Key Findings</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', marginBottom: 8 }}>Key Findings</div>
                             {r.key_findings.map((f, i) => <div key={i} style={{ fontSize: 12, color: '#1e40af', marginBottom: 4 }}>• {f}</div>)}
                           </div>
                         )}
                         {r.opportunities && r.opportunities.length > 0 && (
                           <div style={{ background: '#f0fdf4', borderRadius: 10, padding: 14 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', marginBottom: 8 }}>Opportunities</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#10b981', textTransform: 'uppercase', marginBottom: 8 }}>Opportunities</div>
                             {r.opportunities.map((o, i) => <div key={i} style={{ fontSize: 12, color: '#065f46', marginBottom: 4 }}>• {o}</div>)}
                           </div>
                         )}
                         {r.threats && r.threats.length > 0 && (
                           <div style={{ background: '#fff1f2', borderRadius: 10, padding: 14 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', marginBottom: 8 }}>Threats</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', textTransform: 'uppercase', marginBottom: 8 }}>Threats</div>
                             {r.threats.map((t, i) => <div key={i} style={{ fontSize: 12, color: '#991b1b', marginBottom: 4 }}>• {t}</div>)}
                           </div>
                         )}
                         {r.recommendations && r.recommendations.length > 0 && (
                           <div style={{ background: '#fffbeb', borderRadius: 10, padding: 14 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 8 }}>Recommendations</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', marginBottom: 8 }}>Recommendations</div>
                             {r.recommendations.map((rec, i) => <div key={i} style={{ fontSize: 12, color: '#78350f', marginBottom: 4 }}>• {rec}</div>)}
                           </div>
                         )}

@@ -49,7 +49,7 @@ const ConversationRow: React.FC<{
     >
       {/* Avatar + channel dot */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, overflow: 'hidden' }}>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, overflow: 'hidden' }}>
           {conversation.contact?.avatar_url
             ? <img src={conversation.contact.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : initials(name)}
@@ -62,10 +62,10 @@ const ConversationRow: React.FC<{
 
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: unread ? 800 : 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: unread ? 600 : 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {name}
           </span>
-          <span style={{ fontSize: 10.5, color: unread ? '#4ba6ea' : '#9ca3af', fontWeight: unread ? 700 : 500, flexShrink: 0 }}>
+          <span style={{ fontSize: 10.5, color: unread ? '#4ba6ea' : '#9ca3af', fontWeight: unread ? 600 : 500, flexShrink: 0 }}>
             {relativeShort(conversation.last_message_at)}
           </span>
         </div>
@@ -83,12 +83,12 @@ const ConversationRow: React.FC<{
           </span>
 
           {unread && (
-            <span style={{ flexShrink: 0, minWidth: 19, height: 19, borderRadius: 10, background: '#4ba6ea', color: '#fff', fontSize: 10.5, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
+            <span style={{ flexShrink: 0, minWidth: 19, height: 19, borderRadius: 10, background: '#4ba6ea', color: '#fff', fontSize: 10.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
               {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
             </span>
           )}
           {conversation.archived_at && (
-            <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: '#9ca3af', background: '#f3f4f6', borderRadius: 20, padding: '2px 7px', textTransform: 'uppercase' }}>Archived</span>
+            <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 600, color: '#9ca3af', background: '#f3f4f6', borderRadius: 20, padding: '2px 7px', textTransform: 'uppercase' }}>Archived</span>
           )}
         </div>
       </div>
@@ -300,12 +300,12 @@ const InboxPage: React.FC = () => {
       <div style={{ marginBottom: 14, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>Operations</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>Operations</span>
         </div>
-        <h1 style={{ fontSize: 'clamp(21px, 3.5vw, 27px)', fontWeight: 800, color: '#0f1117', letterSpacing: '-0.7px', margin: 0 }}>
+        <h1 style={{ fontSize: 'clamp(21px, 3.5vw, 27px)', fontWeight: 500, color: '#0f1117', letterSpacing: '-0.7px', margin: 0 }}>
           Inbox
           {unreadTotal > 0 && (
-            <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 800, color: '#fff', background: '#4ba6ea', borderRadius: 20, padding: '3px 10px', verticalAlign: 'middle' }}>
+            <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: '#fff', background: '#4ba6ea', borderRadius: 20, padding: '3px 10px', verticalAlign: 'middle' }}>
               {unreadTotal} unread
             </span>
           )}
@@ -354,7 +354,7 @@ const InboxPage: React.FC = () => {
                     onClick={() => setFilter(f.key)}
                     style={{
                       flex: 1, height: 30, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-                      fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap', padding: '0 6px',
+                      fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', padding: '0 6px',
                       border: `1.5px solid ${active ? '#4ba6ea' : '#e5e7eb'}`,
                       background: active ? 'rgba(75,166,234,0.08)' : '#fff',
                       color: active ? '#2e8fd4' : '#6b7280',
@@ -383,7 +383,7 @@ const InboxPage: React.FC = () => {
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 10px', display: 'block', color: '#d1d5db' }}>
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>
                   {conversations.length === 0 ? 'No conversations yet' : 'Nothing matches'}
                 </div>
                 <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
@@ -427,7 +427,7 @@ const InboxPage: React.FC = () => {
               <svg width="44" height="44" viewBox="0 0 24 24" fill="none" style={{ color: '#d1d5db' }}>
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#6b7280' }}>Select a conversation</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>Select a conversation</div>
               <div style={{ fontSize: 12.5 }}>Pick a chat on the left to read and reply.</div>
             </div>
           )}

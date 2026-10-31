@@ -129,7 +129,7 @@ const RetryBanner: React.FC<{ state: RetryState; onRetry: () => void; onDismiss:
     </span>
     <button
       onClick={onRetry}
-      style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+      style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
     >
       Retry
     </button>
@@ -179,7 +179,7 @@ const MessageBubble: React.FC<{
         ) : msg.profile?.avatar_url ? (
           <img src={msg.profile.avatar_url} alt={senderName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#4b5563' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#4b5563' }}>
             {senderName[0]?.toUpperCase() ?? '?'}
           </span>
         )}
@@ -425,7 +425,7 @@ const TeamChatView: React.FC = () => {
       {/* Header + filter */}
       <div style={{ padding: '12px 20px', borderBottom: '1px solid #ebebeb', background: '#fafafa', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>Team Chat</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>Team Chat</div>
           <div style={{ fontSize: 11.5, color: '#9ca3af' }}>Read-only — bots communicate here</div>
         </div>
         <select
@@ -473,13 +473,13 @@ const TeamChatView: React.FC = () => {
                 width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
                 background: sender.bg, color: sender.text,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 700,
+                fontSize: 13, fontWeight: 600,
               }}>
                 {sender.label[0]}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: sender.text }}>{sender.label}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: sender.text }}>{sender.label}</span>
                   {recipient && (
                     <>
                       <span style={{ fontSize: 11, color: '#d1d5db' }}>→</span>
@@ -825,7 +825,7 @@ const MarketingChatPage: React.FC = () => {
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
         <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid #ebebeb', flexShrink: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', marginBottom: 10, letterSpacing: '-0.2px' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 10, letterSpacing: '-0.2px' }}>
             CMO Chat
           </div>
           <div style={{ position: 'relative' }}>
@@ -867,12 +867,12 @@ const MarketingChatPage: React.FC = () => {
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#4b5563' }}>{item.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#4b5563' }}>{item.label}</span>
                   <span style={{ fontSize: 10.5, color: '#9ca3af' }}>{timeAgo(item.timestamp)}</span>
                 </div>
                 <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>{item.preview}</div>
                 {item.unread > 0 && (
-                  <span style={{ display: 'inline-block', marginTop: 4, background: '#4ba6ea', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 7px' }}>
+                  <span style={{ display: 'inline-block', marginTop: 4, background: '#4ba6ea', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 600, padding: '1px 7px' }}>
                     {item.unread} unread
                   </span>
                 )}
@@ -918,7 +918,7 @@ const MarketingChatPage: React.FC = () => {
             </svg>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px' }}>CMO</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px' }}>CMO</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: '#6b7280' }}>{statusText}</span>
@@ -950,7 +950,7 @@ const MarketingChatPage: React.FC = () => {
                 </svg>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', marginBottom: 6 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 6 }}>
                   {search ? 'No results found' : 'Start the conversation'}
                 </div>
                 <div style={{ fontSize: 13, color: '#9ca3af', maxWidth: 320 }}>

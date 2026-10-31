@@ -222,7 +222,7 @@ const LeadBadge: React.FC<{ status: LeadStatus }> = ({ status }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg,
+      fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg,
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
@@ -237,7 +237,7 @@ const TransBadge: React.FC<{ t: Transmission | null }> = ({ t }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
-      fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg,
+      fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg,
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
       {t}
@@ -251,7 +251,7 @@ const FuelBadge: React.FC<{ f: FuelType | null }> = ({ f }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
-      fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg,
+      fontSize: 11, fontWeight: 600, color: cfg.color, background: cfg.bg,
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
       {f}
@@ -308,7 +308,7 @@ const StatusToggle: React.FC<{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '4px 11px', borderRadius: 20, border: 'none',
         cursor: busy ? 'not-allowed' : 'pointer',
-        fontSize: 11, fontWeight: 700, opacity: busy ? 0.6 : 1,
+        fontSize: 11, fontWeight: 600, opacity: busy ? 0.6 : 1,
         background: active ? 'rgba(34,197,94,0.12)' : 'rgba(107,114,128,0.1)',
         color: active ? '#16a34a' : '#6b7280',
         transition: 'all 150ms ease',
@@ -347,7 +347,7 @@ const KpiCard: React.FC<{
         <div>
           {loading
             ? <div style={{ width: '50%', height: 52, borderRadius: 8, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-            : <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-3px', color: '#0f1117', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{count}</div>
+            : <div style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-3px', color: '#0f1117', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{count}</div>
           }
         </div>
         <div>
@@ -388,7 +388,7 @@ const PlatformFilter: React.FC<{
       >
         Platform
         {selected.length > 0 && (
-          <span style={{ background: '#4ba6ea', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
+          <span style={{ background: '#4ba6ea', color: '#fff', borderRadius: 20, fontSize: 10, fontWeight: 600, padding: '1px 6px' }}>
             {selected.length}
           </span>
         )}
@@ -437,7 +437,7 @@ const SortTh: React.FC<{
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLTableCellElement).style.color = '#6b7280'; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLTableCellElement).style.color = '#9ca3af'; }}
       style={{
-        padding: '9px 12px', fontSize: 11, fontWeight: 700,
+        padding: '9px 12px', fontSize: 11, fontWeight: 600,
         color: active ? '#4ba6ea' : '#9ca3af',
         textTransform: 'uppercase', letterSpacing: '0.7px',
         textAlign: 'left', background: '#fff',
@@ -466,7 +466,7 @@ const SortTh: React.FC<{
 
 const PlainTh: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
   <th style={{
-    padding: '9px 12px', fontSize: 11, fontWeight: 700,
+    padding: '9px 12px', fontSize: 11, fontWeight: 600,
     color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
     textAlign: 'left', background: '#fff', borderBottom: '1.5px solid #f0f0f0',
     whiteSpace: 'nowrap', userSelect: 'none', ...style,
@@ -585,7 +585,7 @@ const ModalSection: React.FC<{ title: string; icon: React.ReactNode; children: R
   <div>
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
       <span style={{ color: '#9ca3af' }}>{icon}</span>
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.9px', textTransform: 'uppercase' }}>
+      <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', letterSpacing: '0.9px', textTransform: 'uppercase' }}>
         {title}
       </span>
     </div>
@@ -762,7 +762,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cit
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
               {isEdit ? 'Edit Listing' : 'Add Listing'}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
@@ -1264,7 +1264,7 @@ const SourcingPage: React.FC = () => {
               Acquisitions
             </span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
             Sourcing
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
@@ -1625,8 +1625,8 @@ const SourcingPage: React.FC = () => {
 
                     {/* Asking price */}
                     <td style={tdBase}>
-                      <span style={{
-                        fontSize: 13, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                      <span className="font-mono tabular-nums" style={{
+                        fontSize: 13, whiteSpace: 'nowrap',
                         color: '#0f1117', fontWeight: 600,
                         textDecoration: isSold ? 'line-through' : 'none',
                       }}>
@@ -1636,7 +1636,7 @@ const SourcingPage: React.FC = () => {
 
                     {/* Target price */}
                     <td style={tdBase}>
-                      <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      <span className="font-mono tabular-nums" style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {fmtPrice(row.target_price)}
                       </span>
                     </td>

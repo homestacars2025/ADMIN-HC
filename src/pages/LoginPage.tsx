@@ -157,7 +157,7 @@ const LoginPage: React.FC = () => {
           <h2 style={{
             color: 'white',
             fontSize: 36,
-            fontWeight: 700,
+            fontWeight: 500,
             lineHeight: 1.2,
             letterSpacing: '-0.8px',
             marginBottom: 16,
@@ -182,7 +182,7 @@ const LoginPage: React.FC = () => {
             { label: 'Fleet', value: 'Premium' },
           ].map(stat => (
             <div key={stat.label}>
-              <div style={{ color: 'white', fontWeight: 700, fontSize: 20, letterSpacing: '-0.3px' }}>
+              <div style={{ color: 'white', fontWeight: 600, fontSize: 20, letterSpacing: '-0.3px' }}>
                 {stat.value}
               </div>
               <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 2 }}>
@@ -215,7 +215,7 @@ const LoginPage: React.FC = () => {
         <div style={{ marginBottom: 36 }}>
           <h1 style={{
             fontSize: 26,
-            fontWeight: 700,
+            fontWeight: 500,
             letterSpacing: '-0.5px',
             marginBottom: 8,
             color: 'var(--text-primary)',

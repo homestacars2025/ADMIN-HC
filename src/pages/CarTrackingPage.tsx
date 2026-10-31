@@ -146,7 +146,7 @@ const CarTrackingPage: React.FC = () => {
             Fleet
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
           Car Tracking
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
@@ -202,7 +202,7 @@ const CarTrackingPage: React.FC = () => {
                       key={label}
                       onClick={() => col !== null && handleSort(col)}
                       style={{
-                        padding: '9px 14px', fontSize: 11, fontWeight: 700,
+                        padding: '9px 14px', fontSize: 11, fontWeight: 600,
                         color: active ? '#4ba6ea' : '#9ca3af',
                         textTransform: 'uppercase', letterSpacing: '0.7px',
                         textAlign: 'left', background: '#fff',
@@ -258,7 +258,7 @@ const CarTrackingPage: React.FC = () => {
                 return (
                   <tr key={row.car_id} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
                     <td style={{ padding: '12px 14px' }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
+                      <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.3px' }}>
                         {row.plate_number}
                       </span>
                     </td>
@@ -343,7 +343,7 @@ const CarTrackingPage: React.FC = () => {
                       ) : kmRemaining > 0 ? (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
-                          padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
                           color: '#ca8a04', background: '#fef9c3',
                         }}>
                           ⚠ {kmRemaining.toLocaleString()} km
@@ -351,7 +351,7 @@ const CarTrackingPage: React.FC = () => {
                       ) : (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
-                          padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
                           color: '#dc2626', background: '#fee2e2',
                         }}>
                           ⚠ Overdue

@@ -31,7 +31,7 @@ const CategoryDot: React.FC<{ category: NotificationRow['category'] }> = ({ cate
         width: 28, height: 28, borderRadius: 8, flexShrink: 0,
         background: style.bg, color: style.color,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 10, fontWeight: 800, letterSpacing: '0.02em',
+        fontSize: 10, fontWeight: 600, letterSpacing: '0.02em',
       }}
     >
       {style.label.charAt(0)}
@@ -161,7 +161,7 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
               position: 'absolute', top: -5, right: -5,
               minWidth: 17, height: 17, padding: '0 4px',
               borderRadius: 9, background: '#ef4444', color: '#fff',
-              fontSize: 10, fontWeight: 800, lineHeight: '17px',
+              fontSize: 10, fontWeight: 600, lineHeight: '17px',
               textAlign: 'center', border: '2px solid #fff',
               fontVariantNumeric: 'tabular-nums',
             }}
@@ -188,10 +188,10 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             gap: 10, padding: '13px 16px', borderBottom: '1px solid #f1f1f1',
           }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f1117' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f1117' }}>
               Notifications
               {unread > 0 && (
-                <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 700, color: '#ef4444' }}>
+                <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 600, color: '#ef4444' }}>
                   {unread} new
                 </span>
               )}
@@ -254,7 +254,7 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
 
                 <div dir={dir} style={{ flex: 1, minWidth: 0, textAlign: dir === 'rtl' ? 'right' : 'left' }}>
                   <div style={{
-                    fontSize: 12.8, fontWeight: item.is_read ? 500 : 700,
+                    fontSize: 12.8, fontWeight: item.is_read ? 500 : 600,
                     color: '#0f1117', lineHeight: 1.4,
                   }}>
                     {renderMessage(item.i18n_key, item.vars, item.title)}
@@ -288,7 +288,7 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
             style={{
               display: 'block', width: '100%', padding: '12px 16px',
               border: 'none', borderTop: '1px solid #f1f1f1', background: '#fafbfc',
-              fontSize: 12.5, fontWeight: 700, color: '#4ba6ea',
+              fontSize: 12.5, fontWeight: 600, color: '#4ba6ea',
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >

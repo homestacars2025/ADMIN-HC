@@ -212,7 +212,7 @@ export const RulesTab: React.FC = () => {
                 <tr style={{ borderBottom: `1px solid ${LINE}`, background: '#fafbfc' }}>
                   {['Rule', 'Event key', 'Category', 'Recipients', 'Active', ''].map((h) => (
                     <th key={h} style={{
-                      padding: '11px 16px', fontSize: 11, fontWeight: 700, color: FAINT,
+                      padding: '11px 16px', fontSize: 11, fontWeight: 600, color: FAINT,
                       letterSpacing: '0.5px', textTransform: 'uppercase', whiteSpace: 'nowrap',
                     }}>
                       {h}
@@ -225,12 +225,12 @@ export const RulesTab: React.FC = () => {
                   const style = CATEGORY_STYLES[rule.category] ?? CATEGORY_STYLES.event;
                   return (
                     <tr key={rule.id} style={{ borderBottom: '1px solid #f4f4f4' }}>
-                      <td style={{ padding: '13px 16px', fontSize: 13.5, fontWeight: 700, color: INK }}>
+                      <td style={{ padding: '13px 16px', fontSize: 13.5, fontWeight: 600, color: INK }}>
                         {rule.name}
                       </td>
                       <td style={{
                         padding: '13px 16px', fontSize: 12, color: MUTED,
-                        fontFamily: 'ui-monospace, monospace', whiteSpace: 'nowrap',
+                        fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap',
                       }}>
                         {rule.event_key}
                       </td>
@@ -294,7 +294,7 @@ export const RulesTab: React.FC = () => {
                   value={draft.event_key}
                   onChange={(e) => setDraft({ ...draft, event_key: e.target.value })}
                   placeholder="booking.created"
-                  style={{ ...inputStyle, fontFamily: 'ui-monospace, monospace' }}
+                  style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
                 />
               </Field>
 
@@ -322,10 +322,10 @@ export const RulesTab: React.FC = () => {
               background: 'rgba(75,166,234,0.06)', border: '1px solid rgba(75,166,234,0.18)',
               borderRadius: 10, padding: '10px 13px', fontSize: 12, color: MUTED, lineHeight: 1.6,
             }}>
-              Templates support <code style={{ fontFamily: 'ui-monospace, monospace', color: INK }}>{'{{placeholders}}'}</code>,
+              Templates support <code style={{ fontFamily: 'var(--font-mono)', color: INK }}>{'{{placeholders}}'}</code>,
               which are filled from the event payload when the rule fires — for example{' '}
-              <code style={{ fontFamily: 'ui-monospace, monospace', color: INK }}>{'{{plate}}'}</code> or{' '}
-              <code style={{ fontFamily: 'ui-monospace, monospace', color: INK }}>{'{{customer_name}}'}</code>.
+              <code style={{ fontFamily: 'var(--font-mono)', color: INK }}>{'{{plate}}'}</code> or{' '}
+              <code style={{ fontFamily: 'var(--font-mono)', color: INK }}>{'{{customer_name}}'}</code>.
             </div>
 
             <Field label="Title template">

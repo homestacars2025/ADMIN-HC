@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
+import { standaloneFontCss } from '../lib/standaloneFonts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -235,7 +236,7 @@ const ReceiptCell: React.FC<{ url: string | null | undefined }> = ({ url }) => {
         type="button"
         title="View receipt"
         onClick={() => { if (pdf) window.open(url, '_blank', 'noopener,noreferrer'); else setOpen(true); }}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 20, border: '1px solid rgba(75,166,234,0.35)', background: 'rgba(75,166,234,0.08)', color: '#1d6fa8', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 20, border: '1px solid rgba(75,166,234,0.35)', background: 'rgba(75,166,234,0.08)', color: '#1d6fa8', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.16)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.08)'; }}
       >
@@ -326,7 +327,7 @@ const ReceiptField: React.FC<{
               style={{ width: compact ? 34 : 46, height: compact ? 34 : 46, objectFit: 'cover', borderRadius: 7, flexShrink: 0, cursor: !value.file && value.existingUrl ? 'zoom-in' : 'default', background: '#f3f4f6' }}
             />
           ) : (
-            <div style={{ width: compact ? 34 : 46, height: compact ? 34 : 46, borderRadius: 7, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>PDF</div>
+            <div style={{ width: compact ? 34 : 46, height: compact ? 34 : 46, borderRadius: 7, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#6b7280', flexShrink: 0 }}>PDF</div>
           )}
 
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -396,7 +397,7 @@ const MonthNavigator: React.FC<{ monthKey: string; onChange: (k: string) => void
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
     </button>
-    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', minWidth: 120, textAlign: 'center' }}>{monthLabel(monthKey)}</span>
+    <span style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', minWidth: 120, textAlign: 'center' }}>{monthLabel(monthKey)}</span>
     <button
       onClick={() => onChange(moveMonth(monthKey, 1))}
       style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
@@ -434,7 +435,7 @@ const MiniStatCard: React.FC<{
       {loading ? (
         <div style={{ height: 28, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 10 }} />
       ) : (
-        <div style={{ fontSize: 22, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.5px', marginBottom: 10 }}>{fmt(amount)}</div>
+        <div style={{ fontSize: 22, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.5px', marginBottom: 10 }}>{fmt(amount)}</div>
       )}
       <span style={{ fontSize: 11, fontWeight: 600, color, background: bg, borderRadius: 20, padding: '2px 8px' }}>{label}</span>
     </div>
@@ -462,10 +463,10 @@ const SheetCard: React.FC<{
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.09)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; }}
     >
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', marginBottom: subtitle ? 2 : 10 }}>{title}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', marginBottom: subtitle ? 2 : 10 }}>{title}</div>
       {subtitle && <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10 }}>{subtitle}</div>}
       <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>{count} records</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: balance < 0 ? '#dc2626' : '#0f1117', letterSpacing: '-0.5px' }}>
+      <div style={{ fontSize: 20, fontWeight: 600, color: balance < 0 ? '#dc2626' : '#0f1117', letterSpacing: '-0.5px' }}>
         {balance < 0 ? '-' : ''}{fmt(balance)}
       </div>
     </div>
@@ -628,20 +629,20 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
         <div style={{ background: 'linear-gradient(135deg, #4ba6ea 0%, #2e8fd4 100%)', borderRadius: 16, padding: '28px 32px', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>Treasury Total - {monthLabel(monthKey)}</div>
-            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>{fmt(treasuryTotal)}</div>
+            <div style={{ fontSize: 44, fontWeight: 600, letterSpacing: '-2px', lineHeight: 1 }}>{fmt(treasuryTotal)}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'right' }}>
             <div>
               <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total Income</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(income)}</div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>{fmt(income)}</div>
             </div>
             <div>
               <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total Expenses</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(expenses)}</div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>{fmt(expenses)}</div>
             </div>
             <div>
               <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Cars Rent Income</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(rentIncome)}</div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>{fmt(rentIncome)}</div>
             </div>
           </div>
         </div>
@@ -669,7 +670,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
             {loading ? (
               <div style={{ height: 28, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 12 }} />
             ) : (
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', marginBottom: 12 }}>{fmt(m.value)}</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.8px', marginBottom: 12 }}>{fmt(m.value)}</div>
             )}
             <span style={{ fontSize: 11, fontWeight: 600, color: m.badgeColor, background: m.badgeBg, borderRadius: 20, padding: '2px 9px' }}>{m.badge}</span>
           </div>
@@ -682,7 +683,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
         {/* Expenses Breakdown */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid #f8f9fa' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>Expenses Breakdown</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>Expenses Breakdown</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{monthLabel(monthKey)}</div>
           </div>
           <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -702,7 +703,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
                       <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{item.label}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117' }}>{fmt(item.value)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{fmt(item.value)}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, color: item.color, background: item.bg, borderRadius: 20, padding: '1px 7px', minWidth: 42, textAlign: 'center' }}>
                         {pct.toFixed(1)}%
                       </span>
@@ -725,7 +726,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
         {/* Top Earning Cars */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid #f8f9fa' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117' }}>Top Earning Cars</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>Top Earning Cars</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{monthLabel(monthKey)}</div>
           </div>
           <div style={{ padding: '8px 0' }}>
@@ -748,17 +749,17 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
                   width: 26, height: 26, borderRadius: 8, flexShrink: 0,
                   background: idx === 0 ? 'rgba(234,179,8,0.12)' : idx === 1 ? 'rgba(148,163,184,0.12)' : idx === 2 ? 'rgba(180,120,80,0.1)' : '#f3f4f6',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 800,
+                  fontSize: 11, fontWeight: 600,
                   color: idx === 0 ? '#ca8a04' : idx === 1 ? '#64748b' : idx === 2 ? '#92400e' : '#9ca3af',
                 }}>
                   {idx + 1}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px' }}>{car.plate}</div>
+                  <div className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.2px' }}>{car.plate}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{car.model}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, minWidth: 100 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.3px', color: car.amount >= 0 ? '#0f1117' : '#dc2626' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.3px', color: car.amount >= 0 ? '#0f1117' : '#dc2626' }}>
                     {car.amount < 0 ? '-' : ''}{fmt(Math.abs(car.amount))}
                   </div>
                   <div style={{ width: 80, height: 4, borderRadius: 99, background: '#f3f4f6', overflow: 'hidden' }}>
@@ -802,7 +803,7 @@ const SelectInvestorModal: React.FC<{
     >
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 400, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden' }}>
         <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Select Investor</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Select Investor</div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
           </button>
@@ -890,7 +891,7 @@ const TransactionPanelModal: React.FC<{
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 860, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease' }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>{title}</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>{title}</div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
           </button>
@@ -912,7 +913,7 @@ const TransactionPanelModal: React.FC<{
                 <thead>
                   <tr>
                     {['Date', 'Direction', 'Category', `Amount (${symbol})`, 'Description', 'Receipt', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '9px 14px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -952,12 +953,12 @@ const TransactionPanelModal: React.FC<{
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>{t.date ?? '—'}</td>
                       <td style={{ padding: '10px 14px' }}>
                         {t.direction?.toLowerCase() === 'in'
-                          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span>
-                          : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>
+                          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span>
+                          : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>
                         }
                       </td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{t.category ?? t.sheet_type ?? '—'}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>{fmt(t.amount)}</td>
+                      <td className="font-mono tabular-nums" style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: '#0f1117', whiteSpace: 'nowrap' }}>{fmt(t.amount)}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280', maxWidth: 200 }}>{t.note ?? '—'}</td>
                       <td style={{ padding: '10px 14px' }}><ReceiptCell url={t.receipt_url} /></td>
                       <td style={{ padding: '10px 14px' }}>
@@ -1102,7 +1103,7 @@ const InvestorSheetView: React.FC<{
     cursor: 'pointer', fontFamily: 'inherit',
   };
   const inp: React.CSSProperties = { padding: '5px 8px', border: '1.5px solid #4ba6ea', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: 'none' };
-  const th: React.CSSProperties = { padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' };
+  const th: React.CSSProperties = { padding: '9px 14px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' };
   const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, color: '#374151' };
 
   return (
@@ -1115,7 +1116,7 @@ const InvestorSheetView: React.FC<{
             Back
           </button>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#0f1117' }}>{sheetLabel}</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: '#0f1117' }}>{sheetLabel}</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{monthLabel(monthKey)}</div>
           </div>
         </div>
@@ -1172,11 +1173,11 @@ const InvestorSheetView: React.FC<{
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
                     <td style={td}>
                       {t.direction?.toLowerCase() === 'in'
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span>
-                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>
                       }
                     </td>
-                    <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(Number(t.amount))}</td>
+                    <td className="font-mono tabular-nums" style={{ ...td, fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(Number(t.amount))}</td>
                     <td style={{ ...td, color: '#6b7280', maxWidth: 220 }}>{t.note ?? '—'}</td>
                     <td style={td}><ReceiptCell url={t.receipt_url} /></td>
                     <td style={td}>
@@ -1314,7 +1315,7 @@ const EditFinancialTxModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Edit Transaction</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Edit Transaction</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>ID #{entry.id}</div>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
@@ -1336,7 +1337,7 @@ const EditFinancialTxModal: React.FC<{
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['IN', 'OUT'] as const).map(d => (
                   <button key={d} onClick={() => { set('direction', d); set('category', ''); }}
-                    style={{ flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`, background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff', color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}>
+                    style={{ flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`, background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff', color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}>
                     {d === 'IN' ? '↓ IN' : '↑ OUT'}
                   </button>
                 ))}
@@ -1446,7 +1447,7 @@ const InvestorCarSheetView: React.FC<{
 
   const bBtn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' };
   const inp: React.CSSProperties = { padding: '5px 8px', border: '1.5px solid #4ba6ea', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: 'none' };
-  const th: React.CSSProperties = { padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' };
+  const th: React.CSSProperties = { padding: '9px 14px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' };
   const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, color: '#374151' };
 
   const total = txs.reduce((sum, t) => t.direction?.toLowerCase() === 'in' ? sum + Number(t.amount) : sum - Number(t.amount), 0);
@@ -1460,10 +1461,10 @@ const InvestorCarSheetView: React.FC<{
             Back
           </button>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#0f1117' }}>{car.plate_number}</div>
+            <div className="font-mono tabular-nums" style={{ fontSize: 18, fontWeight: 600, color: '#0f1117' }}>{car.plate_number}</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{car.model_name} · {monthLabel(monthKey)}</div>
             {!loading && txs.length > 0 && (
-              <div style={{ fontSize: 15, fontWeight: 700, color: total >= 0 ? '#16a34a' : '#dc2626', marginTop: 4 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: total >= 0 ? '#16a34a' : '#dc2626', marginTop: 4 }}>
                 {total >= 0 ? '+' : '-'}{fmt(total)}
               </div>
             )}
@@ -1488,9 +1489,9 @@ const InvestorCarSheetView: React.FC<{
                 {txs.map((t, i) => (
                   <tr key={t.id} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7' }}>
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
-                    <td style={td}>{t.direction?.toUpperCase() === 'IN' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>}</td>
+                    <td style={td}>{t.direction?.toUpperCase() === 'IN' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>}</td>
                     <td style={{ ...td, color: '#6b7280' }}>{t.category ?? '—'}</td>
-                    <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap', color: t.direction?.toUpperCase() === 'IN' ? '#16a34a' : '#dc2626' }}>{fmt(Number(t.amount))}</td>
+                    <td className="font-mono tabular-nums" style={{ ...td, fontWeight: 600, whiteSpace: 'nowrap', color: t.direction?.toUpperCase() === 'IN' ? '#16a34a' : '#dc2626' }}>{fmt(Number(t.amount))}</td>
                     <td style={{ ...td, color: '#6b7280', maxWidth: 180 }}>{t.note ?? '—'}</td>
                     <td style={td}><ReceiptCell url={t.receipt_url} /></td>
                     <td style={td}>
@@ -1603,7 +1604,7 @@ const InvestorCarListView: React.FC<{
           Back
         </button>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.4px' }}>Cars Rental Income</div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.4px' }}>Cars Rental Income</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 3 }}>{monthLabel(monthKey)}</div>
         </div>
 
@@ -1639,7 +1640,7 @@ const InvestorCarListView: React.FC<{
             { label: 'Total Records',  value: String(totalRecords),  mono: false },
           ].map(stat => (
             <div key={stat.label} style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#0f1117', letterSpacing: stat.mono ? '-0.5px' : '-0.3px', marginBottom: 6 }}>{stat.value}</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#0f1117', letterSpacing: stat.mono ? '-0.5px' : '-0.3px', marginBottom: 6 }}>{stat.value}</div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{stat.label}</div>
             </div>
           ))}
@@ -1690,11 +1691,11 @@ const InvestorCarListView: React.FC<{
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke={iconColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><rect x="9" y="11" width="14" height="10" rx="2" stroke={iconColor} strokeWidth="1.8"/><circle cx="12" cy="16" r="1.2" fill={iconColor}/><circle cx="20" cy="16" r="1.2" fill={iconColor}/></svg>
                 </div>
                 {/* Plate */}
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', marginBottom: 3, letterSpacing: '0.2px' }}>{car.plate_number}</div>
+                <div className="font-mono tabular-nums" style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', marginBottom: 3, letterSpacing: '0.2px' }}>{car.plate_number}</div>
                 {/* Model */}
                 <div style={{ fontSize: 12, color: '#888', marginBottom: 14 }}>{car.model_name}</div>
                 {/* Amount */}
-                <div style={{ fontSize: 18, fontWeight: 700, color: accentClr, letterSpacing: '-0.3px', marginBottom: 10 }}>{fmt(total)}</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: accentClr, letterSpacing: '-0.3px', marginBottom: 10 }}>{fmt(total)}</div>
                 {/* Records badge */}
                 <span style={{
                   display: 'inline-block', fontSize: 11, fontWeight: 600,
@@ -1953,7 +1954,7 @@ const InvestorSummaryView: React.FC<{
             <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 2 }}>
               Investor Report
             </div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.4px', lineHeight: 1.1 }}>
+            <div style={{ fontSize: 18, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.4px', lineHeight: 1.1 }}>
               Financial Overview
             </div>
           </div>
@@ -2029,7 +2030,7 @@ const InvestorSummaryView: React.FC<{
                   </div>
                 </div>
               </div>
-              <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-2.5px', lineHeight: 1, color: '#fff' }}>
+              <div style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-2.5px', lineHeight: 1, color: '#fff' }}>
                 {totalTreasury < 0 ? '-' : ''}{fmt(totalTreasury)}
               </div>
               <div style={{ marginTop: 18 }}>
@@ -2060,7 +2061,7 @@ const InvestorSummaryView: React.FC<{
                   <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.2px', whiteSpace: 'nowrap' }}>
                     {item.label}
                   </span>
-                  <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: 'nowrap', color: item.positive ? '#4ade80' : '#f87171' }}>
+                  <span style={{ fontSize: 17, fontWeight: 600, whiteSpace: 'nowrap', color: item.positive ? '#4ade80' : '#f87171' }}>
                     {'display' in item ? (item as { display: string }).display : fmt(item.value)}
                   </span>
                 </div>
@@ -2073,7 +2074,7 @@ const InvestorSummaryView: React.FC<{
       {/* ── Summary ── */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', letterSpacing: '0.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', letterSpacing: '0.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
             Summary
           </span>
           <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #e5e7eb 0%, transparent 80%)' }} />
@@ -2121,7 +2122,7 @@ const InvestorSummaryView: React.FC<{
               {loading ? (
                 <div style={{ height: 28, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 12 }} />
               ) : (
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', marginBottom: 12 }}>
+                <div style={{ fontSize: 24, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.8px', marginBottom: 12 }}>
                   {'customDisplay' in card ? (card as { customDisplay: string }).customDisplay : fmt(card.amount)}
                 </div>
               )}
@@ -2136,7 +2137,7 @@ const InvestorSummaryView: React.FC<{
       {/* ── Vehicle Running Costs ── */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', letterSpacing: '0.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', letterSpacing: '0.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
             Vehicle Running Costs
           </span>
           <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #e5e7eb 0%, transparent 80%)' }} />
@@ -2170,7 +2171,7 @@ const InvestorSummaryView: React.FC<{
               {loading ? (
                 <div style={{ height: 28, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 12 }} />
               ) : (
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', marginBottom: 12 }}>
+                <div style={{ fontSize: 24, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.8px', marginBottom: 12 }}>
                   {fmt(card.amount)}
                 </div>
               )}
@@ -2304,7 +2305,7 @@ const InvestorSheetsTab: React.FC<{ onViewReport: (id: string) => void }> = ({ o
             style={{
               appearance: 'none', WebkitAppearance: 'none',
               padding: '10px 38px 10px 14px',
-              fontSize: 15, fontWeight: 700, color: '#0f1117',
+              fontSize: 15, fontWeight: 600, color: '#0f1117',
               background: '#fff', border: '1.5px solid #e5e7eb',
               borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
               outline: 'none', minWidth: 240,
@@ -2440,7 +2441,7 @@ const AddCustomerTxModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Add Transaction</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Add Transaction</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{customerName}</div>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
@@ -2455,7 +2456,7 @@ const AddCustomerTxModal: React.FC<{
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Booking</div>
             <div style={{ fontSize: 12, color: '#374151', background: '#f8f9fb', border: '1px solid #eef0f2', borderRadius: 8, padding: '9px 12px' }}>
               {bookingLabel ?? '—'}
-              {carPlate ? <span style={{ color: '#9ca3af' }}>{` · ${carPlate}`}</span> : null}
+              {carPlate ? <span className="font-mono tabular-nums" style={{ color: '#9ca3af' }}>{` · ${carPlate}`}</span> : null}
             </div>
           </div>
 
@@ -2476,7 +2477,7 @@ const AddCustomerTxModal: React.FC<{
                     border: `1.5px solid ${form.direction === d ? (d === 'in' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
                     background: form.direction === d ? (d === 'in' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
                     color: form.direction === d ? (d === 'in' ? '#16a34a' : '#dc2626') : '#6b7280',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
                   }}>
                     {d === 'in' ? '↓ IN' : '↑ OUT'}
                   </button>
@@ -2620,7 +2621,7 @@ const EditTxModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Edit Transaction</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Edit Transaction</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>ID #{entry.id}</div>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
@@ -2647,7 +2648,7 @@ const EditTxModal: React.FC<{
                     border: `1.5px solid ${form.direction === d ? (d === 'in' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
                     background: form.direction === d ? (d === 'in' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
                     color: form.direction === d ? (d === 'in' ? '#16a34a' : '#dc2626') : '#6b7280',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
                   }}>
                     {d === 'in' ? '↓ IN' : '↑ OUT'}
                   </button>
@@ -2847,18 +2848,18 @@ const CustomerSheetsTab: React.FC = () => {
             <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>
               Customer Cash Balance
             </div>
-            <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1 }}>
+            <div style={{ fontSize: 44, fontWeight: 600, letterSpacing: '-2px', lineHeight: 1 }}>
               {cashBalance < 0 ? '\u2212' : ''}{fmt(Math.abs(cashBalance))}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 28, textAlign: 'right' }}>
             <div>
               <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total IN</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalIn)}</div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>{fmt(kpiTotalIn)}</div>
             </div>
             <div>
               <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total OUT</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(kpiTotalOut)}</div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>{fmt(kpiTotalOut)}</div>
             </div>
           </div>
         </div>
@@ -2925,7 +2926,7 @@ const CustomerSheetsTab: React.FC = () => {
               {/* Plate + customer count */}
               <div style={{ padding: '14px 16px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px', lineHeight: 1.15 }}>{car.plate_number}</div>
+                  <div className="font-mono tabular-nums" style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px', lineHeight: 1.15 }}>{car.plate_number}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{car.model_name}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 2 }}>
@@ -2940,7 +2941,7 @@ const CustomerSheetsTab: React.FC = () => {
               {/* Balance */}
               <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 12, padding: '10px 0 14px', textAlign: 'center' }}>
                 <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 5 }}>Balance</div>
-                <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px', color: car.netBalance >= 0 ? '#16a34a' : '#dc2626' }}>
+                <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.5px', color: car.netBalance >= 0 ? '#16a34a' : '#dc2626' }}>
                   {car.netBalance < 0 ? '\u2212' : ''}{fmt(Math.abs(car.netBalance))}
                 </div>
               </div>
@@ -3123,45 +3124,47 @@ export const CarCustomerSheetPage: React.FC = () => {
 <meta charset="UTF-8">
 <title>Invoice ${invNum} — HomestaCars</title>
 <style>
+  ${standaloneFontCss()}
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f2f5;color:#0f1117;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font-family:var(--font-sans);background:#f0f2f5;color:#0f1117;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-bar{text-align:center;padding:24px 0 16px;background:#f0f2f5}
-  .print-btn{padding:11px 32px;background:#4ba6ea;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.3px;box-shadow:0 4px 12px rgba(75,166,234,.35)}
+  .print-btn{padding:11px 32px;background:#4ba6ea;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;box-shadow:0 4px 12px rgba(75,166,234,.35)}
   .print-btn:hover{background:#3a95d9}
   .page{max-width:800px;margin:0 auto 48px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.10)}
   .hdr{background:linear-gradient(135deg,#0d1117 0%,#1c2a3a 100%);padding:40px 48px;display:flex;justify-content:space-between;align-items:flex-start}
-  .brand-name{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px}
+  .brand-name{font-size:24px;font-weight:600;color:#fff;letter-spacing:-.5px}
   .brand-dot{color:#4ba6ea}
   .brand-tag{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:2px;margin-top:5px}
   .inv-meta{text-align:right}
-  .inv-label{font-size:10px;font-weight:700;color:#4ba6ea;text-transform:uppercase;letter-spacing:2px}
-  .inv-number{font-size:28px;font-weight:800;color:#fff;margin-top:4px;letter-spacing:-.5px}
+  .inv-label{font-size:10px;font-weight:600;color:#4ba6ea;text-transform:uppercase;letter-spacing:2px}
+  .inv-number{font-size:28px;font-weight:600;color:#fff;margin-top:4px;letter-spacing:-.5px}
   .inv-date{font-size:12px;color:rgba(255,255,255,.45);margin-top:5px}
   .accent{height:3px;background:linear-gradient(90deg,#4ba6ea 0%,#93d2ff 100%)}
   .body{padding:40px 48px}
   .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:36px}
-  .info-section h4{font-size:9px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
+  .info-section h4{font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
   .info-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;gap:12px}
   .info-key{font-size:11px;color:#9ca3af;white-space:nowrap}
   .info-val{font-size:12px;font-weight:600;color:#0f1117;text-align:right}
-  .sec-title{font-size:9px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
+  .info-val.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .sec-title{font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
   table{width:100%;border-collapse:collapse}
-  th{padding:9px 12px;font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;text-align:left;border-bottom:1.5px solid #f0f0f0}
+  th{padding:9px 12px;font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px;text-align:left;border-bottom:1.5px solid #f0f0f0}
   th:last-child{text-align:right}
   td{padding:11px 12px;font-size:12px;color:#374151;border-bottom:1px solid #f9f9f9;vertical-align:middle}
-  td:last-child{text-align:right;font-weight:600;color:#0f1117}
-  .badge-in{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:800;color:#16a34a;background:rgba(34,197,94,.1)}
-  .badge-out{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:800;color:#dc2626;background:rgba(239,68,68,.1)}
+  td:last-child{text-align:right;font-weight:600;color:#0f1117;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .badge-in{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:600;color:#16a34a;background:rgba(34,197,94,.1)}
+  .badge-out{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:600;color:#dc2626;background:rgba(239,68,68,.1)}
   .totals{margin-top:28px;display:flex;justify-content:flex-end}
   .totals-box{width:280px;background:#f8f9fb;border-radius:12px;padding:20px 24px}
   .t-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px solid #eef0f2}
   .t-row:last-child{border-bottom:none;border-top:2px solid #e5e7eb;margin-top:8px;padding-top:12px}
   .t-lbl{color:#6b7280}
-  .t-val{font-weight:600;color:#0f1117}
-  .t-row.balance .t-lbl{font-weight:800;font-size:14px;color:#0f1117}
-  .t-row.balance .t-val{font-weight:800;font-size:16px;color:#4ba6ea}
+  .t-val{font-weight:600;color:#0f1117;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .t-row.balance .t-lbl{font-weight:600;font-size:14px;color:#0f1117}
+  .t-row.balance .t-val{font-weight:600;font-size:16px;color:#4ba6ea}
   .footer{padding:22px 48px;background:#f8f9fb;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f0f0f0}
-  .footer-brand{font-size:14px;font-weight:800;color:#0f1117}
+  .footer-brand{font-size:14px;font-weight:600;color:#0f1117}
   .footer-info{font-size:11px;color:#9ca3af;line-height:1.9;text-align:right}
   @media print{body{background:#fff}.page{box-shadow:none;border-radius:0;margin:0;max-width:100%}.print-bar{display:none}}
 </style>
@@ -3192,9 +3195,9 @@ export const CarCustomerSheetPage: React.FC = () => {
       </div>
       <div class="info-section">
         <h4>Vehicle</h4>
-        <div class="info-row"><span class="info-key">Plate Number</span><span class="info-val">${car?.plate_number ?? '—'}</span></div>
+        <div class="info-row"><span class="info-key">Plate Number</span><span class="info-val mono">${car?.plate_number ?? '—'}</span></div>
         <div class="info-row"><span class="info-key">Model</span><span class="info-val">${car?.model_name ?? '—'}</span></div>
-        <div class="info-row"><span class="info-key">Booking</span><span class="info-val">${cust.bookingNumber}</span></div>
+        <div class="info-row"><span class="info-key">Booking</span><span class="info-val mono">${cust.bookingNumber}</span></div>
         <div class="info-row"><span class="info-key">Transactions</span><span class="info-val">${cust.entries.length} item${cust.entries.length !== 1 ? 's' : ''}</span></div>
       </div>
     </div>
@@ -3265,7 +3268,7 @@ export const CarCustomerSheetPage: React.FC = () => {
           Customer Sheets
         </button>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.6px', margin: 0, lineHeight: 1.1 }}>{car?.plate_number}</h1>
+          <h1 className="font-mono tabular-nums" style={{ fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.6px', margin: 0, lineHeight: 1.1 }}>{car?.plate_number}</h1>
           <p style={{ fontSize: 13, color: '#9ca3af', margin: '3px 0 0' }}>{car?.model_name}</p>
         </div>
       </div>
@@ -3278,8 +3281,8 @@ export const CarCustomerSheetPage: React.FC = () => {
           { label: 'Balance',   value: heroBalance,  color: heroBalance >= 0 ? '#16a34a' : '#dc2626', signed: true },
         ].map(stat => (
           <div key={stat.label} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{stat.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, letterSpacing: '-0.5px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{stat.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 600, color: stat.color, letterSpacing: '-0.5px' }}>
               {stat.signed && stat.value < 0 ? '−' : ''}{fmt(Math.abs(stat.value))}
             </div>
           </div>
@@ -3323,7 +3326,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                         </svg>
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px' }}>{custName.toUpperCase()}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', letterSpacing: '0.2px' }}>{custName.toUpperCase()}</div>
                         <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bookingLine || (cust.phone ?? '—')}</div>
                       </div>
                     </div>
@@ -3333,15 +3336,15 @@ export const CarCustomerSheetPage: React.FC = () => {
                       <div style={{ display: 'flex', gap: 14, textAlign: 'right' }}>
                         <div>
                           <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>IN</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#16a34a' }}>{fmt(cust.totalIn)}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#16a34a' }}>{fmt(cust.totalIn)}</div>
                         </div>
                         <div>
                           <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>OUT</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }}>{fmt(cust.totalOut)}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#dc2626' }}>{fmt(cust.totalOut)}</div>
                         </div>
                         <div>
                           <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Balance</div>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: cust.balance >= 0 ? '#16a34a' : '#dc2626' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: cust.balance >= 0 ? '#16a34a' : '#dc2626' }}>
                             {cust.balance < 0 ? '−' : ''}{fmt(Math.abs(cust.balance))}
                           </div>
                         </div>
@@ -3388,7 +3391,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                           <thead>
                             <tr>
                               {['Date', 'Type', 'Description', 'Amount', ''].map((h, hi) => (
-                                <th key={hi} style={{ padding: '9px 16px', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: h === '' ? 'right' : 'left', borderBottom: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
+                                <th key={hi} style={{ padding: '9px 16px', fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: h === '' ? 'right' : 'left', borderBottom: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
                             </tr>
                           </thead>
@@ -3401,18 +3404,18 @@ export const CarCustomerSheetPage: React.FC = () => {
                                   <td style={{ padding: '10px 16px', fontSize: 12, color: '#374151', whiteSpace: 'nowrap' }}>{fmtDate(e.created_at.slice(0, 10))}</td>
                                   <td style={{ padding: '10px 16px', fontSize: 12 }}>
                                     {e.type
-                                      ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', background: '#f3f4f6', color: '#374151' }}>{e.type}</span>
+                                      ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', background: '#f3f4f6', color: '#374151' }}>{e.type}</span>
                                       : <span style={{ color: '#d1d5db' }}>—</span>}
                                   </td>
                                   <td style={{ padding: '10px 16px', fontSize: 12, color: '#6b7280', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description ?? '—'}</td>
-                                  <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', color: isIn ? '#16a34a' : '#dc2626' }}>
+                                  <td className="font-mono tabular-nums" style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', color: isIn ? '#16a34a' : '#dc2626' }}>
                                     {isIn ? '+' : '−'}{fmt(e.amount)}
                                   </td>
                                   <td style={{ padding: '7px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                                     {isPendingDelete ? (
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                         <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>Delete?</span>
-                                        <button onClick={() => handleDelete(e.id)} disabled={deleting} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                                        <button onClick={() => handleDelete(e.id)} disabled={deleting} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                                           {deleting ? '…' : 'Yes'}
                                         </button>
                                         <button onClick={() => setDeleteConfirm(null)} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -3662,7 +3665,7 @@ const AddFinancialTxModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>Add Transaction</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117' }}>Add Transaction</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Insert into financial_transactions</div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
@@ -3715,7 +3718,7 @@ const AddFinancialTxModal: React.FC<{
                     onClick={() => set('direction', d)}
                     style={{
                       flex: 1, height: 40, borderRadius: 9, fontFamily: 'inherit', cursor: 'pointer',
-                      fontSize: 12, fontWeight: 700, transition: 'all 140ms ease',
+                      fontSize: 12, fontWeight: 600, transition: 'all 140ms ease',
                       border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
                       background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
                       color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280',
@@ -3781,10 +3784,10 @@ const AddFinancialTxModal: React.FC<{
                     <span style={{ fontWeight: 500 }}>No commission for this investor (0%) — only the main transaction row will be inserted.</span>
                   ) : (
                     <>
-                      <span style={{ fontWeight: 700 }}>Commission will be auto-deducted: </span>
+                      <span style={{ fontWeight: 600 }}>Commission will be auto-deducted: </span>
                       <span style={{ fontWeight: 600 }}>{commissionRate}%</span>
                       {commAmt !== null && (
-                        <span> = <span style={{ fontWeight: 700 }}>{commAmt.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TRY</span></span>
+                        <span> = <span style={{ fontWeight: 600 }}>{commAmt.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TRY</span></span>
                       )}
                       <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 3, fontWeight: 500 }}>
                         A separate Commission row will be inserted automatically.
@@ -4019,7 +4022,7 @@ const AddInternalFinanceTxModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>New Transaction</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117' }}>New Transaction</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{form.category === 'employee_account' ? 'employee_wallets' : 'company_expenses'}</div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
@@ -4045,7 +4048,7 @@ const AddInternalFinanceTxModal: React.FC<{
                     border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`,
                     background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
                     color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
                   }}>
                     {d === 'IN' ? '↓ IN' : '↑ OUT'}
                   </button>
@@ -4069,7 +4072,7 @@ const AddInternalFinanceTxModal: React.FC<{
                     padding: '0 14px', height: 38, border: 'none',
                     background: form.inputCurrency === c ? '#4ba6ea' : '#fff',
                     color: form.inputCurrency === c ? '#fff' : '#6b7280',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
                   }}>
                     {c === 'TRY' ? '₺ TRY' : '$ USD'}
                   </button>
@@ -4168,7 +4171,7 @@ const AddInternalFinanceTxModal: React.FC<{
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {receiptPreview
                     ? <img src={receiptPreview} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} />
-                    : <div style={{ width: 48, height: 48, borderRadius: 6, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>PDF</div>
+                    : <div style={{ width: 48, height: 48, borderRadius: 6, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#6b7280' }}>PDF</div>
                   }
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117' }}>{receiptFile.name}</div>
@@ -4257,7 +4260,7 @@ const DirBadge: React.FC<{ dir: string }> = ({ dir }) => {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+      padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600,
       color: isIn ? '#16a34a' : '#dc2626',
       background: isIn ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
     }}>
@@ -4287,7 +4290,7 @@ const TransactionListModal: React.FC<{
   const sorted    = [...rows].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const statColor = statValue > 0 ? '#16a34a' : statValue < 0 ? '#dc2626' : '#6b7280';
 
-  const th: React.CSSProperties = { padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left', whiteSpace: 'nowrap', borderBottom: '1px solid #f0f0f0' };
+  const th: React.CSSProperties = { padding: '9px 14px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left', whiteSpace: 'nowrap', borderBottom: '1px solid #f0f0f0' };
   const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, color: '#374151', verticalAlign: 'middle' };
 
   return ReactDOM.createPortal(
@@ -4300,7 +4303,7 @@ const TransactionListModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117' }}>{title}</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117' }}>{title}</div>
             {subtitle && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{subtitle}</div>}
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}>
@@ -4310,8 +4313,8 @@ const TransactionListModal: React.FC<{
 
         {/* Running total */}
         <div style={{ padding: '16px 28px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{statLabel}</div>
-          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: statColor }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{statLabel}</div>
+          <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.6px', color: statColor }}>
             {statValue < 0 ? '-' : ''}{fmt(Math.abs(statValue))}
           </div>
         </div>
@@ -4346,7 +4349,7 @@ const TransactionListModal: React.FC<{
                       <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
                       <td style={td}><DirBadge dir={r.direction} /></td>
                       {showCategory && <td style={{ ...td, textTransform: 'capitalize' }}>{r.category || '—'}</td>}
-                      <td style={{ ...td, fontWeight: 700, color: isIn ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
+                      <td className="font-mono tabular-nums" style={{ ...td, fontWeight: 600, color: isIn ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
                         {isIn ? '+' : '-'}{fmt(r.amount ?? 0)}
                       </td>
                       <td style={{ ...td, color: r.description ? '#374151' : '#d1d5db', maxWidth: 220 }}>{r.description || '—'}</td>
@@ -4477,7 +4480,7 @@ const EditCompanyExpenseModal: React.FC<{
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Edit Expense</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Edit Expense</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>ID #{entry.id}</div>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
@@ -4498,7 +4501,7 @@ const EditCompanyExpenseModal: React.FC<{
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['IN', 'OUT'] as const).map(d => (
                   <button key={d} onClick={() => set('direction', d)}
-                    style={{ flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`, background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff', color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}>
+                    style={{ flex: 1, height: 38, borderRadius: 9, border: `1.5px solid ${form.direction === d ? (d === 'IN' ? '#22c55e' : '#ef4444') : '#e5e7eb'}`, background: form.direction === d ? (d === 'IN' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)') : '#fff', color: form.direction === d ? (d === 'IN' ? '#16a34a' : '#dc2626') : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}>
                     {d === 'IN' ? '↓ IN' : '↑ OUT'}
                   </button>
                 ))}
@@ -4631,7 +4634,7 @@ const CompanyExpensesTab: React.FC = () => {
             color: '#fff',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>
                 {monthLabel(monthKey)}
               </div>
               <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.7, background: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: '3px 12px' }}>
@@ -4642,24 +4645,24 @@ const CompanyExpensesTab: React.FC = () => {
               <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Net</div>
               {ifMonthLoading
                 ? <div style={{ ...shimmer, height: 52, width: 220 }} />
-                : <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: '-1.5px', lineHeight: 1 }}>
+                : <div style={{ fontSize: 48, fontWeight: 600, letterSpacing: '-1.5px', lineHeight: 1 }}>
                     {ifNet < 0 ? '-' : ''}{fmt(Math.abs(ifNet))}
                   </div>
               }
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: '16px 20px' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Total Income</div>
+                <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Total Income</div>
                 {ifMonthLoading
                   ? <div style={{ ...shimmer, height: 28, width: 120 }} />
-                  : <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px' }}>{fmt(ifIncome)}</div>
+                  : <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.5px' }}>{fmt(ifIncome)}</div>
                 }
               </div>
               <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: '16px 20px' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Total Expenses</div>
+                <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Total Expenses</div>
                 {ifMonthLoading
                   ? <div style={{ ...shimmer, height: 28, width: 120 }} />
-                  : <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px' }}>{fmt(ifExpenses)}</div>
+                  : <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.5px' }}>{fmt(ifExpenses)}</div>
                 }
               </div>
             </div>
@@ -4669,7 +4672,7 @@ const CompanyExpensesTab: React.FC = () => {
 
       {/* ── Company Expenses: Section 2 — Category breakdown ────────────── */}
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
           Expenses by Category
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
@@ -4685,11 +4688,11 @@ const CompanyExpensesTab: React.FC = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <span style={{ fontSize: 18 }}>{cat.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{cat.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{cat.label}</span>
                 </div>
                 {ifMonthLoading
                   ? <div style={{ height: 26, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                  : <div style={{ fontSize: 22, fontWeight: 800, color: total > 0 ? '#0f1117' : '#d1d5db', letterSpacing: '-0.5px' }}>{fmt(total)}</div>
+                  : <div style={{ fontSize: 22, fontWeight: 600, color: total > 0 ? '#0f1117' : '#d1d5db', letterSpacing: '-0.5px' }}>{fmt(total)}</div>
                 }
               </div>
             );
@@ -4704,19 +4707,19 @@ const CompanyExpensesTab: React.FC = () => {
         const net = rows.reduce((a, r) =>
           a + (r.direction?.toUpperCase() === 'IN' ? (r.amount ?? 0) : -(r.amount ?? 0)), 0);
 
-        const th: React.CSSProperties = { padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' };
+        const th: React.CSSProperties = { padding: '10px 16px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap' };
         const td: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: '#374151', verticalAlign: 'middle' };
 
         return (
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
                 Transactions
               </div>
               {!ifMonthLoading && rows.length > 0 && (
                 <div style={{ fontSize: 13, color: '#6b7280' }}>
                   {rows.length} transaction{rows.length !== 1 ? 's' : ''} · Total{' '}
-                  <span style={{ fontWeight: 700, color: net < 0 ? '#dc2626' : '#16a34a' }}>
+                  <span style={{ fontWeight: 600, color: net < 0 ? '#dc2626' : '#16a34a' }}>
                     {net < 0 ? '-' : ''}{fmt(Math.abs(net))}
                   </span>
                 </div>
@@ -4757,7 +4760,7 @@ const CompanyExpensesTab: React.FC = () => {
                             <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(r.expense_date)}</td>
                             <td style={td}><DirBadge dir={r.direction} /></td>
                             <td style={{ ...td, whiteSpace: 'nowrap', color: catLabel ? '#374151' : '#d1d5db' }}>{catLabel || '—'}</td>
-                            <td style={{ ...td, fontWeight: 700, color: isIn ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
+                            <td className="font-mono tabular-nums" style={{ ...td, fontWeight: 600, color: isIn ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
                               {isIn ? '+' : '-'}{fmt(r.amount ?? 0)}
                             </td>
                             <td style={{ ...td, color: r.description ? '#374151' : '#d1d5db', maxWidth: 260 }}>{r.description || '—'}</td>
@@ -4802,7 +4805,7 @@ const CompanyExpensesTab: React.FC = () => {
 
       {/* ── Company Expenses: Section 4 — Employee Wallets ──────────────── */}
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
           Employee Wallets
         </div>
         {walletsLoading ? (
@@ -4834,13 +4837,13 @@ const CompanyExpensesTab: React.FC = () => {
                   onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = '#f0f0f0'; d.style.transform = 'translateY(0)'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: '#4ba6ea', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: '#4ba6ea', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>
                       {initials}
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', lineHeight: 1.3 }}>{emp.full_name ?? '—'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', lineHeight: 1.3 }}>{emp.full_name ?? '—'}</div>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Balance</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: balColor, letterSpacing: '-0.5px' }}>
+                  <div style={{ fontSize: 22, fontWeight: 600, color: balColor, letterSpacing: '-0.5px' }}>
                     {bal < 0 ? '-' : ''}{fmt(Math.abs(bal))}
                   </div>
                 </div>
@@ -5150,7 +5153,7 @@ const BookingAccountsTab: React.FC = () => {
         ].map(c => (
           <div key={c.label} style={{ background: c.bg, borderRadius: 11, padding: '11px 16px', minWidth: 104 }}>
             <div style={{ fontSize: 10.5, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{c.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: c.tint, letterSpacing: '-0.6px', marginTop: 2 }}>{c.value}</div>
+            <div style={{ fontSize: 22, fontWeight: 600, color: c.tint, letterSpacing: '-0.6px', marginTop: 2 }}>{c.value}</div>
           </div>
         ))}
       </div>
@@ -5174,7 +5177,7 @@ const BookingAccountsTab: React.FC = () => {
                   {['Booking', 'Customer', 'Plate', 'Entry', 'Amount', 'Date', 'Settlement'].map((h, i) => (
                     <th key={h} style={{
                       padding: '11px 14px', textAlign: i === 4 ? 'right' : 'left',
-                      fontSize: 10.5, fontWeight: 700, color: '#6b7280',
+                      fontSize: 10.5, fontWeight: 600, color: '#6b7280',
                       textTransform: 'uppercase', letterSpacing: '0.7px',
                       borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap',
                     }}>{h}</th>
@@ -5192,11 +5195,11 @@ const BookingAccountsTab: React.FC = () => {
                   return (
                     <tr key={r.ledger_id} style={{ background: tone.bg, borderBottom: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '11px 14px', borderLeft: `3px solid ${tone.rail}`, whiteSpace: 'nowrap' }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0f1117' }}>{r.booking_number ?? `#${r.booking_id}`}</div>
+                        <div className="font-mono tabular-nums" style={{ fontSize: 12.5, fontWeight: 600, color: '#0f1117' }}>{r.booking_number ?? `#${r.booking_id}`}</div>
                         {r.is_followup_charge && (
                           <span style={{
                             display: 'inline-block', marginTop: 3, padding: '1px 7px', borderRadius: 999,
-                            background: '#eef2ff', color: '#4338ca', fontSize: 10, fontWeight: 700,
+                            background: '#eef2ff', color: '#4338ca', fontSize: 10, fontWeight: 600,
                             textTransform: 'uppercase', letterSpacing: '0.5px',
                           }}>
                             Extension #{(r.seq_in_type ?? 2) - 1}
@@ -5206,20 +5209,19 @@ const BookingAccountsTab: React.FC = () => {
                       <td style={{ padding: '11px 14px', fontSize: 12.5, color: '#374151', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {r.customer_name || '—'}
                       </td>
-                      <td style={{ padding: '11px 14px', fontSize: 12.5, color: '#6b7280', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                      <td className="font-mono tabular-nums" style={{ padding: '11px 14px', fontSize: 12.5, color: '#6b7280', whiteSpace: 'nowrap' }}>
                         {r.plate_number ?? '—'}
                       </td>
                       <td style={{ padding: '11px 14px', maxWidth: 230 }}>
                         <span style={{
                           display: 'inline-block', padding: '1px 7px', borderRadius: 6, marginRight: 6,
-                          background: chip.bg, color: chip.fg, fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                          background: chip.bg, color: chip.fg, fontSize: 10, fontWeight: 600, textTransform: 'uppercase',
                         }}>{r.entry_type}</span>
                         <span style={{ fontSize: 12, color: '#6b7280' }}>{r.description || '—'}</span>
                       </td>
                       <td style={{ padding: '11px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{
-                          fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                          color: isIn ? '#16a34a' : '#0f1117',
+                        <div className="font-mono tabular-nums" style={{
+                          fontSize: 13, fontWeight: 600, color: isIn ? '#16a34a' : '#0f1117',
                         }}>
                           {isIn ? '+' : '−'}{fmt(r.amount)}
                         </div>
@@ -5265,7 +5267,7 @@ const BookingAccountsTab: React.FC = () => {
         >
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 520, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
             <div style={{ padding: '18px 22px', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Link to a car-sheet row</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Link to a car-sheet row</div>
               <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>
                 Rent Collection on {linking.row.plate_number ?? 'this car'} · {monthLabel(monthKey)}. Optional — but the car sheet has no booking id, so this is the only moment the link can be recorded.
               </div>
@@ -5282,7 +5284,7 @@ const BookingAccountsTab: React.FC = () => {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums' }}>{fmt(tx.amount)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', fontVariantNumeric: 'tabular-nums' }}>{fmt(tx.amount)}</div>
                     <div style={{ fontSize: 11.5, color: '#9ca3af' }}>{tx.note || '—'}</div>
                   </div>
                   <div style={{ fontSize: 11.5, color: '#6b7280', whiteSpace: 'nowrap' }}>{tx.date}</div>
@@ -5352,7 +5354,7 @@ const AccountingPage: React.FC = () => {
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Finance</span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>Accounting</h1>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>Accounting</h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Financial overview, investor reports, and customer billing.</p>
         </div>
         <button

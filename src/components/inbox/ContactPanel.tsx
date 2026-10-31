@@ -12,7 +12,7 @@ import {
 export interface AdminOption { id: string; full_name: string | null; }
 
 const LABEL: React.CSSProperties = {
-  fontSize: 10.5, fontWeight: 700, color: '#9ca3af',
+  fontSize: 10.5, fontWeight: 600, color: '#9ca3af',
   textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 5,
 };
 
@@ -61,7 +61,7 @@ const ContactPanel: React.FC<{
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: '#fff' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '12px 16px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Contact</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Contact</span>
         <button
           type="button"
           onClick={onClose}
@@ -75,12 +75,12 @@ const ContactPanel: React.FC<{
       <div style={{ flex: 1, overflowY: 'auto', padding: 16, minHeight: 0 }}>
         {/* Identity */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 700, margin: '0 auto 10px', overflow: 'hidden' }}>
+          <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 600, margin: '0 auto 10px', overflow: 'hidden' }}>
             {conversation.contact?.avatar_url
               ? <img src={conversation.contact.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : initials(name)}
           </div>
-          <div style={{ fontSize: 14.5, fontWeight: 800, color: '#0f1117', wordBreak: 'break-word' }}>{name}</div>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117', wordBreak: 'break-word' }}>{name}</div>
           <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{conversation.contact?.identifier ?? '—'}</div>
         </div>
 
@@ -145,7 +145,7 @@ const ContactPanel: React.FC<{
             style={{
               marginTop: 8, width: '100%', height: 36, borderRadius: 9, border: 'none',
               background: !noteDirty || savingNote ? '#cbd5e1' : '#4ba6ea', color: '#fff',
-              fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit',
+              fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
               cursor: !noteDirty || savingNote ? 'not-allowed' : 'pointer',
             }}
           >

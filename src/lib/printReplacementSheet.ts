@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { standaloneFontCss } from './standaloneFonts';
 import { fmt, fmtDate, fmtKm, fmtFuel, infoRow, infoRowPair } from './printContract';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -114,14 +115,14 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Replacement Sheet – ${esc(sheet.sheet_number)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
+  ${standaloneFontCss()}
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  b, strong, th { font-weight: 600; }
 
   body {
-    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    font-family: var(--font-sans);
     font-size: 10.5px;
     color: #111;
     background: #fff;
@@ -156,7 +157,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     border-radius: 8px;
     padding: 9px 22px;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
     letter-spacing: 0.3px;
@@ -174,7 +175,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .brand-name {
     font-size: 20px;
-    font-weight: 900;
+    font-weight: 600;
     color: #1a2942;
     letter-spacing: 1.5px;
     line-height: 1;
@@ -182,7 +183,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   .brand-sub {
     font-size: 8px;
     color: #4ba6ea;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 2.5px;
     text-transform: uppercase;
     margin-top: 3px;
@@ -203,7 +204,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .doc-title-tr {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -211,13 +212,13 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   .doc-title-divider { color: #9ca3af; margin: 0 8px; font-size: 12px; }
   .doc-title-en {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     color: #374151;
     letter-spacing: 1px;
     text-transform: uppercase;
   }
   .doc-title-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 12px;
     font-weight: 700;
     color: #374151;
@@ -234,7 +235,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     color: #fff;
     padding: 5px 10px;
     font-size: 8.5px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
     display: flex;
@@ -242,7 +243,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     gap: 6px;
   }
   .section-bar .bar-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9px;
     font-weight: 400;
     letter-spacing: 0;
@@ -279,7 +280,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   .lbl-tr {
     display: block;
     font-size: 7.5px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -294,7 +295,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .lbl-ar {
     display: block;
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8px;
     color: #9ca3af;
     direction: rtl;
@@ -365,7 +366,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .ack-ar {
     display: block;
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9.5px;
     color: #374151;
     direction: rtl;
@@ -381,7 +382,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   .terms-title {
     text-align: center;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 1.5px;
@@ -395,13 +396,13 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     color: #fff;
     text-align: center;
     font-size: 8px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 1.5px;
     text-transform: uppercase;
     padding: 4px 6px;
     margin-bottom: 8px;
   }
-  .terms-col-header.ar-col { font-family: 'Cairo', sans-serif; font-size: 10px; letter-spacing: 0; }
+  .terms-col-header.ar-col { font-family: var(--font-plex-arabic), sans-serif; font-size: 10px; letter-spacing: 0; }
   .clause { margin-bottom: 6px; }
   .clause-bind {
     background: #f8f9fb;
@@ -411,7 +412,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .clause-title {
     font-size: 8px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -420,12 +421,12 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   .clause-body { font-size: 7.5px; color: #374151; line-height: 1.6; text-align: justify; }
   .terms-col-ar { direction: rtl; text-align: right; }
   .terms-col-ar .clause-title {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8.5px;
     letter-spacing: 0;
     text-transform: none;
   }
-  .terms-col-ar .clause-body { font-family: 'Cairo', sans-serif; font-size: 8px; text-align: right; }
+  .terms-col-ar .clause-body { font-family: var(--font-plex-arabic), sans-serif; font-size: 8px; text-align: right; }
 
   /* ── Signatures ─────────────────────────────────────── */
   .sig-section { page-break-inside: avoid; break-inside: avoid; margin-bottom: 10px; }
@@ -433,14 +434,14 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   .sig-box { border: 1.5px solid #d1d5db; padding: 5px 10px; text-align: center; }
   .sig-title {
     font-size: 8.5px;
-    font-weight: 700;
+    font-weight: 600;
     color: #1a2942;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 2px;
   }
   .sig-title-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9px;
     color: #6b7280;
     direction: rtl;
@@ -520,8 +521,8 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
         ${infoRow('AD SOYAD', 'Full Name', 'الاسم الكامل', safe(fullName))}
         ${infoRow('K&#304;ML&#304;K NO', 'ID Number', 'رقم الهوية', safe(cust.id_number))}
         ${infoRow('TELEFON', 'Phone', 'رقم الهاتف', safe(cust.phone))}
-        ${infoRow('S&Ouml;ZLE&Scedil;ME NO', 'Contract No', 'رقم العقد', safe(sheet.original_booking_number))}
-        ${infoRow('ASIL PLAKA', 'Original Plate', 'لوحة السيارة الأصلية', safe(sheet.original_plate))}
+        ${infoRow('S&Ouml;ZLE&Scedil;ME NO', 'Contract No', 'رقم العقد', `<span class="mono">${safe(sheet.original_booking_number)}</span>`)}
+        ${infoRow('ASIL PLAKA', 'Original Plate', 'لوحة السيارة الأصلية', `<span class="mono">${safe(sheet.original_plate)}</span>`)}
         ${infoRow('ASIL MODEL', 'Original Model', 'موديل السيارة الأصلية', safe(sheet.original_model))}
       </table>
     </div>
@@ -533,7 +534,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
         <span class="bar-ar">سيارة الاستبدال والتسليم</span>
       </div>
       <table class="info-table">
-        ${infoRow('PLAKA', 'Plate', 'رقم اللوحة', safe(sheet.replacement_plate))}
+        ${infoRow('PLAKA', 'Plate', 'رقم اللوحة', `<span class="mono">${safe(sheet.replacement_plate)}</span>`)}
         ${infoRow('MODEL', 'Model', 'موديل السيارة', safe(sheet.replacement_model))}
         ${infoRowPair(
           'TESL&#304;M TAR&#304;H&#304;', 'Handover Date', 'تاريخ التسليم', fmtDate(sheet.start_date),

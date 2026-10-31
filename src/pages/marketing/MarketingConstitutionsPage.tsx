@@ -14,7 +14,7 @@ function renderInline(text: string, key: number): React.ReactNode {
         if (p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>;
         if (p.startsWith('*') && p.endsWith('*')) return <em key={i}>{p.slice(1, -1)}</em>;
         if (p.startsWith('`') && p.endsWith('`')) return (
-          <code key={i} style={{ background: 'rgba(0,0,0,0.07)', borderRadius: 4, padding: '1px 5px', fontSize: '0.9em', fontFamily: 'monospace' }}>
+          <code key={i} style={{ background: 'rgba(0,0,0,0.07)', borderRadius: 4, padding: '1px 5px', fontSize: '0.9em', fontFamily: 'var(--font-mono)' }}>
             {p.slice(1, -1)}
           </code>
         );
@@ -40,7 +40,7 @@ function MarkdownView({ content }: { content: string }) {
       elements.push(
         <pre key={i} style={{ background: '#f6f8fa', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px', overflowX: 'auto', fontSize: 13, lineHeight: 1.6, marginBottom: 14 }}>
           {lang && <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang}</div>}
-          <code style={{ fontFamily: 'monospace', color: '#24292f' }}>{codeLines.join('\n')}</code>
+          <code style={{ fontFamily: 'var(--font-mono)', color: '#24292f' }}>{codeLines.join('\n')}</code>
         </pre>
       );
       i++; continue;
@@ -52,7 +52,7 @@ function MarkdownView({ content }: { content: string }) {
       const sizes = [24, 19, 16];
       const margins = [28, 22, 18];
       elements.push(
-        <div key={i} style={{ fontSize: sizes[level - 1], fontWeight: 700, color: '#0f1117', letterSpacing: '-0.4px', marginTop: i === 0 ? 0 : margins[level - 1], marginBottom: 10, borderBottom: level === 1 ? '1px solid #f0f0f0' : 'none', paddingBottom: level === 1 ? 10 : 0 }}>
+        <div key={i} style={{ fontSize: sizes[level - 1], fontWeight: 600, color: '#0f1117', letterSpacing: '-0.4px', marginTop: i === 0 ? 0 : margins[level - 1], marginBottom: 10, borderBottom: level === 1 ? '1px solid #f0f0f0' : 'none', paddingBottom: level === 1 ? 10 : 0 }}>
           {renderInline(hMatch[2], i)}
         </div>
       );
@@ -127,7 +127,7 @@ function Avatar({ url, name, size, color }: { url: string | null; name: string; 
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       background: `${color}22`, border: `2px solid ${color}44`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.36, fontWeight: 700, color,
+      fontSize: size * 0.36, fontWeight: 600, color,
     }}>
       {initials || '?'}
     </div>
@@ -201,7 +201,7 @@ const AddBotModal: React.FC<{
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <form onClick={e => e.stopPropagation()} onSubmit={handleSubmit} style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.18)', animation: 'csSlideUp 180ms ease', overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117' }}>Add Bot</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117' }}>Add Bot</div>
           <button type="button" onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
@@ -231,7 +231,7 @@ const AddBotModal: React.FC<{
               value={constitution} onChange={e => setConstitution(e.target.value)}
               placeholder="# Constitution&#10;&#10;Write the bot's rulebook here…"
               rows={5}
-              style={{ padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 9, fontSize: 13, fontFamily: 'monospace', outline: 'none', resize: 'vertical', color: '#0f1117', width: '100%', boxSizing: 'border-box' }}
+              style={{ padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 9, fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', resize: 'vertical', color: '#0f1117', width: '100%', boxSizing: 'border-box' }}
             />
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
@@ -419,7 +419,7 @@ const MarketingConstitutionsPage: React.FC = () => {
         {/* Header */}
         <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid #ebebeb', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px' }}>Bots</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px' }}>Bots</span>
             <button
               onClick={() => setShowAdd(true)}
               style={{ height: 30, padding: '0 11px', borderRadius: 8, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}
@@ -484,7 +484,7 @@ const MarketingConstitutionsPage: React.FC = () => {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{bot.display_name}</span>
-                      {!bot.is_active && <span style={{ fontSize: 9.5, fontWeight: 700, color: '#9ca3af', background: '#f3f4f6', borderRadius: 20, padding: '1px 6px', flexShrink: 0 }}>inactive</span>}
+                      {!bot.is_active && <span style={{ fontSize: 9.5, fontWeight: 600, color: '#9ca3af', background: '#f3f4f6', borderRadius: 20, padding: '1px 6px', flexShrink: 0 }}>inactive</span>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 10.5, color: '#9ca3af', background: '#f3f4f6', borderRadius: 4, padding: '1px 5px' }}>{bot.bot_name}</span>
@@ -519,9 +519,9 @@ const MarketingConstitutionsPage: React.FC = () => {
                   <Avatar url={selectedBot.avatar_url} name={selectedBot.display_name} size={46} color={color} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>{selectedBot.display_name}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color, background: `${color}18`, borderRadius: 20, padding: '2px 9px', flexShrink: 0 }}>{selectedBot.bot_name}</span>
-                      {!selectedBot.is_active && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', background: '#f3f4f6', borderRadius: 20, padding: '2px 9px', flexShrink: 0 }}>inactive</span>}
+                      <span style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>{selectedBot.display_name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color, background: `${color}18`, borderRadius: 20, padding: '2px 9px', flexShrink: 0 }}>{selectedBot.bot_name}</span>
+                      {!selectedBot.is_active && <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', background: '#f3f4f6', borderRadius: 20, padding: '2px 9px', flexShrink: 0 }}>inactive</span>}
                     </div>
                     {selectedBot.description && (
                       <div style={{ fontSize: 12.5, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedBot.description}</div>
@@ -561,19 +561,19 @@ const MarketingConstitutionsPage: React.FC = () => {
                     {/* Top fields */}
                     <div style={{ padding: '12px 18px', borderBottom: '1px solid #f0f0f0', background: '#f8fafc', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                       <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160, flex: 1 }}>
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Display Name</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Display Name</span>
                         <input value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} style={{ height: 32, padding: '0 9px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0f1117' }} />
                       </label>
                       <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 180, flex: 1 }}>
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bio</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bio</span>
                         <input value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="One-line role summary" style={{ height: 32, padding: '0 9px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0f1117' }} />
                       </label>
                       <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200, flex: 2 }}>
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Avatar URL</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Avatar URL</span>
                         <input value={editAvatarUrl} onChange={e => setEditAvatarUrl(e.target.value)} placeholder="https://…" style={{ height: 32, padding: '0 9px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0f1117' }} />
                       </label>
                       <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 120, flex: 1 }}>
-                        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Updated By</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Updated By</span>
                         <input value={editUpdatedBy} onChange={e => setEditUpdatedBy(e.target.value)} placeholder="admin" style={{ height: 32, padding: '0 9px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0f1117' }} />
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', alignSelf: 'flex-end', marginBottom: 1 }}>
@@ -583,17 +583,17 @@ const MarketingConstitutionsPage: React.FC = () => {
                     </div>
 
                     {/* Constitution textarea */}
-                    <div style={{ padding: '6px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#f8fafc' }}>Constitution (Markdown)</div>
+                    <div style={{ padding: '6px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#f8fafc' }}>Constitution (Markdown)</div>
                     <textarea
                       value={editConstitution}
                       onChange={e => setEditConstitution(e.target.value)}
                       placeholder="# Bot Constitution&#10;&#10;Write the bot's full rulebook here…"
-                      style={{ flex: 1, padding: '16px 20px', border: 'none', outline: 'none', fontFamily: 'monospace', fontSize: 13.5, lineHeight: 1.65, resize: 'none', color: '#24292f', background: '#fff' }}
+                      style={{ flex: 1, padding: '16px 20px', border: 'none', outline: 'none', fontFamily: 'var(--font-mono)', fontSize: 13.5, lineHeight: 1.65, resize: 'none', color: '#24292f', background: '#fff' }}
                     />
 
                     {/* Notes */}
                     <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 16px', background: '#f8fafc' }}>
-                      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Notes</div>
+                      <div style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Notes</div>
                       <textarea
                         value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={2}
                         placeholder="Internal notes (optional)…"
@@ -609,7 +609,7 @@ const MarketingConstitutionsPage: React.FC = () => {
 
                   {/* Right: live preview */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <div style={{ padding: '8px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#f8fafc' }}>Live Preview</div>
+                    <div style={{ padding: '8px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#f8fafc' }}>Live Preview</div>
                     <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
                       {editConstitution.trim() ? <MarkdownView content={editConstitution} /> : <div style={{ color: '#c0c4cc', fontSize: 14, fontStyle: 'italic' }}>Preview will appear here…</div>}
                     </div>
@@ -627,7 +627,7 @@ const MarketingConstitutionsPage: React.FC = () => {
                         </svg>
                       </div>
                       <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', marginBottom: 6 }}>No constitution yet</div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 6 }}>No constitution yet</div>
                         <div style={{ fontSize: 13, color: '#9ca3af', maxWidth: 340 }}>Click Edit to write the bot's rulebook in Markdown.</div>
                       </div>
                       <button onClick={handleEdit} style={{ height: 38, padding: '0 20px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
@@ -638,10 +638,10 @@ const MarketingConstitutionsPage: React.FC = () => {
 
                       {/* Metadata */}
                       <div style={{ marginTop: 40, borderTop: '1px solid #f0f0f0', paddingTop: 28 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 18 }}>Metadata</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 18 }}>Metadata</div>
                         <MetaRow label="Bot name">{selectedBot.bot_name}</MetaRow>
                         <MetaRow label="Status">
-                          <span style={{ fontSize: 12, fontWeight: 700, color: selectedBot.is_active ? '#10b981' : '#9ca3af', background: selectedBot.is_active ? 'rgba(16,185,129,0.10)' : '#f3f4f6', borderRadius: 20, padding: '2px 9px' }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: selectedBot.is_active ? '#10b981' : '#9ca3af', background: selectedBot.is_active ? 'rgba(16,185,129,0.10)' : '#f3f4f6', borderRadius: 20, padding: '2px 9px' }}>
                             {selectedBot.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </MetaRow>

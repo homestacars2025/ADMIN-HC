@@ -158,7 +158,7 @@ const TasksPage: React.FC = () => {
                     '',
                   ].map((h) => (
                     <th key={h} style={{
-                      padding: '11px 16px', fontSize: 11, fontWeight: 700, color: FAINT,
+                      padding: '11px 16px', fontSize: 11, fontWeight: 600, color: FAINT,
                       letterSpacing: '0.5px', textTransform: 'uppercase', whiteSpace: 'nowrap',
                     }}>
                       {h}
@@ -178,7 +178,7 @@ const TasksPage: React.FC = () => {
                         <div
                           dir={dir}
                           style={{
-                            fontSize: 13.5, fontWeight: 700, color: INK, lineHeight: 1.45,
+                            fontSize: 13.5, fontWeight: 600, color: INK, lineHeight: 1.45,
                             textAlign: dir === 'rtl' ? 'right' : 'left',
                           }}
                         >
@@ -196,7 +196,7 @@ const TasksPage: React.FC = () => {
                           </div>
                         )}
                         {task.category && (
-                          <div style={{ fontSize: 11, color: FAINT, marginTop: 5, fontFamily: 'ui-monospace, monospace' }}>
+                          <div style={{ fontSize: 11, color: FAINT, marginTop: 5, fontFamily: 'var(--font-mono)' }}>
                             {task.category}
                           </div>
                         )}

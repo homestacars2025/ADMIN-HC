@@ -242,7 +242,7 @@ const PendingInvoicesPage: React.FC = () => {
 
   const thStyle: React.CSSProperties = {
     padding: '11px 16px', textAlign: 'left',
-    fontSize: 11, fontWeight: 700, color: '#9ca3af',
+    fontSize: 11, fontWeight: 600, color: '#9ca3af',
     letterSpacing: '0.5px', textTransform: 'uppercase',
     whiteSpace: 'nowrap', background: '#fafafa',
     userSelect: 'none',
@@ -266,11 +266,11 @@ const PendingInvoicesPage: React.FC = () => {
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 26 }}>
         <div>
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 6 }}>
             • Bookings
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.5px' }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.5px' }}>
               Pending Invoices
             </h1>
             {!loading && (
@@ -279,7 +279,7 @@ const PendingInvoicesPage: React.FC = () => {
                   ? 'linear-gradient(135deg, rgba(220,38,38,0.10) 0%, rgba(220,38,38,0.06) 100%)'
                   : 'linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.06) 100%)',
                 color: rows.length > 0 ? '#dc2626' : '#16a34a',
-                fontSize: 12, fontWeight: 700,
+                fontSize: 12, fontWeight: 600,
                 padding: '3px 10px', borderRadius: 20,
                 border: `1px solid ${rows.length > 0 ? 'rgba(220,38,38,0.18)' : 'rgba(16,185,129,0.18)'}`,
               }}>
@@ -333,7 +333,7 @@ const PendingInvoicesPage: React.FC = () => {
               )}
             </div>
             <div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: rows.length > 0 ? '#dc2626' : '#16a34a', letterSpacing: '-0.8px', lineHeight: 1 }}>{rows.length}</div>
+              <div style={{ fontSize: 28, fontWeight: 600, color: rows.length > 0 ? '#dc2626' : '#16a34a', letterSpacing: '-0.8px', lineHeight: 1 }}>{rows.length}</div>
               <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 4 }}>invoices pending</div>
             </div>
           </div>
@@ -342,7 +342,7 @@ const PendingInvoicesPage: React.FC = () => {
             <div style={{ background: 'white', borderRadius: 13, border: '1px solid rgba(220,38,38,0.18)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 14, minWidth: 150 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }}/>
               <div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: '#dc2626', letterSpacing: '-0.5px', lineHeight: 1 }}>{over14}</div>
+                <div style={{ fontSize: 24, fontWeight: 600, color: '#dc2626', letterSpacing: '-0.5px', lineHeight: 1 }}>{over14}</div>
                 <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 4 }}>over 14 days</div>
               </div>
             </div>
@@ -352,7 +352,7 @@ const PendingInvoicesPage: React.FC = () => {
             <div style={{ background: 'white', borderRadius: 13, border: '1px solid rgba(217,119,6,0.18)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 14, minWidth: 150 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#d97706', flexShrink: 0 }}/>
               <div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: '#d97706', letterSpacing: '-0.5px', lineHeight: 1 }}>{over7}</div>
+                <div style={{ fontSize: 24, fontWeight: 600, color: '#d97706', letterSpacing: '-0.5px', lineHeight: 1 }}>{over7}</div>
                 <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 4 }}>7 – 14 days</div>
               </div>
             </div>
@@ -423,7 +423,7 @@ const PendingInvoicesPage: React.FC = () => {
                         <path d="M22 4L12 14.01l-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', marginBottom: 5 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 5 }}>
                       {search ? 'No matching bookings' : 'All caught up!'}
                     </div>
                     <div style={{ fontSize: 13, color: '#9ca3af' }}>
@@ -443,7 +443,7 @@ const PendingInvoicesPage: React.FC = () => {
                     >
                       {/* Booking # */}
                       <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.3px' }}>
+                        <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.3px' }}>
                           {row.booking_number}
                         </span>
                       </td>
@@ -456,7 +456,7 @@ const PendingInvoicesPage: React.FC = () => {
                       {/* Car */}
                       <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <span style={{ background: '#f3f4f6', borderRadius: 6, padding: '3px 7px', fontSize: 11.5, fontWeight: 700, color: '#374151', letterSpacing: '0.5px' }}>
+                          <span className="font-mono tabular-nums" style={{ background: '#f3f4f6', borderRadius: 6, padding: '3px 7px', fontSize: 11.5, fontWeight: 600, color: '#374151', letterSpacing: '0.5px' }}>
                             {row.plate}
                           </span>
                           <span style={{ fontSize: 13, color: '#6b7280' }}>{row.car_model}</span>
@@ -476,7 +476,7 @@ const PendingInvoicesPage: React.FC = () => {
                           display: 'inline-block',
                           background: urgencyBg(days),
                           color: urgencyColor(days),
-                          fontWeight: 700, fontSize: 12,
+                          fontWeight: 600, fontSize: 12,
                           padding: '3px 9px', borderRadius: 6,
                         }}>
                           {days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`}
@@ -485,7 +485,7 @@ const PendingInvoicesPage: React.FC = () => {
 
                       {/* KABİS */}
                       <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(22,163,74,0.08)', color: '#16a34a', fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 6 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(22,163,74,0.08)', color: '#16a34a', fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 6 }}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                           Reported
                         </span>
@@ -493,7 +493,7 @@ const PendingInvoicesPage: React.FC = () => {
 
                       {/* Invoice */}
                       <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(220,38,38,0.07)', color: '#dc2626', fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(220,38,38,0.15)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(220,38,38,0.07)', color: '#dc2626', fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(220,38,38,0.15)' }}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                           Not issued
                         </span>

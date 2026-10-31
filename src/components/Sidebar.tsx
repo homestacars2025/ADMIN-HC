@@ -1009,7 +1009,7 @@ const Sidebar: React.FC = () => {
         <div style={{ marginBottom: 8 }}>
           {!collapsed && (
             <div style={{
-              fontSize: 10, fontWeight: 700, color: 'rgb(0 0 0 / 0.30)',
+              fontSize: 10, fontWeight: 600, color: 'rgb(0 0 0 / 0.30)',
               textTransform: 'uppercase', letterSpacing: '0.7px',
               marginBottom: 6, paddingLeft: 2,
             }}>
@@ -1031,7 +1031,7 @@ const Sidebar: React.FC = () => {
                   background: 'rgba(75,166,234,0.08)',
                   color: 'var(--sidebar-primary)',
                   fontSize: currency === 'LYD' ? 8 : 10,
-                  fontWeight: 700, cursor: 'pointer',
+                  fontWeight: 600, cursor: 'pointer',
                   fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
@@ -1052,7 +1052,7 @@ const Sidebar: React.FC = () => {
                     background: currency === c ? 'rgba(75,166,234,0.08)' : 'var(--sidebar)',
                     color: currency === c ? 'var(--sidebar-primary)' : 'rgb(0 0 0 / 0.55)',
                     fontSize: c === 'LYD' ? 9 : 11,
-                    fontWeight: currency === c ? 700 : 500,
+                    fontWeight: currency === c ? 600 : 500,
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 140ms ease',
                     letterSpacing: c === 'LYD' ? '-0.2px' : '0',
@@ -1102,7 +1102,7 @@ const Sidebar: React.FC = () => {
               justifyContent: 'center',
               flexShrink: 0,
             }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'white', lineHeight: 1 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'white', lineHeight: 1 }}>
                 {initials}
               </span>
             </div>
@@ -1141,7 +1141,7 @@ const Sidebar: React.FC = () => {
             border: 'none',
             background: 'none',
             fontSize: 14,
-            fontWeight: 450,
+            fontWeight: 500,
             color: 'rgb(0 0 0 / 0.40)',
             cursor: 'pointer',
             textAlign: 'left',

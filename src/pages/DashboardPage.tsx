@@ -51,7 +51,7 @@ const DashboardPage: React.FC = () => {
               <circle cx="12" cy="16" r="1" fill="white"/>
             </svg>
           </div>
-          <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.3px', color: 'var(--text-primary)' }}>
+          <span style={{ fontWeight: 600, fontSize: 16, letterSpacing: '-0.3px', color: 'var(--text-primary)' }}>
             HomestaCars
           </span>
         </div>
@@ -85,7 +85,7 @@ const DashboardPage: React.FC = () => {
       </header>
 
       <main style={{ flex: 1, padding: '40px 32px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 8 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.5px', marginBottom: 8 }}>
           Dashboard
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>

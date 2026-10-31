@@ -428,7 +428,7 @@ const CustomerCell: React.FC<{ name: string | null; email: string | null }> = ({
     <div style={{
       width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
       background: 'linear-gradient(135deg, rgba(75,166,234,0.16) 0%, rgba(75,166,234,0.08) 100%)',
-      color: '#2e8fd4', fontSize: 11.5, fontWeight: 700,
+      color: '#2e8fd4', fontSize: 11.5, fontWeight: 600,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       {initials(name)}
@@ -448,9 +448,9 @@ const PlateCell: React.FC<{ plate: string | null; model: string | null }> = ({ p
   if (!plate) return <span style={{ color: '#d1d5db', fontSize: 13 }}>—</span>;
   return (
     <div style={{ whiteSpace: 'nowrap' }}>
-      <span style={{
+      <span className="font-mono tabular-nums" style={{
         display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
-        padding: '3px 8px', fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.4px',
+        padding: '3px 8px', fontSize: 12, fontWeight: 600, color: '#0f1117', letterSpacing: '0.4px',
       }}>
         {plate}
       </span>
@@ -469,7 +469,7 @@ const BookingCell: React.FC<{ start: string | null; end: string | null; number: 
           : '—'}
       </div>
       {number && (
-        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, color: '#9ca3af', marginTop: 3 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#9ca3af', marginTop: 3 }}>
           {number}
         </div>
       )}
@@ -479,7 +479,7 @@ const BookingCell: React.FC<{ start: string | null; end: string | null; number: 
 
 const thBase: React.CSSProperties = {
   padding: '12px 16px',
-  fontSize: 10.5, fontWeight: 700, color: '#9ca3af',
+  fontSize: 10.5, fontWeight: 600, color: '#9ca3af',
   letterSpacing: '0.7px', textTransform: 'uppercase',
   whiteSpace: 'nowrap', background: '#fafbfc',
   borderBottom: '1px solid #eef0f2',
@@ -517,7 +517,7 @@ const Th: React.FC<{
           display: 'flex', alignItems: 'center', gap: 5,
           justifyContent: align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
           border: 'none', background: 'transparent', cursor: 'pointer',
-          font: 'inherit', fontSize: 10.5, fontWeight: 700,
+          font: 'inherit', fontSize: 10.5, fontWeight: 600,
           letterSpacing: '0.7px', textTransform: 'uppercase',
           color: active ? '#4ba6ea' : '#9ca3af',
           transition: 'color 140ms ease',
@@ -620,7 +620,7 @@ const LanguageModal: React.FC<{
           display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
         }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>Choose message language</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>Choose message language</div>
             <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 3 }}>
               {mode === 'resend' ? 'Resending to ' : 'Sending to '}
               <strong style={{ color: '#374151', fontWeight: 600 }}>{customerName ?? 'customer'}</strong>
@@ -669,13 +669,13 @@ const LanguageModal: React.FC<{
               }}
             >
               <span style={{ display: 'flex', alignItems: 'baseline', gap: 9, minWidth: 0 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: '#0f1117' }}>{choice.native}</span>
+                <span style={{ fontSize: 15, fontWeight: 600, color: '#0f1117' }}>{choice.native}</span>
                 {choice.english !== choice.native && (
                   <span style={{ fontSize: 12, color: '#9ca3af' }}>{choice.english}</span>
                 )}
               </span>
               <span style={{
-                fontFamily: 'ui-monospace, monospace', fontSize: 11, fontWeight: 700,
+                fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
                 color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '2px 7px',
                 flexShrink: 0,
               }}>
@@ -930,7 +930,7 @@ const GoogleReviewsPage: React.FC = () => {
               Reputation
             </span>
           </div>
-          <h1 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1 }}>
+          <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1 }}>
             Google Reviews
           </h1>
           <p style={{ margin: '6px 0 0', fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
@@ -951,7 +951,7 @@ const GoogleReviewsPage: React.FC = () => {
                   minHeight: 44, padding: '0 18px',
                   display: 'inline-flex', alignItems: 'center', gap: 9,
                   borderRadius: 11, fontSize: 14, fontFamily: 'inherit',
-                  fontWeight: active ? 700 : 500,
+                  fontWeight: active ? 600 : 500,
                   cursor: 'pointer',
                   border: active ? '1.5px solid rgba(75,166,234,0.35)' : '1px solid #e8eaed',
                   color: active ? '#2e8fd4' : '#6b7280',
@@ -962,7 +962,7 @@ const GoogleReviewsPage: React.FC = () => {
               >
                 {t.label}
                 <span style={{
-                  fontSize: 11.5, fontWeight: 700,
+                  fontSize: 11.5, fontWeight: 600,
                   padding: '2px 8px', borderRadius: 20, minWidth: 22, textAlign: 'center',
                   color: active ? '#2e8fd4' : '#9ca3af',
                   background: active ? 'rgba(75,166,234,0.14)' : '#f1f3f5',
@@ -987,7 +987,7 @@ const GoogleReviewsPage: React.FC = () => {
             <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
             <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
-          Webhook not configured — set <code style={{ fontFamily: 'ui-monospace, monospace', background: 'rgba(180,83,9,0.1)', borderRadius: 4, padding: '1px 5px', margin: '0 2px' }}>REVIEW_WEBHOOK_URL</code> to enable sending. Rating still works.
+          Webhook not configured — set <code style={{ fontFamily: 'var(--font-mono)', background: 'rgba(180,83,9,0.1)', borderRadius: 4, padding: '1px 5px', margin: '0 2px' }}>REVIEW_WEBHOOK_URL</code> to enable sending. Rating still works.
         </div>
       )}
 

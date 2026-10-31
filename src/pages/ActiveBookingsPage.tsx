@@ -117,7 +117,7 @@ const ActiveBookingsPage: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 28 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.5px' }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.5px' }}>
               Active Bookings
             </h1>
             {!loading && (
@@ -125,7 +125,7 @@ const ActiveBookingsPage: React.FC = () => {
                 background: 'linear-gradient(135deg, rgba(75,166,234,0.12) 0%, rgba(75,166,234,0.07) 100%)',
                 color: '#4ba6ea',
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 600,
                 padding: '3px 10px',
                 borderRadius: 20,
                 border: '1px solid rgba(75,166,234,0.2)',
@@ -176,7 +176,7 @@ const ActiveBookingsPage: React.FC = () => {
                 {['Booking #', 'Plate', 'Car', 'Customer', 'Phone', 'Start', 'End', 'Days Left', 'Kabis', 'Invoice'].map(h => (
                   <th key={h} style={{
                     padding: '11px 14px', textAlign: 'left',
-                    fontSize: 11, fontWeight: 700, color: '#9ca3af',
+                    fontSize: 11, fontWeight: 600, color: '#9ca3af',
                     letterSpacing: '0.5px', textTransform: 'uppercase',
                     whiteSpace: 'nowrap', background: '#fafafa',
                   }}>
@@ -221,8 +221,7 @@ const ActiveBookingsPage: React.FC = () => {
                     <tr key={row.booking_id} className="ab-tr" style={{ borderBottom: '1px solid #f5f5f5' }}>
                       {/* Booking # */}
                       <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          fontFamily: 'ui-monospace, monospace',
+                        <span className="font-mono tabular-nums" style={{
                           fontSize: 12, fontWeight: 600,
                           color: '#4ba6ea', letterSpacing: '0.3px',
                         }}>
@@ -232,9 +231,9 @@ const ActiveBookingsPage: React.FC = () => {
 
                       {/* Plate */}
                       <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                        <span style={{
+                        <span className="font-mono tabular-nums" style={{
                           background: '#f3f4f6', borderRadius: 6,
-                          padding: '3px 8px', fontSize: 12, fontWeight: 700,
+                          padding: '3px 8px', fontSize: 12, fontWeight: 600,
                           color: '#374151', letterSpacing: '0.5px',
                         }}>
                           {row.plate_number}
@@ -291,7 +290,7 @@ const ActiveBookingsPage: React.FC = () => {
 
                       {/* Days Left */}
                       <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: dlColor }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: dlColor }}>
                           {dl < 0 ? `${Math.abs(dl)}d overdue` : dl === 0 ? 'Today' : `${dl}d`}
                         </span>
                       </td>

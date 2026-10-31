@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
+import { standaloneFontCss } from '../lib/standaloneFonts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -413,11 +414,11 @@ const KGMPage: React.FC = () => {
       const diffStr = tVal === 0 && yVal === 0 ? '—' : `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(diff)}`;
       const bg = idx % 2 === 1 ? '#f9fafb' : '#ffffff';
       return `<tr style="background:${bg}">
-        <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700">${car.plate_number}</td>
+        <td class="mono" style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:600">${car.plate_number}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#6b7280">${car.model}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;font-weight:700">${tVal === 0 ? '—' : fmt(tVal)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;color:#9ca3af">${yVal === 0 ? '—' : fmt(yVal)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;font-weight:700;color:${diffColor}">${diffStr}</td>
+        <td class="mono" style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;font-weight:600">${tVal === 0 ? '—' : fmt(tVal)}</td>
+        <td class="mono" style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;color:#9ca3af">${yVal === 0 ? '—' : fmt(yVal)}</td>
+        <td class="mono" style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:right;font-weight:600;color:${diffColor}">${diffStr}</td>
       </tr>`;
     }).join('');
 
@@ -434,52 +435,54 @@ const KGMPage: React.FC = () => {
   <meta charset="utf-8"/>
   <title>KGM-${dateStr}</title>
   <style>
+    ${standaloneFontCss()}
     @page { size: A4 landscape; margin: 20mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #111827; }
+    body { font-family: var(--font-sans); color: #111827; }
+    .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:2px solid #e5e7eb;padding-bottom:16px">
     <div>
-      <div style="font-size:22px;font-weight:800;color:#0f1117;letter-spacing:-0.5px">KGM Daily Report</div>
+      <div style="font-size:22px;font-weight:600;color:#0f1117;letter-spacing:-0.5px">KGM Daily Report</div>
       <div style="font-size:12px;color:#6b7280;margin-top:4px">Generated: ${generatedAt}</div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:16px;font-weight:700;color:#0f1117">${formatDate(selectedDate)}</div>
+      <div style="font-size:16px;font-weight:600;color:#0f1117">${formatDate(selectedDate)}</div>
     </div>
   </div>
   <div style="display:flex;gap:16px;margin-bottom:24px">
     <div style="flex:1;padding:16px 20px;border-radius:10px;background:#4ba6ea;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;opacity:0.85;margin-bottom:6px">Today Total</div>
-      <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px">${fmt(totalToday)}</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;opacity:0.85;margin-bottom:6px">Today Total</div>
+      <div style="font-size:28px;font-weight:600;letter-spacing:-0.5px">${fmt(totalToday)}</div>
     </div>
     <div style="flex:1;padding:16px 20px;border-radius:10px;background:#6b7280;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;opacity:0.85;margin-bottom:6px">Yesterday Total</div>
-      <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px">${fmt(totalYesterday)}</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;opacity:0.85;margin-bottom:6px">Yesterday Total</div>
+      <div style="font-size:28px;font-weight:600;letter-spacing:-0.5px">${fmt(totalYesterday)}</div>
     </div>
     <div style="flex:1;padding:16px 20px;border-radius:10px;background:${cardDiffBg};color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;opacity:0.85;margin-bottom:6px">Difference</div>
-      <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px">${totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}${fmt(totalDiff)}</div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;opacity:0.85;margin-bottom:6px">Difference</div>
+      <div style="font-size:28px;font-weight:600;letter-spacing:-0.5px">${totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}${fmt(totalDiff)}</div>
     </div>
   </div>
-  <table style="width:100%;border-collapse:collapse;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table style="width:100%;border-collapse:collapse">
     <thead>
       <tr style="background:#f9fafb;-webkit-print-color-adjust:exact;print-color-adjust:exact">
-        <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Plate</th>
-        <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Model</th>
-        <th style="padding:10px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Today</th>
-        <th style="padding:10px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Yesterday</th>
-        <th style="padding:10px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Difference</th>
+        <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Plate</th>
+        <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Model</th>
+        <th style="padding:10px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Today</th>
+        <th style="padding:10px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Yesterday</th>
+        <th style="padding:10px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Difference</th>
       </tr>
     </thead>
     <tbody>${rowsHtml}</tbody>
     <tfoot>
       <tr style="background:#f3f4f6;-webkit-print-color-adjust:exact;print-color-adjust:exact">
-        <td colspan="2" style="padding:10px 12px;font-weight:700;font-size:13px;border-top:2px solid #e5e7eb">Total (${cars.length} vehicles)</td>
-        <td style="padding:10px 12px;text-align:right;font-weight:800;font-size:13px;border-top:2px solid #e5e7eb;color:#0f1117">${fmt(totalToday)}</td>
-        <td style="padding:10px 12px;text-align:right;font-weight:700;font-size:13px;border-top:2px solid #e5e7eb;color:#6b7280">${fmt(totalYesterday)}</td>
-        <td style="padding:10px 12px;text-align:right;font-weight:800;font-size:13px;border-top:2px solid #e5e7eb;color:${footerDiffColor}">${totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}${fmt(totalDiff)}</td>
+        <td colspan="2" style="padding:10px 12px;font-weight:600;font-size:13px;border-top:2px solid #e5e7eb">Total (${cars.length} vehicles)</td>
+        <td class="mono" style="padding:10px 12px;text-align:right;font-weight:600;font-size:13px;border-top:2px solid #e5e7eb;color:#0f1117">${fmt(totalToday)}</td>
+        <td class="mono" style="padding:10px 12px;text-align:right;font-weight:600;font-size:13px;border-top:2px solid #e5e7eb;color:#6b7280">${fmt(totalYesterday)}</td>
+        <td class="mono" style="padding:10px 12px;text-align:right;font-weight:600;font-size:13px;border-top:2px solid #e5e7eb;color:${footerDiffColor}">${totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}${fmt(totalDiff)}</td>
       </tr>
     </tfoot>
   </table>
@@ -488,8 +491,10 @@ const KGMPage: React.FC = () => {
   </div>
   <script>
     window.onload = function() {
-      window.print();
-      setTimeout(function() { window.close(); }, 500);
+      document.fonts.ready.then(function() {
+        window.print();
+        setTimeout(function() { window.close(); }, 500);
+      });
     };
   </script>
 </body>
@@ -510,7 +515,8 @@ const KGMPage: React.FC = () => {
           width: 86px;
           padding: 7px 10px;
           font-size: 14px;
-          font-family: inherit;
+          font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           font-weight: 600;
           color: #0f1117;
           text-align: right;
@@ -533,7 +539,7 @@ const KGMPage: React.FC = () => {
           background: #4ba6ea;
           color: #fff;
           font-size: 12px;
-          font-weight: 700;
+          font-weight:600;
           font-family: inherit;
           cursor: pointer;
           opacity: 0;
@@ -569,7 +575,7 @@ const KGMPage: React.FC = () => {
           background: #4ba6ea;
           color: #fff;
           font-size: 12px;
-          font-weight: 700;
+          font-weight:600;
           font-family: inherit;
           cursor: pointer;
           opacity: 0;
@@ -600,7 +606,7 @@ const KGMPage: React.FC = () => {
               Operations
             </span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
             KGM Tolls
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
@@ -622,7 +628,7 @@ const KGMPage: React.FC = () => {
           <NavArrow direction="left" onClick={() => goTo(-1)} />
 
           <div style={{ textAlign: 'center', minWidth: 300 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.5px', lineHeight: 1.2 }}>
+            <div style={{ fontSize: 20, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.5px', lineHeight: 1.2 }}>
               {formatDate(selectedDate)}
             </div>
             {!isToday(selectedDate) && (
@@ -729,9 +735,9 @@ const KGMPage: React.FC = () => {
                         <span style={{ fontSize: 12, color: '#c0c4cc', fontWeight: 500 }}>{idx + 1}</span>
                       </td>
                       <td style={{ padding: '14px 12px 14px 16px', overflow: 'hidden' }}>
-                        <div style={{
+                        <div className="font-mono tabular-nums" style={{
                           display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
-                          padding: '3px 9px', fontSize: 13, fontWeight: 700, color: '#0f1117',
+                          padding: '3px 9px', fontSize: 13, fontWeight: 600, color: '#0f1117',
                           letterSpacing: '0.3px', whiteSpace: 'nowrap', overflow: 'hidden',
                           textOverflow: 'ellipsis', maxWidth: '100%',
                         }}>
@@ -747,7 +753,7 @@ const KGMPage: React.FC = () => {
                         </span>
                       </td>
                       <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                        <span style={{ fontSize: 14, color: yVal === 0 ? '#d1d5db' : '#9ca3af', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        <span className="font-mono tabular-nums" style={{ fontSize: 14, color: yVal === 0 ? '#d1d5db' : '#9ca3af', fontWeight: 500, whiteSpace: 'nowrap' }}>
                           {yVal === 0 ? '—' : fmt(yVal)}
                         </span>
                       </td>
@@ -788,8 +794,8 @@ const KGMPage: React.FC = () => {
                         </div>
                       </td>
                       <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                        <span style={{
-                          fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap',
+                        <span className="font-mono tabular-nums" style={{
+                          fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap',
                           color: diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : '#d1d5db',
                         }}>
                           {tVal === 0 && yVal === 0 ? '—' : `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(diff)}`}
@@ -846,21 +852,21 @@ const KGMPage: React.FC = () => {
                 <tr>
                   <td />
                   <td colSpan={2} style={{ padding: '14px 16px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Total</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Total</span>
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                    <span className="font-mono tabular-nums" style={{ fontSize: 15, fontWeight: 600, color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {fmt(totalYesterday)}
                     </span>
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#0f1117', whiteSpace: 'nowrap' }}>
+                    <span className="font-mono tabular-nums" style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', whiteSpace: 'nowrap' }}>
                       {fmt(totalToday)}
                     </span>
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                    <span style={{
-                      fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap',
+                    <span className="font-mono tabular-nums" style={{
+                      fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap',
                       color: totalDiff > 0 ? '#22c55e' : totalDiff < 0 ? '#ef4444' : '#9ca3af',
                     }}>
                       {totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}{fmt(totalDiff)}
@@ -900,7 +906,7 @@ const Th: React.FC<ThProps> = ({ children, style, sortKey, activeSort, onSort, .
       style={{
         padding: '12px 16px',
         fontSize: 11,
-        fontWeight: 700,
+        fontWeight: 600,
         color: isActive ? '#4ba6ea' : '#9ca3af',
         textTransform: 'uppercase',
         letterSpacing: '0.7px',

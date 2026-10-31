@@ -38,7 +38,7 @@ export const PageHeader: React.FC<{
         {eyebrow}
       </span>
     </div>
-    <h1 className="text-[20px] font-semibold tracking-[-0.022em] text-foreground sm:text-[24px]">
+    <h1 className="text-[20px] font-medium tracking-[-0.022em] text-foreground sm:text-[24px]">
       {title}
     </h1>
     <p className="mt-1 text-[12.5px] tracking-[-0.005em] text-black/45 sm:text-[13.5px]">

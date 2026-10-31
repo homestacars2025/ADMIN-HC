@@ -144,7 +144,7 @@ const DayPanel: React.FC<DayPanelProps> = ({ date, items, onClose, onNavigate })
         <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f3f4f6' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#0f1117' }}>
+              <div style={{ fontSize: 20, fontWeight: 600, color: '#0f1117' }}>
                 {date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
               </div>
               {holiday && <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600, marginTop: 3 }}>🎉 {holiday}</div>}
@@ -182,7 +182,7 @@ const DayPanel: React.FC<DayPanelProps> = ({ date, items, onClose, onNavigate })
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                         <span style={{ fontSize: 11, color: '#9ca3af' }}>{fmtTime(item.scheduled_for)}</span>
                         {item.platform && <PlatformDot platform={item.platform} />}
-                        <span style={{ padding: '1px 6px', borderRadius: 20, background: st.bg, fontSize: 10, fontWeight: 700, color: st.color }}>{st.label}</span>
+                        <span style={{ padding: '1px 6px', borderRadius: 20, background: st.bg, fontSize: 10, fontWeight: 600, color: st.color }}>{st.label}</span>
                       </div>
                     </div>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: '#d1d5db', flexShrink: 0, marginTop: 2 }}><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -336,7 +336,7 @@ const MarketingCalendarPage: React.FC = () => {
   }, [selectedDay, byDay]);
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes calPulse { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
         @keyframes calSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -351,7 +351,7 @@ const MarketingCalendarPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f1117', margin: 0 }}>Content Calendar</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Content Calendar</h1>
           <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>Scheduled posts and upcoming content pipeline</p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -376,7 +376,7 @@ const MarketingCalendarPage: React.FC = () => {
           <button onClick={view === 'month' ? nextMonth : nextWeek} style={{ width: 34, height: 34, borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', marginLeft: 6 }}>
+          <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117', marginLeft: 6 }}>
             {view === 'month' ? fmtMonthYear(year, month) : (() => {
               const days = weekDays;
               return `${days[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${days[6].toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
@@ -441,7 +441,7 @@ const MarketingCalendarPage: React.FC = () => {
       {/* Calendar Grid */}
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-          {DAYS_OF_WEEK.map(d => <div key={d} style={{ textAlign: 'center', padding: '8px 0', fontSize: 12, fontWeight: 700, color: '#9ca3af' }}>{d}</div>)}
+          {DAYS_OF_WEEK.map(d => <div key={d} style={{ textAlign: 'center', padding: '8px 0', fontSize: 12, fontWeight: 600, color: '#9ca3af' }}>{d}</div>)}
           {Array.from({ length: 35 }).map((_, i) => <Sk key={i} h={100} radius={8} />)}
         </div>
       ) : view === 'month' ? (
@@ -449,7 +449,7 @@ const MarketingCalendarPage: React.FC = () => {
           {/* Day headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 2 }}>
             {DAYS_OF_WEEK.map(d => (
-              <div key={d} style={{ textAlign: 'center', padding: '8px 0', fontSize: 12, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{d}</div>
+              <div key={d} style={{ textAlign: 'center', padding: '8px 0', fontSize: 12, fontWeight: 600, color: '#9ca3af', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{d}</div>
             ))}
           </div>
 
@@ -486,9 +486,9 @@ const MarketingCalendarPage: React.FC = () => {
                   {/* Day number */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                     <div style={{ width: 24, height: 24, borderRadius: '50%', background: isToday ? '#4ba6ea' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? '#fff' : '#374151' }}>{date.getDate()}</span>
+                      <span style={{ fontSize: 12, fontWeight: isToday ? 600 : 500, color: isToday ? '#fff' : '#374151' }}>{date.getDate()}</span>
                     </div>
-                    {isHeavy && <span style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', background: '#fee2e2', padding: '1px 5px', borderRadius: 6 }}>HEAVY</span>}
+                    {isHeavy && <span style={{ fontSize: 9, fontWeight: 600, color: '#ef4444', background: '#fee2e2', padding: '1px 5px', borderRadius: 6 }}>HEAVY</span>}
                   </div>
 
                   {/* Holiday */}
@@ -527,9 +527,9 @@ const MarketingCalendarPage: React.FC = () => {
               const isToday = key === todayKey;
               return (
                 <div key={i} style={{ textAlign: 'center', padding: '8px 4px' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{DAYS_OF_WEEK[date.getDay()]}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{DAYS_OF_WEEK[date.getDay()]}</div>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: isToday ? '#4ba6ea' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '4px auto 0' }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: isToday ? '#fff' : '#0f1117' }}>{date.getDate()}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: isToday ? '#fff' : '#0f1117' }}>{date.getDate()}</span>
                   </div>
                 </div>
               );
@@ -589,7 +589,7 @@ const MarketingCalendarPage: React.FC = () => {
             { label: 'Pending Approval', value: allItems.filter(i => i.status === 'pending_approval').length, color: '#d97706' },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1.5px solid #f0f0f0' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
+              <div style={{ fontSize: 22, fontWeight: 600, color }}>{value}</div>
               <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{label}</div>
             </div>
           ))}

@@ -426,7 +426,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117' }}>{isNew ? 'New Article' : (form.title_en || form.title_ar || 'Edit Article')}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117' }}>{isNew ? 'New Article' : (form.title_en || form.title_ar || 'Edit Article')}</div>
             {!isNew && post?.status && (
               <span style={{ padding: '3px 10px', borderRadius: 20, background: STATUS_STYLE[post.status]?.bg ?? '#f3f4f6', fontSize: 12, fontWeight: 600, color: STATUS_STYLE[post.status]?.color ?? '#6b7280' }}>
                 {STATUS_STYLE[post.status]?.label ?? post.status}
@@ -465,7 +465,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
                   onChange={e => set(`title_${langTab}` as 'title_ar' | 'title_tr' | 'title_en', e.target.value)}
                   placeholder={`Article title in ${langTab === 'ar' ? 'Arabic' : langTab === 'tr' ? 'Turkish' : 'English'}…`}
                   dir={langTab === 'ar' ? 'rtl' : 'ltr'}
-                  style={{ ...inputStyle, fontSize: 17, fontWeight: 700, padding: '10px 12px' }}
+                  style={{ ...inputStyle, fontSize: 17, fontWeight: 600, padding: '10px 12px' }}
                   onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
                   onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
                 />
@@ -476,7 +476,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Slug</label>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input value={form.slug ?? ''} onChange={e => set('slug', e.target.value)} placeholder="url-friendly-slug" style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 12 }} onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }} onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
+                    <input value={form.slug ?? ''} onChange={e => set('slug', e.target.value)} placeholder="url-friendly-slug" style={{ ...inputStyle, fontFamily: 'var(--font-mono)', fontSize: 12 }} onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }} onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
                     <button onClick={() => set('slug', slugify(form.title_en ?? ''))} style={{ padding: '8px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12, color: '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap' }}>Auto</button>
                   </div>
                 </div>
@@ -511,7 +511,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
                   onChange={e => set(contentKey, e.target.value)}
                   placeholder={`Write your article in ${langTab === 'ar' ? 'Arabic' : langTab === 'tr' ? 'Turkish' : 'English'}…\n\n# Heading\n## Subheading\n**Bold** *Italic*\n- List item\n\n> Blockquote`}
                   dir={langTab === 'ar' ? 'rtl' : 'ltr'}
-                  style={{ flex: 1, width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9, fontFamily: 'monospace', outline: 'none', color: '#0f1117', resize: 'none', lineHeight: 1.6, minHeight: 300, transition: 'border-color 140ms ease' }}
+                  style={{ flex: 1, width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9, fontFamily: 'var(--font-mono)', outline: 'none', color: '#0f1117', resize: 'none', lineHeight: 1.6, minHeight: 300, transition: 'border-color 140ms ease' }}
                   onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#4ba6ea'; }}
                   onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'; }}
                 />
@@ -525,8 +525,8 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
             {/* AEO Score */}
             <div style={{ background: aeoScore >= 70 ? '#d1fae5' : aeoScore >= 40 ? '#fef3c7' : '#fee2e2', border: `1.5px solid ${aeoScore >= 70 ? '#6ee7b7' : aeoScore >= 40 ? '#fde68a' : '#fca5a5'}`, borderRadius: 14, padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: aeoScore >= 70 ? '#065f46' : aeoScore >= 40 ? '#92400e' : '#7f1d1d' }}>AEO Score</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: aeoScore >= 70 ? '#059669' : aeoScore >= 40 ? '#d97706' : '#ef4444' }}>{aeoScore}<span style={{ fontSize: 13, fontWeight: 600 }}>/100</span></div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: aeoScore >= 70 ? '#065f46' : aeoScore >= 40 ? '#92400e' : '#7f1d1d' }}>AEO Score</div>
+                <div style={{ fontSize: 22, fontWeight: 600, color: aeoScore >= 70 ? '#059669' : aeoScore >= 40 ? '#d97706' : '#ef4444' }}>{aeoScore}<span style={{ fontSize: 13, fontWeight: 600 }}>/100</span></div>
               </div>
               <div style={{ height: 6, borderRadius: 6, background: 'rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 12 }}>
                 <div style={{ width: `${aeoScore}%`, height: '100%', borderRadius: 6, background: aeoScore >= 70 ? '#059669' : aeoScore >= 40 ? '#d97706' : '#ef4444', transition: 'width 400ms ease' }} />
@@ -717,7 +717,7 @@ const MarketingBlogPostsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
       <style>{`
         @keyframes bpPulse { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
         @keyframes bpSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -732,7 +732,7 @@ const MarketingBlogPostsPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f1117', margin: 0 }}>Blog Posts</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Blog Posts</h1>
           <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>Long-form content optimized for SEO and AI search engines</p>
         </div>
         <button onClick={() => setEditorPost(null)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
@@ -749,7 +749,7 @@ const MarketingBlogPostsPage: React.FC = () => {
           return (
             <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#4ba6ea') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
               {tab === 'all' ? 'All' : (STATUS_STYLE[tab]?.label ?? tab)}
-              <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>
+              <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>
             </button>
           );
         })}
@@ -790,7 +790,7 @@ const MarketingBlogPostsPage: React.FC = () => {
             <thead>
               <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                 {['Article', 'Type', 'Keywords', 'Status', 'Words', 'Views', ''].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>

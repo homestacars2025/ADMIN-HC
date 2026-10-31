@@ -13,6 +13,8 @@ interface LogoProps {
 const ARCH_COLOR = '#6EA4E7';
 const INK = '#0E0E10';
 const INK_SOFT = '#45454B';
+/** The feature set homestastay.com applies to its own wordmark. */
+const WORDMARK_FEATURES = '"ss01", "cv11", "cv06"';
 
 /**
  * Homesta Cars brand mark.
@@ -67,7 +69,8 @@ const Logo: React.FC<LogoProps> = ({
       <span style={{ display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
         <span
           style={{
-            fontFamily: '"Geist", -apple-system, BlinkMacSystemFont, sans-serif',
+            fontFamily: 'var(--font-sans)',
+            fontFeatureSettings: WORDMARK_FEATURES,
             fontWeight: 500,
             fontSize: Math.round(size * 0.47),
             letterSpacing: '-0.045em',
@@ -79,7 +82,8 @@ const Logo: React.FC<LogoProps> = ({
         </span>
         <span
           style={{
-            fontFamily: '"Geist", -apple-system, BlinkMacSystemFont, sans-serif',
+            fontFamily: 'var(--font-sans)',
+            fontFeatureSettings: WORDMARK_FEATURES,
             fontWeight: 500,
             fontSize: Math.round(size * 0.36),
             letterSpacing: '-0.035em',
