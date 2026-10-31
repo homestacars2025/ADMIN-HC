@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
+import { MonthNav } from '../components/shared/MonthNav';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -4930,12 +4931,6 @@ interface BookingAccountRow {
 
 type SettlementField = 'received_from_customer' | 'received_by_manager' | 'logged_in_car_sheet';
 
-const STEP_LABEL: Record<SettlementField, string> = {
-  received_from_customer: 'From customer',
-  received_by_manager:    'To manager',
-  logged_in_car_sheet:    'In car sheet',
-};
-
 /** Row tint by how many of the three steps are done. Soft fill, saturated rail. */
 function settlementTone(done: number): { bg: string; rail: string } {
   if (done >= 3) return { bg: '#f0fdf4', rail: '#16a34a' };
@@ -4949,33 +4944,237 @@ const ENTRY_CHIP: Record<string, { bg: string; fg: string }> = {
   deposit: { bg: '#f5f3ff', fg: '#6d28d9' },
 };
 
-/** One settlement step: a pill that fills in when the step is done. */
-const TickButton: React.FC<{ on: boolean; label: string; busy: boolean; onClick: () => void }> = ({ on, label, busy, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={busy}
-    aria-pressed={on}
-    title={label}
-    style={{
-      display: 'flex', alignItems: 'center', gap: 5,
-      padding: '5px 9px', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
-      fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap',
-      border: on ? '1px solid #16a34a' : '1px solid #e5e7eb',
-      background: on ? '#16a34a' : '#fff',
-      color: on ? '#fff' : '#9ca3af',
-      opacity: busy ? 0.55 : 1,
-      transition: 'all 130ms ease',
-    }}
-  >
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-      {on
-        ? <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        : <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />}
-    </svg>
-    {label}
-  </button>
+type CounterKey = 'events' | 'bookings' | 'extensions' | 'done' | 'partial' | 'untouched';
+
+interface CounterStats { bookings: number; extensions: number; done: number; partial: number; untouched: number }
+
+/** Same figures as before — only the shell changed, to match the Overview cards. */
+function counterValue(key: CounterKey, events: number, s: CounterStats): number {
+  switch (key) {
+    case 'events':     return events;
+    case 'bookings':   return s.bookings;
+    case 'extensions': return s.extensions;
+    case 'done':       return s.done;
+    case 'partial':    return s.partial;
+    case 'untouched':  return s.untouched;
+  }
+}
+
+const icoStack = (c: string) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="4" width="18" height="5" rx="1.5" stroke={c} strokeWidth="1.8" />
+    <rect x="3" y="12" width="18" height="5" rx="1.5" stroke={c} strokeWidth="1.8" />
+  </svg>
 );
+const icoDoc = (c: string) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <path d="M6 3h8l4 4v14H6z" stroke={c} strokeWidth="1.8" strokeLinejoin="round" />
+    <path d="M9 12h6M9 16h6" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+const icoClock = (c: string) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="8.5" stroke={c} strokeWidth="1.8" />
+    <path d="M12 7.5V12l3 2" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const icoCheck = (c: string) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="8.5" stroke={c} strokeWidth="1.8" />
+    <path d="M8.5 12.2l2.4 2.4 4.6-4.9" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const icoHalf = (c: string) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="8.5" stroke={c} strokeWidth="1.8" />
+    <path d="M12 3.5a8.5 8.5 0 010 17z" fill={c} opacity="0.35" />
+  </svg>
+);
+const icoEmpty = (c: string) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="8.5" stroke={c} strokeWidth="1.8" />
+    <path d="M9 15l6-6M9 9l6 6" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const COUNTER_CARDS: Array<{
+  key: CounterKey; label: string; color: string; iconBg: string;
+  badge: string; badgeColor: string; badgeBg: string;
+  icon: (c: string) => React.ReactNode;
+}> = [
+  { key: 'events',     label: 'Money Events', color: '#4ba6ea', iconBg: 'rgba(75,166,234,0.08)',
+    badge: 'This month', badgeColor: '#0369a1', badgeBg: 'rgba(75,166,234,0.1)',  icon: icoStack },
+  { key: 'bookings',   label: 'Bookings',     color: '#7c3aed', iconBg: 'rgba(124,58,237,0.08)',
+    badge: 'Distinct',   badgeColor: '#6d28d9', badgeBg: 'rgba(124,58,237,0.1)',  icon: icoDoc },
+  { key: 'extensions', label: 'Extensions',   color: '#4338ca', iconBg: 'rgba(67,56,202,0.08)',
+    badge: 'Follow-up',  badgeColor: '#4338ca', badgeBg: 'rgba(67,56,202,0.1)',   icon: icoClock },
+  { key: 'done',       label: 'Settled 3/3',  color: '#22c55e', iconBg: 'rgba(34,197,94,0.08)',
+    badge: 'Complete',   badgeColor: '#16a34a', badgeBg: 'rgba(34,197,94,0.1)',   icon: icoCheck },
+  { key: 'partial',    label: 'Partial',      color: '#f59e0b', iconBg: 'rgba(245,158,11,0.08)',
+    badge: 'In progress',badgeColor: '#b45309', badgeBg: 'rgba(245,158,11,0.1)',  icon: icoHalf },
+  { key: 'untouched',  label: 'Not Started',  color: '#ef4444', iconBg: 'rgba(239,68,68,0.08)',
+    badge: 'Pending',    badgeColor: '#dc2626', badgeBg: 'rgba(239,68,68,0.1)',   icon: icoEmpty },
+];
+
+// ─── Settlement menu ──────────────────────────────────────────────────────────
+
+const SETTLEMENT_STEPS: Array<{ field: SettlementField; label: string; hint: string }> = [
+  { field: 'received_from_customer', label: 'From customer', hint: 'Cash collected from the renter' },
+  { field: 'received_by_manager',    label: 'To manager',    hint: 'Handed over to the manager' },
+  { field: 'logged_in_car_sheet',    label: 'In car sheet',  hint: 'Written into the car’s sheet' },
+];
+
+/**
+ * The three settlement steps, folded into one dropdown to give the column back
+ * its width. They stay three independent flags — the menu is checkboxes, not a
+ * single choice, and it deliberately stays open so several can be ticked in one
+ * pass. Every tick runs the same upsert as before; nothing about the write path
+ * changed.
+ *
+ * The panel is portalled to the body because the table sits in an `overflow-x`
+ * scroller that would otherwise clip it.
+ */
+const SettlementMenu: React.FC<{
+  row: BookingAccountRow;
+  busy: boolean;
+  onToggle: (field: SettlementField, next: boolean) => void;
+}> = ({ row, busy, onToggle }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos]   = useState<{ top: number; left: number } | null>(null);
+  const btnRef  = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const done = Number(row.received_from_customer) + Number(row.received_by_manager) + Number(row.logged_in_car_sheet);
+  const tone = settlementTone(done);
+
+  const place = () => {
+    const b = btnRef.current;
+    const m = menuRef.current;
+    if (!b) return;
+    const r = b.getBoundingClientRect();
+    const w = 248;
+    const h = m?.offsetHeight ?? 0;
+    const below = window.innerHeight - r.bottom - 6 - 8;
+    const top = h > below && r.top - 6 - h > 8 ? r.top - 6 - h : r.bottom + 6;
+    const left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+    const next = { top: Math.round(top), left: Math.round(left) };
+    // The effect below runs after every render, so an unchanged position has to
+    // keep its identity or the two would re-render each other forever.
+    setPos(prev => (prev?.top === next.top && prev.left === next.left ? prev : next));
+  };
+
+  useLayoutEffect(() => { if (open) place(); });
+
+  useEffect(() => {
+    if (!open) { setPos(null); return; }
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const reflow = () => place();
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', reflow, true);
+    window.addEventListener('resize', reflow);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', reflow, true);
+      window.removeEventListener('resize', reflow);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        disabled={busy}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={`${done} of 3 settlement steps done`}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+          padding: '6px 10px', borderRadius: 9, cursor: busy ? 'wait' : 'pointer',
+          fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
+          border: `1px solid ${tone.rail}33`, background: tone.bg, color: tone.rail,
+          opacity: busy ? 0.55 : 1, transition: 'all 130ms ease',
+        }}
+      >
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: tone.rail, flexShrink: 0 }} />
+        {done}/3
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.65, transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms ease' }}>
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && ReactDOM.createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{
+            position: 'fixed', top: pos?.top ?? 0, left: pos?.left ?? 0, width: 248,
+            opacity: pos ? 1 : 0, zIndex: 1200,
+            background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb',
+            boxShadow: '0 12px 36px rgba(0,0,0,0.14)', overflow: 'hidden', padding: 5,
+          }}
+        >
+          {SETTLEMENT_STEPS.map(step => {
+            const on = row[step.field];
+            return (
+              <button
+                key={step.field}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={on}
+                disabled={busy}
+                // Stays open on purpose: the three are independent and are
+                // usually ticked together.
+                onClick={() => onToggle(step.field, !on)}
+                style={{
+                  display: 'flex', width: '100%', alignItems: 'flex-start', gap: 9,
+                  padding: '9px 10px', borderRadius: 9, border: 'none', background: 'transparent',
+                  cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8f9fb'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+              >
+                <span style={{
+                  width: 17, height: 17, borderRadius: 5, flexShrink: 0, marginTop: 1,
+                  border: on ? '1px solid #16a34a' : '1.5px solid #d1d5db',
+                  background: on ? '#16a34a' : '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 120ms ease',
+                }}>
+                  {on && (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                      <path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: on ? '#0f1117' : '#374151' }}>
+                    {step.label}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 11, color: '#9ca3af', marginTop: 1, lineHeight: 1.4 }}>
+                    {step.field === 'logged_in_car_sheet' && row.car_sheet_transaction_id
+                      ? 'Linked to a car-sheet row'
+                      : step.hint}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+};
 
 /**
  * Booking Accounts.
@@ -5123,7 +5322,12 @@ const BookingAccountsTab: React.FC = () => {
 
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-        <MonthNavigator monthKey={monthKey} onChange={setMonthKey} />
+        <MonthNav
+          label={monthLabel(monthKey)}
+          onPrev={() => setMonthKey(m => moveMonth(m, -1))}
+          onNext={() => setMonthKey(m => moveMonth(m, 1))}
+          justify="flex-start"
+        />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -5141,19 +5345,35 @@ const BookingAccountsTab: React.FC = () => {
         </div>
       )}
 
-      {/* ── Counters ── */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {[
-          { label: 'Money events', value: rows.length,      tint: '#0f1117', bg: '#f3f4f6' },
-          { label: 'Bookings',     value: stats.bookings,   tint: '#0f1117', bg: '#f3f4f6' },
-          { label: 'Extensions',   value: stats.extensions, tint: '#4338ca', bg: '#eef2ff' },
-          { label: 'Settled 3/3',  value: stats.done,       tint: '#16a34a', bg: '#f0fdf4' },
-          { label: 'Partial',      value: stats.partial,    tint: '#b45309', bg: '#fffbeb' },
-          { label: 'Not started',  value: stats.untouched,  tint: '#dc2626', bg: '#fef2f2' },
-        ].map(c => (
-          <div key={c.label} style={{ background: c.bg, borderRadius: 11, padding: '11px 16px', minWidth: 104 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{c.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 600, color: c.tint, letterSpacing: '-0.6px', marginTop: 2 }}>{c.value}</div>
+      {/* ── Counters — same card shell as the Overview metrics row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))', gap: 16 }}>
+        {COUNTER_CARDS.map(c => (
+          <div key={c.label} style={{
+            background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)',
+            padding: '20px 22px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: `linear-gradient(90deg, ${c.color} 0%, ${c.color}00 100%)`,
+              borderRadius: '14px 14px 0 0',
+            }} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, marginTop: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', lineHeight: 1.35, paddingRight: 8 }}>{c.label}</div>
+              <div style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {c.icon(c.color)}
+              </div>
+            </div>
+            {loading ? (
+              <div style={{ height: 28, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', marginBottom: 12 }} />
+            ) : (
+              <div style={{ fontSize: 24, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.8px', marginBottom: 12 }}>
+                {counterValue(c.key, rows.length, stats)}
+              </div>
+            )}
+            <span style={{ fontSize: 11, fontWeight: 600, color: c.badgeColor, background: c.badgeBg, borderRadius: 20, padding: '2px 9px' }}>
+              {c.badge}
+            </span>
           </div>
         ))}
       </div>
@@ -5231,21 +5451,16 @@ const BookingAccountsTab: React.FC = () => {
                         {new Date(r.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}
                       </td>
                       <td style={{ padding: '11px 14px' }}>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <TickButton
-                            on={r.received_from_customer} busy={busy} label={STEP_LABEL.received_from_customer}
-                            onClick={() => void applyTick(r, 'received_from_customer', !r.received_from_customer)}
-                          />
-                          <TickButton
-                            on={r.received_by_manager} busy={busy} label={STEP_LABEL.received_by_manager}
-                            onClick={() => void applyTick(r, 'received_by_manager', !r.received_by_manager)}
-                          />
-                          <TickButton
-                            on={r.logged_in_car_sheet} busy={busy}
-                            label={r.car_sheet_transaction_id ? `${STEP_LABEL.logged_in_car_sheet} ·linked` : STEP_LABEL.logged_in_car_sheet}
-                            onClick={() => void handleCarSheetTick(r, !r.logged_in_car_sheet)}
-                          />
-                        </div>
+                        <SettlementMenu
+                          row={r}
+                          busy={busy}
+                          onToggle={(field, next) => {
+                            // Unchanged routing: the car-sheet step still offers
+                            // the optional link, the other two write directly.
+                            if (field === 'logged_in_car_sheet') void handleCarSheetTick(r, next);
+                            else void applyTick(r, field, next);
+                          }}
+                        />
                       </td>
                     </tr>
                   );
