@@ -8,7 +8,7 @@ import { COUNTRIES, parsePhone } from '../lib/phone';
 import { supabase } from '../lib/supabase';
 
 const CARD = 'rounded-2xl border border-subtle bg-surface p-5 sm:p-6';
-const BUTTON = 'h-11 bg-brand-strong px-4 text-white hover:bg-brand-strong/90 md:h-9';
+const BUTTON = 'h-11 !bg-brand-strong px-4 text-white hover:!bg-brand-strong/90 md:h-9';
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MIN_PASSWORD_LENGTH = 8;

@@ -4,6 +4,7 @@ import { CurrencyProvider } from './lib/CurrencyContext';
 import LoginPage from './pages/LoginPage';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
+import PayrollPage from './pages/PayrollPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import CarsPage from './pages/CarsPage';
@@ -87,6 +88,7 @@ const App: React.FC = () => {
           <Route path="fines" element={<FinesPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="investors" element={<InvestorsPage />} />
+          <Route path="payroll" element={<PayrollPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="accounting/report" element={<InvestorReportPage />} />

@@ -4407,7 +4407,7 @@ const WalletHistoryModal: React.FC<{
   return (
     <TransactionListModal
       title={name}
-      subtitle="Employee wallet history · all time"
+      subtitle="Staff custody history · all time"
       statLabel="Running Balance"
       statValue={totalIn - totalOut}
       showCategory
@@ -4812,10 +4812,10 @@ const CompanyExpensesTab: React.FC = () => {
         );
       })()}
 
-      {/* ── Company Expenses: Section 4 — Employee Wallets ──────────────── */}
+      {/* ── Company Expenses: Section 4 — Staff custody ─────────────────── */}
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
-          Employee Wallets
+          Staff custody (<span style={{ letterSpacing: 'normal' }}>الوديعة</span>)
         </div>
         {walletsLoading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>

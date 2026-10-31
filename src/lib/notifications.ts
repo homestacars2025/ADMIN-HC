@@ -328,7 +328,7 @@ const DASHBOARD_SECTIONS = new Set([
   'accounting', 'bookings', 'calendar', 'car-issues', 'cars', 'customers', 'home',
   'fines', 'google-reviews', 'inbox', 'investors', 'kabis', 'kgm', 'marketing',
   'media', 'model-groups', 'notifications', 'online-users', 'operations',
-  'pending-invoices', 'pricing', 'reminder-rules', 'sourcing',
+  'payroll', 'pending-invoices', 'pricing', 'reminder-rules', 'sourcing',
   'staff-permissions', 'tasks', 'team', 'users',
 ]);
 
