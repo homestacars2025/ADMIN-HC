@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import Logo from './shared/Logo';
+import StaffAvatar from './shared/StaffAvatar';
 import NotificationBell from './NotificationBell';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 
@@ -638,6 +639,7 @@ const EXACT_MATCH_PATHS = new Set(
 interface UserProfile {
   full_name: string | null;
   avatar_url: string | null;
+  gender: string | null;
 }
 
 const EXPANDED_W = 240;   /* --sidebar-width: 15rem */
@@ -716,7 +718,7 @@ const Sidebar: React.FC = () => {
       if (!user || cancelled) return;
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, avatar_url')
+        .select('full_name, avatar_url, gender')
         .eq('id', user.id)
         .single();
       if (!cancelled && data) setProfile(data as UserProfile);
@@ -728,10 +730,6 @@ const Sidebar: React.FC = () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
-
-  const initials = profile?.full_name
-    ? profile.full_name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : '?';
 
   const W = collapsed ? COLLAPSED_W : EXPANDED_W;
 
@@ -1078,35 +1076,7 @@ const Sidebar: React.FC = () => {
             marginBottom: 2,
           }}
         >
-          {/* Avatar or initials */}
-          {profile?.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt=""
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '50%',
-                objectFit: 'cover',
-                flexShrink: 0,
-              }}
-            />
-          ) : (
-            <div style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #4ba6ea 0%, #2e8fd4 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'white', lineHeight: 1 }}>
-                {initials}
-              </span>
-            </div>
-          )}
+          <StaffAvatar profile={profile} alt={profile?.full_name ?? ''} size={32} />
 
           {/* Name — expanded only */}
           {!collapsed && (

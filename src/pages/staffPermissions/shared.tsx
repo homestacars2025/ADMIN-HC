@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { cn } from '../../lib/media/badgeColor';
 import type { PageSource } from '../../lib/staffAccess';
 
@@ -7,41 +7,6 @@ export const CARD_CLASS = 'rounded-xl border border-subtle bg-surface';
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 }
-
-function initialsOf(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  return words.slice(0, 2).map((word) => word.charAt(0).toUpperCase()).join('') || '?';
-}
-
-export const StaffAvatar: React.FC<{
-  name: string | null;
-  url: string | null;
-  size?: number;
-}> = ({ name, url, size = 36 }) => {
-  const [broken, setBroken] = useState(false);
-  const box = { width: size, height: size, fontSize: Math.round(size * 0.36) };
-
-  if (url && !broken) {
-    return (
-      <img
-        src={url}
-        alt=""
-        onError={() => setBroken(true)}
-        className="shrink-0 rounded-full object-cover"
-        style={box}
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className="grid shrink-0 place-items-center rounded-full bg-primary/10 font-medium text-primary"
-      style={box}
-    >
-      {initialsOf(name ?? '')}
-    </span>
-  );
-};
 
 const SOURCE_TAGS: Record<PageSource, { label: string; className: string }> = {
   department: { label: 'Department', className: 'bg-primary/10 text-primary' },

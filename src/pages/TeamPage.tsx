@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import StaffAvatar from '../components/shared/StaffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -9,6 +10,8 @@ interface ProfileRow {
   phone:        string | null;
   role:         string | null;
   last_seen_at: string | null;
+  avatar_url:   string | null;
+  gender:       string | null;
 }
 
 interface TeamMemberRow {
@@ -23,21 +26,6 @@ interface TeamMemberRow {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  '#4ba6ea', '#10b981', '#f59e0b', '#ef4444',
-  '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
-];
-
-function avatarColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function initials(name: string): string {
-  return name.trim().split(/\s+/).map(w => w[0] ?? '').join('').slice(0, 2).toUpperCase() || '?';
-}
 
 function relativeTime(iso: string | null): string {
   if (!iso) return '—';
@@ -68,21 +56,6 @@ function firstProfile(p: TeamMemberRow['profiles']): ProfileRow | null {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 32 }) => {
-  const color = avatarColor(name || '?');
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <span style={{ fontSize: size * 0.33, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
-        {initials(name)}
-      </span>
-    </div>
-  );
-};
 
 const ActiveBadge: React.FC<{ active: boolean }> = ({ active }) => (
   <span style={{
@@ -133,7 +106,7 @@ const TeamPage: React.FC = () => {
       setError(null);
       const { data, error } = await supabase
         .from('team_members')
-        .select('id, position, is_active, can_view_accounting, created_at, profiles!team_members_profile_id_fkey(full_name, email, phone, role, last_seen_at)')
+        .select('id, position, is_active, can_view_accounting, created_at, profiles!team_members_profile_id_fkey(full_name, email, phone, role, last_seen_at, avatar_url, gender)')
         .order('created_at', { ascending: true });
       if (cancelled) return;
       if (error) {
@@ -213,7 +186,7 @@ const TeamPage: React.FC = () => {
                       {/* Full name + email */}
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Avatar name={name || p?.email || '?'} size={32} />
+                          <StaffAvatar profile={p} alt={name || p?.email || ''} size={32} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>
                               {name || <span style={{ color: '#d1d5db', fontStyle: 'italic', fontWeight: 400 }}>No name</span>}

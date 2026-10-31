@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
 import { MonthNav } from '../components/shared/MonthNav';
+import StaffAvatar from '../components/shared/StaffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ interface ProfileRow {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  gender: string | null;
 }
 
 interface AddIfTxForm {
@@ -4149,7 +4151,10 @@ const AddInternalFinanceTxModal: React.FC<{
                             onMouseEnter={e => { if (form.employee_id !== p.id) (e.currentTarget as HTMLDivElement).style.background = '#f9fafb'; }}
                             onMouseLeave={e => { if (form.employee_id !== p.id) (e.currentTarget as HTMLDivElement).style.background = '#fff'; }}
                           >
-                            {p.full_name ?? p.id}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <StaffAvatar profile={p} size={24} />
+                              {p.full_name ?? p.id}
+                            </span>
                           </div>
                         ))
                     }
@@ -4560,6 +4565,7 @@ const CompanyExpensesTab: React.FC = () => {
   const [ifMonthData,    setIfMonthData]    = useState<CompanyExpenseRow[]>([]);
   const [ifMonthLoading, setIfMonthLoading] = useState(true);
   const [wallets,        setWallets]        = useState<EmployeeWalletBalance[]>([]);
+  const [walletAvatars,  setWalletAvatars]  = useState<Record<string, ProfileRow>>({});
   const [walletsLoading, setWalletsLoading] = useState(true);
   const [openCategory,   setOpenCategory]   = useState<{ value: string; label: string } | null>(null);
   const [openWallet,     setOpenWallet]     = useState<{ employee_id: string; full_name: string | null } | null>(null);
@@ -4575,13 +4581,15 @@ const CompanyExpensesTab: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     setWalletsLoading(true);
-    supabase.from('employee_wallet_balances')
-      .select('employee_id, full_name, total_in, total_out, balance')
-      .then(({ data }) => {
-        if (cancelled) return;
-        setWallets((data ?? []) as EmployeeWalletBalance[]);
-        setWalletsLoading(false);
-      });
+    Promise.all([
+      supabase.from('employee_wallet_balances').select('employee_id, full_name, total_in, total_out, balance'),
+      supabase.from('profiles').select('id, full_name, avatar_url, gender').eq('role', 'staff'),
+    ]).then(([{ data }, { data: staff }]) => {
+      if (cancelled) return;
+      setWallets((data ?? []) as EmployeeWalletBalance[]);
+      setWalletAvatars(Object.fromEntries(((staff ?? []) as ProfileRow[]).map(p => [p.id, p])));
+      setWalletsLoading(false);
+    });
     return () => { cancelled = true; };
   }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4828,7 +4836,6 @@ const CompanyExpensesTab: React.FC = () => {
             {wallets.map(emp => {
               const bal = Number(emp.balance ?? 0);
               const balColor = bal > 0 ? '#16a34a' : bal < 0 ? '#dc2626' : '#9ca3af';
-              const initials = (emp.full_name ?? '?').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
               return (
                 <div
                   key={emp.employee_id}
@@ -4838,9 +4845,7 @@ const CompanyExpensesTab: React.FC = () => {
                   onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = 'var(--border-subtle)'; d.style.transform = 'translateY(0)'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: '#4ba6ea', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>
-                      {initials}
-                    </div>
+                    <StaffAvatar profile={walletAvatars[emp.employee_id]} alt={emp.full_name ?? ''} size={40} />
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', lineHeight: 1.3 }}>{emp.full_name ?? '—'}</div>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Balance</div>
@@ -4856,7 +4861,12 @@ const CompanyExpensesTab: React.FC = () => {
 
       {showAddTx && (
         <AddInternalFinanceTxModal
-          profiles={wallets.map(w => ({ id: w.employee_id, full_name: w.full_name, avatar_url: null }))}
+          profiles={wallets.map(w => ({
+            id: w.employee_id,
+            full_name: w.full_name,
+            avatar_url: walletAvatars[w.employee_id]?.avatar_url ?? null,
+            gender: walletAvatars[w.employee_id]?.gender ?? null,
+          }))}
           onClose={() => setShowAddTx(false)}
           onSaved={() => { setShowAddTx(false); setRefreshKey(k => k + 1); }}
         />

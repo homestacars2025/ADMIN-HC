@@ -4,6 +4,7 @@ import { supabase, socialSupabase } from '../../lib/supabase';
 import { socialFrom } from '../../lib/socialClient';
 import { sendMessageToCMO, isCmoConfigured } from '../../lib/cmoApi';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
+import StaffAvatar from '../../components/shared/StaffAvatar';
 import type { SmChatMessage } from '../../types/marketing';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -176,12 +177,8 @@ const MessageBubble: React.FC<{
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-        ) : msg.profile?.avatar_url ? (
-          <img src={msg.profile.avatar_url} alt={senderName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4b5563' }}>
-            {senderName[0]?.toUpperCase() ?? '?'}
-          </span>
+          <StaffAvatar profile={msg.profile} alt={senderName} size={32} style={{ border: 'none' }} />
         )}
       </div>
 
@@ -278,7 +275,7 @@ function dedupeById<T extends { id: number | string }>(items: T[]): T[] {
 
 // ─── Profile enrichment ───────────────────────────────────────────────────────
 
-type ProfileLite = { id: string; full_name: string | null; avatar_url: string | null };
+type ProfileLite = { id: string; full_name: string | null; avatar_url: string | null; gender: string | null };
 
 async function enrichWithProfiles<T extends { profile_id: string | null }>(
   rows: T[]
@@ -291,7 +288,7 @@ async function enrichWithProfiles<T extends { profile_id: string | null }>(
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, avatar_url')
+    .select('id, full_name, avatar_url, gender')
     .in('id', ids);
 
   if (error) {
@@ -717,7 +714,7 @@ const MarketingChatPage: React.FC = () => {
       is_read: true, is_pinned: null, metadata: null,
       user_id: profile.id,
       profile_id: profile.id,
-      profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url },
+      profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, gender: profile.gender },
       created_at: new Date().toISOString(),
     };
     setMessages(prev => [...prev, tempMsg]);
@@ -740,7 +737,7 @@ const MarketingChatPage: React.FC = () => {
       // Restore profile data on the real message (insert doesn't join)
       const realWithProfile: SmChatMessage = {
         ...real,
-        profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url },
+        profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, gender: profile.gender },
       };
       setMessages(prev => dedupeById(prev.map(m => m.id === tempId ? realWithProfile : m)));
 

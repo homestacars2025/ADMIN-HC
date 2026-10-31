@@ -35,6 +35,7 @@ export interface StaffMember {
   full_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  gender: string | null;
   status: string | null;
   department_key: string | null;
   is_department_head: boolean;

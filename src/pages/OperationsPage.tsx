@@ -8,6 +8,7 @@ import OperationPhotoGrid, {
   missingSlotLabels,
   type SlotFiles,
 } from '../components/OperationPhotoGrid';
+import StaffAvatar from '../components/shared/StaffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,12 @@ interface OperationPhotos {
   [key: string]: string | string[] | undefined;
   extra_scratches?: string[];
   base_path?: string;
+}
+
+interface HandlerProfile {
+  full_name: string | null;
+  avatar_url: string | null;
+  gender: string | null;
 }
 
 interface OperationRow {
@@ -50,7 +57,7 @@ interface OperationRow {
   checklist_air_freshener:   boolean | null;
   checklist_customer_card:   boolean | null;
   cars: { plate_number: string } | { plate_number: string }[] | null;
-  handler: { full_name: string | null } | { full_name: string | null }[] | null;
+  handler: HandlerProfile | HandlerProfile[] | null;
   customers: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
 }
 
@@ -64,6 +71,7 @@ interface Operation {
   customer_id: string | null;
   plate_number: string;
   handler_name: string | null;
+  handler_profile: HandlerProfile | null;
   customer_name: string | null;
   current_km: number | null;
   fuel_level: number | null;
@@ -221,6 +229,7 @@ function resolveOperation(row: OperationRow): Operation {
     customer_id:        row.customer_id,
     plate_number:       car?.plate_number ?? '—',
     handler_name:       hdlr?.full_name ?? null,
+    handler_profile:    hdlr ?? null,
     customer_name:      cust ? `${cust.first_name} ${cust.last_name}`.trim() : null,
     current_km:         row.current_km,
     fuel_level:         row.fuel_level,
@@ -2082,7 +2091,7 @@ const OperationsPage: React.FC = () => {
         current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url, photos,
         checklist_license_present, checklist_tutanak_present, checklist_air_freshener, checklist_customer_card,
         cars!operations_car_id_fkey(plate_number),
-        handler:profiles!performed_by(full_name),
+        handler:profiles!performed_by(full_name, avatar_url, gender),
         customers(first_name, last_name)
       `)
       .gte('operation_date', toDateStr(getMonthStart(month)))
@@ -2311,7 +2320,12 @@ const OperationsPage: React.FC = () => {
                   <td className="font-mono tabular-nums" style={{ ...td, fontSize: 12, fontWeight: 600 }}>{op.plate_number}</td>
 
                   <td style={{ ...td, color: op.handler_name ? '#374151' : '#d1d5db' }}>
-                    {op.handler_name ?? '—'}
+                    {op.handler_name ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <StaffAvatar profile={op.handler_profile} size={24} />
+                        {op.handler_name}
+                      </span>
+                    ) : '—'}
                   </td>
 
                   {tab === 'dp' && (

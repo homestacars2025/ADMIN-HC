@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { createUser, deleteUser, updateUserPassword } from '../lib/adminUsers';
+import StaffAvatar from '../components/shared/StaffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ interface UserProfile {
   identity_number: string | null;
   address: string | null;
   avatar_url: string | null;
+  gender: string | null;
 }
 
 interface EditForm {
@@ -31,6 +33,7 @@ interface EditForm {
   phone_number: string;
   role: UserRole;
   status: UserStatus;
+  gender: string;
   nationality: string;
   birth_date: string;
   identity_number: string;
@@ -127,18 +130,6 @@ function formatDate(s: string | null): string {
 function formatDateTime(s: string): string {
   const d = new Date(s);
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return '?';
-  return name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(id: string): string {
-  const colors = ['#4ba6ea', '#22c55e', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#ef4444'];
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
 }
 
 function generatePassword(): string {
@@ -275,35 +266,6 @@ const ActionBtn: React.FC<{
   );
 };
 
-// Avatar
-const Avatar: React.FC<{ user: UserProfile; size?: number }> = ({ user, size = 32 }) => {
-  const [imgError, setImgError] = useState(false);
-  const initials = getInitials(user.full_name);
-  const color = getAvatarColor(user.id);
-
-  if (user.avatar_url && !imgError) {
-    return (
-      <img
-        src={user.avatar_url}
-        alt={user.full_name ?? ''}
-        onError={() => setImgError(true)}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    );
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: color,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <span style={{ fontSize: size * 0.35, fontWeight: 600, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
-        {initials}
-      </span>
-    </div>
-  );
-};
-
 // Skeleton row
 const SkeletonRow: React.FC = () => (
   <tr>
@@ -343,6 +305,7 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
     phone_number:    parsed.number,
     role:            user.role,
     status:          user.status,
+    gender:          user.gender          ?? '',
     nationality:     user.nationality     ?? '',
     birth_date:      user.birth_date      ?? '',
     identity_number: user.identity_number ?? '',
@@ -420,6 +383,7 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
           phone,
           role:            form.role,
           status:          form.status,
+          gender:          form.gender                 || null,
           nationality:     form.nationality.trim()     || null,
           birth_date:      form.birth_date             || null,
           identity_number: form.identity_number.trim() || null,
@@ -493,24 +457,11 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
           }}>
             {/* Circle preview */}
             <div style={{ position: 'relative', flexShrink: 0 }}>
-              {form.avatar_preview ? (
-                <img
-                  src={form.avatar_preview}
-                  alt=""
-                  style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb' }}
-                />
-              ) : (
-                <div style={{
-                  width: 64, height: 64, borderRadius: '50%',
-                  background: getAvatarColor(user.id),
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '2px solid #e5e7eb',
-                }}>
-                  <span style={{ fontSize: 22, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
-                    {getInitials(form.full_name || user.full_name)}
-                  </span>
-                </div>
-              )}
+              <StaffAvatar
+                profile={{ avatar_url: form.avatar_preview, gender: form.gender }}
+                alt={form.full_name || user.full_name || ''}
+                size={64}
+              />
             </div>
 
             {/* Upload info */}
@@ -730,6 +681,24 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
                 <option value="active">Active</option>
                 <option value="disabled">Disabled</option>
                 <option value="bloked">Blocked</option>
+              </select>
+            </div>
+
+            {/* Gender */}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                Gender
+              </label>
+              <select
+                value={form.gender}
+                onChange={e => set('gender', e.target.value)}
+                style={{ ...FIELD_STYLE, cursor: 'pointer' }}
+                onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
+                onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}
+              >
+                <option value="">Not set</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
               </select>
             </div>
 
@@ -1102,7 +1071,7 @@ const UsersPage: React.FC = () => {
     setError(null);
     const { data, error: err } = await supabase
       .from('profiles')
-      .select('id, created_at, full_name, email, phone, role, status, nationality, birth_date, identity_number, address, avatar_url')
+      .select('id, created_at, full_name, email, phone, role, status, nationality, birth_date, identity_number, address, avatar_url, gender')
       .order('created_at', { ascending: false });
 
     if (err) { setError(err.message); setLoading(false); return; }
@@ -1269,7 +1238,7 @@ const UsersPage: React.FC = () => {
                       {/* Name + Avatar */}
                       <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Avatar user={user} size={34} />
+                          <StaffAvatar profile={user} alt={user.full_name ?? ''} size={34} />
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', lineHeight: 1.3 }}>
                               {user.full_name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>—</span>}

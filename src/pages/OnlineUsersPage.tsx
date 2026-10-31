@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { PRESENCE_CHANNEL } from '../hooks/usePresence';
+import StaffAvatar from '../components/shared/StaffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ interface ProfileRow {
   email:        string | null;
   role:         string | null;
   last_seen_at: string | null;
+  avatar_url:   string | null;
+  gender:       string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -31,21 +34,6 @@ const APP_CONFIG: Record<AppName, { label: string; color: string; bg: string; bo
   team:     { label: 'Team',     color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)'  },
   investor: { label: 'Investor', color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)'  },
 };
-
-const AVATAR_COLORS = [
-  '#4ba6ea', '#10b981', '#f59e0b', '#ef4444',
-  '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
-];
-
-function avatarColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function initials(name: string): string {
-  return name.trim().split(/\s+/).map(w => w[0] ?? '').join('').slice(0, 2).toUpperCase() || '?';
-}
 
 function fmtSince(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -113,24 +101,9 @@ const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
   );
 };
 
-const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 38 }) => {
-  const color = avatarColor(name || '?');
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <span style={{ fontSize: size * 0.33, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
-        {initials(name)}
-      </span>
-    </div>
-  );
-};
-
 // ─── UserCard (online) ────────────────────────────────────────────────────────
 
-const UserCard: React.FC<{ user: PresenceUser }> = ({ user }) => (
+const UserCard: React.FC<{ user: PresenceUser; profile?: ProfileRow }> = ({ user, profile }) => (
   <div style={{
     display: 'flex', alignItems: 'center', gap: 12,
     padding: '12px 14px', borderRadius: 12,
@@ -142,7 +115,7 @@ const UserCard: React.FC<{ user: PresenceUser }> = ({ user }) => (
   >
     {/* Avatar + pulse */}
     <div style={{ position: 'relative' }}>
-      <Avatar name={user.full_name || user.email} />
+      <StaffAvatar profile={profile} alt={user.full_name || user.email} size={38} />
       <span style={{
         position: 'absolute', bottom: 0, right: 0,
         width: 12, height: 12, borderRadius: '50%',
@@ -173,7 +146,11 @@ const UserCard: React.FC<{ user: PresenceUser }> = ({ user }) => (
 
 // ─── App Section ──────────────────────────────────────────────────────────────
 
-const AppSection: React.FC<{ app: AppName; users: PresenceUser[] }> = ({ app, users }) => {
+const AppSection: React.FC<{
+  app: AppName;
+  users: PresenceUser[];
+  profiles: Map<string, ProfileRow>;
+}> = ({ app, users, profiles }) => {
   const cfg = APP_CONFIG[app];
   return (
     <div style={{
@@ -208,7 +185,7 @@ const AppSection: React.FC<{ app: AppName; users: PresenceUser[] }> = ({ app, us
       {/* Cards */}
       {users.length > 0 ? (
         <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {users.map(u => <UserCard key={u.user_id} user={u} />)}
+          {users.map(u => <UserCard key={u.user_id} user={u} profile={profiles.get(u.user_id)} />)}
         </div>
       ) : (
         <div style={{ padding: '28px 18px', textAlign: 'center', color: '#d1d5db', fontSize: 12 }}>
@@ -278,7 +255,7 @@ const OnlineUsersPage: React.FC = () => {
       setLoadingProfiles(true);
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, last_seen_at')
+        .select('id, full_name, email, role, last_seen_at, avatar_url, gender')
         .order('last_seen_at', { ascending: false, nullsFirst: false });
       if (!cancelled) {
         setProfiles((data ?? []) as ProfileRow[]);
@@ -295,6 +272,10 @@ const OnlineUsersPage: React.FC = () => {
   }, []);
 
   // ── Derived values ────────────────────────────────────────────────────────────
+  // Presence carries no picture, and the Team app tracks the same channel, so the
+  // avatar always comes from the profile rather than the payload.
+  const profileById = useMemo(() => new Map(profiles.map(p => [p.id, p])), [profiles]);
+
   const byApp = {
     admin:    presentUsers.filter(u => u.app === 'admin'),
     team:     presentUsers.filter(u => u.app === 'team'),
@@ -368,9 +349,9 @@ const OnlineUsersPage: React.FC = () => {
         gap: 16,
         marginBottom: 40,
       }}>
-        <AppSection app="admin"    users={byApp.admin}    />
-        <AppSection app="team"     users={byApp.team}     />
-        <AppSection app="investor" users={byApp.investor} />
+        <AppSection app="admin"    users={byApp.admin}    profiles={profileById} />
+        <AppSection app="team"     users={byApp.team}     profiles={profileById} />
+        <AppSection app="investor" users={byApp.investor} profiles={profileById} />
       </div>
 
       {/* ── All users — last seen ── */}
@@ -425,7 +406,7 @@ const OnlineUsersPage: React.FC = () => {
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{ position: 'relative' }}>
-                            <Avatar name={p.full_name || p.email || '?'} size={32} />
+                            <StaffAvatar profile={p} alt={p.full_name || p.email || ''} size={32} />
                             <span style={{
                               position: 'absolute', bottom: -1, right: -1,
                               width: 9, height: 9, borderRadius: '50%',

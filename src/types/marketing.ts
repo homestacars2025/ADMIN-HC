@@ -4,6 +4,7 @@ export interface SmChatMessageProfile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  gender: string | null;
 }
 
 export interface SmChatMessage {

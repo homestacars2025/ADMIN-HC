@@ -6,6 +6,7 @@ export interface CurrentProfile {
   full_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  gender: string | null;
   role: string | null;
 }
 
@@ -25,7 +26,7 @@ export function useCurrentProfile() {
 
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, email, avatar_url, role')
+        .select('id, full_name, email, avatar_url, gender, role')
         .eq('id', user.id)
         .single();
 

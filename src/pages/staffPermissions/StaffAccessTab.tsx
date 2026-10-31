@@ -26,7 +26,8 @@ import {
   type OverrideChange,
 } from '../../lib/staffAccessApi';
 import { useConfirm } from '../media/useConfirm';
-import { CARD_CLASS, SmallBadge, SourceTag, StaffAvatar, SWITCH_HIT_AREA, errorMessage } from './shared';
+import StaffAvatar from '../../components/shared/StaffAvatar';
+import { CARD_CLASS, SmallBadge, SourceTag, SWITCH_HIT_AREA, errorMessage } from './shared';
 
 const ALL_DEPARTMENTS = '__all__';
 const NO_DEPARTMENT = '__none__';
@@ -334,7 +335,7 @@ export const StaffAccessTab: React.FC<StaffAccessTabProps> = ({ data, adminId, s
                   staff.id === selected?.id ? 'bg-primary/[0.08]' : 'hover:bg-black/[0.03]',
                 )}
               >
-                <StaffAvatar name={staff.full_name} url={staff.avatar_url} />
+                <StaffAvatar profile={staff} size={36} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13.5px] font-medium text-foreground">
                     {displayName(staff)}
@@ -369,7 +370,7 @@ export const StaffAccessTab: React.FC<StaffAccessTabProps> = ({ data, adminId, s
           <section className="flex min-w-0 flex-col gap-3">
             <div className={cn(CARD_CLASS, 'p-4 sm:p-5')}>
               <div className="flex items-center gap-3">
-                <StaffAvatar name={selected.full_name} url={selected.avatar_url} size={48} />
+                <StaffAvatar profile={selected} size={48} />
                 <div className="min-w-0">
                   <h2 className="truncate text-[16px] font-medium tracking-[-0.014em] text-foreground">
                     {displayName(selected)}

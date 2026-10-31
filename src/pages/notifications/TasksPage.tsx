@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import StaffAvatar from '../../components/shared/StaffAvatar';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../../hooks/useNotificationCounts';
 import { useMessageRenderer, useTranslation } from '../../lib/i18n';
@@ -6,9 +7,11 @@ import {
   cancelTask,
   completeTask,
   formatDateTime,
+  getAvatarProfiles,
   getTasks,
   PRIORITY_STYLES,
   relativeTime,
+  type ProfileOption,
   type TaskRow,
 } from '../../lib/notifications';
 import {
@@ -37,6 +40,7 @@ const TasksPage: React.FC = () => {
 
   const [tab, setTab] = useState<TabKey>('active');
   const [rows, setRows] = useState<TaskRow[]>([]);
+  const [people, setPeople] = useState<Record<string, ProfileOption>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -57,6 +61,10 @@ const TasksPage: React.FC = () => {
       const data = await getTasks(tab, PAGE_SIZE, 0);
       if (signal?.cancelled) return;
       setRows(data);
+
+      const people = data.flatMap((t) => [t.claimed_by, t.completed_by]).filter((id): id is string => !!id);
+      const avatars = await getAvatarProfiles(Array.from(new Set(people)));
+      if (!signal?.cancelled) setPeople(avatars);
     } catch (e) {
       if (signal?.cancelled) return;
       setError(e instanceof Error ? e.message : 'Could not load tasks');
@@ -209,7 +217,8 @@ const TasksPage: React.FC = () => {
                       <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                         <Chip label={status.label} color={status.color} bg={status.bg} />
                         {task.status === 'claimed' && task.claimed_by_name && (
-                          <div style={{ fontSize: 11.5, color: FAINT, marginTop: 5 }} {...AUTO_DIR}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: FAINT, marginTop: 5 }} {...AUTO_DIR}>
+                            <StaffAvatar profile={task.claimed_by ? people[task.claimed_by] : null} size={18} />
                             by {task.claimed_by_name}
                           </div>
                         )}
@@ -232,7 +241,8 @@ const TasksPage: React.FC = () => {
                           <>
                             <div>{formatDateTime(task.completed_at)}</div>
                             {task.completed_by_name && (
-                              <div style={{ fontSize: 11.5, color: FAINT, marginTop: 3 }} {...AUTO_DIR}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: FAINT, marginTop: 3 }} {...AUTO_DIR}>
+                                <StaffAvatar profile={task.completed_by ? people[task.completed_by] : null} size={18} />
                                 by {task.completed_by_name}
                               </div>
                             )}

@@ -23,7 +23,7 @@ const page = (key: string, over: Partial<AppPage> = {}): AppPage => ({
 });
 
 const staff = (over: Partial<StaffMember> = {}): StaffMember => ({
-  id: 's1', full_name: 'Test', email: null, avatar_url: null, status: 'active',
+  id: 's1', full_name: 'Test', email: null, avatar_url: null, gender: null, status: 'active',
   department_key: 'ops', is_department_head: false, team_active: true, ...over,
 });
 

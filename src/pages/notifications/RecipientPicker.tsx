@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import StaffAvatar from '../../components/shared/StaffAvatar';
 import {
   searchProfiles,
   TARGET_ROLES,
@@ -146,7 +147,8 @@ export const RecipientPicker: React.FC<{
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#fafbfc'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}
               >
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#0f1117' }}>
+                  <StaffAvatar profile={profile} size={24} />
                   {profile.full_name || 'Unnamed'}
                 </span>
                 <span style={{ fontSize: 11, color: FAINT, textTransform: 'capitalize' }}>
