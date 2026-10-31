@@ -280,7 +280,7 @@ const InboxPage: React.FC = () => {
   );
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', padding: 'clamp(14px, 2.5vw, 28px)', boxSizing: 'border-box' }}>
+    <div style={{ height: 'calc(100vh - var(--topbar-h))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', padding: 'clamp(14px, 2.5vw, 28px)', boxSizing: 'border-box' }}>
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes spin { to { transform: rotate(360deg); } }

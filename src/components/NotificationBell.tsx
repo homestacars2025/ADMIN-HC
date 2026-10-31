@@ -14,13 +14,12 @@ import {
 } from '../lib/notifications';
 
 /**
- * The notification bell, mounted in the sidebar.
- *
- * The dashboard has no header bar, so the bell lives beside the logo (expanded)
- * or under it (collapsed) rather than inventing global chrome above every page.
+ * The notification bell in the top bar. `openRequest` lets the Home page open
+ * it: each change to the number opens the panel.
  */
 
 const PANEL_WIDTH = 380;
+const LATEST_COUNT = 8;
 
 const CategoryDot: React.FC<{ category: NotificationRow['category'] }> = ({ category }) => {
   const style = CATEGORY_STYLES[category] ?? CATEGORY_STYLES.event;
@@ -39,7 +38,7 @@ const CategoryDot: React.FC<{ category: NotificationRow['category'] }> = ({ cate
   );
 };
 
-const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
+const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 }) => {
   const navigate = useNavigate();
   const { unread, refreshNow } = useNotificationCounts();
   const renderMessage = useMessageRenderer();
@@ -58,7 +57,7 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
     setLoading(true);
     setError(null);
     try {
-      setItems(await getNotifications(10, 0, false));
+      setItems(await getNotifications(LATEST_COUNT, 0, false));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load notifications');
     } finally {
@@ -70,9 +69,16 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
   useEffect(() => {
     if (!open || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
-    const left = Math.min(rect.left, window.innerWidth - PANEL_WIDTH - 12);
+    // Hangs from the button's right edge, since the bell sits at the end of the bar.
+    const left = Math.min(rect.right - PANEL_WIDTH, window.innerWidth - PANEL_WIDTH - 12);
     setAnchor({ top: rect.bottom + 8, left: Math.max(12, left) });
   }, [open]);
+
+  useEffect(() => {
+    if (openRequest === 0) return;
+    setOpen(true);
+    load();
+  }, [openRequest, load]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,8 +144,8 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
         aria-expanded={open}
         style={{
           position: 'relative',
-          width: 32, height: 32, borderRadius: 8,
-          border: '1px solid #e5e7eb',
+          width: 40, height: 40, borderRadius: 12,
+          border: '1px solid var(--border-subtle)',
           background: open ? 'rgba(75,166,234,0.08)' : '#fff',
           color: open ? '#4ba6ea' : '#6b7280',
           cursor: 'pointer', flexShrink: 0,

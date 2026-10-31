@@ -25,6 +25,11 @@
   --brand-foreground: oklch(1 0 0);                /* #ffffff */
   --brand-hover: oklch(0.6487 0.1142 254.44);      /* #5c91d3 */
   --brand-subtle: oklch(0.97 0.02 254.44);         /* #ecf6ff */
+  /* #6ea4e7 is too light for text; this is the readable blue, and the one that
+   * carries white text on a button. */
+  --brand-strong: #3A74C2;
+
+  --topbar-h: 64px;
 
   /* ── Semantic — verbatim from Stay ────────────────────────────────────── */
   --background: var(--surface);

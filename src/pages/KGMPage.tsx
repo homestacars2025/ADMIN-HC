@@ -592,7 +592,7 @@ const KGMPage: React.FC = () => {
       `}</style>
 
       {/* ── Screen UI ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#fff' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--topbar-h))', background: '#fff' }}>
 
         {/* ── Page Header ── */}
         <div style={{

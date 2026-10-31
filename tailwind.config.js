@@ -21,6 +21,7 @@ module.exports = {
           foreground: token('brand-foreground'),
           hover: token('brand-hover'),
           subtle: token('brand-subtle'),
+          strong: token('brand-strong'),
         },
         background: token('background'),
         foreground: token('foreground'),

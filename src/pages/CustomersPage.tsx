@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1018,6 +1019,12 @@ const CustomersPage: React.FC = () => {
   const [customers,       setCustomers]       = useState<Customer[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [search,          setSearch]          = useState('');
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q !== null) setSearch(q);
+  }, [searchParams]);
+
   const [selected,        setSelected]        = useState<Customer | null>(null);
   const [editModal,       setEditModal]       = useState<Customer | null>(null);
   const [insights,        setInsights]        = useState<BookingInsights | null>(null);

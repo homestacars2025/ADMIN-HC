@@ -431,7 +431,7 @@ const MarketingApprovalsPage: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100vh - 56px - var(--topbar-h))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', overflow: 'hidden' }}>
 
       {/* Filter bar */}
       <div style={{

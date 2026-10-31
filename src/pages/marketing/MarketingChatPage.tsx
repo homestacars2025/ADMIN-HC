@@ -803,7 +803,7 @@ const MarketingChatPage: React.FC = () => {
 
   if (profileLoading) {
     return (
-      <div style={{ height: 'calc(100vh - 56px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ height: 'calc(100vh - 56px - var(--topbar-h))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #e5e7eb', borderTopColor: '#4ba6ea', animation: 'ckSpin 0.7s linear infinite' }} />
         <style>{`@keyframes ckSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
       </div>
@@ -813,7 +813,7 @@ const MarketingChatPage: React.FC = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ height: 'calc(100vh - 56px)', display: 'flex', background: '#fff', overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100vh - 56px - var(--topbar-h))', display: 'flex', background: '#fff', overflow: 'hidden' }}>
 
       {/* ── Left Sidebar ──────────────────────────────────────────────── */}
       <div style={{

@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
+import { NavLink, useLocation } from 'react-router-dom';
 import Logo from './shared/Logo';
-import StaffAvatar from './shared/StaffAvatar';
-import NotificationBell from './NotificationBell';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 
 // ─── Navigation model ────────────────────────────────────────────────────────
@@ -28,8 +24,8 @@ export interface NavGroup {
 }
 
 const dashboardItem: NavItem = {
-    label: 'Dashboard',
-    path: '/dashboard',
+    label: 'Home',
+    path: '/dashboard/home',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
         <rect x="3" y="3" width="7" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -636,25 +632,26 @@ const EXACT_MATCH_PATHS = new Set(
   ALL_NAV_PATHS.filter((p) => needsExactMatch(p, ALL_NAV_PATHS)),
 );
 
-interface UserProfile {
-  full_name: string | null;
-  avatar_url: string | null;
-  gender: string | null;
-}
-
 const EXPANDED_W = 240;   /* --sidebar-width: 15rem */
 const COLLAPSED_W = 56;   /* --sidebar-width-icon: 3.5rem */
 
-const Sidebar: React.FC = () => {
-  const navigate = useNavigate();
+/** Every sidebar destination, for the command palette. */
+export const NAV_PAGES: Array<{ label: string; path: string; group: string }> = [
+  { label: dashboardItem.label, path: dashboardItem.path, group: 'Home' },
+  ...NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ label: item.label, path: item.path, group: group.label }))),
+];
+
+interface SidebarProps {
+  /** The narrow icon rail. Never applies on mobile, where the sidebar is a drawer. */
+  collapsed: boolean;
+  isMobile: boolean;
+  drawerOpen: boolean;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) => {
   const location = useLocation();
-  const { currency, setCurrency, symbol } = useCurrency();
 
   const { openTasks } = useNotificationCounts();
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem('sidebar_collapsed') === 'true'; }
-    catch { return false; }
-  });
 
   /**
    * Which groups are open. Seeded with Daily only; after that the user's own
@@ -669,13 +666,6 @@ const Sidebar: React.FC = () => {
     }
     return { daily: true };
   });
-
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-
-  useEffect(() => {
-    try { localStorage.setItem('sidebar_collapsed', String(collapsed)); }
-    catch {}
-  }, [collapsed]);
 
   useEffect(() => {
     try { localStorage.setItem('sidebar_groups', JSON.stringify(openGroups)); }
@@ -710,26 +700,6 @@ const Sidebar: React.FC = () => {
     items.map((item) =>
       item.path === '/dashboard/tasks' ? { ...item, badge: openTasks } : item,
     );
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url, gender')
-        .eq('id', user.id)
-        .single();
-      if (!cancelled && data) setProfile(data as UserProfile);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
-  };
 
   const W = collapsed ? COLLAPSED_W : EXPANDED_W;
 
@@ -808,20 +778,28 @@ const Sidebar: React.FC = () => {
     <aside style={{
       width: W,
       minWidth: W,
-      height: '100vh',
+      height: '100%',
       background: 'var(--surface)',
       borderInlineEnd: '1px solid var(--sidebar-border)',
       display: 'flex',
       flexDirection: 'column',
-      position: 'sticky',
-      top: 0,
-      transition: 'width 220ms ease, min-width 220ms ease',
       overflow: 'hidden',
+      ...(isMobile
+        ? {
+            position: 'fixed',
+            insetBlock: 0,
+            insetInlineStart: 0,
+            zIndex: 1000,
+            transform: drawerOpen ? 'none' : 'translateX(-100%)',
+            visibility: drawerOpen ? 'visible' : 'hidden',
+            transition: 'transform 220ms ease, visibility 220ms',
+          }
+        : { position: 'relative', transition: 'width 220ms ease, min-width 220ms ease' }),
     }}>
 
       {/* Brand */}
       <div style={{
-        height: 68,
+        height: 'var(--topbar-h)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'flex-start',
@@ -837,100 +815,7 @@ const Sidebar: React.FC = () => {
         ) : (
           <Logo size={34} wordmark />
         )}
-
-        {/* Notification bell — beside the collapse button when expanded */}
-        {!collapsed && (
-          <div style={{
-            position: 'absolute',
-            right: 44,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-          }}>
-            <NotificationBell collapsed={false} />
-          </div>
-        )}
-
-        {/* Collapse button — visible only when expanded */}
-        {!collapsed && (
-          <button
-            onClick={() => setCollapsed(true)}
-            title="Collapse sidebar"
-            style={{
-              position: 'absolute',
-              right: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 26,
-              height: 26,
-              borderRadius: 6,
-              border: '1px solid #e5e7eb',
-              background: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'rgb(0 0 0 / 0.40)',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgb(0 0 0 / 0.25)';
-              (e.currentTarget as HTMLButtonElement).style.color = 'rgb(0 0 0 / 0.55)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--sidebar-border)';
-              (e.currentTarget as HTMLButtonElement).style.color = 'rgb(0 0 0 / 0.40)';
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        )}
       </div>
-
-      {/* Expand button + bell — visible only when collapsed */}
-      {collapsed && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 6,
-          padding: '10px 0 6px',
-          flexShrink: 0,
-        }}>
-          <NotificationBell collapsed />
-          <button
-            onClick={() => setCollapsed(false)}
-            title="Expand sidebar"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              background: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'rgb(0 0 0 / 0.40)',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgb(0 0 0 / 0.25)';
-              (e.currentTarget as HTMLButtonElement).style.color = 'rgb(0 0 0 / 0.55)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--sidebar-border)';
-              (e.currentTarget as HTMLButtonElement).style.color = 'rgb(0 0 0 / 0.40)';
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        </div>
-      )}
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: collapsed ? '12px 8px' : '16px 12px', overflowY: 'auto' }}>
@@ -999,142 +884,6 @@ const Sidebar: React.FC = () => {
               );
             })}
       </nav>
-
-      {/* Currency selector + Profile + Sign out */}
-      <div style={{ padding: '12px', borderTop: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-
-        {/* Currency selector */}
-        <div style={{ marginBottom: 8 }}>
-          {!collapsed && (
-            <div style={{
-              fontSize: 10, fontWeight: 600, color: 'rgb(0 0 0 / 0.30)',
-              textTransform: 'uppercase', letterSpacing: '0.7px',
-              marginBottom: 6, paddingLeft: 2,
-            }}>
-              Currency
-            </div>
-          )}
-          {collapsed ? (
-            /* Collapsed: cycle through currencies on click */
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <button
-                onClick={() => {
-                  const idx = CURRENCIES.indexOf(currency);
-                  setCurrency(CURRENCIES[(idx + 1) % CURRENCIES.length]);
-                }}
-                title={`Currency: ${currency} — click to switch`}
-                style={{
-                  width: 32, height: 32, borderRadius: 8,
-                  border: '1.5px solid #4ba6ea',
-                  background: 'rgba(75,166,234,0.08)',
-                  color: 'var(--sidebar-primary)',
-                  fontSize: currency === 'LYD' ? 8 : 10,
-                  fontWeight: 600, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                {symbol}
-              </button>
-            </div>
-          ) : (
-            /* Expanded: 4 chip buttons in a row */
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
-              {CURRENCIES.map((c: Currency) => (
-                <button
-                  key={c}
-                  onClick={() => setCurrency(c)}
-                  style={{
-                    height: 28, borderRadius: 7,
-                    border: currency === c ? '1.5px solid #4ba6ea' : '1.5px solid #e5e7eb',
-                    background: currency === c ? 'rgba(75,166,234,0.08)' : 'var(--sidebar)',
-                    color: currency === c ? 'var(--sidebar-primary)' : 'rgb(0 0 0 / 0.55)',
-                    fontSize: c === 'LYD' ? 9 : 11,
-                    fontWeight: currency === c ? 600 : 500,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                    transition: 'all 140ms ease',
-                    letterSpacing: c === 'LYD' ? '-0.2px' : '0',
-                  }}
-                >
-                  {CURRENCY_SYMBOLS[c]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Profile row */}
-        <div
-          title={collapsed && profile?.full_name ? profile.full_name : undefined}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: collapsed ? 0 : 10,
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: collapsed ? '8px 0' : '8px 12px',
-            borderRadius: 9,
-            marginBottom: 2,
-          }}
-        >
-          <StaffAvatar profile={profile} alt={profile?.full_name ?? ''} size={32} />
-
-          {/* Name — expanded only */}
-          {!collapsed && (
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: 'var(--sidebar-foreground)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                lineHeight: 1.3,
-              }}>
-                {profile?.full_name || 'User'}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sign out */}
-        <button
-          onClick={handleSignOut}
-          title={collapsed ? 'Sign out' : undefined}
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: collapsed ? 0 : 10,
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: collapsed ? '9px 0' : '9px 12px',
-            borderRadius: 9,
-            border: 'none',
-            background: 'none',
-            fontSize: 14,
-            fontWeight: 500,
-            color: 'rgb(0 0 0 / 0.40)',
-            cursor: 'pointer',
-            textAlign: 'left',
-            fontFamily: 'inherit',
-            transition: 'all 140ms ease',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'color-mix(in oklch, var(--sidebar-foreground) 5%, transparent)';
-            (e.currentTarget as HTMLButtonElement).style.color = 'rgb(220 38 38)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'none';
-            (e.currentTarget as HTMLButtonElement).style.color = 'rgb(0 0 0 / 0.40)';
-          }}
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          {!collapsed && 'Sign out'}
-        </button>
-      </div>
     </aside>
   );
 };

@@ -1,21 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { PRESENCE_CHANNEL } from '../hooks/usePresence';
+import { useOnlineUsers, type PresenceUser } from '../hooks/usePresence';
 import StaffAvatar from '../components/shared/StaffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AppName = 'admin' | 'team' | 'investor';
-
-interface PresenceUser {
-  user_id:    string;
-  full_name:  string;
-  email:      string;
-  role:       string;
-  app:        AppName;
-  joined_at:  string;
-  presence_ref?: string;
-}
 
 interface ProfileRow {
   id:           string;
@@ -199,54 +189,10 @@ const AppSection: React.FC<{
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const OnlineUsersPage: React.FC = () => {
-  const [presentUsers, setPresentUsers] = useState<PresenceUser[]>([]);
+  const presentUsers = useOnlineUsers();
   const [profiles, setProfiles]         = useState<ProfileRow[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [tick, setTick]                 = useState(0); // force relative-time rerender
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-  // ── Presence subscription ────────────────────────────────────────────────────
-  useEffect(() => {
-    const channel = supabase.channel(PRESENCE_CHANNEL);
-    channelRef.current = channel;
-
-    const readState = () => {
-      const state = channel.presenceState<PresenceUser>();
-      console.log('[OnlineUsers] presenceState():', JSON.stringify(state));
-      const flat: PresenceUser[] = [];
-      Object.values(state).forEach(arr => arr.forEach(u => flat.push(u)));
-      console.log('[OnlineUsers] flat users:', flat.length, flat.map(u => u.email));
-      setPresentUsers(flat);
-    };
-
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        console.log('[OnlineUsers] presence sync event fired');
-        readState();
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('[OnlineUsers] presence join — key:', key, 'presences:', newPresences);
-        readState();
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('[OnlineUsers] presence leave — key:', key, 'presences:', leftPresences);
-        readState();
-      })
-      .subscribe((status) => {
-        console.log('[OnlineUsers] channel status:', status);
-        // After subscribe succeeds, read whatever state already exists on the server
-        if (status === 'SUBSCRIBED') {
-          console.log('[OnlineUsers] subscribed — reading initial state');
-          readState();
-        }
-      });
-
-    return () => {
-      console.log('[OnlineUsers] cleanup — removing channel');
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-  }, []);
 
   // ── All profiles query ───────────────────────────────────────────────────────
   useEffect(() => {

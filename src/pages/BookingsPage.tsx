@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { printBookingContract } from '../lib/printContract';
@@ -3449,6 +3450,7 @@ const DeleteConfirm: React.FC<{
 
 const BookingsPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => getMonthStart(new Date()));
+  const [searchParams] = useSearchParams();
   const [bookings, setBookings]           = useState<Booking[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
@@ -3456,6 +3458,15 @@ const BookingsPage: React.FC = () => {
   const [statsLoading, setStatsLoading]   = useState(true);
   const [search, setSearch]               = useState('');
   const [statusFilter, setStatusFilter]   = useState<BookingStatus | ''>('');
+
+  // The list only holds one month, so a link to a booking has to bring its month.
+  useEffect(() => {
+    const q = searchParams.get('q');
+    const month = searchParams.get('month');
+    if (q !== null) setSearch(q);
+    if (month) setSelectedMonth(getMonthStart(new Date(`${month}-01T00:00:00`)));
+  }, [searchParams]);
+
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
   const [modal, setModal]                 = useState<null | 'add' | 'replacement' | { mode: 'edit'; booking: Booking }>(null);

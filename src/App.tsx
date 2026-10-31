@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CurrencyProvider } from './lib/CurrencyContext';
 import LoginPage from './pages/LoginPage';
 import Layout from './components/Layout';
+import HomePage from './pages/HomePage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 import CarsPage from './pages/CarsPage';
 import ModelGroupsPage from './pages/ModelGroupsPage';
 import KGMPage from './pages/KGMPage';
@@ -68,7 +71,10 @@ const App: React.FC = () => {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="cars" replace />} />
+          <Route index element={<Navigate to="home" replace />} />
+          <Route path="home" element={<HomePage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="cars" element={<CarsPage />} />
           <Route path="cars/tracking" element={<CarTrackingPage />} />
           <Route path="model-groups" element={<ModelGroupsPage />} />

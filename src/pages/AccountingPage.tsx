@@ -5542,7 +5542,10 @@ const BookingAccountsTab: React.FC = () => {
 type AccountingTab = 'overview' | 'investor' | 'customer' | 'expenses' | 'bookings';
 
 const AccountingPage: React.FC = () => {
-  const [activeTab,        setActiveTab]        = useState<AccountingTab>('overview');
+  const [tabParam] = useSearchParams();
+  const [activeTab,        setActiveTab]        = useState<AccountingTab>(
+    () => (tabParam.get('tab') === 'expenses' ? 'expenses' : 'overview'),
+  );
   const [view,             setView]             = useState<'tabs' | 'investor-report'>('tabs');
   const [activeInvestorId, setActiveInvestorId] = useState<string | null>(null);
   const [showAddTx,        setShowAddTx]        = useState(false);

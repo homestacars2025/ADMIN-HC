@@ -325,7 +325,7 @@ export async function searchProfiles(query: string): Promise<ProfileOption[]> {
  * Only first segments that a notification could plausibly point at are listed.
  */
 const DASHBOARD_SECTIONS = new Set([
-  'accounting', 'bookings', 'calendar', 'car-issues', 'cars', 'customers',
+  'accounting', 'bookings', 'calendar', 'car-issues', 'cars', 'customers', 'home',
   'fines', 'google-reviews', 'inbox', 'investors', 'kabis', 'kgm', 'marketing',
   'media', 'model-groups', 'notifications', 'online-users', 'operations',
   'pending-invoices', 'pricing', 'reminder-rules', 'sourcing',

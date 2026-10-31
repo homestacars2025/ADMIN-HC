@@ -1,8 +1,42 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { supabase } from '../lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export const PRESENCE_CHANNEL = 'online-users';
+
+export interface PresenceUser {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  app: 'admin' | 'team' | 'investor';
+  joined_at: string;
+  presence_ref?: string;
+}
+
+/*
+ * `supabase.channel()` hands back the existing channel for a topic, so a second
+ * subscriber would share this one and tear it down on unmount. The Layout owns
+ * the channel; everything else reads who is online from this store.
+ */
+let onlineUsers: PresenceUser[] = [];
+const listeners = new Set<() => void>();
+
+function publishOnline(next: PresenceUser[]) {
+  onlineUsers = next;
+  listeners.forEach((listener) => listener());
+}
+
+function subscribeOnline(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function useOnlineUsers(): PresenceUser[] {
+  return useSyncExternalStore(subscribeOnline, () => onlineUsers);
+}
 
 export function usePresence() {
   const channelRef   = useRef<RealtimeChannel | null>(null);
@@ -22,31 +56,32 @@ export function usePresence() {
       // ── 1. Get the authenticated user ──────────────────────────────────────
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || cancelled) {
-        console.log('[usePresence] no user or cancelled early');
         return;
       }
       userIdRef.current = user.id;
-      console.log('[usePresence] user loaded:', user.id);
 
       // ── 2. Fetch profile so we can include name/role in the payload ─────────
-      const { data: profile, error: profileErr } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('full_name, email, role')
         .eq('id', user.id)
         .single();
 
-      if (profileErr) console.warn('[usePresence] profile fetch error:', profileErr.message);
-      if (!profile || cancelled) {
-        console.log('[usePresence] no profile or cancelled after profile fetch');
-        return;
-      }
-      console.log('[usePresence] profile loaded:', profile);
+      if (!profile || cancelled) return;
 
       // ── 3. Create the presence channel ──────────────────────────────────────
       const channel = supabase.channel(PRESENCE_CHANNEL, {
         config: { presence: { key: user.id } },
       });
       channelRef.current = channel;
+
+      const readState = () => {
+        publishOnline(Object.values(channel.presenceState<PresenceUser>()).flat());
+      };
+      channel
+        .on('presence', { event: 'sync' }, readState)
+        .on('presence', { event: 'join' }, readState)
+        .on('presence', { event: 'leave' }, readState);
 
       const payload = {
         user_id:   user.id,
@@ -59,27 +94,19 @@ export function usePresence() {
 
       // ── 4. Subscribe — call track() ONLY after SUBSCRIBED ───────────────────
       channel.subscribe(async (status) => {
-        console.log('[usePresence] channel status:', status);
 
         if (status === 'SUBSCRIBED') {
           const trackPayload = { ...payload, joined_at: new Date().toISOString() };
-          console.log('[usePresence] tracking payload:', trackPayload);
 
-          const trackResult = await channel.track(trackPayload);
-          console.log('[usePresence] track result:', trackResult);
+          await channel.track(trackPayload);
 
           await updateLastSeen(user.id);
-        }
-
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[usePresence] channel error/timeout — status:', status);
         }
       });
 
       // ── 5. Heartbeat: update last_seen_at every 60 s ─────────────────────────
       heartbeatRef.current = setInterval(() => {
         if (userIdRef.current) {
-          console.log('[usePresence] heartbeat last_seen_at');
           updateLastSeen(userIdRef.current);
         }
       }, 60_000);
@@ -93,7 +120,6 @@ export function usePresence() {
 
     return () => {
       cancelled = true;
-      console.log('[usePresence] cleanup — untracking and removing channel');
       window.removeEventListener('beforeunload', onUnload);
 
       if (heartbeatRef.current) {
@@ -105,7 +131,6 @@ export function usePresence() {
         channelRef.current.untrack().then(() => {
           supabase.removeChannel(channelRef.current!);
           channelRef.current = null;
-          console.log('[usePresence] channel removed');
         });
       }
     };

@@ -411,7 +411,7 @@ const MarketingConstitutionsPage: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ height: 'calc(100vh - 56px)', display: 'flex', background: '#fff', overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100vh - 56px - var(--topbar-h))', display: 'flex', background: '#fff', overflow: 'hidden' }}>
 
       {/* ── Left panel ──────────────────────────────────────────────────── */}
       <div style={{ width: 288, minWidth: 288, height: '100%', borderInlineEnd: '1px solid var(--border-subtle)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
