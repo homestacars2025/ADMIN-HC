@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -897,20 +898,19 @@ const EditInvestorModal: React.FC<EditModalProps> = ({ investor, onClose, onSave
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
             <button
               type="button" onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
             >
               Cancel
             </button>
-            <button
-              type="submit" disabled={saving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <Button
+              type="submit"
+              disabled={saving}
+              style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}
             >
               {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -1207,7 +1207,7 @@ const InvestorsPage: React.FC = () => {
                           <a
                             href={`tel:${inv.phone.replace(/\s/g, '')}`}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', color: '#374151', fontSize: 13 }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#4ba6ea'; }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#3A74C2'; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#374151'; }}
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: '#9ca3af' }}>
@@ -1248,7 +1248,7 @@ const InvestorsPage: React.FC = () => {
                           <a
                             href={`mailto:${inv.email}`}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', color: '#374151', fontSize: 13 }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#4ba6ea'; }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#3A74C2'; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#374151'; }}
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: '#9ca3af' }}>
@@ -1269,7 +1269,7 @@ const InvestorsPage: React.FC = () => {
                             display: 'inline-block',
                             background: 'rgba(75,166,234,0.1)', borderRadius: 6,
                             padding: '2px 8px', fontSize: 12, fontWeight: 600,
-                            color: '#4ba6ea', letterSpacing: '0.1px',
+                            color: '#3A74C2', letterSpacing: '0.1px',
                           }}>
                             {formatRate(inv.commission_rate)}
                           </span>
@@ -1299,7 +1299,7 @@ const InvestorsPage: React.FC = () => {
             {filterStatus !== 'all' && (
               <button
                 onClick={() => setFilterStatus('all')}
-                style={{ background: 'none', border: 'none', color: '#4ba6ea', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#3A74C2', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
               >
                 Clear filter
               </button>

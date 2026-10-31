@@ -6,6 +6,7 @@ import { StaffDetailDrawer } from '../components/staff/StaffDetailDrawer';
 import { StaffIndicatorCell, useStaffIndicators } from '../components/staff/StaffIndicators';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { COUNTRIES, parsePhone } from '../lib/phone';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function generatePassword(): string {
 
 const ROLE_CFG: Record<UserRole, { label: string; color: string; bg: string }> = {
   admin:    { label: 'Admin',    color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
-  staff:    { label: 'Staff',    color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)'  },
+  staff:    { label: 'Staff',    color: '#3A74C2', bg: 'rgba(75,166,234,0.12)'  },
   investor: { label: 'Investor', color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
   customer: { label: 'Customer', color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
 };
@@ -388,14 +389,14 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
                 onClick={() => avatarInputRef.current?.click()}
                 style={{
                   height: 32, padding: '0 14px', borderRadius: 8,
-                  border: '1.5px solid #e5e7eb', background: '#fff',
-                  fontSize: 12, fontWeight: 600, color: '#374151',
+                  border: '1px solid #EBEBEB', background: '#fff',
+                  fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
                   cursor: 'pointer', fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', gap: 6,
                   transition: 'border-color 140ms ease',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)'; }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 Upload Photo
@@ -476,13 +477,13 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
                   onClick={handleGeneratePassword}
                   style={{
                     height: 40, padding: '0 14px', borderRadius: 8, flexShrink: 0,
-                    border: '1.5px solid #e5e7eb', background: '#fff',
-                    fontSize: 13, fontWeight: 600, color: '#374151',
+                    border: '1px solid #EBEBEB', background: '#fff',
+                    fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 140ms ease', whiteSpace: 'nowrap',
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)'; }}
                 >
                   Generate
                 </button>
@@ -684,20 +685,19 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
           }}>
             <button
               type="button" onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
             >
               Cancel
             </button>
-            <button
-              type="submit" disabled={saving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <Button
+              type="submit"
+              disabled={saving}
+              style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}
             >
               {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -872,12 +872,12 @@ const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast
                 onClick={() => { const pw = generatePassword(); set('password', pw); setPwVisible(true); }}
                 style={{
                   height: 40, padding: '0 14px', borderRadius: 8, flexShrink: 0,
-                  border: '1.5px solid #e5e7eb', background: '#fff',
-                  fontSize: 13, fontWeight: 600, color: '#374151',
+                  border: '1px solid #EBEBEB', background: '#fff',
+                  fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
                   cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease', whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)'; }}
               >
                 Generate
               </button>
@@ -921,17 +921,16 @@ const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6, paddingTop: 16, borderTop: '1px solid #f3f4f6' }}>
             <button
               type="button" onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
             >
               Cancel
             </button>
-            <button
-              type="submit" disabled={saving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease', display: 'flex', alignItems: 'center', gap: 7 }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <Button
+              type="submit"
+              disabled={saving}
+              style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}
             >
               {saving ? (
                 <>
@@ -948,7 +947,7 @@ const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast
                   Create User
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -1093,23 +1092,15 @@ const UsersPage: React.FC = () => {
           {loading ? '…' : `${filtered.length} user${filtered.length !== 1 ? 's' : ''}`}
         </div>
 
-        <button
+        <Button
           onClick={() => setCreating(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            height: 38, padding: '0 16px', borderRadius: 9, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit', transition: 'background 140ms ease', whiteSpace: 'nowrap', flexShrink: 0,
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 16px', fontSize: 13, fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
           </svg>
           Add User
-        </button>
+        </Button>
       </div>
 
       {/* Table */}
@@ -1310,29 +1301,21 @@ const UsersPage: React.FC = () => {
                   onClick={() => setDeleteTarget(null)}
                   style={{
                     padding: '9px 18px', borderRadius: 9,
-                    border: '1px solid #e5e7eb', background: '#fff',
-                    fontSize: 14, fontWeight: 500, color: '#6b7280',
+                    border: '1px solid #EBEBEB', background: '#fff',
+                    fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
                     cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                   }}
                   onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
                 >
                   Cancel
                 </button>
-                <button
+                <Button
+                  variant="danger"
                   type="button"
                   disabled={deleting}
                   onClick={handleDelete}
-                  style={{
-                    padding: '9px 22px', borderRadius: 9, border: 'none',
-                    background: deleting ? '#fca5a5' : '#ef4444', color: '#fff',
-                    fontSize: 14, fontWeight: 600,
-                    cursor: deleting ? 'not-allowed' : 'pointer',
-                    fontFamily: 'inherit', transition: 'background 150ms ease',
-                    display: 'flex', alignItems: 'center', gap: 7,
-                  }}
-                  onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#dc2626'; }}
-                  onMouseLeave={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#ef4444'; }}
+                  style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}
                 >
                   {deleting ? (
                     <>
@@ -1342,7 +1325,7 @@ const UsersPage: React.FC = () => {
                       Deleting…
                     </>
                   ) : 'Delete User'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

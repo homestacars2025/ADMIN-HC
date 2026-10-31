@@ -33,7 +33,7 @@ function truncate(s: string, max = 90): string {
 const PRIORITY_STYLE: Record<string, { color: string; bg: string; label: string }> = {
   urgent: { color: '#ef4444', bg: 'rgba(239,68,68,0.10)',  label: 'Urgent' },
   high:   { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', label: 'High' },
-  normal: { color: '#4ba6ea', bg: 'rgba(75,166,234,0.10)', label: 'Normal' },
+  normal: { color: '#3A74C2', bg: 'rgba(75,166,234,0.10)', label: 'Normal' },
   low:    { color: '#9ca3af', bg: 'rgba(156,163,175,0.12)',label: 'Low' },
 };
 
@@ -196,7 +196,7 @@ const CmoMessageRow: React.FC<{ msg: SmChatMessage; onClick: () => void; last: b
         </p>
         {!msg.is_read && (
           <div style={{ marginTop: 5 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: '#4ba6ea', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '1px 7px' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#3A74C2', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '1px 7px' }}>
               Unread
             </span>
           </div>
@@ -465,7 +465,7 @@ const MarketingOverviewPage: React.FC = () => {
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
             Marketing
           </span>
         </div>
@@ -538,7 +538,7 @@ const MarketingOverviewPage: React.FC = () => {
           action={
             <button
               onClick={() => navigate('/dashboard/marketing/chat')}
-              style={{ fontSize: 12, color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0 }}
+              style={{ fontSize: 12, color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0 }}
             >
               View all →
             </button>
@@ -579,7 +579,7 @@ const MarketingOverviewPage: React.FC = () => {
           action={
             <button
               onClick={() => navigate('/dashboard/marketing/approvals')}
-              style={{ fontSize: 12, color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0 }}
+              style={{ fontSize: 12, color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, padding: 0 }}
             >
               View all →
             </button>

@@ -468,7 +468,7 @@ export const StaffAccessTab: React.FC<StaffAccessTabProps> = ({ data, adminId, s
               <Button
                 variant="outline"
                 size="lg"
-                className="h-11 px-4 lg:h-9"
+                className="!h-11 px-4 lg:h-9"
                 disabled={Object.keys(selectedOverrides).length === 0}
                 onClick={() => askReset(selected)}
               >

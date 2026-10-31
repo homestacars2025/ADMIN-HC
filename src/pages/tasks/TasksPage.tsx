@@ -69,7 +69,11 @@ const TasksPage: React.FC = () => {
     <div className="media-scope mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader eyebrow="Staff" title="Tasks" subtitle="Assign work, set what repeats, and see it through." />
-        <Button size="lg" className={PRIMARY_BUTTON} disabled={!staff} onClick={() => setComposer({ template: null })}>
+        <Button
+          size="lg"
+          className={PRIMARY_BUTTON}
+          disabled={!staff}
+          onClick={() => setComposer({ template: null })}>
           <Plus size={14} /> New task
         </Button>
       </div>

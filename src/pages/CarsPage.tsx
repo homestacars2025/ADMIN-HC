@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Car Table Types ──────────────────────────────────────────────────────────
 
@@ -446,25 +447,17 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
           <button
             onClick={onClose}
             style={{
-              padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151',
+              padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB',
+              background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
             Cancel
           </button>
-          <button
+          <Button
             onClick={handleSubmit}
             disabled={saving || loadingData}
-            style={{
-              padding: '9px 20px', borderRadius: 9, border: 'none',
-              background: saving ? '#93c5fd' : '#4ba6ea',
-              fontSize: 14, fontWeight: 600, color: '#fff',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 6,
-              transition: 'background 150ms ease',
-            }}
+            style={{ padding: '9px 20px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {saving && (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.6s linear infinite' }}>
@@ -472,7 +465,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
               </svg>
             )}
             {saving ? 'Creating…' : 'Create Car'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -545,7 +538,7 @@ const PdfUploadField: React.FC<{
       {file ? (
         /* New file selected — pending upload */
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px solid #4ba6ea', borderRadius: 9, background: 'rgba(75,166,234,0.04)' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: '#4ba6ea' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: '#3A74C2' }}>
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -562,8 +555,8 @@ const PdfUploadField: React.FC<{
             <path d="M22 4L12 14.01l-3-3" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <span style={{ fontSize: 12, fontWeight: 600, color: '#16a34a' }}>Uploaded</span>
-          <a href={existingUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#4ba6ea', textDecoration: 'none', marginLeft: 2 }}>View</a>
-          <button onClick={() => inputRef.current?.click()} style={{ marginLeft: 'auto', padding: '3px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+          <a href={existingUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#3A74C2', textDecoration: 'none', marginLeft: 2 }}>View</a>
+          <button onClick={() => inputRef.current?.click()} style={{ marginLeft: 'auto', padding: '3px 10px', borderRadius: 6, border: '1px solid #EBEBEB', background: '#fff', fontSize: 12, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
             Replace
           </button>
         </div>
@@ -884,7 +877,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
         <div style={{ padding: '22px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {loadingData ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
               </svg>
             </div>
@@ -1000,7 +993,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
                 {/* Upload progress */}
                 {uploadingFileName && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(75,166,234,0.06)', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 8, marginBottom: 10, fontSize: 12, color: '#374151' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea', flexShrink: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2', flexShrink: 0 }}>
                       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                     </svg>
                     Uploading {uploadingFileName}…
@@ -1040,7 +1033,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
                     cursor: uploadingFileName ? 'not-allowed' : 'pointer',
                     fontFamily: 'inherit', transition: 'all 140ms ease',
                   }}
-                  onMouseEnter={e => { if (!uploadingFileName) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; } }}
+                  onMouseEnter={e => { if (!uploadingFileName) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; } }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = uploadingFileName ? '#9ca3af' : '#374151'; }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -1067,13 +1060,13 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
             Cancel
           </button>
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving || loadingData}
-            style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#93c5fd' : '#4ba6ea', fontSize: 14, fontWeight: 600, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 150ms ease' }}
+            style={{ padding: '9px 20px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {saving && (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.6s linear infinite' }}>
@@ -1081,7 +1074,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
               </svg>
             )}
             {saving ? 'Saving…' : 'Save Changes'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1238,7 +1231,7 @@ const CarsPage: React.FC = () => {
               borderRadius: '50%',
               background: '#4ba6ea',
             }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               Fleet Overview
             </span>
           </div>
@@ -1256,31 +1249,15 @@ const CarsPage: React.FC = () => {
             Real-time availability across all branches.
           </p>
         </div>
-        <button
+        <Button
           onClick={() => setShowAddCar(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '10px 18px', borderRadius: 10, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit', flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(75,166,234,0.35)',
-            transition: 'background 150ms ease, box-shadow 150ms ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(75,166,234,0.45)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(75,166,234,0.35)';
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', fontSize: 14, fontFamily: 'inherit', flexShrink: 0 }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
           Add Car
-        </button>
+        </Button>
       </div>
 
       {/* Error state */}
@@ -1382,7 +1359,7 @@ const CarsPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               All Vehicles
             </span>
           </div>
@@ -1427,7 +1404,7 @@ const CarsPage: React.FC = () => {
                         onClick={() => handleSort(col)}
                         style={{
                           padding: '9px 14px', fontSize: 11, fontWeight: 600,
-                          color: active ? '#4ba6ea' : '#9ca3af',
+                          color: active ? '#3A74C2' : '#9ca3af',
                           textTransform: 'uppercase', letterSpacing: '0.7px',
                           textAlign: 'left', background: '#fff',
                           borderBottom: '1.5px solid #f0f0f0',
@@ -1559,7 +1536,7 @@ const CarsPage: React.FC = () => {
                       {([car.contract_url, car.invoice_url, car.insurance_url, car.ruhsat_url, car.kasko_url] as (string | null)[]).map((url, di) => (
                         <td key={di} style={{ padding: '12px 14px', textAlign: 'center' }}>
                           {url ? (
-                            <a href={url} target="_blank" rel="noreferrer" title="Open document" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea' }}>
+                            <a href={url} target="_blank" rel="noreferrer" title="Open document" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#3A74C2' }}>
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" opacity="0.15"/>
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#4ba6ea" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1589,7 +1566,7 @@ const CarsPage: React.FC = () => {
                             alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
                             transition: 'all 140ms ease',
                           }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.06)'; }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.06)'; }}
                           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; b.style.background = '#fff'; }}
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none">

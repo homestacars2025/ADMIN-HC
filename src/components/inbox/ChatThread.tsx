@@ -19,6 +19,7 @@ import {
   initials,
   newUuid,
 } from '../../lib/inbox';
+import { Button } from '../media/MediaUI';
 
 const NEAR_BOTTOM_PX = 120;
 
@@ -460,22 +461,17 @@ const ChatThread: React.FC<Props> = ({
             onBlur={e => { e.target.style.borderColor = '#e5e7eb'; }}
           />
 
-          <button
+          <Button
             type="button"
             onClick={() => void sendText()}
             disabled={!draft.trim() || sending}
             aria-label="Send message"
-            style={{
-              width: 40, height: 40, borderRadius: 10, border: 'none', flexShrink: 0,
-              background: !draft.trim() || sending ? '#cbd5e1' : '#4ba6ea', color: '#fff',
-              cursor: !draft.trim() || sending ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
+            style={{ width: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             {sending
               ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56" /></svg>
               : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

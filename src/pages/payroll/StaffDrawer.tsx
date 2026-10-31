@@ -132,10 +132,21 @@ const EntryRow: React.FC<{ entry: WalletEntry; onVoided: () => void }> = ({ entr
             className="h-11 min-w-0 flex-1 md:h-9"
           />
           <div className="flex gap-2">
-            <Button type="submit" variant="destructive" size="lg" className="h-11 px-3 md:h-9" disabled={busy || !reason.trim()}>
+            <Button
+              type="submit"
+              variant="destructive"
+              size="lg"
+              className="!h-11 px-3 md:!h-10"
+              disabled={busy || !reason.trim()}>
               {busy ? 'Voiding…' : 'Void entry'}
             </Button>
-            <Button type="button" variant="ghost" size="lg" className="h-11 px-3 md:h-9" disabled={busy} onClick={() => setVoiding(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              className="!h-11 px-3 md:!h-10"
+              disabled={busy}
+              onClick={() => setVoiding(false)}>
               Keep
             </Button>
           </div>
@@ -280,7 +291,11 @@ export const StaffDrawer: React.FC<{
             <input key={fileInputKey} type="file" accept={RECEIPT_TYPES} onChange={chooseReceipt} className="min-h-[36px] text-[12.5px] text-black/60" />
           </Field>
           <div className="flex justify-end">
-            <Button type="submit" size="lg" disabled={saving} className="h-11 !bg-brand-strong px-4 text-white hover:!bg-brand-strong/90 md:h-9">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={saving}
+              className="!h-11 px-4 hover:/90 md:!h-10">
               {saving ? 'Saving…' : 'Add entry'}
             </Button>
           </div>

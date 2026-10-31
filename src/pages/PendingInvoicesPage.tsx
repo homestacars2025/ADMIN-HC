@@ -443,7 +443,7 @@ const PendingInvoicesPage: React.FC = () => {
                     >
                       {/* Booking # */}
                       <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.3px' }}>
+                        <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.3px' }}>
                           {row.booking_number}
                         </span>
                       </td>
@@ -508,8 +508,8 @@ const PendingInvoicesPage: React.FC = () => {
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
                             padding: '6px 13px', borderRadius: 8,
-                            border: '1px solid #e5e7eb',
-                            background: 'white', color: '#6b7280',
+                            border: '1px solid #EBEBEB',
+                            background: '#fff', color: 'var(--foreground)',
                             fontSize: 12.5, fontWeight: 600,
                             cursor: isMarking ? 'not-allowed' : 'pointer',
                             fontFamily: 'inherit',

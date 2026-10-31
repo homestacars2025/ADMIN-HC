@@ -453,7 +453,12 @@ const HGSPage: React.FC = () => {
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <PageHeader eyebrow="Tolls" title="HGS" subtitle="Motorway transits and toll spend per vehicle, synced hourly." />
-          <Button variant="outline" size="sm" onClick={refresh} disabled={loading || refreshing} className="self-start">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refresh}
+            disabled={loading || refreshing}
+            className="self-start">
             {refreshing ? <Spinner size={12} /> : null}
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </Button>

@@ -6,6 +6,7 @@ import { notificationArrived } from '../../lib/notificationEvents';
 import { resolveNotificationLink, type NotificationRow } from '../../lib/notifications';
 import { formatDue } from '../../lib/tasks';
 import { X } from '../media/MediaIcons';
+import { Button } from '../media/MediaUI';
 
 const TOAST_MS = 7000;
 const MAX_TOASTS = 3;
@@ -80,13 +81,7 @@ export const LiveToasts: React.FC = () => {
               <div dir="auto" className="truncate text-[13.5px] font-medium text-foreground">{title}</div>
               {due && <div className="mt-0.5 text-[12px] text-black/50">Due {due}</div>}
               {isTask && (
-                <button
-                  type="button"
-                  onClick={() => open(toast)}
-                  className="mt-2 inline-flex h-8 items-center rounded-lg bg-brand-strong px-3 text-[12.5px] font-medium text-white hover:bg-brand-strong/90"
-                >
-                  Open
-                </button>
+                <Button onClick={() => open(toast)} className="mt-2 px-4">Open</Button>
               )}
               {!isTask && resolveNotificationLink(notification.link) && (
                 <button type="button" onClick={() => open(toast)} className="mt-1 text-[12.5px] font-medium text-brand-strong hover:underline">

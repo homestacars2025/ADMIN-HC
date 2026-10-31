@@ -32,7 +32,7 @@ const HOLIDAYS: Record<string, string> = {
 const STATUS_STYLE: Record<string, { color: string; bg: string; dot: string; label: string }> = {
   draft:            { color: '#6b7280', bg: '#f3f4f6', dot: '#9ca3af', label: 'Draft' },
   pending_approval: { color: '#d97706', bg: '#fef3c7', dot: '#f59e0b', label: 'Pending' },
-  approved:         { color: '#4ba6ea', bg: '#eff8ff', dot: '#4ba6ea', label: 'Approved' },
+  approved:         { color: '#3A74C2', bg: '#eff8ff', dot: '#4ba6ea', label: 'Approved' },
   scheduled:        { color: '#2563eb', bg: '#dbeafe', dot: '#3b82f6', label: 'Scheduled' },
   published:        { color: '#059669', bg: '#d1fae5', dot: '#10b981', label: 'Published' },
   failed:           { color: '#ef4444', bg: '#fee2e2', dot: '#ef4444', label: 'Failed' },
@@ -174,7 +174,7 @@ const DayPanel: React.FC<DayPanelProps> = ({ date, items, onClose, onNavigate })
                     {/* Type dot */}
                     <div style={{ width: 28, height: 28, borderRadius: 8, background: item.type === 'social' ? '#eff8ff' : '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {item.type === 'social'
-                        ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ color: '#4ba6ea' }}><circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.8"/><circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                        ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ color: '#3A74C2' }}><circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.8"/><circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                         : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ color: '#8b5cf6' }}><path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -356,10 +356,10 @@ const MarketingCalendarPage: React.FC = () => {
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Create dropdown placeholder */}
-          <button onClick={() => navigate('/dashboard/marketing/social-posts')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+          <button onClick={() => navigate('/dashboard/marketing/social-posts')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer' }}>
             + Schedule Post
           </button>
-          <button onClick={() => navigate('/dashboard/marketing/blog-posts')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+          <button onClick={() => navigate('/dashboard/marketing/blog-posts')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer' }}>
             + Schedule Blog
           </button>
         </div>
@@ -372,7 +372,7 @@ const MarketingCalendarPage: React.FC = () => {
           <button onClick={view === 'month' ? prevMonth : prevWeek} style={{ width: 34, height: 34, borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <button onClick={goToday} style={{ padding: '6px 16px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Today</button>
+          <button onClick={goToday} style={{ padding: '6px 16px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer' }}>Today</button>
           <button onClick={view === 'month' ? nextMonth : nextWeek} style={{ width: 34, height: 34, borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
@@ -571,9 +571,9 @@ const MarketingCalendarPage: React.FC = () => {
           <div style={{ fontSize: 14, fontWeight: 500, color: '#6b7280' }}>No scheduled content this month</div>
           <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 6 }}>
             Schedule posts from{' '}
-            <button onClick={() => navigate('/dashboard/marketing/social-posts')} style={{ color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: 0 }}>Social Posts</button>
+            <button onClick={() => navigate('/dashboard/marketing/social-posts')} style={{ color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: 0 }}>Social Posts</button>
             {' '}or{' '}
-            <button onClick={() => navigate('/dashboard/marketing/blog-posts')} style={{ color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: 0 }}>Blog Posts</button>
+            <button onClick={() => navigate('/dashboard/marketing/blog-posts')} style={{ color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, padding: 0 }}>Blog Posts</button>
           </div>
         </div>
       )}
@@ -582,7 +582,7 @@ const MarketingCalendarPage: React.FC = () => {
       {!loading && allItems.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 28 }}>
           {[
-            { label: 'Total Scheduled', value: allItems.length, color: '#4ba6ea' },
+            { label: 'Total Scheduled', value: allItems.length, color: '#3A74C2' },
             { label: 'Social Posts', value: allItems.filter(i => i.type === 'social').length, color: '#3b82f6' },
             { label: 'Blog Posts', value: allItems.filter(i => i.type === 'blog').length, color: '#8b5cf6' },
             { label: 'Published', value: allItems.filter(i => i.status === 'published').length, color: '#059669' },

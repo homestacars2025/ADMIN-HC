@@ -21,28 +21,34 @@ const BRAND = 'var(--primary)';
 
 // ── Button ────────────────────────────────────────────────────────────────────
 
-type ButtonVariant = 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link';
+type ButtonVariant = 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'danger' | 'link';
 type ButtonSize = 'default' | 'xs' | 'sm' | 'lg' | 'icon' | 'icon-xs' | 'icon-sm' | 'icon-lg';
 
 const BUTTON_BASE =
-  'inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-[13px] font-medium whitespace-nowrap transition-all outline-none select-none ' +
+  'inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding text-[13px] whitespace-nowrap transition-all outline-none select-none ' +
   'focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/50 ' +
-  'active:translate-y-px disabled:pointer-events-none disabled:opacity-50';
+  'active:translate-y-px disabled:pointer-events-none';
 
+const QUIET = 'rounded-lg font-medium disabled:opacity-50';
+const SOLID = 'min-h-10 rounded-[10px] font-semibold text-white disabled:opacity-100';
+const SECONDARY = `${QUIET} !border-subtle bg-surface text-foreground hover:bg-black/[0.03] aria-expanded:bg-black/[0.03]`;
+
+/** Every primary and solid red button in the app takes its colours from here. */
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  default: 'bg-primary text-primary-foreground hover:bg-primary/80',
-  outline: 'border-border bg-background text-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted',
-  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary',
-  ghost: 'hover:bg-muted hover:text-foreground aria-expanded:bg-muted',
-  destructive: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
-  link: 'text-primary underline-offset-4 hover:underline',
+  default: `${SOLID} bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] active:bg-[var(--btn-primary-active)] disabled:bg-[var(--btn-primary-disabled)]`,
+  outline: SECONDARY,
+  secondary: SECONDARY,
+  ghost: `${QUIET} hover:bg-muted hover:text-foreground aria-expanded:bg-muted`,
+  destructive: `${QUIET} bg-destructive/10 text-destructive hover:bg-destructive/20`,
+  danger: `${SOLID} bg-[var(--btn-danger-bg)] hover:bg-[var(--btn-danger-hover)] active:bg-[var(--btn-danger-active)] disabled:bg-[var(--btn-danger-disabled)]`,
+  link: `${QUIET} text-brand-strong underline-offset-4 hover:underline`,
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
   default: 'h-8 px-2.5 gap-1.5',
   xs: 'h-6 px-2 gap-1',
   sm: 'h-7 px-2 gap-1.5',
-  lg: 'h-9 gap-1.5 px-2.5',
+  lg: 'h-10 gap-1.5 px-3',
   icon: 'h-8 w-8',
   'icon-xs': 'h-6 w-6',
   'icon-sm': 'h-7 w-7',

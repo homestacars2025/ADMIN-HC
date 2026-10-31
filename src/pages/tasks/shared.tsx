@@ -19,7 +19,7 @@ export interface DepartmentOption {
 
 export const FIELD_CLASS =
   'h-11 w-full min-w-0 rounded-lg border border-input bg-surface px-2.5 text-[13.5px] text-foreground md:h-9';
-export const PRIMARY_BUTTON = '!h-11 !bg-brand-strong px-4 text-white hover:!bg-brand-strong/90 md:!h-9';
+export const PRIMARY_BUTTON = '!h-11 px-4 md:!h-10';
 
 export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useCurrency } from '../lib/CurrencyContext';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -347,17 +348,17 @@ const AddTierModal: React.FC<{
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
             <button type="button" onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}>
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}>
+            <Button
+              type="submit"
+              disabled={saving}
+              style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}>
               {saving ? 'Adding…' : 'Add Tier'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -431,7 +432,7 @@ const TierRow: React.FC<{
   };
 
   const TIER_COLORS: Record<string, { color: string; bg: string }> = {
-    A: { color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)' },
+    A: { color: '#3A74C2', bg: 'rgba(75,166,234,0.12)' },
     B: { color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
     C: { color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
     D: { color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
@@ -708,15 +709,11 @@ const ModelPricingCard: React.FC<{
                 }}
               />
               {/* Confirm */}
-              <button
+              <Button
                 onClick={savePrice}
                 disabled={savingPrice}
                 title="Save"
-                style={{
-                  width: 24, height: 24, borderRadius: 6, border: 'none',
-                  background: '#4ba6ea', color: '#fff', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                }}
+                style={{ width: 40, padding: 0 }}
               >
                 {savingPrice ? (
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.6s linear infinite' }}>
@@ -727,7 +724,7 @@ const ModelPricingCard: React.FC<{
                     <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 )}
-              </button>
+              </Button>
               {/* Cancel */}
               <button
                 onClick={cancelEdit}
@@ -762,7 +759,7 @@ const ModelPricingCard: React.FC<{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
                   flexShrink: 0,
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#9ca3af'; }}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
@@ -974,14 +971,14 @@ const PricingPage: React.FC = () => {
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
                 height: 36, padding: '0 14px', borderRadius: 9,
-                border: '1.5px solid #e5e7eb', background: '#fff',
-                fontSize: 13, fontWeight: 600, color: '#374151',
+                border: '1px solid #EBEBEB', background: '#fff',
+                fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
                 cursor: loadingRates ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 140ms ease',
                 opacity: loadingRates ? 0.6 : 1,
               }}
-              onMouseEnter={e => { if (!loadingRates) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; } }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+              onMouseEnter={e => { if (!loadingRates) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; } }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)'; }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: loadingRates ? 'spin 800ms linear infinite' : 'none' }}>
                 <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -1023,23 +1020,15 @@ const PricingPage: React.FC = () => {
           title="Discount Tiers"
           subtitle="Duration-based discounts applied to all model groups"
           action={
-            <button
+            <Button
               onClick={() => setShowAddTier(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                height: 36, padding: '0 14px', borderRadius: 9,
-                border: 'none', background: '#4ba6ea', color: '#fff',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                fontFamily: 'inherit', transition: 'background 140ms ease',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 14px', fontSize: 13, fontFamily: 'inherit' }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
               </svg>
               Add Tier
-            </button>
+            </Button>
           }
         />
 

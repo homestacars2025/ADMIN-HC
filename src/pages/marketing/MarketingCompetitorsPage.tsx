@@ -295,7 +295,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
                 {!c.is_active && <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, background: '#f1f5f9', color: '#64748b' }}>Inactive</span>}
               </div>
               {c.name_ar && <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{c.name_ar}</div>}
-              {c.website && <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#4ba6ea', textDecoration: 'none' }}>{c.website}</a>}
+              {c.website && <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#3A74C2', textDecoration: 'none' }}>{c.website}</a>}
             </div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#94a3b8', lineHeight: 1 }}>✕</button>
           </div>
@@ -321,7 +321,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
               <button key={t.key} onClick={() => setTab(t.key)} style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                color: tab === t.key ? '#4ba6ea' : '#64748b',
+                color: tab === t.key ? '#3A74C2' : '#64748b',
                 borderBottom: tab === t.key ? '2px solid #4ba6ea' : '2px solid transparent',
                 transition: 'all 0.15s', whiteSpace: 'nowrap',
               }}>{t.label}</button>
@@ -430,7 +430,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
                 <div key={p.id} style={{ background: 'var(--surface)', borderRadius: 10, padding: 16, border: p.is_winning ? '1px solid #4ba6ea' : '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ color: '#4ba6ea' }}>{platformIcon(p.platform)}</span>
+                      <span style={{ color: '#3A74C2' }}>{platformIcon(p.platform)}</span>
                       <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{p.platform}</span>
                       {p.is_winning && <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: '#dbeafe', color: '#1d4ed8' }}>⭐ Winning</span>}
                     </div>
@@ -667,8 +667,8 @@ export default function MarketingCompetitorsPage() {
           <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>Market intelligence & competitive analysis</p>
         </div>
         <button onClick={handleSeed} disabled={seeding || loading} style={{
-          padding: '8px 16px', borderRadius: 8, border: '1px solid #e2e8f0',
-          background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#475569',
+          padding: '8px 16px', borderRadius: 8, border: '1px solid #EBEBEB',
+          background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--foreground)',
           opacity: seeding ? 0.6 : 1, transition: 'all 0.15s',
         }}>
           {seeding ? 'Loading...' : 'Load test data'}
@@ -678,7 +678,7 @@ export default function MarketingCompetitorsPage() {
       {/* stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 28 }}>
         {[
-          { label: 'Total Competitors', value: competitors.length, color: '#4ba6ea', icon: '🏢' },
+          { label: 'Total Competitors', value: competitors.length, color: '#3A74C2', icon: '🏢' },
           { label: 'Critical Threats', value: criticalCount, color: '#ef4444', icon: '🚨' },
           { label: 'High Threats', value: highCount, color: '#f97316', icon: '⚠️' },
           { label: 'Posts Tracked', value: allPosts.length, color: '#8b5cf6', icon: '📱' },
@@ -707,7 +707,7 @@ export default function MarketingCompetitorsPage() {
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: '14px 16px', fontSize: 13, fontWeight: 600,
-              color: tab === t.key ? '#4ba6ea' : '#64748b',
+              color: tab === t.key ? '#3A74C2' : '#64748b',
               borderBottom: tab === t.key ? '2px solid #4ba6ea' : '2px solid transparent',
               transition: 'all 0.15s', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6,
             }}>
@@ -805,7 +805,7 @@ export default function MarketingCompetitorsPage() {
                           <span style={{ fontSize: 12, color: '#94a3b8' }}>
                             {compPricing.length} prices · {allReports.filter(r => r.competitor_id === c.id).length} reports
                           </span>
-                          <span style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 600 }}>View details →</span>
+                          <span style={{ fontSize: 12, color: '#3A74C2', fontWeight: 600 }}>View details →</span>
                         </div>
                       </div>
                     );
@@ -857,8 +857,8 @@ export default function MarketingCompetitorsPage() {
                           {myRate && (
                             <div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: '#4ba6ea' }}>HomestaCars (us)</span>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: '#4ba6ea' }}>₺{fmt(myRate)}</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#3A74C2' }}>HomestaCars (us)</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#3A74C2' }}>₺{fmt(myRate)}</span>
                               </div>
                               <div style={{ height: 10, background: '#dbeafe', borderRadius: 5, overflow: 'hidden' }}>
                                 <div style={{ width: `${(myRate / maxRate) * 100}%`, height: '100%', background: '#4ba6ea', borderRadius: 5 }} />
@@ -935,7 +935,7 @@ export default function MarketingCompetitorsPage() {
                           <div style={{ position: 'absolute', top: 12, right: 12, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>⭐ Winning</div>
                         )}
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-                          <span style={{ color: '#4ba6ea', display: 'flex' }}>{platformIcon(p.platform)}</span>
+                          <span style={{ color: '#3A74C2', display: 'flex' }}>{platformIcon(p.platform)}</span>
                           <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{p.platform}</span>
                           {comp && (
                             <>

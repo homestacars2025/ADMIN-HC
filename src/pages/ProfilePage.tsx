@@ -8,7 +8,7 @@ import { COUNTRIES, parsePhone } from '../lib/phone';
 import { supabase } from '../lib/supabase';
 
 const CARD = 'rounded-2xl border border-subtle bg-surface p-5 sm:p-6';
-const BUTTON = 'h-11 !bg-brand-strong px-4 text-white hover:!bg-brand-strong/90 md:h-9';
+const BUTTON = '!h-11 px-4 md:!h-10';
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MIN_PASSWORD_LENGTH = 8;
@@ -159,11 +159,21 @@ const ProfilePage: React.FC = () => {
           <p className="truncate text-[13px] text-black/45">{profile.email}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <input ref={fileRef} type="file" accept={PHOTO_TYPES.join(',')} onChange={uploadPhoto} className="hidden" aria-label="Upload a photo" />
-            <Button variant="outline" size="lg" className="h-11 px-3 md:h-9" disabled={photoBusy} onClick={() => fileRef.current?.click()}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="!h-11 px-3 md:!h-10"
+              disabled={photoBusy}
+              onClick={() => fileRef.current?.click()}>
               {profile.avatar_url ? 'Replace photo' : 'Upload photo'}
             </Button>
             {profile.avatar_url && (
-              <Button variant="ghost" size="lg" className="h-11 px-3 md:h-9" disabled={photoBusy} onClick={removePhoto}>
+              <Button
+                variant="ghost"
+                size="lg"
+                className="!h-11 px-3 md:!h-10"
+                disabled={photoBusy}
+                onClick={removePhoto}>
                 Remove
               </Button>
             )}

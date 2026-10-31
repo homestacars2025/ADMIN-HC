@@ -547,7 +547,11 @@ const MailPage: React.FC = () => {
         <div className="mx-5 mt-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/[0.05] p-3 sm:mx-6 lg:mx-8">
           <AlertTriangle size={15} className="mt-px text-destructive" />
           <span className="text-[12.5px] text-destructive">{error}</span>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={() => { setLoading(true); void load(); }}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => { setLoading(true); void load(); }}>
             Retry
           </Button>
         </div>

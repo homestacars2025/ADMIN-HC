@@ -20,7 +20,7 @@ interface ProfileRow {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const APP_CONFIG: Record<AppName, { label: string; color: string; bg: string; border: string }> = {
-  admin:    { label: 'Admin',    color: '#4ba6ea', bg: 'rgba(75,166,234,0.08)',  border: 'rgba(75,166,234,0.2)'  },
+  admin:    { label: 'Admin',    color: '#3A74C2', bg: 'rgba(75,166,234,0.08)',  border: 'rgba(75,166,234,0.2)'  },
   team:     { label: 'Team',     color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)'  },
   investor: { label: 'Investor', color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)'  },
 };
@@ -72,7 +72,7 @@ const PulseDot: React.FC<{ on: boolean }> = ({ on }) => (
 
 const RoleBadge: React.FC<{ role: string }> = ({ role }) => {
   const map: Record<string, { color: string; bg: string }> = {
-    admin:    { color: '#4ba6ea', bg: 'rgba(75,166,234,0.1)'  },
+    admin:    { color: '#3A74C2', bg: 'rgba(75,166,234,0.1)'  },
     team:     { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
     investor: { color: '#10b981', bg: 'rgba(16,185,129,0.1)'  },
     staff:    { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },

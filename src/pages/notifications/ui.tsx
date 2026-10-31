@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { Button as SharedButton } from '../../components/media/MediaUI';
 
 /**
  * Shared chrome for the notifications / reminders / tasks pages.
@@ -61,34 +62,14 @@ export const PageHeader: React.FC<{
 
 type ButtonKind = 'primary' | 'secondary' | 'danger' | 'ghost';
 
-const BUTTON_KINDS: Record<ButtonKind, React.CSSProperties> = {
-  primary: { background: BRAND, color: '#fff', border: '1px solid transparent' },
-  secondary: { background: '#fff', color: INK, border: '1px solid #e5e7eb' },
-  danger: { background: '#fff1f2', color: '#dc2626', border: '1px solid #fecaca' },
-  ghost: { background: 'transparent', color: MUTED, border: '1px solid transparent' },
-};
+const BUTTON_VARIANTS = { primary: 'default', secondary: 'outline', danger: 'destructive', ghost: 'ghost' } as const;
 
 export const Button: React.FC<
   React.ButtonHTMLAttributes<HTMLButtonElement> & { kind?: ButtonKind; small?: boolean }
-> = ({ kind = 'secondary', small, style, disabled, ...rest }) => (
-  <button
-    type="button"
-    disabled={disabled}
-    style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-      height: small ? 32 : 38,
-      padding: small ? '0 12px' : '0 16px',
-      borderRadius: 10,
-      fontSize: small ? 12.5 : 13.5,
-      fontWeight: 600,
-      fontFamily: 'inherit',
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      opacity: disabled ? 0.55 : 1,
-      transition: 'all 140ms ease',
-      whiteSpace: 'nowrap',
-      ...BUTTON_KINDS[kind],
-      ...style,
-    }}
+> = ({ kind = 'secondary', small, style, ...rest }) => (
+  <SharedButton
+    variant={BUTTON_VARIANTS[kind]}
+    style={{ height: small ? 32 : 38, padding: small ? '0 12px' : '0 16px', gap: 7, fontSize: small ? 12.5 : 13.5, ...style }}
     {...rest}
   />
 );

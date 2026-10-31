@@ -96,7 +96,7 @@ export const RecurringTab: React.FC<{
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-[13px] text-red-700">
           <AlertTriangle size={15} className="shrink-0" />
           <span className="min-w-0 flex-1">Couldn't load recurring tasks: {error}</span>
-          <Button variant="outline" size="lg" className="!h-11 px-4 md:!h-9" onClick={load}>Try again</Button>
+          <Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" onClick={load}>Try again</Button>
         </div>
       ) : !templates ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">

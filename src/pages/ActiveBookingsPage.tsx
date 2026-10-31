@@ -123,7 +123,7 @@ const ActiveBookingsPage: React.FC = () => {
             {!loading && (
               <span style={{
                 background: 'linear-gradient(135deg, rgba(75,166,234,0.12) 0%, rgba(75,166,234,0.07) 100%)',
-                color: '#4ba6ea',
+                color: '#3A74C2',
                 fontSize: 12,
                 fontWeight: 600,
                 padding: '3px 10px',
@@ -197,7 +197,7 @@ const ActiveBookingsPage: React.FC = () => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       margin: '0 auto 14px',
                     }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ color: '#4ba6ea' }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ color: '#3A74C2' }}>
                         <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
                         <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                         <path d="M8 14h.01M12 14h.01M16 14h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -223,7 +223,7 @@ const ActiveBookingsPage: React.FC = () => {
                       <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                         <span className="font-mono tabular-nums" style={{
                           fontSize: 12, fontWeight: 600,
-                          color: '#4ba6ea', letterSpacing: '0.3px',
+                          color: '#3A74C2', letterSpacing: '0.3px',
                         }}>
                           {row.booking_number}
                         </span>

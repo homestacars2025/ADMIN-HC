@@ -156,7 +156,7 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
           width: 40, height: 40, borderRadius: 12,
           border: '1px solid var(--border-subtle)',
           background: open ? 'rgba(75,166,234,0.08)' : '#fff',
-          color: open ? '#4ba6ea' : '#6b7280',
+          color: open ? '#3A74C2' : '#6b7280',
           cursor: 'pointer', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 140ms ease',
@@ -218,7 +218,7 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
                 onClick={handleMarkAll}
                 style={{
                   border: 'none', background: 'none', cursor: 'pointer',
-                  fontSize: 12, fontWeight: 600, color: '#4ba6ea',
+                  fontSize: 12, fontWeight: 600, color: '#3A74C2',
                   padding: 0, fontFamily: 'inherit',
                 }}
               >
@@ -305,7 +305,7 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
             style={{
               display: 'block', width: '100%', padding: '12px 16px',
               border: 'none', borderTop: '1px solid #f1f1f1', background: '#fafbfc',
-              fontSize: 12.5, fontWeight: 600, color: '#4ba6ea',
+              fontSize: 12.5, fontWeight: 600, color: '#3A74C2',
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >

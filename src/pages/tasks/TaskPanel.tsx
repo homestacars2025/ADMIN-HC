@@ -179,14 +179,29 @@ export const TaskPanel: React.FC<{
               <Input autoFocus value={reason} onChange={(event) => setReason(event.target.value)} className="h-11 md:h-9" />
             </Field>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" size="lg" className="!h-11 px-3 md:!h-9" disabled={busy} onClick={() => setCancelling(false)}>Keep task</Button>
-              <Button type="submit" variant="destructive" size="lg" className="!h-11 px-3 md:!h-9" disabled={busy || !reason.trim()}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="lg"
+                className="!h-11 px-3 md:!h-10"
+                disabled={busy}
+                onClick={() => setCancelling(false)}>Keep task</Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                size="lg"
+                className="!h-11 px-3 md:!h-10"
+                disabled={busy || !reason.trim()}>
                 {busy ? 'Cancelling…' : 'Cancel task'}
               </Button>
             </div>
           </form>
         ) : (
-          <Button variant="outline" size="lg" className="!h-11 self-start !border-subtle px-3 md:!h-9" onClick={() => setCancelling(true)}>
+          <Button
+            variant="outline"
+            size="lg"
+            className="!h-11 self-start px-3 md:!h-10"
+            onClick={() => setCancelling(true)}>
             Cancel this task
           </Button>
         ))}

@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { ModelGroup, ModelGroupFormData } from '../types';
 import { CATEGORIES } from '../constants/categories';
+import { Button } from '../components/media/MediaUI';
 
 // ---------------------------------------------------------------------------
 // Constants & helpers
@@ -385,16 +386,16 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
           {/* Footer */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
             <button type="button" onClick={onClose} disabled={isSaving}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: isSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: isSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { if (!isSaving) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
             >
               Cancel
             </button>
-            <button type="submit" disabled={isSaving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: isSaving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: isSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease', display: 'flex', alignItems: 'center', gap: 7 }}
-              onMouseEnter={e => { if (!isSaving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!isSaving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <Button
+              type="submit"
+              disabled={isSaving}
+              style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}
             >
               {isSaving && (
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
@@ -402,7 +403,7 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
                 </svg>
               )}
               {saveLabel}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -641,7 +642,7 @@ const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, show
           ))}
         </div>
         <div>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#4ba6ea' }}>{fmtUSD(group.price)}</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#3A74C2' }}>{fmtUSD(group.price)}</span>
           <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 2 }}>/day</span>
         </div>
       </div>
@@ -650,7 +651,7 @@ const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, show
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <span style={{
           fontSize: 11, fontWeight: 600,
-          color: '#4ba6ea', background: 'rgba(75,166,234,0.10)',
+          color: '#3A74C2', background: 'rgba(75,166,234,0.10)',
           borderRadius: 20, padding: '4px 12px', whiteSpace: 'nowrap',
         }}>
           {group.total_cars ?? 0} cars
@@ -666,7 +667,7 @@ const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, show
             cursor: 'pointer', color: '#6b7280',
             transition: 'all 140ms ease', flexShrink: 0,
           }}
-          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.06)'; }}
+          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.06)'; }}
           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = hovered ? '#fff' : '#f9fafb'; }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -741,7 +742,7 @@ const ModelGroupsPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Fleet</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Fleet</span>
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
             Model Groups
@@ -750,25 +751,15 @@ const ModelGroupsPage: React.FC = () => {
             {loading ? 'Loading…' : `${groups.length} model group${groups.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <button
+        <Button
           onClick={() => setModal({ mode: 'add' })}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            height: 42, padding: '0 20px',
-            background: '#4ba6ea', color: '#fff', border: 'none',
-            borderRadius: 10, fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-            boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
-            transition: 'background 150ms ease, box-shadow 150ms ease',
-          }}
-          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#2e8fd4'; b.style.boxShadow = '0 4px 16px rgba(75,166,234,0.40)'; }}
-          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#4ba6ea'; b.style.boxShadow = '0 2px 8px rgba(75,166,234,0.30)'; }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 20px', fontSize: 14, fontFamily: 'inherit' }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
           </svg>
           Add Model Group
-        </button>
+        </Button>
       </div>
 
       {/* Error */}
@@ -839,7 +830,7 @@ const ModelGroupsPage: React.FC = () => {
                   onClick={() => setModal({ mode: 'add', category })}
                   style={{
                     marginTop: 2, padding: '6px 16px',
-                    fontSize: 12.5, fontWeight: 600, color: '#4ba6ea',
+                    fontSize: 12.5, fontWeight: 600, color: '#3A74C2',
                     background: 'rgba(75,166,234,0.08)', border: '1px solid rgba(75,166,234,0.25)',
                     borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'background 140ms ease, border-color 140ms ease',

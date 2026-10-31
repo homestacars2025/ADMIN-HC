@@ -65,7 +65,7 @@ const ConversationRow: React.FC<{
           <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: unread ? 600 : 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {name}
           </span>
-          <span style={{ fontSize: 10.5, color: unread ? '#4ba6ea' : '#9ca3af', fontWeight: unread ? 600 : 500, flexShrink: 0 }}>
+          <span style={{ fontSize: 10.5, color: unread ? '#3A74C2' : '#9ca3af', fontWeight: unread ? 600 : 500, flexShrink: 0 }}>
             {relativeShort(conversation.last_message_at)}
           </span>
         </div>

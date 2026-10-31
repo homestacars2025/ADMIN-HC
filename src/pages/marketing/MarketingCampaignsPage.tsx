@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { socialFrom } from '../../lib/socialClient';
 import type { SmAdCampaign, SmAdPerformance } from '../../types/marketing';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ const PLATFORMS: Record<string, { label: string; color: string }> = {
 
 const STATUS_STYLE: Record<string, { color: string; bg: string; border: string; label: string }> = {
   proposed:  { color: '#d97706', bg: '#fef3c7', border: '#fde68a', label: 'Proposed' },
-  approved:  { color: '#4ba6ea', bg: '#eff8ff', border: '#bae6fd', label: 'Approved' },
+  approved:  { color: '#3A74C2', bg: '#eff8ff', border: '#bae6fd', label: 'Approved' },
   launched:  { color: '#059669', bg: '#d1fae5', border: '#6ee7b7', label: 'Launched' },
   paused:    { color: '#9ca3af', bg: '#f9fafb', border: '#e5e7eb', label: 'Paused' },
   completed: { color: '#8b5cf6', bg: '#f5f3ff', border: '#c4b5fd', label: 'Completed' },
@@ -352,20 +353,29 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
           {/* Action buttons by status */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {campaign.status === 'proposed' && <>
-              <button onClick={() => changeStatus('approved')} disabled={saving} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: saving ? '#e5e7eb' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>Approve & Queue</button>
+              <Button
+                onClick={() => changeStatus('approved')}
+                disabled={saving}
+                style={{ padding: '7px 16px', fontSize: 13 }}>Approve & Queue</Button>
               <button onClick={() => setRejectOpen(true)} style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #fca5a5', background: '#fff', color: '#ef4444', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Reject</button>
             </>}
             {campaign.status === 'approved' && <>
-              <button onClick={() => changeStatus('launched')} disabled={saving} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: saving ? '#e5e7eb' : '#059669', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>Mark as Launched</button>
+              <Button
+                onClick={() => changeStatus('launched')}
+                disabled={saving}
+                style={{ padding: '7px 16px', fontSize: 13 }}>Mark as Launched</Button>
               <button onClick={() => changeStatus('rejected')} style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #fca5a5', background: '#fff', color: '#ef4444', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
             </>}
             {campaign.status === 'launched' && <>
-              <button onClick={() => changeStatus('paused')} disabled={saving} style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>Pause</button>
+              <button onClick={() => changeStatus('paused')} disabled={saving} style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', color: 'var(--foreground)', fontSize: 13, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>Pause</button>
               <button onClick={() => changeStatus('completed')} disabled={saving} style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #c4b5fd', background: '#f5f3ff', color: '#8b5cf6', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>Mark Complete</button>
               <button onClick={() => setTab('performance')} style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #6ee7b7', background: '#d1fae5', color: '#059669', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Add Daily Metrics</button>
             </>}
             {campaign.status === 'paused' && (
-              <button onClick={() => changeStatus('launched')} disabled={saving} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>Resume</button>
+              <Button
+                onClick={() => changeStatus('launched')}
+                disabled={saving}
+                style={{ padding: '7px 14px', fontSize: 13 }}>Resume</Button>
             )}
           </div>
 
@@ -375,8 +385,12 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
               <div style={{ fontSize: 13, fontWeight: 600, color: '#7f1d1d', marginBottom: 8 }}>Rejection reason</div>
               <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={2} placeholder="Why is this campaign being rejected?" style={{ ...inputS, resize: 'none' }} onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#ef4444'; }} onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'; }} />
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button onClick={() => setRejectOpen(false)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151' }}>Cancel</button>
-                <button onClick={handleReject} disabled={!rejectReason.trim() || saving} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: rejectReason.trim() && !saving ? '#ef4444' : '#fca5a5', color: '#fff', fontSize: 13, fontWeight: 600, cursor: rejectReason.trim() && !saving ? 'pointer' : 'not-allowed' }}>Confirm Reject</button>
+                <button onClick={() => setRejectOpen(false)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, cursor: 'pointer', color: 'var(--foreground)' }}>Cancel</button>
+                <Button
+                  variant="danger"
+                  onClick={handleReject}
+                  disabled={!rejectReason.trim() || saving}
+                  style={{ padding: '6px 14px', fontSize: 13 }}>Confirm Reject</Button>
               </div>
             </div>
           )}
@@ -391,7 +405,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
         {/* Tab nav */}
         <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', flexShrink: 0, overflowX: 'auto' }}>
           {(['strategy', 'audience', 'creatives', 'budget', 'performance'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '12px 20px', border: 'none', background: 'none', fontSize: 13, fontWeight: 600, color: tab === t ? '#4ba6ea' : '#6b7280', cursor: 'pointer', borderBottom: tab === t ? '2px solid #4ba6ea' : '2px solid transparent', transition: 'all 140ms ease', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '12px 20px', border: 'none', background: 'none', fontSize: 13, fontWeight: 600, color: tab === t ? '#3A74C2' : '#6b7280', cursor: 'pointer', borderBottom: tab === t ? '2px solid #4ba6ea' : '2px solid transparent', transition: 'all 140ms ease', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
               {t}
             </button>
           ))}
@@ -404,7 +418,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Objective</div>
-                <span style={{ padding: '4px 12px', borderRadius: 20, background: '#eff8ff', border: '1px solid #bae6fd', fontSize: 13, fontWeight: 600, color: '#4ba6ea' }}>{OBJECTIVES[campaign.objective ?? ''] ?? campaign.objective ?? '—'}</span>
+                <span style={{ padding: '4px 12px', borderRadius: 20, background: '#eff8ff', border: '1px solid #bae6fd', fontSize: 13, fontWeight: 600, color: '#3A74C2' }}>{OBJECTIVES[campaign.objective ?? ''] ?? campaign.objective ?? '—'}</span>
               </div>
               {campaign.why_this_campaign && (
                 <div>
@@ -449,7 +463,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                       <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Target Locations</div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {(audience['locations'] as string[]).map((loc: string) => (
-                          <span key={loc} style={{ padding: '5px 12px', borderRadius: 20, background: '#eff8ff', border: '1px solid #bae6fd', fontSize: 13, color: '#4ba6ea', fontWeight: 500 }}>{loc}</span>
+                          <span key={loc} style={{ padding: '5px 12px', borderRadius: 20, background: '#eff8ff', border: '1px solid #bae6fd', fontSize: 13, color: '#3A74C2', fontWeight: 500 }}>{loc}</span>
                         ))}
                       </div>
                     </div>
@@ -499,7 +513,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                 <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Landing Page</div>
                   {campaign.landing_page_url ? (
-                    <a href={campaign.landing_page_url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#4ba6ea', wordBreak: 'break-all', textDecoration: 'none' }}>{campaign.landing_page_url}</a>
+                    <a href={campaign.landing_page_url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#3A74C2', wordBreak: 'break-all', textDecoration: 'none' }}>{campaign.landing_page_url}</a>
                   ) : <span style={{ fontSize: 13, color: '#9ca3af' }}>Not set</span>}
                 </div>
                 <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 12, padding: '14px 16px' }}>
@@ -514,7 +528,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
-                  { label: 'Proposed Budget', val: fmtCurrency(campaign.proposed_budget, campaign.currency), color: '#4ba6ea' },
+                  { label: 'Proposed Budget', val: fmtCurrency(campaign.proposed_budget, campaign.currency), color: '#3A74C2' },
                   { label: 'Actual Budget', val: fmtCurrency(campaign.actual_budget, campaign.currency), color: campaign.actual_budget ? '#059669' : '#9ca3af' },
                   { label: 'Proposed Start', val: fmtDate(campaign.proposed_start_date), color: '#6b7280' },
                   { label: 'Proposed End', val: fmtDate(campaign.proposed_end_date), color: '#6b7280' },
@@ -543,7 +557,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {[
                   { label: 'Total Spent', val: fmtCurrency(totalSpend, campaign.currency), color: '#f59e0b' },
-                  { label: 'Impressions', val: totalImpressions.toLocaleString(), color: '#4ba6ea' },
+                  { label: 'Impressions', val: totalImpressions.toLocaleString(), color: '#3A74C2' },
                   { label: 'Clicks', val: totalClicks.toLocaleString(), color: '#8b5cf6' },
                   { label: 'ROAS', val: roas != null ? `${roas}×` : '—', color: roas && roas >= 2 ? '#059669' : '#ef4444' },
                 ].map(({ label, val, color }) => (
@@ -585,9 +599,12 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                     <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>Notes</label>
                     <input value={perfForm.notes} onChange={e => setPerfForm(p => ({ ...p, notes: e.target.value }))} placeholder="Optional notes…" style={inputS} onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }} onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
                   </div>
-                  <button onClick={handleAddPerf} disabled={addingPerf || !perfForm.spend} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: (addingPerf || !perfForm.spend) ? '#e5e7eb' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (addingPerf || !perfForm.spend) ? 'not-allowed' : 'pointer' }}>
+                  <Button
+                    onClick={handleAddPerf}
+                    disabled={addingPerf || !perfForm.spend}
+                    style={{ padding: '9px 20px', fontSize: 14 }}>
                     {addingPerf ? 'Saving…' : 'Save Metrics'}
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -715,7 +732,7 @@ const MarketingCampaignsPage: React.FC = () => {
           <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Ad Campaigns</h1>
           <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>Bot-proposed campaigns — review, approve, and track performance</p>
         </div>
-        <button onClick={() => showToast('New campaign proposals come from the Ads Manager bot. Use the Approvals page to review incoming proposals.', 'info')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+        <button onClick={() => showToast('New campaign proposals come from the Ads Manager bot. Use the Approvals page to review incoming proposals.', 'info')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer' }}>
           + New Proposal
         </button>
       </div>
@@ -725,7 +742,7 @@ const MarketingCampaignsPage: React.FC = () => {
         {[
           { label: 'Active Campaigns', value: stats.active, color: '#059669', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="#059669" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
           { label: 'Pending Approval', value: stats.proposed, color: '#d97706', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="#d97706" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-          { label: 'Total Spent', value: `$${stats.totalSpent.toLocaleString()}`, color: '#4ba6ea', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><line x1="12" y1="1" x2="12" y2="23" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+          { label: 'Total Spent', value: `$${stats.totalSpent.toLocaleString()}`, color: '#3A74C2', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><line x1="12" y1="1" x2="12" y2="23" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
           { label: 'Avg ROAS', value: stats.avgRoas != null ? `${stats.avgRoas}×` : '—', color: stats.avgRoas && stats.avgRoas >= 2 ? '#059669' : '#9ca3af', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points="17 6 23 6 23 12" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
         ].map(({ label, value, color, icon }) => (
           <div key={label} style={{ background: 'var(--surface)', borderRadius: 14, padding: '18px 20px', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
@@ -744,7 +761,7 @@ const MarketingCampaignsPage: React.FC = () => {
           const active = statusFilter === tab;
           const st = STATUS_STYLE[tab];
           return (
-            <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#4ba6ea') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
+            <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#3A74C2') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
               {tab === 'all' ? 'All' : (STATUS_STYLE[tab]?.label ?? tab)}
               <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>
             </button>
@@ -766,7 +783,7 @@ const MarketingCampaignsPage: React.FC = () => {
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 16px', display: 'block', opacity: 0.4 }}><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>{campaigns.length === 0 ? 'No campaigns yet' : 'No matching campaigns'}</div>
           {campaigns.length === 0 && (
-            <button onClick={handleSeedData} disabled={seeding} style={{ marginTop: 12, padding: '9px 20px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: seeding ? 'not-allowed' : 'pointer' }}>
+            <button onClick={handleSeedData} disabled={seeding} style={{ marginTop: 12, padding: '9px 20px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: seeding ? 'not-allowed' : 'pointer' }}>
               {seeding ? 'Loading…' : 'Load test data'}
             </button>
           )}

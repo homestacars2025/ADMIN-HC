@@ -201,7 +201,7 @@ const OperationPhotoGrid: React.FC<Props> = ({
         </div>
         <div style={{
           fontSize: 11.5, fontWeight: 600, letterSpacing: '0.2px',
-          color: complete ? '#16a34a' : '#4ba6ea',
+          color: complete ? '#16a34a' : '#3A74C2',
           background: complete ? 'rgba(22,163,74,0.10)' : 'rgba(75,166,234,0.10)',
           borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
         }}>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1059,7 +1060,7 @@ const CalendarPage: React.FC = () => {
       <div style={{ padding: '32px 32px 20px', flexShrink: 0, background: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
             Fleet Calendar
           </span>
         </div>
@@ -1153,21 +1154,12 @@ const CalendarPage: React.FC = () => {
           </button>
 
           {!isCurrentMonth && (
-            <button
+            <Button
               onClick={() => setCurrentMonth(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))}
-              style={{
-                height: 34, padding: '0 18px',
-                borderRadius: 20, border: 'none',
-                background: AIRBNB_RED, color: 'white',
-                fontSize: 13.5, fontWeight: 600,
-                cursor: 'pointer', fontFamily: FONT,
-                transition: 'opacity 0.15s ease',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+              style={{ padding: '0 18px', fontSize: 13.5, fontFamily: FONT }}
             >
               Today
-            </button>
+            </Button>
           )}
         </div>
 
@@ -1268,16 +1260,11 @@ const CalendarPage: React.FC = () => {
             <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <span style={{ fontSize: 14, color: '#b91c1c', flex: 1 }}>{error}</span>
-          <button
-            onClick={loadData}
-            style={{
-              background: AIRBNB_RED, color: 'white', border: 'none',
-              borderRadius: 20, padding: '7px 18px', fontSize: 13,
-              fontWeight: 600, cursor: 'pointer', fontFamily: FONT, flexShrink: 0,
-            }}
+          <Button
+            onClick={loadData} style={{ padding: '7px 18px', fontSize: 13, fontFamily: FONT, flexShrink: 0 }}
           >
             Retry
-          </button>
+          </Button>
         </div>
       )}
 

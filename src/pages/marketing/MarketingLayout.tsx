@@ -21,7 +21,7 @@ function timeAgo(iso: string) {
 
 function severityIcon(s: SmNotification['severity']) {
   const map: Record<string, { icon: string; color: string }> = {
-    info: { icon: 'ℹ️', color: '#4ba6ea' },
+    info: { icon: 'ℹ️', color: '#3A74C2' },
     success: { icon: '✅', color: '#10b981' },
     warning: { icon: '⚠️', color: '#f59e0b' },
     error: { icon: '🚨', color: '#ef4444' },
@@ -143,7 +143,7 @@ function GlobalSearchModal({ onClose, onNavigate }: { onClose: () => void; onNav
           .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
           .limit(4);
         (posts ?? []).forEach((r: { id: number; title: string | null; status: string; platform: string | null }) => {
-          if (r.title) all.push({ id: `sp-${r.id}`, category: 'Social Posts', title: r.title, sub: `${r.platform ?? 'Post'} · ${r.status}`, path: '/dashboard/marketing/social-posts', color: '#4ba6ea' });
+          if (r.title) all.push({ id: `sp-${r.id}`, category: 'Social Posts', title: r.title, sub: `${r.platform ?? 'Post'} · ${r.status}`, path: '/dashboard/marketing/social-posts', color: '#3A74C2' });
         });
 
         // Search blog posts
@@ -262,7 +262,7 @@ function GlobalSearchModal({ onClose, onNavigate }: { onClose: () => void; onNav
                         <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
                         <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'capitalize' }}>{item.sub}</div>
                       </div>
-                      {isActive && <span style={{ fontSize: 11, color: '#4ba6ea' }}>↵ Open</span>}
+                      {isActive && <span style={{ fontSize: 11, color: '#3A74C2' }}>↵ Open</span>}
                     </div>
                   );
                 })}
@@ -341,11 +341,11 @@ function NotificationBell() {
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 36, height: 36, borderRadius: '50%',
-          border: '1px solid #e5e7eb', background: open ? '#f0f9ff' : '#fff',
+          border: '1px solid #EBEBEB', background: '#fff',
           cursor: 'pointer', position: 'relative', transition: 'all 140ms ease',
         }}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.8">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
@@ -374,10 +374,10 @@ function NotificationBell() {
           {/* header */}
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>
-              Notifications {unread > 0 && <span style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 600 }}>({unread} new)</span>}
+              Notifications {unread > 0 && <span style={{ fontSize: 12, color: '#3A74C2', fontWeight: 600 }}>({unread} new)</span>}
             </div>
             {unread > 0 && (
-              <button onClick={markAllRead} style={{ fontSize: 12, color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+              <button onClick={markAllRead} style={{ fontSize: 12, color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                 Mark all read
               </button>
             )}
@@ -499,7 +499,7 @@ const MarketingLayout: React.FC = () => {
           <button
             onClick={() => navigate('/dashboard/marketing')}
             style={{ fontSize: 13, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', transition: 'color 140ms ease' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#9ca3af'; }}
           >
             Marketing
@@ -524,12 +524,12 @@ const MarketingLayout: React.FC = () => {
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '5px 12px', borderRadius: 8,
-              border: '1px solid #e5e7eb', background: '#fff',
+              border: '1px solid #EBEBEB', background: '#fff',
               cursor: 'pointer', fontFamily: 'inherit',
-              transition: 'all 140ms ease', color: '#6b7280',
+              transition: 'all 140ms ease', color: 'var(--foreground)',
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
@@ -542,9 +542,9 @@ const MarketingLayout: React.FC = () => {
           <button
             onClick={() => navigate('/dashboard/marketing/chat')}
             title="Unread CMO messages"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 20, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 140ms ease' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 20, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 140ms ease' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: '#6b7280' }}>
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -561,9 +561,9 @@ const MarketingLayout: React.FC = () => {
           <button
             onClick={() => navigate('/dashboard/marketing/approvals')}
             title="Pending approvals"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 20, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 140ms ease' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 20, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 140ms ease' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f59e0b'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: '#6b7280' }}>
               <polyline points="9 11 12 14 22 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>

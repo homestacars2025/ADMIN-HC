@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -327,16 +328,18 @@ const EditModal: React.FC<{
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '0 24px 20px' }}>
           <button
             type="button" onClick={onClose}
-            style={{ minHeight: 44, padding: '0 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+            style={{ minHeight: 44, padding: '0 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
           >
             Cancel
           </button>
-          <button
-            type="button" onClick={save} disabled={saving}
-            style={{ minHeight: 44, padding: '0 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+          <Button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            style={{ minHeight: 44, padding: '0 22px', fontSize: 14, fontFamily: 'inherit' }}
           >
             {saving ? 'Saving…' : confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -483,7 +486,7 @@ const KabisManagementPage: React.FC = () => {
             {!loading && (
               <span style={{
                 background: 'linear-gradient(135deg, rgba(75,166,234,0.12) 0%, rgba(75,166,234,0.07) 100%)',
-                color: '#4ba6ea', fontSize: 12, fontWeight: 600,
+                color: '#3A74C2', fontSize: 12, fontWeight: 600,
                 padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(75,166,234,0.2)',
               }}>
                 {stats.total} {stats.total === 1 ? 'entry' : 'entries'}
@@ -500,7 +503,7 @@ const KabisManagementPage: React.FC = () => {
             onClick={() => void load()}
             title="Refresh"
             style={{ minHeight: 44, padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
             onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#f0f0f0'; b.style.color = '#374151'; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -511,7 +514,7 @@ const KabisManagementPage: React.FC = () => {
           <button
             onClick={handleExport}
             style={{ minHeight: 44, padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
             onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#f0f0f0'; b.style.color = '#374151'; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -570,7 +573,7 @@ const KabisManagementPage: React.FC = () => {
             fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
             borderRadius: 9, transition: 'all 140ms ease',
             border: groupByBooking ? '1.5px solid rgba(75,166,234,0.35)' : '1px solid #e5e7eb',
-            color: groupByBooking ? '#4ba6ea' : '#6b7280',
+            color: groupByBooking ? '#3A74C2' : '#6b7280',
             background: groupByBooking
               ? 'linear-gradient(135deg, rgba(75,166,234,0.1) 0%, rgba(75,166,234,0.06) 100%)'
               : '#fff',
@@ -585,7 +588,7 @@ const KabisManagementPage: React.FC = () => {
         {hasFilters && (
           <button
             onClick={clearFilters}
-            style={{ minHeight: 44, padding: '0 14px', fontSize: 13, fontWeight: 600, color: '#6b7280', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
+            style={{ minHeight: 44, padding: '0 14px', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', background: '#fff', border: '1px solid #EBEBEB', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit' }}
           >
             Clear
           </button>
@@ -637,7 +640,7 @@ const KabisManagementPage: React.FC = () => {
                       background: 'linear-gradient(135deg, rgba(75,166,234,0.1) 0%, rgba(75,166,234,0.06) 100%)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px',
                     }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ color: '#4ba6ea' }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ color: '#3A74C2' }}>
                         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
                         <path d="M14 2v6h6M9 15l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
@@ -669,7 +672,7 @@ const KabisManagementPage: React.FC = () => {
                       </span>
                     </td>
                     <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
-                      <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea' }}>
+                      <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2' }}>
                         {dash(r.booking_number)}
                       </span>
                     </td>
@@ -698,9 +701,9 @@ const KabisManagementPage: React.FC = () => {
                       <button
                         onClick={() => setEditing(r)}
                         title="Correct status or note"
-                        style={{ minHeight: 36, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', color: '#6b7280', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 140ms ease', whiteSpace: 'nowrap' }}
-                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
-                        onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
+                        style={{ minHeight: 36, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', color: 'var(--foreground)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 140ms ease', whiteSpace: 'nowrap' }}
+                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                        onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#EBEBEB'; b.style.color = 'var(--foreground)'; b.style.background = '#f9fafb'; }}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                           <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>

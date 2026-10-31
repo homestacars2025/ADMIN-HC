@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ const PLATFORM_OPTIONS = [
 const MODEL_OTHER = 'other';
 
 const LEAD_CFG: Record<LeadStatus, { color: string; bg: string }> = {
-  'New':        { color: '#4ba6ea', bg: 'rgba(75,166,234,0.1)'  },
+  'New':        { color: '#3A74C2', bg: 'rgba(75,166,234,0.1)'  },
   'Contacted':  { color: '#ca8a04', bg: 'rgba(234,179,8,0.1)'   },
   'Offer Sent': { color: '#ea580c', bg: 'rgba(249,115,22,0.1)'  },
   'Rejected':   { color: '#ef4444', bg: 'rgba(239,68,68,0.1)'   },
@@ -95,7 +96,7 @@ const LEAD_CFG: Record<LeadStatus, { color: string; bg: string }> = {
 };
 
 const TRANS_CFG: Record<Transmission, { color: string; bg: string }> = {
-  'Automatic': { color: '#4ba6ea', bg: 'rgba(75,166,234,0.1)'  },
+  'Automatic': { color: '#3A74C2', bg: 'rgba(75,166,234,0.1)'  },
   'Manual':    { color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
 };
 
@@ -103,7 +104,7 @@ const FUEL_CFG: Record<FuelType, { color: string; bg: string }> = {
   'Petrol':   { color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
   'Diesel':   { color: '#374151', bg: 'rgba(55,65,81,0.1)'    },
   'Hybrid':   { color: '#16a34a', bg: 'rgba(34,197,94,0.1)'   },
-  'Electric': { color: '#4ba6ea', bg: 'rgba(75,166,234,0.1)'  },
+  'Electric': { color: '#3A74C2', bg: 'rgba(75,166,234,0.1)'  },
   'LPG':      { color: '#ca8a04', bg: 'rgba(234,179,8,0.1)'   },
 };
 
@@ -380,9 +381,9 @@ const PlatformFilter: React.FC<{
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          height: 38, padding: '0 12px', border: '1.5px solid #e5e7eb', borderRadius: 8,
-          background: selected.length > 0 ? 'rgba(75,166,234,0.06)' : '#fff',
-          cursor: 'pointer', fontSize: 13, color: '#374151', fontFamily: 'inherit',
+          height: 38, padding: '0 12px', border: '1px solid #EBEBEB', borderRadius: 8,
+          background: '#fff',
+          cursor: 'pointer', fontSize: 13, color: 'var(--foreground)', fontFamily: 'inherit',
           display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
         }}
       >
@@ -438,7 +439,7 @@ const SortTh: React.FC<{
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLTableCellElement).style.color = '#9ca3af'; }}
       style={{
         padding: '9px 12px', fontSize: 11, fontWeight: 600,
-        color: active ? '#4ba6ea' : '#9ca3af',
+        color: active ? '#3A74C2' : '#9ca3af',
         textTransform: 'uppercase', letterSpacing: '0.7px',
         textAlign: 'left', background: '#fff',
         borderBottom: '1.5px solid #f0f0f0',
@@ -1052,25 +1053,17 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cit
           <button
             onClick={onClose}
             style={{
-              padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151',
+              padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB',
+              background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
             Cancel
           </button>
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving}
-            style={{
-              padding: '9px 22px', borderRadius: 9, border: 'none',
-              background: saving ? '#93c5fd' : '#4ba6ea',
-              fontSize: 14, fontWeight: 600, color: '#fff',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
-              transition: 'background 150ms ease',
-              boxShadow: saving ? 'none' : '0 2px 8px rgba(75,166,234,0.3)',
-            }}
+            style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {saving && (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.6s linear infinite' }}>
@@ -1078,7 +1071,7 @@ const SourcingModal: React.FC<SourcingModalProps> = ({ editRow, modelGroups, cit
               </svg>
             )}
             {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Listing'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1260,7 +1253,7 @@ const SourcingPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               Acquisitions
             </span>
           </div>
@@ -1271,31 +1264,15 @@ const SourcingPage: React.FC = () => {
             Daily market watch — cars we're tracking to buy.
           </p>
         </div>
-        <button
+        <Button
           onClick={openAdd}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '10px 18px', borderRadius: 10, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit', flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(75,166,234,0.35)',
-            transition: 'background 150ms ease, box-shadow 150ms ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(75,166,234,0.45)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(75,166,234,0.35)';
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', fontSize: 14, fontFamily: 'inherit', flexShrink: 0 }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
           Add Listing
-        </button>
+        </Button>
       </div>
 
       {/* Error state */}
@@ -1433,14 +1410,14 @@ const SourcingPage: React.FC = () => {
             onClick={resetFilters}
             style={{
               height: 38, padding: '0 12px', borderRadius: 8,
-              border: '1.5px solid #e5e7eb', background: '#fff',
-              fontSize: 13, fontWeight: 500, color: '#6b7280',
+              border: '1px solid #EBEBEB', background: '#fff',
+              fontSize: 13, fontWeight: 500, color: 'var(--foreground)',
               cursor: 'pointer', fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', gap: 5,
               transition: 'border-color 140ms ease, color 140ms ease',
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#ef4444'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#6b7280'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)'; }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
@@ -1506,7 +1483,7 @@ const SourcingPage: React.FC = () => {
                         </div>
                       </div>
                       {hasFilters && (
-                        <button onClick={resetFilters} style={{ padding: '7px 16px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        <button onClick={resetFilters} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
                           Clear filters
                         </button>
                       )}
@@ -1698,7 +1675,7 @@ const SourcingPage: React.FC = () => {
               }
             </span>
             {hasFilters && (
-              <button onClick={resetFilters} style={{ fontSize: 12, color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+              <button onClick={resetFilters} style={{ fontSize: 12, color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
                 Clear filters
               </button>
             )}

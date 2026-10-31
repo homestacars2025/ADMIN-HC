@@ -6,6 +6,7 @@ import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
 import { MonthNav } from '../components/shared/MonthNav';
 import StaffAvatar from '../components/shared/StaffAvatar';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -610,7 +611,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
     },
     {
       label: 'Commission', value: commission,
-      color: '#4ba6ea', iconBg: 'rgba(75,166,234,0.08)',
+      color: '#3A74C2', iconBg: 'rgba(75,166,234,0.08)',
       badge: 'Revenue', badgeColor: '#0369a1', badgeBg: 'rgba(75,166,234,0.1)',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -821,16 +822,15 @@ const SelectInvestorModal: React.FC<{
             {investors.map(inv => <option key={inv.id} value={String(inv.id)}>{inv.display_name}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Cancel
             </button>
-            <button
+            <Button
               onClick={handleConfirm}
-              disabled={!selectedId}
-              style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: selectedId ? '#4ba6ea' : '#d1d5db', color: '#fff', fontSize: 14, fontWeight: 600, cursor: selectedId ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}
+              disabled={!selectedId} style={{ padding: '9px 20px', fontSize: 14, fontFamily: 'inherit' }}
             >
               View Report
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -882,7 +882,6 @@ const TransactionPanelModal: React.FC<{
     onRefresh();
   };
 
-  const inBtn: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
   const cancelBtn: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' };
   const editInput: React.CSSProperties = { padding: '4px 8px', border: '1.5px solid #4ba6ea', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: 'none' };
 
@@ -904,7 +903,7 @@ const TransactionPanelModal: React.FC<{
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
               </svg>
             </div>
@@ -946,7 +945,10 @@ const TransactionPanelModal: React.FC<{
                       </td>
                       <td style={{ padding: '8px 14px' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={handleSaveEdit} disabled={saving} style={inBtn}>{saving ? '…' : 'Save'}</button>
+                          <Button
+                            onClick={handleSaveEdit}
+                            disabled={saving}
+                            style={{ padding: '4px 10px', fontSize: 12 }}>{saving ? '…' : 'Save'}</Button>
                           <button onClick={() => setEditingId(null)} style={cancelBtn}>Cancel</button>
                         </div>
                       </td>
@@ -969,7 +971,7 @@ const TransactionPanelModal: React.FC<{
                           <button
                             onClick={() => startEdit(t)}
                             style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}
-                            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+                            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
                             onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
                           >
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1133,7 +1135,7 @@ const InvestorSheetView: React.FC<{
       <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
             </svg>
           </div>
@@ -1166,8 +1168,11 @@ const InvestorSheetView: React.FC<{
                     </td>
                     <td style={td}>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={handleSaveEdit} disabled={saving} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{saving ? '…' : 'Save'}</button>
-                        <button onClick={() => setEditingId(null)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                        <Button
+                          onClick={handleSaveEdit}
+                          disabled={saving}
+                          style={{ padding: '4px 12px', fontSize: 12, fontFamily: 'inherit' }}>{saving ? '…' : 'Save'}</Button>
+                        <button onClick={() => setEditingId(null)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #EBEBEB', background: '#fff', color: 'var(--foreground)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
                       </div>
                     </td>
                   </tr>
@@ -1188,7 +1193,7 @@ const InvestorSheetView: React.FC<{
                         <button
                           onClick={() => startEdit(t)}
                           style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
                           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1394,13 +1399,18 @@ const EditFinancialTxModal: React.FC<{
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
             {warning ? (
-              <button onClick={() => { onSaved(); onClose(); }} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+              <Button
+                onClick={() => { onSaved(); onClose(); }}
+                style={{ padding: '9px 20px', fontSize: 13, fontFamily: 'inherit' }}>Close</Button>
             ) : (
               <>
-                <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{ padding: '9px 20px', fontSize: 13, fontFamily: 'inherit' }}>
                   {saving ? 'Saving…' : 'Save Changes'}
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -1478,7 +1488,7 @@ const InvestorCarSheetView: React.FC<{
       <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/></svg>
           </div>
         ) : txs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: 13 }}>No transactions found.</div>
@@ -1502,7 +1512,7 @@ const InvestorCarSheetView: React.FC<{
                         <button
                           onClick={() => setEditModal(t)}
                           style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
                           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1599,9 +1609,9 @@ const InvestorCarListView: React.FC<{
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <button
           onClick={onBack}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Back
@@ -2283,7 +2293,7 @@ const InvestorSheetsTab: React.FC<{ onViewReport: (id: string) => void }> = ({ o
   if (!autoSelectDone) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
           <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
         </svg>
       </div>
@@ -2540,12 +2550,15 @@ const AddCustomerTxModal: React.FC<{
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={!canSave} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: canSave ? '#4ba6ea' : '#d1d5db', color: '#fff', fontSize: 13, fontWeight: 600, cursor: canSave ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+            <Button
+              onClick={handleSave}
+              disabled={!canSave}
+              style={{ padding: '9px 20px', fontSize: 13, fontFamily: 'inherit' }}>
               {saving ? 'Saving…' : 'Add Transaction'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -2710,10 +2723,13 @@ const EditTxModal: React.FC<{
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-            <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              style={{ padding: '9px 20px', fontSize: 13, fontFamily: 'inherit' }}>
               {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -3263,9 +3279,9 @@ export const CarCustomerSheetPage: React.FC = () => {
       <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', gap: 16 }}>
         <button
           onClick={() => navigate('/dashboard/accounting')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, transition: 'all 140ms ease' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, transition: 'all 140ms ease' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)'; }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Customer Sheets
@@ -3353,7 +3369,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                         </div>
                       </div>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        style={{ transition: 'transform 200ms ease', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: isOpen ? '#4ba6ea' : '#9ca3af', flexShrink: 0 }}>
+                        style={{ transition: 'transform 200ms ease', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: isOpen ? '#3A74C2' : '#9ca3af', flexShrink: 0 }}>
                         <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
@@ -3368,7 +3384,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                       <button
                         onClick={() => printInvoice(cust)}
                         style={btnBase}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 18H4a1 1 0 01-1-1v-6a1 1 0 011-1h16a1 1 0 011 1v6a1 1 0 01-1 1h-2M6 14h12v7H6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -3377,7 +3393,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                       <button
                         onClick={() => setAddModal({ bookingId: cust.bookingId, customerId: cust.customerId, customerName: custName, bookingLabel: bookingLine })}
                         style={btnBase}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; }}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
@@ -3418,17 +3434,21 @@ export const CarCustomerSheetPage: React.FC = () => {
                                     {isPendingDelete ? (
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                         <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>Delete?</span>
-                                        <button onClick={() => handleDelete(e.id)} disabled={deleting} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                                        <Button
+                                          variant="danger"
+                                          onClick={() => handleDelete(e.id)}
+                                          disabled={deleting}
+                                          style={{ padding: '0 10px', fontSize: 11, fontFamily: 'inherit' }}>
                                           {deleting ? '…' : 'Yes'}
-                                        </button>
-                                        <button onClick={() => setDeleteConfirm(null)} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                        </Button>
+                                        <button onClick={() => setDeleteConfirm(null)} style={{ height: 26, padding: '0 10px', borderRadius: 6, border: '1px solid #EBEBEB', background: '#fff', color: 'var(--foreground)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                                           No
                                         </button>
                                       </div>
                                     ) : (
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                         <button onClick={() => setEditModal(e)} title="Edit" style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', transition: 'all 140ms ease' }}
-                                          onMouseEnter={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.06)'; }}
+                                          onMouseEnter={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; (e2.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.06)'; }}
                                           onMouseLeave={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e2.currentTarget as HTMLButtonElement).style.color = '#6b7280'; (e2.currentTarget as HTMLButtonElement).style.background = '#fff'; }}>
                                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                                         </button>
@@ -3792,7 +3812,7 @@ const AddFinancialTxModal: React.FC<{
                       {commAmt !== null && (
                         <span> = <span style={{ fontWeight: 600 }}>{commAmt.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TRY</span></span>
                       )}
-                      <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 3, fontWeight: 500 }}>
+                      <div style={{ fontSize: 11, color: '#3A74C2', marginTop: 3, fontWeight: 500 }}>
                         A separate Commission row will be inserted automatically.
                       </div>
                     </>
@@ -3830,13 +3850,18 @@ const AddFinancialTxModal: React.FC<{
         {/* Footer */}
         <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
           {warning ? (
-            <button onClick={() => { onSaved(); onClose(); }} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Close</button>
+            <Button
+              onClick={() => { onSaved(); onClose(); }}
+              style={{ padding: '9px 22px', fontSize: 13, fontFamily: 'inherit' }}>Close</Button>
           ) : (
             <>
-              <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                style={{ padding: '9px 22px', fontSize: 13, fontFamily: 'inherit' }}>
                 {saving ? (saveStep || 'Saving…') : 'Add Transaction'}
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -4145,7 +4170,7 @@ const AddInternalFinanceTxModal: React.FC<{
                             style={{
                               padding: '10px 14px', fontSize: 13, cursor: 'pointer',
                               background: form.employee_id === p.id ? 'rgba(75,166,234,0.06)' : '#fff',
-                              color: form.employee_id === p.id ? '#4ba6ea' : '#0f1117',
+                              color: form.employee_id === p.id ? '#3A74C2' : '#0f1117',
                               fontWeight: form.employee_id === p.id ? 600 : 400,
                             }}
                             onMouseEnter={e => { if (form.employee_id !== p.id) (e.currentTarget as HTMLDivElement).style.background = '#f9fafb'; }}
@@ -4214,17 +4239,16 @@ const AddInternalFinanceTxModal: React.FC<{
 
         {/* Footer */}
         <div style={{ padding: '16px 28px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
             Cancel
           </button>
-          <button
-            onClick={handleSave} disabled={saving}
-            style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', minWidth: 140, transition: 'background 140ms ease' }}
-            onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#3a95d9'; }}
-            onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ padding: '9px 22px', fontSize: 13, fontFamily: 'inherit', minWidth: 140 }}
           >
             {saving ? (saveStep || 'Saving…') : 'Save Transaction'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -4329,7 +4353,7 @@ const TransactionListModal: React.FC<{
         <div style={{ overflowY: 'auto' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
               </svg>
             </div>
@@ -4361,7 +4385,7 @@ const TransactionListModal: React.FC<{
                       <td style={{ ...td, color: r.description ? '#374151' : '#d1d5db', maxWidth: 220 }}>{r.description || '—'}</td>
                       <td style={td}>
                         {r.receipt_url
-                          ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none', fontSize: 12 }}>View</a>
+                          ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#3A74C2', fontWeight: 600, textDecoration: 'none', fontSize: 12 }}>View</a>
                           : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>}
                       </td>
                     </tr>
@@ -4545,10 +4569,13 @@ const EditCompanyExpenseModal: React.FC<{
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-            <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              style={{ padding: '9px 20px', fontSize: 13, fontFamily: 'inherit' }}>
               {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -4612,15 +4639,13 @@ const CompanyExpensesTab: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <MonthNavigator monthKey={monthKey} onChange={setMonthKey} />
-        <button
+        <Button
           onClick={() => setShowAddTx(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(75,166,234,0.3)', transition: 'background 140ms ease' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3a95d9'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', fontSize: 13, fontFamily: 'inherit' }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>
           Add Transaction
-        </button>
+        </Button>
       </div>
 
       {/* ── Company Expenses: Section 1 — Hero summary card ────────────── */}
@@ -4738,7 +4763,7 @@ const CompanyExpensesTab: React.FC = () => {
             <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
               {ifMonthLoading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
                     <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                   </svg>
                 </div>
@@ -4775,7 +4800,7 @@ const CompanyExpensesTab: React.FC = () => {
                             <td style={{ ...td, color: r.description ? '#374151' : '#d1d5db', maxWidth: 260 }}>{r.description || '—'}</td>
                             <td style={td}>
                               {r.receipt_url
-                                ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none', fontSize: 12 }}>View</a>
+                                ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#3A74C2', fontWeight: 600, textDecoration: 'none', fontSize: 12 }}>View</a>
                                 : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>}
                             </td>
                             <td style={{ ...td, whiteSpace: 'nowrap' }}>
@@ -4784,7 +4809,7 @@ const CompanyExpensesTab: React.FC = () => {
                                   onClick={() => setEditExpense(r)}
                                   title="Edit"
                                   style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', transition: 'all 140ms ease' }}
-                                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+                                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
                                   onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
                                 >
                                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -5012,7 +5037,7 @@ const COUNTER_CARDS: Array<{
   badge: string; badgeColor: string; badgeBg: string;
   icon: (c: string) => React.ReactNode;
 }> = [
-  { key: 'events',     label: 'Money Events', color: '#4ba6ea', iconBg: 'rgba(75,166,234,0.08)',
+  { key: 'events',     label: 'Money Events', color: '#3A74C2', iconBg: 'rgba(75,166,234,0.08)',
     badge: 'This month', badgeColor: '#0369a1', badgeBg: 'rgba(75,166,234,0.1)',  icon: icoStack },
   { key: 'bookings',   label: 'Bookings',     color: '#7c3aed', iconBg: 'rgba(124,58,237,0.08)',
     badge: 'Distinct',   badgeColor: '#6d28d9', badgeBg: 'rgba(124,58,237,0.1)',  icon: icoDoc },
@@ -5505,7 +5530,7 @@ const BookingAccountsTab: React.FC = () => {
                   style={{
                     display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                     padding: '11px 13px', marginBottom: 7, borderRadius: 10, cursor: 'pointer',
-                    border: '1px solid #e5e7eb', background: '#fff', fontFamily: 'inherit', textAlign: 'left',
+                    border: '1px solid #EBEBEB', background: '#fff', fontFamily: 'inherit', textAlign: 'left',
                   }}
                 >
                   <div>
@@ -5519,16 +5544,16 @@ const BookingAccountsTab: React.FC = () => {
             <div style={{ padding: '13px 22px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 9 }}>
               <button
                 onClick={() => setLinking(null)}
-                style={{ padding: '8px 15px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ padding: '8px 15px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', color: 'var(--foreground)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Cancel
               </button>
-              <button
+              <Button
                 onClick={() => { const l = linking; setLinking(null); void applyTick(l.row, 'logged_in_car_sheet', true, null); }}
-                style={{ padding: '8px 15px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ padding: '8px 15px', fontSize: 12.5, fontFamily: 'inherit' }}
               >
                 Tick without linking
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -5580,29 +5605,20 @@ const AccountingPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Finance</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Finance</span>
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>Accounting</h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Financial overview, investor reports, and customer billing.</p>
         </div>
-        <button
+        <Button
           onClick={() => setShowAddTx(true)}
-          style={{
-            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
-            padding: '10px 18px', borderRadius: 11, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-            boxShadow: '0 2px 10px rgba(75,166,234,0.3)',
-            transition: 'background 140ms ease, box-shadow 140ms ease',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3a95d9'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(75,166,234,0.4)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px rgba(75,166,234,0.3)'; }}
+          style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', fontSize: 13, fontFamily: 'inherit' }}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
           </svg>
           Add Transaction
-        </button>
+        </Button>
       </div>
 
       {/* Tabs */}

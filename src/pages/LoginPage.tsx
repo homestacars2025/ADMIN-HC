@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Logo from '../components/shared/Logo';
+import { Button } from '../components/media/MediaUI';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -293,36 +294,10 @@ const LoginPage: React.FC = () => {
               </div>
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={loading || !email || !password}
-              style={{
-                height: 48,
-                background: loading || !email || !password ? '#a8d4f5' : 'var(--brand)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: loading || !email || !password ? 'not-allowed' : 'pointer',
-                transition: 'background var(--transition), transform var(--transition)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontFamily: 'inherit',
-                marginTop: 4,
-              }}
-              onMouseEnter={e => {
-                if (!loading && email && password) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-dark)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (!loading && email && password) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--brand)';
-                }
-              }}
+              style={{ height: 48, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', marginTop: 4 }}
             >
               {loading ? (
                 <>
@@ -339,7 +314,7 @@ const LoginPage: React.FC = () => {
               ) : (
                 'Sign in'
               )}
-            </button>
+            </Button>
           </div>
         </form>
 

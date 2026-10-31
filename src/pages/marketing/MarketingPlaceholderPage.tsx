@@ -34,7 +34,7 @@ const MarketingPlaceholderPage: React.FC = () => {
       <div style={{ marginBottom: 36 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
             Marketing
           </span>
         </div>
@@ -66,12 +66,12 @@ const MarketingPlaceholderPage: React.FC = () => {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 20,
         }}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ color: '#4ba6ea' }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ color: '#3A74C2' }}>
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 10 }}>
           Phase 2
         </div>
         <h2 style={{ fontSize: 20, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.4px', marginBottom: 10 }}>
@@ -91,7 +91,7 @@ const MarketingPlaceholderPage: React.FC = () => {
             cursor: 'pointer', fontFamily: 'inherit',
             transition: 'border-color 140ms ease, color 140ms ease',
           }}
-          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#4b5563'; }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">

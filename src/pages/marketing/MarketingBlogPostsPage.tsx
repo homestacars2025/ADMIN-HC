@@ -3,13 +3,14 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { socialFrom } from '../../lib/socialClient';
 import type { SmBlogPost } from '../../types/marketing';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<string, { color: string; bg: string; border: string; label: string }> = {
   draft:            { color: '#6b7280', bg: '#f3f4f6',  border: '#e5e7eb', label: 'Draft' },
   pending_approval: { color: '#d97706', bg: '#fef3c7',  border: '#fde68a', label: 'Pending' },
-  approved:         { color: '#4ba6ea', bg: '#eff8ff',  border: '#bae6fd', label: 'Approved' },
+  approved:         { color: '#3A74C2', bg: '#eff8ff',  border: '#bae6fd', label: 'Approved' },
   published:        { color: '#059669', bg: '#d1fae5',  border: '#6ee7b7', label: 'Published' },
   updated:          { color: '#8b5cf6', bg: '#f5f3ff',  border: '#c4b5fd', label: 'Updated' },
   archived:         { color: '#9ca3af', bg: '#f9fafb',  border: '#e5e7eb', label: 'Archived' },
@@ -449,7 +450,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
             {/* Lang tabs */}
             <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
               {(['ar', 'tr', 'en'] as const).map(lang => (
-                <button key={lang} onClick={() => setLangTab(lang)} style={{ flex: 1, padding: '11px 0', border: 'none', background: 'none', fontSize: 13, fontWeight: 600, color: langTab === lang ? '#4ba6ea' : '#6b7280', cursor: 'pointer', borderBottom: langTab === lang ? '2px solid #4ba6ea' : '2px solid transparent', transition: 'all 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <button key={lang} onClick={() => setLangTab(lang)} style={{ flex: 1, padding: '11px 0', border: 'none', background: 'none', fontSize: 13, fontWeight: 600, color: langTab === lang ? '#3A74C2' : '#6b7280', cursor: 'pointer', borderBottom: langTab === lang ? '2px solid #4ba6ea' : '2px solid transparent', transition: 'all 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   {lang === 'ar' ? '🇸🇦 Arabic' : lang === 'tr' ? '🇹🇷 Turkish' : '🇬🇧 English'}
                   {form[`content_${lang}` as 'content_ar' | 'content_tr' | 'content_en']?.trim() && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />}
                 </button>
@@ -477,7 +478,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Slug</label>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <input value={form.slug ?? ''} onChange={e => set('slug', e.target.value)} placeholder="url-friendly-slug" style={{ ...inputStyle, fontFamily: 'var(--font-mono)', fontSize: 12 }} onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }} onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
-                    <button onClick={() => set('slug', slugify(form.title_en ?? ''))} style={{ padding: '8px 12px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12, color: '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap' }}>Auto</button>
+                    <button onClick={() => set('slug', slugify(form.title_en ?? ''))} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 12, color: 'var(--foreground)', cursor: 'pointer', whiteSpace: 'nowrap' }}>Auto</button>
                   </div>
                 </div>
               )}
@@ -566,7 +567,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
               <label style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Target Keywords ({(form.target_keywords ?? []).length}/10)</label>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                 {(form.target_keywords ?? []).map((kw, i) => (
-                  <span key={i} style={{ padding: '3px 10px', borderRadius: 20, background: '#eff8ff', border: '1px solid #bae6fd', fontSize: 12, color: '#4ba6ea', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span key={i} style={{ padding: '3px 10px', borderRadius: 20, background: '#eff8ff', border: '1px solid #bae6fd', fontSize: 12, color: '#3A74C2', display: 'flex', alignItems: 'center', gap: 5 }}>
                     {kw}
                     <button onClick={() => set('target_keywords', (form.target_keywords ?? []).filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
                   </span>
@@ -600,7 +601,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
                 {AI_ENGINES.map(engine => {
                   const checked = (form.target_ai_engines ?? []).includes(engine);
                   return (
-                    <label key={engine} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 9, border: `1.5px solid ${checked ? '#4ba6ea' : '#e5e7eb'}`, background: checked ? '#eff8ff' : '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: checked ? '#4ba6ea' : '#6b7280', transition: 'all 140ms ease' }}>
+                    <label key={engine} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 9, border: `1.5px solid ${checked ? '#4ba6ea' : '#e5e7eb'}`, background: checked ? '#eff8ff' : '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: checked ? '#3A74C2' : '#6b7280', transition: 'all 140ms ease' }}>
                       <input type="checkbox" checked={checked} onChange={e => set('target_ai_engines', e.target.checked ? [...(form.target_ai_engines ?? []), engine] : (form.target_ai_engines ?? []).filter(x => x !== engine))} style={{ display: 'none' }} />
                       {checked
                         ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="#4ba6ea"/><path d="M7 12l4 4 6-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -628,13 +629,16 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
 
         {/* Footer actions */}
         <div style={{ display: 'flex', gap: 10, padding: '16px 24px', borderTop: '1px solid #f3f4f6', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={() => handleSave()} disabled={saving || submitting} style={{ padding: '10px 20px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 600, color: '#374151', cursor: (saving || submitting) ? 'not-allowed' : 'pointer' }}>
+          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => handleSave()} disabled={saving || submitting} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 600, color: 'var(--foreground)', cursor: (saving || submitting) ? 'not-allowed' : 'pointer' }}>
             {saving ? 'Saving…' : 'Save Draft'}
           </button>
-          <button onClick={handleSubmitForApproval} disabled={saving || submitting} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: (saving || submitting) ? '#e5e7eb' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (saving || submitting) ? 'not-allowed' : 'pointer' }}>
+          <Button
+            onClick={handleSubmitForApproval}
+            disabled={saving || submitting}
+            style={{ flex: 1, padding: '10px 0', fontSize: 14 }}>
             {submitting ? 'Submitting…' : 'Submit for Approval'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -735,10 +739,12 @@ const MarketingBlogPostsPage: React.FC = () => {
           <h1 style={{ fontSize: 24, fontWeight: 500, color: '#0f1117', margin: 0 }}>Blog Posts</h1>
           <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>Long-form content optimized for SEO and AI search engines</p>
         </div>
-        <button onClick={() => setEditorPost(null)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+        <Button
+          onClick={() => setEditorPost(null)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', fontSize: 14 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
           New Article
-        </button>
+        </Button>
       </div>
 
       {/* Status tabs */}
@@ -747,7 +753,7 @@ const MarketingBlogPostsPage: React.FC = () => {
           const active = statusFilter === tab;
           const st = STATUS_STYLE[tab];
           return (
-            <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#4ba6ea') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
+            <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#3A74C2') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
               {tab === 'all' ? 'All' : (STATUS_STYLE[tab]?.label ?? tab)}
               <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>
             </button>
@@ -777,10 +783,10 @@ const MarketingBlogPostsPage: React.FC = () => {
           <div style={{ fontSize: 15, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>{posts.length === 0 ? 'No articles yet' : 'No matching articles'}</div>
           {posts.length === 0 && (
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}>
-              <button onClick={handleSeedData} disabled={seeding} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: seeding ? 'not-allowed' : 'pointer' }}>
+              <button onClick={handleSeedData} disabled={seeding} style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: seeding ? 'not-allowed' : 'pointer' }}>
                 {seeding ? 'Loading…' : 'Load test data'}
               </button>
-              <button onClick={() => setEditorPost(null)} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>New Article</button>
+              <Button onClick={() => setEditorPost(null)} style={{ padding: '9px 18px', fontSize: 14 }}>New Article</Button>
             </div>
           )}
         </div>

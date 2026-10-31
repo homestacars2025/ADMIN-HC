@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import { socialFrom } from '../../lib/socialClient';
 import { MARKETING_BOTS, CONSTITUTION_DEFS } from '../../types/marketing';
 import { isCmoConfigured } from '../../lib/cmoApi';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -244,7 +245,7 @@ export default function MarketingSettingsPage() {
                 <button
                   onClick={() => toast(`${bot.name} test triggered (n8n not connected yet).`, 'info')}
                   disabled={!bot.enabled}
-                  style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: '#475569', opacity: bot.enabled ? 1 : 0.4 }}
+                  style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: 'var(--foreground)', opacity: bot.enabled ? 1 : 0.4 }}
                 >
                   Test
                 </button>
@@ -271,7 +272,7 @@ export default function MarketingSettingsPage() {
                 <StatusBadge connected={false} label="Not configured" />
                 <button
                   onClick={() => toast('API key management coming in n8n phase.', 'info')}
-                  style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#475569' }}
+                  style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}
                 >
                   Connect
                 </button>
@@ -342,7 +343,7 @@ export default function MarketingSettingsPage() {
         </div>
         <button
           onClick={() => navigate('/dashboard/marketing/bots')}
-          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #4ba6ea', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#4ba6ea', transition: 'all 0.15s' }}
+          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #4ba6ea', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#3A74C2', transition: 'all 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
           onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
         >
@@ -389,9 +390,9 @@ export default function MarketingSettingsPage() {
             <button
               onClick={handleExport}
               disabled={exporting}
-              style={{ padding: '10px 20px', borderRadius: 9, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: 8, opacity: exporting ? 0.6 : 1, transition: 'all 0.15s' }}
+              style={{ padding: '10px 20px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8, opacity: exporting ? 0.6 : 1, transition: 'all 0.15s' }}
               onMouseEnter={e => { if (!exporting) e.currentTarget.style.borderColor = '#4ba6ea'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#EBEBEB'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               {exporting ? 'Exporting…' : 'Export All Marketing Data'}
@@ -410,10 +411,14 @@ export default function MarketingSettingsPage() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 9, background: '#fef2f2', border: '1px solid #fecaca' }}>
                 <span style={{ fontSize: 12, color: '#dc2626' }}>Delete all seeded data?</span>
-                <button onClick={handleClearTestData} disabled={clearing} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                <Button
+                  variant="danger"
+                  onClick={handleClearTestData}
+                  disabled={clearing}
+                  style={{ padding: '4px 12px', fontSize: 12 }}>
                   {clearing ? 'Clearing…' : 'Yes, delete'}
-                </button>
-                <button onClick={() => setConfirmClear(false)} style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#475569' }}>
+                </Button>
+                <button onClick={() => setConfirmClear(false)} style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}>
                   Cancel
                 </button>
               </div>
@@ -457,7 +462,7 @@ INSERT INTO social.sm_bot_status (bot_name, status) VALUES
 ON CONFLICT (bot_name) DO NOTHING;`}</pre>
             <button
               onClick={() => { navigator.clipboard.writeText(''); toast('SQL copied to clipboard!', 'success'); }}
-              style={{ marginTop: 10, padding: '5px 12px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#475569' }}
+              style={{ marginTop: 10, padding: '5px 12px', borderRadius: 7, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontSize: 12, color: 'var(--foreground)' }}
             >
               Copy SQL
             </button>

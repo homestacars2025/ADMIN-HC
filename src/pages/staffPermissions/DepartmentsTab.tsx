@@ -194,7 +194,7 @@ export const DepartmentsTab: React.FC<DepartmentsTabProps> = ({ data, setData })
           </div>
           <Button
             size="lg"
-            className="h-11 px-3 lg:h-9"
+            className="!h-11 px-3 lg:h-9"
             disabled={parentOptions.length === 0}
             onClick={() =>
               setForm({ editingKey: null, labelEn: '', labelAr: '', parentKey: parentOptions[0]?.value ?? '' })
@@ -222,7 +222,7 @@ export const DepartmentsTab: React.FC<DepartmentsTabProps> = ({ data, setData })
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 text-black/50 lg:h-8 lg:w-8"
+                className="!h-11 w-11 text-black/50 lg:h-8 lg:w-8"
                 aria-label={`Rename ${department.label_en}`}
                 onClick={() =>
                   setForm({

@@ -82,7 +82,7 @@ const AccountingBadge: React.FC<{ can: boolean }> = ({ can }) =>
       display: 'inline-flex', alignItems: 'center', gap: 5,
       padding: '2px 9px', borderRadius: 20,
       fontSize: 11, fontWeight: 600,
-      color: '#4ba6ea', background: 'rgba(75,166,234,0.1)',
+      color: '#3A74C2', background: 'rgba(75,166,234,0.1)',
       border: '1px solid rgba(75,166,234,0.2)',
     }}>
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none">

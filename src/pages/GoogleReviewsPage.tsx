@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WEBHOOK — n8n endpoint that sends the WhatsApp review request.
@@ -465,7 +466,7 @@ const BookingCell: React.FC<{ start: string | null; end: string | null; number: 
     <div style={{ whiteSpace: 'nowrap' }}>
       <div style={{ fontSize: 12.5, color: hasRange ? '#374151' : '#d1d5db' }}>
         {hasRange
-          ? <>{formatDate(start)} <span style={{ color: '#4ba6ea', margin: '0 3px' }}>→</span> {formatDate(end)}</>
+          ? <>{formatDate(start)} <span style={{ color: '#3A74C2', margin: '0 3px' }}>→</span> {formatDate(end)}</>
           : '—'}
       </div>
       {number && (
@@ -519,14 +520,14 @@ const Th: React.FC<{
           border: 'none', background: 'transparent', cursor: 'pointer',
           font: 'inherit', fontSize: 10.5, fontWeight: 600,
           letterSpacing: '0.7px', textTransform: 'uppercase',
-          color: active ? '#4ba6ea' : '#9ca3af',
+          color: active ? '#3A74C2' : '#9ca3af',
           transition: 'color 140ms ease',
         }}
         onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#6b7280'; }}
         onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#9ca3af'; }}
       >
         {children}
-        <span style={{ width: 8, fontSize: 9, lineHeight: 1, color: '#4ba6ea', flexShrink: 0 }}>
+        <span style={{ width: 8, fontSize: 9, lineHeight: 1, color: '#3A74C2', flexShrink: 0 }}>
           {active ? (dir === 'asc' ? '↑' : '↓') : ''}
         </span>
       </button>
@@ -543,38 +544,17 @@ const SendButton: React.FC<{
   variant?: 'primary' | 'ghost';
   onClick: () => void;
 }> = ({ label, busy, variant = 'primary', onClick }) => (
-  <button
-    type="button"
+  <Button
+    variant={variant === 'primary' ? 'default' : 'outline'}
     disabled={busy}
     onClick={onClick}
-    style={{
-      minHeight: 40, padding: '0 14px',
-      display: 'inline-flex', alignItems: 'center', gap: 7,
-      borderRadius: 9, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
-      cursor: busy ? 'wait' : 'pointer', whiteSpace: 'nowrap',
-      transition: 'all 140ms ease',
-      ...(variant === 'primary'
-        ? { border: 'none', background: busy ? '#a8d4f5' : '#4ba6ea', color: '#fff' }
-        : { border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280' }),
-    }}
-    onMouseEnter={e => {
-      if (busy) return;
-      const b = e.currentTarget;
-      if (variant === 'primary') b.style.background = '#2e8fd4';
-      else { b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }
-    }}
-    onMouseLeave={e => {
-      if (busy) return;
-      const b = e.currentTarget;
-      if (variant === 'primary') b.style.background = '#4ba6ea';
-      else { b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; }
-    }}
+    style={{ minHeight: 40, padding: '0 14px', gap: 7, fontSize: 12.5, fontFamily: 'inherit' }}
   >
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
       <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
     {busy ? 'Sending…' : label}
-  </button>
+  </Button>
 );
 
 /**
@@ -651,7 +631,7 @@ const LanguageModal: React.FC<{
               style={{
                 minHeight: 52, padding: '0 16px', width: '100%',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                borderRadius: 11, border: '1.5px solid #e5e7eb', background: '#fff',
+                borderRadius: 11, border: '1px solid #EBEBEB', background: '#fff',
                 fontFamily: 'inherit', cursor: busy ? 'wait' : 'pointer',
                 transition: 'all 140ms ease', textAlign: 'left',
               }}
@@ -664,7 +644,7 @@ const LanguageModal: React.FC<{
               onMouseLeave={e => {
                 if (busy) return;
                 const b = e.currentTarget;
-                b.style.borderColor = '#e5e7eb';
+                b.style.borderColor = '#EBEBEB';
                 b.style.background = '#fff';
               }}
             >
@@ -693,8 +673,8 @@ const LanguageModal: React.FC<{
             disabled={busy}
             style={{
               minHeight: 44, padding: '0 18px', borderRadius: 9,
-              border: '1px solid #e5e7eb', background: '#fff',
-              fontSize: 14, fontWeight: 500, color: '#6b7280',
+              border: '1px solid #EBEBEB', background: '#fff',
+              fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
               cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
             }}
           >
@@ -926,7 +906,7 @@ const GoogleReviewsPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               Reputation
             </span>
           </div>
@@ -1084,7 +1064,7 @@ const GoogleReviewsPage: React.FC = () => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       margin: '0 auto 16px',
                     }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ color: '#4ba6ea' }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ color: '#3A74C2' }}>
                         <path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.45l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
                       </svg>
                     </div>

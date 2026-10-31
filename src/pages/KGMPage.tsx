@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -602,7 +603,7 @@ const KGMPage: React.FC = () => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               Operations
             </span>
           </div>
@@ -636,12 +637,12 @@ const KGMPage: React.FC = () => {
                 onClick={() => setSelectedDate(new Date())}
                 style={{
                   marginTop: 6, padding: '3px 12px', borderRadius: 20,
-                  border: '1px solid #e5e7eb', background: 'transparent',
-                  color: '#9ca3af', fontSize: 12, fontWeight: 500,
+                  border: '1px solid #EBEBEB', background: '#fff',
+                  color: 'var(--foreground)', fontSize: 12, fontWeight: 500,
                   cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
                 }}
-                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
-                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
+                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
+                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#EBEBEB'; b.style.color = 'var(--foreground)'; }}
               >
                 Go to today
               </button>
@@ -651,29 +652,9 @@ const KGMPage: React.FC = () => {
           <NavArrow direction="right" onClick={() => goTo(1)} disabled={isToday(selectedDate)} />
 
           {/* Print button — absolute top-right */}
-          <button
+          <Button
             onClick={handlePrint}
-            style={{
-              position: 'absolute',
-              right: 36,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              padding: '9px 16px',
-              borderRadius: 9,
-              border: 'none',
-              background: '#4ba6ea',
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              transition: 'background 140ms ease',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            style={{ position: 'absolute', right: 36, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', fontSize: 13, fontFamily: 'inherit' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -681,7 +662,7 @@ const KGMPage: React.FC = () => {
               <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
             </svg>
             Print
-          </button>
+          </Button>
         </div>
 
         {/* ── Table ── */}
@@ -907,7 +888,7 @@ const Th: React.FC<ThProps> = ({ children, style, sortKey, activeSort, onSort, .
         padding: '12px 16px',
         fontSize: 11,
         fontWeight: 600,
-        color: isActive ? '#4ba6ea' : '#9ca3af',
+        color: isActive ? '#3A74C2' : '#9ca3af',
         textTransform: 'uppercase',
         letterSpacing: '0.7px',
         textAlign: 'left',
@@ -928,7 +909,7 @@ const Th: React.FC<ThProps> = ({ children, style, sortKey, activeSort, onSort, .
         {indicator && (
           <span style={{
             fontSize: 12,
-            color: isActive ? '#4ba6ea' : '#d1d5db',
+            color: isActive ? '#3A74C2' : '#d1d5db',
             transition: 'color 140ms ease',
             lineHeight: 1,
           }}>
@@ -958,7 +939,7 @@ const NavArrow: React.FC<NavArrowProps> = ({ direction, onClick, disabled = fals
         width: 36, height: 36, borderRadius: 10,
         border: `1.5px solid ${hovered && !disabled ? '#4ba6ea' : '#e5e7eb'}`,
         background: hovered && !disabled ? 'rgba(75,166,234,0.06)' : '#fff',
-        color: disabled ? '#d1d5db' : hovered ? '#4ba6ea' : '#6b7280',
+        color: disabled ? '#d1d5db' : hovered ? '#3A74C2' : '#6b7280',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 140ms ease', flexShrink: 0,

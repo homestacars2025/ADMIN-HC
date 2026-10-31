@@ -378,7 +378,7 @@ export default function MarketingPerformancePage() {
   const topPostBars: BarChartData[] = topPosts.map((p, i) => ({
     label: p.title.slice(0, 12) + '…',
     value: p.likes,
-    color: ['#4ba6ea', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'][i],
+    color: ['#3A74C2', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'][i],
   }));
 
   // KPI summary from most recent monthly data
@@ -433,8 +433,8 @@ export default function MarketingPerformancePage() {
             ))}
           </div>
           <button onClick={handleSeed} disabled={seeding || loading} style={{
-            padding: '8px 16px', borderRadius: 8, border: '1px solid #e2e8f0',
-            background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#475569',
+            padding: '8px 16px', borderRadius: 8, border: '1px solid #EBEBEB',
+            background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--foreground)',
             opacity: seeding ? 0.6 : 1,
           }}>{seeding ? 'Loading...' : 'Load test data'}</button>
         </div>
@@ -443,7 +443,7 @@ export default function MarketingPerformancePage() {
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
         {[
-          { label: 'Total Revenue', value: `₺${fmt(totalRevenue)}`, spark: revSparkData, color: '#4ba6ea', change: revenueChange, icon: '💰' },
+          { label: 'Total Revenue', value: `₺${fmt(totalRevenue)}`, spark: revSparkData, color: '#3A74C2', change: revenueChange, icon: '💰' },
           { label: 'Total Reach', value: fmt(totalReach), spark: reachSparkData, color: '#8b5cf6', change: reachChange, icon: '👁' },
           { label: 'Posts Published', value: fmt(totalPosts), spark: postSparkData, color: '#10b981', change: null, icon: '📱' },
           { label: 'Bookings (attributed)', value: fmt(totalBookings), spark: bookingSparkData, color: '#f59e0b', change: null, icon: '🚗' },
@@ -626,14 +626,14 @@ export default function MarketingPerformancePage() {
                   </div>
                   <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#4ba6ea' }}>₺{fmt(r.revenue)}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#3A74C2' }}>₺{fmt(r.revenue)}</div>
                       <div style={{ fontSize: 11, color: '#94a3b8' }}>Revenue</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#8b5cf6' }}>{r.avg_engagement_rate ?? '—'}%</div>
                       <div style={{ fontSize: 11, color: '#94a3b8' }}>Engagement</div>
                     </div>
-                    <span style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 600, whiteSpace: 'nowrap' }}>View →</span>
+                    <span style={{ fontSize: 12, color: '#3A74C2', fontWeight: 600, whiteSpace: 'nowrap' }}>View →</span>
                   </div>
                 </div>
               ))}

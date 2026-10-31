@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { socialFrom } from '../../lib/socialClient';
 import type { SmBot } from '../../types/marketing';
 import { BOT_DEFS } from '../../types/marketing';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Markdown renderer ────────────────────────────────────────────────────────
 
@@ -241,10 +242,13 @@ const AddBotModal: React.FC<{
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0 }}>
-          <button type="button" onClick={onClose} style={{ height: 36, padding: '0 16px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button type="submit" disabled={saving} style={{ height: 36, padding: '0 18px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+          <button type="button" onClick={onClose} style={{ height: 36, padding: '0 16px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <Button
+            type="submit"
+            disabled={saving}
+            style={{ padding: '0 18px', fontSize: 13, fontFamily: 'inherit' }}>
             {saving ? 'Adding…' : 'Add Bot'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>,
@@ -420,13 +424,13 @@ const MarketingConstitutionsPage: React.FC = () => {
         <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px' }}>Bots</span>
-            <button
+            <Button
               onClick={() => setShowAdd(true)}
-              style={{ height: 30, padding: '0 11px', borderRadius: 8, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}
+              style={{ padding: '0 11px', fontSize: 12, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" /></svg>
               Add Bot
-            </button>
+            </Button>
           </div>
           <div style={{ position: 'relative' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
@@ -453,7 +457,7 @@ const MarketingConstitutionsPage: React.FC = () => {
             <div style={{ padding: '20px 16px', textAlign: 'center' }}>
               <div style={{ fontSize: 13, color: '#ef4444', marginBottom: 6 }}>Failed to load</div>
               <div style={{ fontSize: 11.5, color: '#9ca3af', marginBottom: 12 }}>{fetchError}</div>
-              <button onClick={() => loadBots()} style={{ fontSize: 12.5, color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Retry</button>
+              <button onClick={() => loadBots()} style={{ fontSize: 12.5, color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Retry</button>
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: '24px 16px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
@@ -531,21 +535,24 @@ const MarketingConstitutionsPage: React.FC = () => {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                   {!editMode && (
-                    <button onClick={handleEdit} style={{ height: 34, padding: '0 16px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 140ms ease' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+                    <Button
+                      onClick={handleEdit}
+                      style={{ padding: '0 16px', fontSize: 13, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="white" strokeWidth="1.8" strokeLinecap="round" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       Edit
-                    </button>
+                    </Button>
                   )}
                   {editMode && (
                     <>
-                      <button onClick={handleCancelEdit} style={{ height: 34, padding: '0 14px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                      <button onClick={handleSave} disabled={saving} style={{ height: 34, padding: '0 16px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={handleCancelEdit} style={{ height: 34, padding: '0 14px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                      <Button
+                        onClick={handleSave}
+                        disabled={saving}
+                        style={{ padding: '0 16px', fontSize: 13, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
                         {saving && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'csSpin 0.7s linear infinite' }}><circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2.5" strokeDasharray="28 56" /></svg>}
                         {saving ? 'Saving…' : 'Save'}
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
@@ -630,7 +637,9 @@ const MarketingConstitutionsPage: React.FC = () => {
                         <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 6 }}>No constitution yet</div>
                         <div style={{ fontSize: 13, color: '#9ca3af', maxWidth: 340 }}>Click Edit to write the bot's rulebook in Markdown.</div>
                       </div>
-                      <button onClick={handleEdit} style={{ height: 38, padding: '0 20px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
+                      <Button
+                        onClick={handleEdit}
+                        style={{ padding: '0 20px', fontSize: 13, fontFamily: 'inherit' }}>Edit</Button>
                     </div>
                   ) : (
                     <>

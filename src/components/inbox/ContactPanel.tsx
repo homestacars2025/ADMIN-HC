@@ -8,6 +8,7 @@ import {
   initials,
   relativeShort,
 } from '../../lib/inbox';
+import { Button } from '../media/MediaUI';
 
 export interface AdminOption { id: string; full_name: string | null; }
 
@@ -138,19 +139,14 @@ const ContactPanel: React.FC<{
             onFocus={e => { e.target.style.borderColor = '#4ba6ea'; }}
             onBlur={e => { e.target.style.borderColor = '#e5e7eb'; }}
           />
-          <button
+          <Button
             type="button"
             onClick={() => void saveNote()}
             disabled={!noteDirty || savingNote}
-            style={{
-              marginTop: 8, width: '100%', height: 36, borderRadius: 9, border: 'none',
-              background: !noteDirty || savingNote ? '#cbd5e1' : '#4ba6ea', color: '#fff',
-              fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
-              cursor: !noteDirty || savingNote ? 'not-allowed' : 'pointer',
-            }}
+            style={{ marginTop: 8, width: '100%', fontSize: 12.5, fontFamily: 'inherit' }}
           >
             {savingNote ? 'Saving…' : noteDirty ? 'Save note' : 'Saved'}
-          </button>
+          </Button>
         </div>
 
         {/* Archive */}
@@ -160,7 +156,7 @@ const ContactPanel: React.FC<{
             { archived_at: conversation.archived_at ? null : new Date().toISOString() },
             { archived_at: conversation.archived_at ? null : new Date().toISOString() },
           )}
-          style={{ width: '100%', height: 36, borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#374151', fontFamily: 'inherit', cursor: 'pointer' }}
+          style={{ width: '100%', height: 36, borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 12.5, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', cursor: 'pointer' }}
         >
           {conversation.archived_at ? 'Unarchive conversation' : 'Archive conversation'}
         </button>

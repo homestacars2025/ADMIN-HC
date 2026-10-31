@@ -25,9 +25,18 @@
   --brand-foreground: oklch(1 0 0);                /* #ffffff */
   --brand-hover: oklch(0.6487 0.1142 254.44);      /* #5c91d3 */
   --brand-subtle: oklch(0.97 0.02 254.44);         /* #ecf6ff */
-  /* #6ea4e7 is too light for text; this is the readable blue, and the one that
-   * carries white text on a button. */
+  /* #6ea4e7 is too light for text; this is the readable blue for links and labels. */
   --brand-strong: #3A74C2;
+
+  /* ── Buttons — the one place these colours are set; see Button in MediaUI ─ */
+  --btn-primary-bg: #6EA4E7;
+  --btn-primary-hover: #5A93DA;
+  --btn-primary-active: #4A86D4;
+  --btn-primary-disabled: rgb(110 164 231 / 0.45);
+  --btn-danger-bg: #DC2626;
+  --btn-danger-hover: #C81E1E;
+  --btn-danger-active: #B91C1C;
+  --btn-danger-disabled: rgb(220 38 38 / 0.45);
 
   --topbar-h: 64px;
 

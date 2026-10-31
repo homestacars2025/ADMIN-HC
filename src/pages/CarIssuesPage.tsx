@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -401,7 +402,7 @@ const PhotoPicker: React.FC<{
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
         <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WEBP · up to {MAX_PHOTOS} photos</span>
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: files.length > 0 ? '#4ba6ea' : '#9ca3af' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: files.length > 0 ? '#3A74C2' : '#9ca3af' }}>
           {files.length} / {MAX_PHOTOS}
         </span>
       </div>
@@ -443,9 +444,9 @@ const PhotoGallery: React.FC<{ urls: string[]; onOpen: (url: string) => void; em
           key={i}
           type="button"
           onClick={() => onOpen(url)}
-          style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 9, overflow: 'hidden', border: '1.5px solid #e5e7eb', cursor: 'zoom-in', padding: 0, background: '#f9fafb', display: 'block', width: '100%', transition: 'border-color 140ms ease, transform 140ms ease' }}
+          style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 9, overflow: 'hidden', border: '1px solid #EBEBEB', cursor: 'zoom-in', padding: 0, background: '#fff', display: 'block', width: '100%', transition: 'border-color 140ms ease, transform 140ms ease' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#4ba6ea'; e.currentTarget.style.transform = 'scale(1.02)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.transform = 'scale(1)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#EBEBEB'; e.currentTarget.style.transform = 'scale(1)'; }}
         >
           <img src={url} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </button>
@@ -527,28 +528,16 @@ const ErrorBox: React.FC<{ message: string }> = ({ message }) => (
 
 const PrimaryButton: React.FC<{
   onClick: () => void; disabled?: boolean; children: React.ReactNode; tone?: 'brand' | 'green' | 'red';
-}> = ({ onClick, disabled, children, tone = 'brand' }) => {
-  const base = tone === 'green' ? '#16a34a' : tone === 'red' ? '#ef4444' : '#4ba6ea';
-  const hover = tone === 'green' ? '#15803d' : tone === 'red' ? '#dc2626' : '#2e8fd4';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        height: 42, padding: '0 22px', borderRadius: 10, border: 'none',
-        background: disabled ? '#cbd5e1' : base, fontSize: 13, fontWeight: 600, color: '#fff',
-        cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-        transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8,
-        justifyContent: 'center', whiteSpace: 'nowrap',
-      }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = hover; }}
-      onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = base; }}
-    >
-      {children}
-    </button>
-  );
-};
+}> = ({ onClick, disabled, children, tone = 'brand' }) => (
+  <Button
+    variant={tone === 'red' ? 'danger' : 'default'}
+    onClick={onClick}
+    disabled={disabled}
+    style={{ height: 42, padding: '0 22px', gap: 8, fontFamily: 'inherit' }}
+  >
+    {children}
+  </Button>
+);
 
 const GhostButton: React.FC<{ onClick: () => void; disabled?: boolean; children: React.ReactNode }> = ({ onClick, disabled, children }) => (
   <button
@@ -556,12 +545,12 @@ const GhostButton: React.FC<{ onClick: () => void; disabled?: boolean; children:
     onClick={onClick}
     disabled={disabled}
     style={{
-      height: 42, padding: '0 18px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff',
-      fontSize: 13, fontWeight: 600, color: '#374151', cursor: disabled ? 'not-allowed' : 'pointer',
+      height: 42, padding: '0 18px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff',
+      fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: disabled ? 'not-allowed' : 'pointer',
       fontFamily: 'inherit', transition: 'all 140ms ease', whiteSpace: 'nowrap',
     }}
     onMouseEnter={e => { if (!disabled) { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#f9fafb'; } }}
-    onMouseLeave={e => { if (!disabled) { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = '#fff'; } }}
+    onMouseLeave={e => { if (!disabled) { e.currentTarget.style.borderColor = '#EBEBEB'; e.currentTarget.style.background = '#fff'; } }}
   >
     {children}
   </button>
@@ -1299,15 +1288,13 @@ const CarIssuesPage: React.FC = () => {
 
         <div style={{ flex: 1 }} />
 
-        <button
+        <Button
           onClick={() => setAddOpen(true)}
-          style={{ height: 38, padding: '0 18px', borderRadius: 9, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', transition: 'background 150ms ease', whiteSpace: 'nowrap' }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#2e8fd4'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#4ba6ea'; }}
+          style={{ padding: '0 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round" /></svg>
           New Issue
-        </button>
+        </Button>
       </div>
 
       {/* Grid */}

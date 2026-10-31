@@ -534,7 +534,7 @@ export const TaskComposer: React.FC<ComposerProps> = ({ template, staff, departm
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-subtle bg-surface px-6 py-3">
-          <Button type="button" variant="ghost" size="lg" className="!h-11 px-4 md:!h-9" onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="ghost" size="lg" className="!h-11 px-4 md:!h-10" onClick={onClose}>Cancel</Button>
           <Button type="submit" size="lg" disabled={saving} className={PRIMARY_BUTTON}>{saving ? 'Sending…' : createLabel}</Button>
         </div>
       </form>

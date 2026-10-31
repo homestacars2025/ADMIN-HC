@@ -8,6 +8,7 @@ import { printReplacementSheet, type ReplacementSheet } from '../lib/printReplac
 import { useCurrency } from '../lib/CurrencyContext';
 import { LANGUAGE_OPTIONS, normalizeLanguage, type CustomerLanguage } from './CustomersPage';
 import { MonthNav } from '../components/shared/MonthNav';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -780,9 +781,9 @@ const DialCodePicker: React.FC<{
         style={{
           height: 40, padding: '0 10px',
           display: 'flex', alignItems: 'center', gap: 5,
-          background: '#fff', border: '1.5px solid #e5e7eb',
+          background: '#fff', border: '1px solid #EBEBEB',
           borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 13, color: '#0f1117', whiteSpace: 'nowrap',
+          fontSize: 13, color: 'var(--foreground)', whiteSpace: 'nowrap',
           transition: 'border-color 150ms ease',
         }}
       >
@@ -1009,7 +1010,7 @@ const DocUploadField: React.FC<{
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
           )}
-          <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 12, color: '#4ba6ea', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 12, color: '#3A74C2', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             View current file
           </a>
           <button type="button" onClick={() => inputRef.current?.click()} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
@@ -1030,7 +1031,7 @@ const DocUploadField: React.FC<{
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-            <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
+            <div style={{ fontSize: 11, color: '#3A74C2', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
           </div>
           <button type="button" onClick={() => onChange(null)}
             style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}
@@ -1045,7 +1046,7 @@ const DocUploadField: React.FC<{
       {!file && (
         <button type="button" onClick={() => inputRef.current?.click()}
           style={{ width: '100%', height: existingUrl ? 44 : 68, borderRadius: 9, border: '1.5px dashed #e5e7eb', background: '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer', color: '#9ca3af', transition: 'all 140ms ease' }}
-          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.04)'; }}
+          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.04)'; }}
           onMouseLeave={e => { const b = e.currentTarget; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; b.style.background = '#fafafa'; }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1069,7 +1070,7 @@ const SectionHeading: React.FC<{ icon: React.ReactNode; title: string }> = ({ ic
       width: 28, height: 28, borderRadius: 8,
       background: 'rgba(75,166,234,0.10)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#4ba6ea', flexShrink: 0,
+      color: '#3A74C2', flexShrink: 0,
     }}>
       {icon}
     </div>
@@ -2170,7 +2171,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               {/* Section heading + currency toggle on the same row */}
               <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 10, borderBottom: '1.5px solid #f0f0f0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: '#4ba6ea', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ color: '#3A74C2', display: 'flex', alignItems: 'center' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7v1m0 8v1M9 10h6M9 14h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                   </span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Financial Information</span>
@@ -2237,7 +2238,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 return rate ? (
                   <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 7, background: 'rgba(75,166,234,0.07)', border: '1px solid rgba(75,166,234,0.18)' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#4ba6ea" strokeWidth="1.8"/><path d="M12 11v5M12 8h.01" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                    <span style={{ fontSize: 11.5, color: '#4ba6ea', fontWeight: 500 }}>
+                    <span style={{ fontSize: 11.5, color: '#3A74C2', fontWeight: 500 }}>
                       Stored in TRY · 1 USD = ₺{rate.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -2261,19 +2262,19 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
             <button type="button" onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
             >
               Cancel
             </button>
-            <button type="submit" disabled={saving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <Button
+              type="submit"
+              disabled={saving}
+              style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}
             >
               {saving ? 'Saving…' : mode === 'add' ? 'Add Booking' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -2684,7 +2685,7 @@ const ReplacementFormModal: React.FC<ReplacementModalProps> = ({ onClose, onSave
                   <button
                     type="button"
                     onClick={() => { setOriginalCar(null); setPlateSearch(''); setBookingId(''); }}
-                    style={{ flexShrink: 0, minHeight: 32, padding: '0 12px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+                    style={{ flexShrink: 0, minHeight: 32, padding: '0 12px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 12, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
                   >
                     Change
                   </button>
@@ -2887,19 +2888,19 @@ const ReplacementFormModal: React.FC<ReplacementModalProps> = ({ onClose, onSave
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
             <button type="button" onClick={onClose}
-              style={{ minHeight: 44, padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ minHeight: 44, padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
             >
               Cancel
             </button>
-            <button type="submit" disabled={submitBlocked}
-              style={{ minHeight: 44, padding: '9px 22px', borderRadius: 9, border: 'none', background: submitBlocked ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: submitBlocked ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <Button
+              type="submit"
+              disabled={submitBlocked}
+              style={{ minHeight: 44, padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}
             >
               {saving ? 'Saving…' : 'Create & Print'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -2923,7 +2924,7 @@ const SectionHeadingBlock: React.FC<{ icon: React.ReactNode; title: string }> = 
       width: 28, height: 28, borderRadius: 8,
       background: 'rgba(75,166,234,0.10)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#4ba6ea', flexShrink: 0,
+      color: '#3A74C2', flexShrink: 0,
     }}>
       {icon}
     </div>
@@ -3225,19 +3226,19 @@ const ExtendBookingModal: React.FC<ExtendModalProps> = ({ booking, onClose, onSa
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
             <button type="button" onClick={onClose} disabled={saving}
-              style={{ minHeight: 44, padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+              style={{ minHeight: 44, padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
             >
               Cancel
             </button>
-            <button type="submit" disabled={submitBlocked}
-              style={{ minHeight: 44, padding: '9px 22px', borderRadius: 9, border: 'none', background: submitBlocked ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: submitBlocked ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!submitBlocked) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <Button
+              type="submit"
+              disabled={submitBlocked}
+              style={{ minHeight: 44, padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}
             >
               {saving ? 'Extending…' : 'Confirm Extension'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -3299,7 +3300,7 @@ const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey
           <path d="M9 6l6 6-6 6" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         <span style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>Replacement Sheets</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '2px 9px' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', background: 'rgba(75,166,234,0.10)', borderRadius: 20, padding: '2px 9px' }}>
           {loading ? '…' : rows.length}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af' }}>
@@ -3349,7 +3350,7 @@ const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
                         <span className="font-mono tabular-nums" style={{ color: '#9ca3af' }}>{r.original_plate ?? '—'}</span>
-                        <span style={{ margin: '0 7px', color: '#4ba6ea' }}>→</span>
+                        <span style={{ margin: '0 7px', color: '#3A74C2' }}>→</span>
                         <strong className="font-mono tabular-nums" style={{ color: '#0f1117' }}>{r.replacement_plate}</strong>
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
@@ -3432,13 +3433,16 @@ const DeleteConfirm: React.FC<{
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose}
-            style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
             Cancel
           </button>
-          <button onClick={onConfirm} disabled={deleting}
-            style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: deleting ? '#fca5a5' : '#ef4444', color: '#fff', fontSize: 14, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}>
+          <Button
+            variant="danger"
+            onClick={onConfirm}
+            disabled={deleting}
+            style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}>
             {deleting ? 'Deleting…' : 'Delete'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -3568,7 +3572,7 @@ const BookingsPage: React.FC = () => {
   const sortIcon = (col: Exclude<SortCol, null>) =>
     sort.col !== col
       ? <span style={{ color: '#d1d5db', fontSize: 11 }}>↕</span>
-      : <span style={{ color: '#4ba6ea', fontSize: 11 }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>;
+      : <span style={{ color: '#3A74C2', fontSize: 11 }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>;
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const allSelected  = sorted.length > 0 && sorted.every(b => selectedIds.has(b.id));
@@ -3678,7 +3682,7 @@ const BookingsPage: React.FC = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
                 Operations
               </span>
             </div>
@@ -3696,19 +3700,19 @@ const BookingsPage: React.FC = () => {
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '0 16px',
-                background: '#fff', color: '#374151',
-                border: '1.5px solid #e5e7eb',
+                background: '#fff', color: 'var(--foreground)',
+                border: '1px solid #EBEBEB',
                 borderRadius: 10, fontSize: 14, fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
                 transition: 'all 150ms ease',
               }}
               onMouseEnter={e => {
                 const b = e.currentTarget as HTMLButtonElement;
-                b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea';
+                b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2';
               }}
               onMouseLeave={e => {
                 const b = e.currentTarget as HTMLButtonElement;
-                b.style.borderColor = '#e5e7eb'; b.style.color = '#374151';
+                b.style.borderColor = '#EBEBEB'; b.style.color = 'var(--foreground)';
               }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -3717,26 +3721,16 @@ const BookingsPage: React.FC = () => {
               Replacement Car
             </button>
 
-            <button
+            <Button
               className="bk-hdr-btn"
               onClick={() => setModal('add')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '0 18px',
-                background: '#4ba6ea', color: '#fff', border: 'none',
-                borderRadius: 10, fontSize: 14, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-                boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
-                transition: 'background 150ms ease',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 18px', fontSize: 14, fontFamily: 'inherit', flexShrink: 0 }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
               </svg>
               Add New Booking
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -3804,7 +3798,7 @@ const BookingsPage: React.FC = () => {
           <button
             onClick={handleExport}
             style={{ height: 40, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease', flexShrink: 0 }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
             onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#f0f0f0'; b.style.color = '#374151'; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -3903,7 +3897,7 @@ const BookingsPage: React.FC = () => {
                 {' '}booking{bookings.length !== 1 ? 's' : ''}
               </span>
               {selectedIds.size > 0 && (
-                <span style={{ fontSize: 13, color: '#4ba6ea', fontWeight: 600 }}>
+                <span style={{ fontSize: 13, color: '#3A74C2', fontWeight: 600 }}>
                   {selectedIds.size} selected
                 </span>
               )}

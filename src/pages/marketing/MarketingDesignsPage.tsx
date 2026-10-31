@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { socialFrom } from '../../lib/socialClient';
 import type { SmDesign } from '../../types/marketing';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -192,7 +193,7 @@ function StatusBadge({ status }: { status: string }) {
 function TypeBadge({ type }: { type: string | null }) {
   if (!type) return null;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, background: 'rgba(75,166,234,0.1)', border: '1px solid rgba(75,166,234,0.25)', fontSize: 11, fontWeight: 600, color: '#4ba6ea', whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20, background: 'rgba(75,166,234,0.1)', border: '1px solid rgba(75,166,234,0.25)', fontSize: 11, fontWeight: 600, color: '#3A74C2', whiteSpace: 'nowrap' }}>
       {DESIGN_TYPE_LABELS[type] ?? type}
     </span>
   );
@@ -284,7 +285,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ design, onClose, onStatusChan
               </div>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleDownload} style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <button onClick={handleDownload} style={{ flex: 1, padding: '9px 0', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 Download
               </button>
@@ -337,7 +338,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ design, onClose, onStatusChan
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Tags</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {design.tags.map((t, i) => (
-                    <span key={i} style={{ padding: '3px 10px', background: '#eff8ff', borderRadius: 20, fontSize: 12, color: '#4ba6ea' }}>#{t}</span>
+                    <span key={i} style={{ padding: '3px 10px', background: '#eff8ff', borderRadius: 20, fontSize: 12, color: '#3A74C2' }}>#{t}</span>
                   ))}
                 </div>
               </div>
@@ -366,9 +367,12 @@ const DetailModal: React.FC<DetailModalProps> = ({ design, onClose, onStatusChan
                   );
                 })}
               </div>
-              <button onClick={handleStatusSave} disabled={saving || newStatus === design.status} style={{ width: '100%', padding: '9px 0', borderRadius: 10, border: 'none', background: (saving || newStatus === design.status) ? '#e5e7eb' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (saving || newStatus === design.status) ? 'not-allowed' : 'pointer' }}>
+              <Button
+                onClick={handleStatusSave}
+                disabled={saving || newStatus === design.status}
+                style={{ width: '100%', padding: '9px 0', fontSize: 14 }}>
                 {saving ? 'Saving…' : 'Save Status'}
-              </button>
+              </Button>
             </div>
 
             {/* Delete */}
@@ -382,7 +386,11 @@ const DetailModal: React.FC<DetailModalProps> = ({ design, onClose, onStatusChan
                   <div style={{ fontSize: 13, color: '#7f1d1d', marginBottom: 10 }}>Are you sure? This cannot be undone.</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151' }}>Cancel</button>
-                    <button onClick={handleDelete} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Deleting…' : 'Delete'}</button>
+                    <Button
+                      variant="danger"
+                      onClick={handleDelete}
+                      disabled={saving}
+                      style={{ flex: 1, padding: '7px 0', fontSize: 13 }}>{saving ? 'Deleting…' : 'Delete'}</Button>
                   </div>
                 </div>
               )}
@@ -512,7 +520,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onCreated, showToast
             ) : (
               <>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af' }}><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                <div style={{ fontSize: 14, color: '#6b7280' }}>Drop image here or <span style={{ color: '#4ba6ea', fontWeight: 600 }}>browse</span></div>
+                <div style={{ fontSize: 14, color: '#6b7280' }}>Drop image here or <span style={{ color: '#3A74C2', fontWeight: 600 }}>browse</span></div>
                 <div style={{ fontSize: 12, color: '#9ca3af' }}>JPG, PNG, WebP, GIF up to 10 MB</div>
               </>
             )}
@@ -553,10 +561,13 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onCreated, showToast
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={onClose} disabled={uploading} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: uploading ? 'not-allowed' : 'pointer' }}>Cancel</button>
-            <button onClick={handleUpload} disabled={!file || !form.title.trim() || uploading} style={{ flex: 2, padding: '10px 0', borderRadius: 10, border: 'none', background: (!file || !form.title.trim() || uploading) ? '#e5e7eb' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (!file || !form.title.trim() || uploading) ? 'not-allowed' : 'pointer' }}>
+            <button onClick={onClose} disabled={uploading} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: uploading ? 'not-allowed' : 'pointer' }}>Cancel</button>
+            <Button
+              onClick={handleUpload}
+              disabled={!file || !form.title.trim() || uploading}
+              style={{ flex: 2, padding: '10px 0', fontSize: 14 }}>
               {uploading ? 'Uploading…' : 'Upload Design'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -668,13 +679,15 @@ const MarketingDesignsPage: React.FC = () => {
           <p style={{ fontSize: 14, color: '#6b7280', margin: '4px 0 0 0' }}>Visual assets and creative outputs from the team</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => showToast('Designer Bot request sent — coming in Phase 3B', 'info')} style={{ padding: '9px 16px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+          <button onClick={() => showToast('Designer Bot request sent — coming in Phase 3B', 'info')} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer' }}>
             Request Design
           </button>
-          <button onClick={() => setUploadOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          <Button
+            onClick={() => setUploadOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', fontSize: 14 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
             Upload Design
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -684,7 +697,7 @@ const MarketingDesignsPage: React.FC = () => {
           const active = statusFilter === tab;
           const st = STATUS_STYLE[tab];
           return (
-            <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#4ba6ea') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
+            <button key={tab} onClick={() => setStatusFilter(tab)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: `1.5px solid ${active ? (st?.border ?? '#4ba6ea') : '#e5e7eb'}`, background: active ? (st?.bg ?? '#eff8ff') : '#fff', fontSize: 13, fontWeight: 600, color: active ? (st?.color ?? '#3A74C2') : '#6b7280', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 140ms ease', flexShrink: 0 }}>
               {tab === 'all' ? 'All' : (STATUS_STYLE[tab]?.label ?? tab)}
               {counts[tab] !== undefined && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: active ? (st?.color ?? '#4ba6ea') : '#e5e7eb', color: active ? '#fff' : '#6b7280', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{counts[tab] ?? 0}</span>}
             </button>
@@ -738,12 +751,12 @@ const MarketingDesignsPage: React.FC = () => {
           </div>
           {designs.length === 0 && (
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}>
-              <button onClick={handleSeedData} disabled={seeding} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: seeding ? 'not-allowed' : 'pointer' }}>
+              <button onClick={handleSeedData} disabled={seeding} style={{ padding: '9px 18px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: seeding ? 'not-allowed' : 'pointer' }}>
                 {seeding ? 'Loading…' : 'Load test data'}
               </button>
-              <button onClick={() => setUploadOpen(true)} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              <Button onClick={() => setUploadOpen(true)} style={{ padding: '9px 18px', fontSize: 14 }}>
                 Upload Design
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -836,7 +849,7 @@ const MarketingDesignsPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', marginBottom: 4 }}>Brand Guidelines</div>
-              <div style={{ fontSize: 13, color: '#6b7280' }}>Primary: <b style={{ fontFamily: 'var(--font-mono)', color: '#4ba6ea' }}>#4ba6ea</b> · All designs should use Inter or SF Pro Display · Logo available in the approved designs above</div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>Primary: <b style={{ fontFamily: 'var(--font-mono)', color: '#3A74C2' }}>#4ba6ea</b> · All designs should use Inter or SF Pro Display · Logo available in the approved designs above</div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {BRAND_COLORS.map(c => (

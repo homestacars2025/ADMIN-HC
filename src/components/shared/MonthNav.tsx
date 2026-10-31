@@ -22,7 +22,7 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
         width: 36, height: 36, borderRadius: 10,
         border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`,
         background: hovered ? 'rgba(75,166,234,0.06)' : '#fff',
-        color: hovered ? '#4ba6ea' : '#6b7280',
+        color: hovered ? '#3A74C2' : '#6b7280',
         cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 140ms ease', flexShrink: 0,

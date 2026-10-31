@@ -71,7 +71,7 @@ function getTypeConfig(type: string | null): TypeConfig {
       icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
     },
     content_change: {
-      label: 'Content', color: '#4ba6ea', bg: '#dbeafe',
+      label: 'Content', color: '#3A74C2', bg: '#dbeafe',
       icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
     },
     strategy_change: {
@@ -430,7 +430,7 @@ function TimelineCard({ decision: d, onClick }: { decision: SmDecision; onClick:
             {needsExpand && (
               <button
                 onClick={e => { e.stopPropagation(); setExpanded(x => !x); }}
-                style={{ marginLeft: 6, fontSize: 12, color: '#4ba6ea', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontWeight: 600 }}
+                style={{ marginLeft: 6, fontSize: 12, color: '#3A74C2', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', fontWeight: 600 }}
               >
                 {expanded ? 'less' : 'more'}
               </button>
@@ -575,11 +575,11 @@ export default function MarketingDecisionsPage() {
           <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>Complete history of all marketing decisions and changes</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button onClick={() => exportCSV(filtered)} disabled={filtered.length === 0} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#475569', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => exportCSV(filtered)} disabled={filtered.length === 0} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export CSV
           </button>
-          <button onClick={handleSeed} disabled={seeding || loading} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#475569' }}>
+          <button onClick={handleSeed} disabled={seeding || loading} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--foreground)' }}>
             {seeding ? 'Loading…' : 'Load test data'}
           </button>
           {/* view toggle */}
@@ -599,7 +599,7 @@ export default function MarketingDecisionsPage() {
       {/* stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Total Decisions', value: decisions.length, color: '#4ba6ea' },
+          { label: 'Total Decisions', value: decisions.length, color: '#3A74C2' },
           { label: 'This Week', value: thisWeek, color: '#8b5cf6' },
           { label: 'By You (Admin)', value: byAdmin, color: '#10b981' },
           { label: 'By Bots', value: byBots, color: '#f59e0b' },
@@ -737,7 +737,7 @@ export default function MarketingDecisionsPage() {
                         {(d.before_value || d.after_value) ? '✓' : '—'}
                       </td>
                       <td style={{ padding: '10px 16px' }}>
-                        <span style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 600 }}>View →</span>
+                        <span style={{ fontSize: 12, color: '#3A74C2', fontWeight: 600 }}>View →</span>
                       </td>
                     </tr>
                   );

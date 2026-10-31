@@ -177,7 +177,11 @@ const GoalsPage: React.FC = () => {
         <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-[13px] text-red-700">
           <AlertTriangle size={15} className="shrink-0" />
           <span className="min-w-0 flex-1">Couldn't load goals: {error}</span>
-          <Button variant="outline" size="lg" className="h-11 px-4 md:h-9" onClick={() => setReloadCount((n) => n + 1)}>Try again</Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="!h-11 px-4 md:!h-10"
+            onClick={() => setReloadCount((n) => n + 1)}>Try again</Button>
         </div>
       ) : !overview || !setup ? (
         <div className="mt-6 h-64 animate-pulse rounded-2xl bg-black/[0.04]" />
@@ -187,7 +191,12 @@ const GoalsPage: React.FC = () => {
             <p className="text-[13px] text-black/55">
               {allGreenCount} of {overview.length} staff all green for {label}
             </p>
-            <Button variant="outline" size="lg" className="h-11 !border-subtle px-3 md:h-9" disabled={copying} onClick={askCopy}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="!h-11 px-3 md:!h-10"
+              disabled={copying}
+              onClick={askCopy}>
               Copy last month's targets
             </Button>
           </div>
@@ -246,7 +255,7 @@ const GoalsPage: React.FC = () => {
                           <Button
                             size="lg"
                             onClick={() => askGrant(staff)}
-                            className="h-11 !bg-brand-strong px-3 text-white hover:!bg-brand-strong/90 md:h-9"
+                            className="!h-11 px-3 hover:/90 md:!h-10"
                           >
                             Grant bonus <span className="font-mono tabular-nums">{formatTry(staff.bonus_amount)}</span>
                           </Button>

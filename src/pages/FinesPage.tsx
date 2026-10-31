@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -573,20 +574,18 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
           {/* Footer */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
             <button type="button" onClick={onClose} style={{
-              height: 40, padding: '0 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
+              height: 40, padding: '0 18px', borderRadius: 9, border: '1px solid #EBEBEB',
+              background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving} style={{
-              height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
-              background: saving ? '#93c5fd' : '#4ba6ea', color: '#fff',
-              fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', transition: 'background 150ms ease',
-            }}>
+            <Button
+              type="submit"
+              disabled={saving}
+              style={{ padding: '0 22px', fontSize: 14, fontFamily: 'inherit' }}>
               {saving ? 'Saving…' : 'Add Fine'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -848,20 +847,18 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
             <button type="button" onClick={onClose} style={{
-              height: 40, padding: '0 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
+              height: 40, padding: '0 18px', borderRadius: 9, border: '1px solid #EBEBEB',
+              background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving} style={{
-              height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
-              background: saving ? '#93c5fd' : '#4ba6ea', color: '#fff',
-              fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-            }}>
+            <Button
+              type="submit"
+              disabled={saving}
+              style={{ padding: '0 22px', fontSize: 14, fontFamily: 'inherit' }}>
               {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -990,8 +987,8 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
 
         <div style={{ padding: '16px 26px', borderTop: '1px solid #f0f0f0', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{
-            height: 40, padding: '0 22px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-            background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit',
+            height: 40, padding: '0 22px', borderRadius: 9, border: '1px solid #EBEBEB',
+            background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit',
           }}>
             Close
           </button>
@@ -1138,20 +1135,18 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 22, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
             <button onClick={onClose} style={{
-              height: 40, padding: '0 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
+              height: 40, padding: '0 18px', borderRadius: 9, border: '1px solid #EBEBEB',
+              background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
               Cancel
             </button>
-            <button onClick={handleConfirm} disabled={saving} style={{
-              height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
-              background: saving ? '#86efac' : '#22c55e', color: '#fff',
-              fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-            }}>
+            <Button
+              onClick={handleConfirm}
+              disabled={saving}
+              style={{ padding: '0 22px', fontSize: 14, fontFamily: 'inherit' }}>
               {saving ? 'Confirming…' : 'Confirm Payment'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1210,20 +1205,19 @@ const DeleteModal: React.FC<{
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} style={{
-            flex: 1, height: 40, borderRadius: 9, border: '1.5px solid #e5e7eb',
-            background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
+            flex: 1, height: 40, borderRadius: 9, border: '1px solid #EBEBEB',
+            background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
             cursor: 'pointer', fontFamily: 'inherit',
           }}>
             Cancel
           </button>
-          <button onClick={handleDelete} disabled={deleting} style={{
-            flex: 1, height: 40, borderRadius: 9, border: 'none',
-            background: deleting ? '#fca5a5' : '#ef4444', color: '#fff',
-            fontSize: 14, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit',
-          }}>
+          <Button
+            variant="danger"
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ flex: 1, fontSize: 14, fontFamily: 'inherit' }}>
             {deleting ? 'Deleting…' : 'Delete'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1499,24 +1493,15 @@ const FinesPage: React.FC = () => {
         <div style={{ flex: 1 }} />
 
         {/* Add Fine button */}
-        <button
+        <Button
           onClick={() => setModal({ type: 'add' })}
-          style={{
-            height: 38, padding: '0 18px', borderRadius: 9, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 7,
-            fontFamily: 'inherit', transition: 'background 150ms ease',
-            whiteSpace: 'nowrap',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#2e8fd4')}
-          onMouseLeave={e => (e.currentTarget.style.background = '#4ba6ea')}
+          style={{ padding: '0 18px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
           Add Fine
-        </button>
+        </Button>
       </div>
 
       {/* Table */}
@@ -1649,7 +1634,7 @@ const FinesPage: React.FC = () => {
             {filterStatus !== 'all' && (
               <button
                 onClick={() => setFilterStatus('all')}
-                style={{ background: 'none', border: 'none', color: '#4ba6ea', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#3A74C2', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
               >
                 Clear filter
               </button>

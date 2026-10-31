@@ -9,6 +9,7 @@ import OperationPhotoGrid, {
   type SlotFiles,
 } from '../components/OperationPhotoGrid';
 import StaffAvatar from '../components/shared/StaffAvatar';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -264,7 +265,7 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`, background: hovered ? 'rgba(75,166,234,0.06)' : '#fff', color: hovered ? '#4ba6ea' : '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 140ms ease', flexShrink: 0 }}
+      style={{ width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`, background: hovered ? 'rgba(75,166,234,0.06)' : '#fff', color: hovered ? '#3A74C2' : '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 140ms ease', flexShrink: 0 }}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
         {direction === 'left'
@@ -1036,7 +1037,7 @@ const AddOperationModal: React.FC<{
                     Booking ID{' '}
                     <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
                     {bookingLoading && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6, animation: 'spin 0.7s linear infinite', verticalAlign: 'middle', color: '#4ba6ea' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6, animation: 'spin 0.7s linear infinite', verticalAlign: 'middle', color: '#3A74C2' }}>
                         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                       </svg>
                     )}
@@ -1254,16 +1255,16 @@ const AddOperationModal: React.FC<{
             </div>
           )}
           <button type="button" onClick={onClose}
-            style={{ height: 40, padding: '0 20px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
+            style={{ height: 40, padding: '0 20px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}>
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}>
             Cancel
           </button>
-          <button
+          <Button
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
             disabled={saving || slotsIncomplete || customerMissing}
-            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: (saving || slotsIncomplete || customerMissing) ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 600, color: '#fff', cursor: (saving || slotsIncomplete || customerMissing) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ padding: '0 24px', fontSize: 13, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             {saving ? (
               <>
@@ -1275,7 +1276,7 @@ const AddOperationModal: React.FC<{
                   : 'Saving…'}
               </>
             ) : isEdit ? 'Save Changes' : 'Save Operation'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1319,18 +1320,17 @@ const ConfirmDeleteDialog: React.FC<{
           <button
             onClick={onCancel}
             disabled={deleting}
-            style={{ flex: 1, height: 42, borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 600, color: '#374151', cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
+            style={{ flex: 1, height: 42, borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 600, color: 'var(--foreground)', cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
             onMouseEnter={e => { if (!deleting) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#f9fafb'; b.style.borderColor = '#d1d5db'; } }}
-            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#fff'; b.style.borderColor = '#e5e7eb'; }}
+            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#fff'; b.style.borderColor = '#EBEBEB'; }}
           >
             Cancel
           </button>
-          <button
+          <Button
+            variant="danger"
             onClick={onConfirm}
             disabled={deleting}
-            style={{ flex: 1, height: 42, borderRadius: 10, border: 'none', background: deleting ? '#fca5a5' : '#ef4444', fontSize: 14, fontWeight: 600, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
-            onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#dc2626'; }}
-            onMouseLeave={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#ef4444'; }}
+            style={{ flex: 1, height: 42, fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
           >
             {deleting ? (
               <>
@@ -1340,7 +1340,7 @@ const ConfirmDeleteDialog: React.FC<{
                 Deleting…
               </>
             ) : 'Delete'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1517,9 +1517,9 @@ const PhotosModal: React.FC<{
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <button
                       onClick={() => setLightbox(item.url as string)}
-                      style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 10, overflow: 'hidden', border: '1.5px solid #e5e7eb', cursor: 'zoom-in', padding: 0, background: '#f9fafb', display: 'block', width: '100%', transition: 'border-color 140ms ease, transform 140ms ease' }}
+                      style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 10, overflow: 'hidden', border: '1px solid #EBEBEB', cursor: 'zoom-in', padding: 0, background: '#fff', display: 'block', width: '100%', transition: 'border-color 140ms ease, transform 140ms ease' }}
                       onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.transform = 'scale(1.02)'; }}
-                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.transform = 'scale(1)'; }}
+                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#EBEBEB'; b.style.transform = 'scale(1)'; }}
                     >
                       <img
                         src={item.url}
@@ -2167,7 +2167,7 @@ const OperationsPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Operations</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Operations</span>
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>Car Operations</h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Deliveries, pickups, washes, maintenance and more</p>
@@ -2187,17 +2187,15 @@ const OperationsPage: React.FC = () => {
         </button>
 
         {/* Add Operation button */}
-        <button
+        <Button
           onClick={() => setShowAddModal(true)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 22px', borderRadius: 12, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 12px rgba(75,166,234,0.35)', transition: 'background 140ms ease, box-shadow 140ms ease', flexShrink: 0 }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3b96da'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 18px rgba(75,166,234,0.45)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 12px rgba(75,166,234,0.35)'; }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 22px', fontSize: 14, fontFamily: 'inherit', flexShrink: 0 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
           </svg>
           Add Operation
-        </button>
+        </Button>
       </div>
 
       {/* ── Tabs ── */}
@@ -2365,7 +2363,7 @@ const OperationsPage: React.FC = () => {
                         onClick={() => setPhotosOp(op)}
                         title={op.photos || op.folder_url ? 'View photos' : 'View delivery checklist'}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
-                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -2396,9 +2394,9 @@ const OperationsPage: React.FC = () => {
                         <button
                           onClick={() => setReportOp(op)}
                           title="Pickup report"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', color: '#6b7280', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 140ms ease' }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
-                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', cursor: 'pointer', color: 'var(--foreground)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 140ms ease' }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#EBEBEB'; b.style.color = 'var(--foreground)'; b.style.background = '#f9fafb'; }}
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -2420,7 +2418,7 @@ const OperationsPage: React.FC = () => {
                         onClick={() => setEditOp(op)}
                         title="Edit"
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
-                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none">

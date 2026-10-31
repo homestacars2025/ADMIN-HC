@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { socialFrom } from '../../lib/socialClient';
 import type { SmApproval } from '../../types/marketing';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ function timeAgo(iso: string): string {
 const PRIORITY: Record<string, { color: string; bg: string; border: string; label: string }> = {
   urgent: { color: '#ef4444', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.25)',  label: 'Urgent' },
   high:   { color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', label: 'High' },
-  normal: { color: '#4ba6ea', bg: 'rgba(75,166,234,0.08)', border: 'rgba(75,166,234,0.25)', label: 'Normal' },
+  normal: { color: '#3A74C2', bg: 'rgba(75,166,234,0.08)', border: 'rgba(75,166,234,0.25)', label: 'Normal' },
   low:    { color: '#9ca3af', bg: 'rgba(156,163,175,0.10)',border: 'rgba(156,163,175,0.3)', label: 'Low' },
 };
 
@@ -142,24 +143,20 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ action, onConfirm, onCanc
         />
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
           <button onClick={onCancel} disabled={loading} style={{
-            padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb',
-            background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
+            padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB',
+            background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
             cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
           }}>
             Cancel
           </button>
-          <button
+          <Button
+            variant={action === 'reject' ? 'danger' : 'default'}
             onClick={() => onConfirm(text)}
             disabled={!text.trim() || loading}
-            style={{
-              padding: '9px 22px', borderRadius: 9, border: 'none',
-              background: action === 'reject' ? (text.trim() && !loading ? '#ef4444' : '#fca5a5') : (text.trim() && !loading ? '#4ba6ea' : '#a8d4f5'),
-              color: '#fff', fontSize: 14, fontWeight: 600,
-              cursor: text.trim() && !loading ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
-            }}
+            style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit' }}
           >
             {loading ? 'Saving…' : action === 'reject' ? 'Reject' : 'Request Changes'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -446,7 +443,7 @@ const MarketingApprovalsPage: React.FC = () => {
               padding: '5px 14px', borderRadius: 8, border: 'none', fontFamily: 'inherit',
               fontSize: 13, fontWeight: statusFilter === tab.key ? 600 : 500,
               background: statusFilter === tab.key ? 'rgba(75,166,234,0.10)' : 'transparent',
-              color: statusFilter === tab.key ? '#4ba6ea' : '#6b7280',
+              color: statusFilter === tab.key ? '#3A74C2' : '#6b7280',
               cursor: 'pointer', transition: 'all 120ms ease',
             }}>
               {tab.label}
@@ -675,7 +672,7 @@ const MarketingApprovalsPage: React.FC = () => {
                       fontSize: 13, color: '#374151', lineHeight: 1.6,
                     }}>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: '#4ba6ea', flexShrink: 0, marginTop: 2 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: '#3A74C2', flexShrink: 0, marginTop: 2 }}>
                           <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
                           <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
                         </svg>
@@ -717,24 +714,16 @@ const MarketingApprovalsPage: React.FC = () => {
                   display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
                 }}>
                   {/* Approve */}
-                  <button
+                  <Button
                     onClick={handleApprove}
                     disabled={actionLoading}
-                    style={{
-                      height: 40, padding: '0 22px', borderRadius: 10, border: 'none',
-                      background: actionLoading ? '#86efac' : '#10b981', color: '#fff',
-                      fontSize: 14, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer',
-                      fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7,
-                      transition: 'background 140ms ease',
-                    }}
-                    onMouseEnter={e => { if (!actionLoading) (e.currentTarget as HTMLButtonElement).style.background = '#059669'; }}
-                    onMouseLeave={e => { if (!actionLoading) (e.currentTarget as HTMLButtonElement).style.background = '#10b981'; }}
+                    style={{ padding: '0 22px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                       <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     Approve <span style={{ fontSize: 11, opacity: 0.8, fontWeight: 400 }}>A</span>
-                  </button>
+                  </Button>
 
                   {/* Request changes */}
                   <button
@@ -742,13 +731,13 @@ const MarketingApprovalsPage: React.FC = () => {
                     disabled={actionLoading}
                     style={{
                       height: 40, padding: '0 18px', borderRadius: 10,
-                      border: '1.5px solid #e5e7eb', background: '#fff',
-                      fontSize: 14, fontWeight: 500, color: '#374151',
+                      border: '1px solid #EBEBEB', background: '#fff',
+                      fontSize: 14, fontWeight: 500, color: 'var(--foreground)',
                       cursor: actionLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                       transition: 'border-color 140ms ease',
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
                   >
                     Request Changes
                   </button>

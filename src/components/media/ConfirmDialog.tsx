@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { cn } from '../../lib/media/badgeColor';
 import { AlertTriangle } from './MediaIcons';
 import { Button, Spinner } from './MediaUI';
 
@@ -71,12 +70,7 @@ export const ConfirmDialog: React.FC<{
           <Button variant="outline" size="lg" onClick={onCancel} disabled={pending}>
             Cancel
           </Button>
-          <Button
-            size="lg"
-            onClick={onConfirm}
-            disabled={pending}
-            className={cn('bg-[#d4183d] text-white hover:bg-[#b21334]')}
-          >
+          <Button variant="danger" size="lg" onClick={onConfirm} disabled={pending}>
             {pending && <Spinner size={13} />}
             {pending ? 'Deleting…' : state.confirmLabel}
           </Button>

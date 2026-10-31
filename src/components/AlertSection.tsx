@@ -277,8 +277,8 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
             onClick={onClose}
             style={{
               padding: '8px 18px', borderRadius: 8,
-              border: '1px solid #e5e7eb', background: '#ffffff',
-              fontSize: 13, fontWeight: 600, color: '#6b7280',
+              border: '1px solid #EBEBEB', background: '#fff',
+              fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
               cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 140ms ease',
             }}
@@ -289,8 +289,8 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
             }}
             onMouseLeave={e => {
               const b = e.currentTarget as HTMLButtonElement;
-              b.style.borderColor = '#e5e7eb';
-              b.style.color = '#6b7280';
+              b.style.borderColor = '#EBEBEB';
+              b.style.color = 'var(--foreground)';
             }}
           >
             Close

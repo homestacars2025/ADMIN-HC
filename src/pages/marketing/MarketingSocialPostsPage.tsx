@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import { socialFrom } from '../../lib/socialClient';
 import { supabase } from '../../lib/supabase';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -360,7 +361,7 @@ const ImageSection: React.FC<{
         {/* Meta row */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
           {modelGroupName && (
-            <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(75,166,234,0.08)', color: '#4ba6ea', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(75,166,234,0.08)', color: '#3A74C2', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>
               {modelGroupName}
             </span>
           )}
@@ -401,7 +402,7 @@ const ImageSection: React.FC<{
               onBlur={e => (e.target.style.borderColor = '#fca5a5')}
             />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setRejectMode(false)} style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setRejectMode(false)} style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer' }}>Cancel</button>
               <button
                 onClick={handleRejectSubmit}
                 disabled={rejectBusy || generating || !rejectNote.trim()}
@@ -413,13 +414,13 @@ const ImageSection: React.FC<{
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
+            <Button
               onClick={handleApproveImage}
-              style={{ flex: 2, padding: '11px 0', borderRadius: 10, border: 'none', background: '#059669', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+              style={{ flex: 2, padding: '11px 0', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="#fff" strokeWidth="1.8"/></svg>
               Approve Image
-            </button>
+            </Button>
             <button
               onClick={() => setRejectMode(true)}
               style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1.5px solid #fca5a5', background: '#fff', color: '#dc2626', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
@@ -455,7 +456,7 @@ const ImageSection: React.FC<{
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           {modelGroupName && (
-            <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(75,166,234,0.08)', color: '#4ba6ea', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(75,166,234,0.08)', color: '#3A74C2', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>
               {modelGroupName}
             </span>
           )}
@@ -480,7 +481,7 @@ const ImageSection: React.FC<{
         <button
           onClick={() => triggerGenerate('create')}
           disabled={generating}
-          style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: generating ? 'not-allowed' : 'pointer' }}
+          style={{ width: '100%', padding: '9px 0', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: generating ? 'not-allowed' : 'pointer' }}
         >
           {generating ? 'Regenerating…' : 'Regenerate anyway'}
         </button>
@@ -728,7 +729,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
               : (post.hashtags?.length
                   ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {post.hashtags.map(tag => (
-                        <span key={tag} style={{ fontSize: 12, fontWeight: 500, color: '#4ba6ea', background: 'rgba(75,166,234,0.08)', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>#{tag}</span>
+                        <span key={tag} style={{ fontSize: 12, fontWeight: 500, color: '#3A74C2', background: 'rgba(75,166,234,0.08)', border: '1px solid rgba(75,166,234,0.2)', borderRadius: 6, padding: '3px 9px' }}>#{tag}</span>
                       ))}
                     </div>
                   : <span style={{ fontSize: 13, color: '#9ca3af' }}>None</span>
@@ -814,7 +815,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
                 onBlur={e => (e.target.style.borderColor = '#fca5a5')}
               />
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setMode('view')} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: 'pointer' }}>إلغاء</button>
+                <button onClick={() => setMode('view')} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer' }}>إلغاء</button>
                 <button
                   onClick={handleRejectConfirm}
                   disabled={busy || !rejectNote.trim()}
@@ -839,7 +840,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
             <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: '16px', display: 'flex', flexDirection: 'column', gap: 10, animation: 'spFadeIn 150ms ease' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#dc2626' }}>Permanently delete this post?</div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setDeleteConfirm(false)} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => setDeleteConfirm(false)} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer' }}>Cancel</button>
                 <button onClick={handleDelete} disabled={busy} style={{ flex: 2, padding: '8px 0', borderRadius: 8, border: 'none', background: busy ? '#f3f4f6' : '#dc2626', color: busy ? '#9ca3af' : '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}>
                   {busy ? 'Deleting…' : 'Yes, delete'}
                 </button>
@@ -872,7 +873,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
             <button
               onClick={() => { setMode('edit'); setDeleteConfirm(false); }}
               disabled={busy}
-              style={{ flex: 1, minWidth: 70, padding: '10px 0', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
+              style={{ flex: 1, minWidth: 70, padding: '10px 0', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', color: 'var(--foreground)', fontSize: 14, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}
             >
               Edit
             </button>
@@ -889,7 +890,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
 
         {mode === 'edit' && (
           <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button onClick={() => setMode('view')} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 600, color: '#6b7280', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => setMode('view')} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer' }}>Cancel</button>
             <button onClick={handleSaveEdit} disabled={busy} style={{ flex: 2, padding: '10px 0', borderRadius: 10, border: 'none', background: busy ? '#e5e7eb' : '#4ba6ea', color: busy ? '#9ca3af' : '#fff', fontSize: 14, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', transition: 'background 140ms ease' }}>
               {busy ? 'Saving…' : 'Save Changes'}
             </button>
@@ -1005,7 +1006,7 @@ const MarketingSocialPostsPage: React.FC = () => {
                 border: `1.5px solid ${active ? (s?.border ?? '#4ba6ea') : '#e5e7eb'}`,
                 background: active ? (s?.bg ?? '#eff8ff') : '#fff',
                 fontSize: 13, fontWeight: 600,
-                color: active ? (s?.color ?? '#4ba6ea') : '#6b7280',
+                color: active ? (s?.color ?? '#3A74C2') : '#6b7280',
                 cursor: 'pointer', whiteSpace: 'nowrap',
                 transition: 'all 140ms ease', flexShrink: 0,
               }}
@@ -1137,7 +1138,7 @@ const MarketingSocialPostsPage: React.FC = () => {
                         </td>
                         {/* Chevron */}
                         <td style={{ padding: '13px 16px' }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: isHov || isSel ? '#4ba6ea' : '#d1d5db', transition: 'color 120ms ease' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: isHov || isSel ? '#3A74C2' : '#d1d5db', transition: 'color 120ms ease' }}>
                             <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </td>

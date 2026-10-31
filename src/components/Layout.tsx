@@ -10,6 +10,7 @@ import { useCurrency } from '../lib/CurrencyContext';
 import { loadUserSettings } from '../lib/userSettings';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 import { usePresence } from '../hooks/usePresence';
+import { Button } from './media/MediaUI';
 
 // ─── Inactivity Warning Modal ─────────────────────────────────────────────────
 
@@ -48,19 +49,11 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
           You will be logged out in <strong style={{ color: '#0f1117' }}>30 seconds</strong> due to inactivity.
         </div>
 
-        <button
-          onClick={onStay}
-          style={{
-            width: '100%', height: 44, borderRadius: 11, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit', transition: 'background 140ms ease',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3b96da'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+        <Button
+          onClick={onStay} style={{ width: '100%', height: 44, fontSize: 14, fontFamily: 'inherit' }}
         >
           Stay logged in
-        </button>
+        </Button>
       </div>
 
       <style>{`

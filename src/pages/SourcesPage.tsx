@@ -342,7 +342,11 @@ const SourceDetail: React.FC<{
                 </div>
               </div>
             ) : (
-              <Button variant="outline" size="sm" className="self-start" onClick={() => setDraft({ is_primary: contacts.length === 0 })}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() => setDraft({ is_primary: contacts.length === 0 })}>
                 <Plus size={14} /> Add contact
               </Button>
             )}
@@ -479,7 +483,11 @@ const SourcesPage: React.FC = () => {
           <div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/[0.05] p-3">
             <AlertTriangle size={15} className="mt-px text-destructive" />
             <span className="text-[12.5px] text-destructive">{error}</span>
-            <Button variant="outline" size="sm" className="ml-auto" onClick={() => { setLoading(true); void load(); }}>Retry</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => { setLoading(true); void load(); }}>Retry</Button>
           </div>
         )}
 

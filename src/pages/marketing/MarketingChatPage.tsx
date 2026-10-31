@@ -6,6 +6,7 @@ import { sendMessageToCMO, isCmoConfigured } from '../../lib/cmoApi';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
 import StaffAvatar from '../../components/shared/StaffAvatar';
 import type { SmChatMessage } from '../../types/marketing';
+import { Button } from '../../components/media/MediaUI';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -128,12 +129,11 @@ const RetryBanner: React.FC<{ state: RetryState; onRetry: () => void; onDismiss:
     <span style={{ flex: 1, fontSize: 13, color: '#dc2626' }}>
       CMO didn't respond. Your message was saved.
     </span>
-    <button
-      onClick={onRetry}
-      style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+    <Button
+      onClick={onRetry} style={{ padding: '5px 12px', fontSize: 12 }}
     >
       Retry
-    </button>
+    </Button>
     <button
       onClick={onDismiss}
       style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid #fecaca', background: '#fff', color: '#dc2626', fontSize: 12, cursor: 'pointer' }}
@@ -203,8 +203,8 @@ const MessageBubble: React.FC<{
               style={{
                 position: 'absolute', top: -28,
                 right: isUser ? 0 : 'auto', left: isUser ? 'auto' : 0,
-                background: '#fff', border: '1px solid #e5e7eb', borderRadius: 7,
-                padding: '3px 8px', fontSize: 11, color: '#6b7280', cursor: 'pointer',
+                background: '#fff', border: '1px solid #EBEBEB', borderRadius: 7,
+                padding: '3px 8px', fontSize: 11, color: 'var(--foreground)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit',
                 whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
               }}
@@ -892,7 +892,7 @@ const MarketingChatPage: React.FC = () => {
                 padding: '12px 16px', fontSize: 13, fontWeight: 600, border: 'none', background: 'none',
                 cursor: 'pointer', fontFamily: 'inherit', borderBottom: '2px solid',
                 borderColor: activeTab === tab ? '#4ba6ea' : 'transparent',
-                color: activeTab === tab ? '#4ba6ea' : '#6b7280',
+                color: activeTab === tab ? '#3A74C2' : '#6b7280',
                 transition: 'all 140ms ease',
               }}
             >
@@ -942,7 +942,7 @@ const MarketingChatPage: React.FC = () => {
           ) : displayedMessages.length === 0 ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '40px 0' }}>
               <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(75,166,234,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ color: '#4ba6ea' }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ color: '#3A74C2' }}>
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>

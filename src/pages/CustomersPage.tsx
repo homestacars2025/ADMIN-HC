@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -328,9 +329,9 @@ const DialCodePicker: React.FC<{
         style={{
           height: 40, padding: '0 10px',
           display: 'flex', alignItems: 'center', gap: 5,
-          background: '#fff', border: '1.5px solid #e5e7eb',
+          background: '#fff', border: '1px solid #EBEBEB',
           borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 13, color: '#0f1117', whiteSpace: 'nowrap',
+          fontSize: 13, color: 'var(--foreground)', whiteSpace: 'nowrap',
           transition: 'border-color 140ms ease',
         }}
       >
@@ -511,7 +512,7 @@ const DocUploadField: React.FC<{
                 <button
                   type="button"
                   onClick={() => setLightbox(true)}
-                  style={{ flex: 1, height: 36, border: 'none', borderRight: '1px solid rgba(75,166,234,0.12)', background: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#4ba6ea', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontFamily: 'inherit', transition: 'background 120ms ease' }}
+                  style={{ flex: 1, height: 36, border: 'none', borderRight: '1px solid rgba(75,166,234,0.12)', background: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#3A74C2', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontFamily: 'inherit', transition: 'background 120ms ease' }}
                   onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(75,166,234,0.07)'; }}
                   onMouseLeave={e => { (e.currentTarget).style.background = 'none'; }}
                 >
@@ -542,7 +543,7 @@ const DocUploadField: React.FC<{
               <div style={{ width: 34, height: 34, borderRadius: 7, background: '#e0edfa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <FileIcon />
               </div>
-              <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#3A74C2', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 View file
               </a>
               <button type="button" onClick={() => inputRef.current?.click()} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
@@ -565,7 +566,7 @@ const DocUploadField: React.FC<{
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-            <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
+            <div style={{ fontSize: 11, color: '#3A74C2', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
           </div>
           <button type="button" onClick={() => onChange(null)} style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}
             onMouseEnter={e => { const b = e.currentTarget; b.style.color = '#ef4444'; b.style.borderColor = '#fca5a5'; }}
@@ -579,7 +580,7 @@ const DocUploadField: React.FC<{
       {!file && !existingUrl && (
         <button type="button" onClick={() => inputRef.current?.click()}
           style={{ width: '100%', height: 72, borderRadius: 10, border: '1.5px dashed #e5e7eb', background: '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer', color: '#9ca3af', fontSize: 12, fontWeight: 500, transition: 'all 140ms ease' }}
-          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.04)'; }}
+          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.04)'; }}
           onMouseLeave={e => { const b = e.currentTarget; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; b.style.background = '#fafafa'; }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points="17 8 12 3 7 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
           Upload file
@@ -822,7 +823,7 @@ const EditCustomerModal: React.FC<{
           {/* Documents */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, marginTop: 2 }}>
-              <div style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea', flexShrink: 0 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3A74C2', flexShrink: 0 }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Customer Documents</span>
@@ -842,10 +843,13 @@ const EditCustomerModal: React.FC<{
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#d1d5db' : '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: saving ? 'none' : '0 2px 8px rgba(75,166,234,0.28)' }}>
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ padding: '9px 22px', fontSize: 13, fontFamily: 'inherit' }}>
             {saving ? 'Saving…' : 'Save Changes'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -900,7 +904,7 @@ const CustomerDetailView: React.FC<{
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 500, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Back
           </button>
@@ -915,10 +919,12 @@ const CustomerDetailView: React.FC<{
             </div>
           </div>
         </div>
-        <button onClick={() => setEditOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(75,166,234,0.3)', flexShrink: 0 }}>
+        <Button
+          onClick={() => setEditOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', fontSize: 13, fontFamily: 'inherit', flexShrink: 0 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Edit Customer
-        </button>
+        </Button>
       </div>
 
       {/* Info card */}
@@ -946,7 +952,7 @@ const CustomerDetailView: React.FC<{
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', letterSpacing: '0.8px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Booking History</span>
           {!loading && (
-            <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(75,166,234,0.1)', color: '#4ba6ea', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(75,166,234,0.1)', color: '#3A74C2', whiteSpace: 'nowrap' }}>
               {bookings.length} {bookings.length === 1 ? 'rental' : 'rentals'}
             </span>
           )}
@@ -955,7 +961,7 @@ const CustomerDetailView: React.FC<{
         <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
               </svg>
             </div>
@@ -1099,7 +1105,7 @@ const CustomersPage: React.FC = () => {
 
   const Spinner = () => (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
       </svg>
     </div>
@@ -1117,7 +1123,7 @@ const CustomersPage: React.FC = () => {
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Management</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Management</span>
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 5px', lineHeight: 1.1 }}>Customers</h1>
         <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Browse customer profiles and rental history.</p>
@@ -1238,7 +1244,7 @@ const CustomersPage: React.FC = () => {
       <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#3A74C2' }}>
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
             </svg>
           </div>
@@ -1289,7 +1295,7 @@ const CustomersPage: React.FC = () => {
                           onClick={e => { e.stopPropagation(); setEditModal(c); }}
                           title="Edit customer"
                           style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', transition: 'all 140ms ease' }}
-                          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.06)'; }}
+                          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.06)'; }}
                           onMouseLeave={e => { const b = e.currentTarget; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#fff'; }}
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
