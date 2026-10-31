@@ -12,11 +12,11 @@ export const BRAND = '#4ba6ea';
 export const INK = '#0f1117';
 export const MUTED = '#6b7280';
 export const FAINT = '#9ca3af';
-export const LINE = '#ebebeb';
+export const LINE = 'var(--border-subtle)';
 
 export const PAGE_STYLE: React.CSSProperties = {
   minHeight: '100vh',
-  background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+  background: 'var(--surface)',
   padding: 'clamp(22px, 4vw, 44px) clamp(16px, 3vw, 40px)',
 };
 

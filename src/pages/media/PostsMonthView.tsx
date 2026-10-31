@@ -171,7 +171,7 @@ export const PostsMonthView: React.FC<{
   return (
     <>
       <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
-        <div className="grid grid-cols-7 border-b border-black/[0.06] bg-black/[0.015]">
+        <div className="grid grid-cols-7 border-b border-subtle bg-surface">
           {WEEKDAY_LABELS.map((d) => (
             <div
               key={d}

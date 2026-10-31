@@ -209,7 +209,7 @@ export const RulesTab: React.FC = () => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 880, borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ borderBottom: `1px solid ${LINE}`, background: '#fafbfc' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)' }}>
                   {['Rule', 'Event key', 'Category', 'Recipients', 'Active', ''].map((h) => (
                     <th key={h} style={{
                       padding: '11px 16px', fontSize: 11, fontWeight: 600, color: FAINT,

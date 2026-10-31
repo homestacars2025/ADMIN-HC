@@ -409,7 +409,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
               {campaign.why_this_campaign && (
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Why This Campaign</div>
-                  <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.65, background: '#f9fafb', borderRadius: 12, padding: '14px 16px' }}>{campaign.why_this_campaign}</div>
+                  <div style={{ border: '1px solid var(--border-subtle)', fontSize: 14, color: '#374151', lineHeight: 1.65, background: 'var(--surface)', borderRadius: 12, padding: '14px 16px' }}>{campaign.why_this_campaign}</div>
                 </div>
               )}
               {campaign.recommendations && campaign.recommendations.length > 0 && (
@@ -417,7 +417,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Bot Recommendations</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {campaign.recommendations.map((r, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: '#374151', alignItems: 'flex-start' }}>
+                      <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 10, fontSize: 13, color: '#374151', alignItems: 'flex-start' }}>
                         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea', marginTop: 5, flexShrink: 0 }} />
                         {r}
                       </div>
@@ -431,7 +431,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                   { label: 'Expected Clicks', val: campaign.expected_clicks?.toLocaleString() ?? '—' },
                   { label: 'Expected ROAS', val: campaign.expected_roas != null ? `${campaign.expected_roas}×` : '—' },
                 ].map(({ label, val }) => (
-                  <div key={label} style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                  <div key={label} style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
                     <div style={{ fontSize: 18, fontWeight: 600, color: '#0f1117' }}>{val}</div>
                     <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{label}</div>
                   </div>
@@ -489,20 +489,20 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                   <button key={lang} onClick={() => setLangTab(lang)} style={{ padding: '7px 20px', border: 'none', background: langTab === lang ? '#4ba6ea' : '#fff', color: langTab === lang ? '#fff' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{lang.toUpperCase()}</button>
                 ))}
               </div>
-              <div style={{ background: '#f9fafb', borderRadius: 14, padding: '16px 18px', border: '1.5px solid #f0f0f0' }}>
+              <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border-subtle)' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Ad Copy</div>
                 <div style={{ fontSize: 15, color: '#0f1117', lineHeight: 1.6, direction: langTab === 'ar' ? 'rtl' : 'ltr', minHeight: 60 }}>
                   {campaign.ad_copies?.[langTab] || <span style={{ color: '#d1d5db' }}>No copy in {langTab.toUpperCase()}</span>}
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Landing Page</div>
                   {campaign.landing_page_url ? (
                     <a href={campaign.landing_page_url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#4ba6ea', wordBreak: 'break-all', textDecoration: 'none' }}>{campaign.landing_page_url}</a>
                   ) : <span style={{ fontSize: 13, color: '#9ca3af' }}>Not set</span>}
                 </div>
-                <div style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Call to Action</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>{campaign.call_to_action ?? '—'}</div>
                 </div>
@@ -521,7 +521,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                   { label: 'Actual Start', val: fmtDate(campaign.actual_start_date), color: '#059669' },
                   { label: 'Actual End', val: fmtDate(campaign.actual_end_date), color: '#059669' },
                 ].map(({ label, val, color }) => (
-                  <div key={label} style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px' }}>
+                  <div key={label} style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 12, padding: '14px 16px' }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>{label}</div>
                     <div style={{ fontSize: 16, fontWeight: 600, color }}>{val}</div>
                   </div>
@@ -547,7 +547,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
                   { label: 'Clicks', val: totalClicks.toLocaleString(), color: '#8b5cf6' },
                   { label: 'ROAS', val: roas != null ? `${roas}×` : '—', color: roas && roas >= 2 ? '#059669' : '#ef4444' },
                 ].map(({ label, val, color }) => (
-                  <div key={label} style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                  <div key={label} style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
                     <div style={{ fontSize: 20, fontWeight: 600, color }}>{val}</div>
                     <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{label}</div>
                   </div>
@@ -556,7 +556,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ campaign, perf, onClose, onSt
 
               {/* Chart */}
               {perf.length > 0 && (
-                <div style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 10 }}>Daily Spend</div>
                   <PerfChart data={perf} metric="spend" />
                 </div>
@@ -728,7 +728,7 @@ const MarketingCampaignsPage: React.FC = () => {
           { label: 'Total Spent', value: `$${stats.totalSpent.toLocaleString()}`, color: '#4ba6ea', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><line x1="12" y1="1" x2="12" y2="23" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
           { label: 'Avg ROAS', value: stats.avgRoas != null ? `${stats.avgRoas}×` : '—', color: stats.avgRoas && stats.avgRoas >= 2 ? '#059669' : '#9ca3af', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points="17 6 23 6 23 12" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> },
         ].map(({ label, value, color, icon }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1.5px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div key={label} style={{ background: 'var(--surface)', borderRadius: 14, padding: '18px 20px', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
               {icon}

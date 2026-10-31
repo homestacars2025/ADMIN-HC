@@ -413,9 +413,9 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
 
   return (
     <div style={{
-      background: '#ffffff',
+      background: 'var(--surface)',
       borderRadius: 16,
-      border: '1px solid #ebebeb',
+      border: '1px solid var(--border-subtle)',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',

@@ -204,7 +204,7 @@ const LookupPanel: React.FC<{
           ))}
         </div>
       ) : state.rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-black/[0.09] bg-black/[0.012] px-4 py-6 text-center text-[12.5px] text-black/40">
+        <p className="rounded-xl border border-dashed border-black/[0.09] bg-surface px-4 py-6 text-center text-[12.5px] text-black/40">
           Nothing in this list yet.
         </p>
       ) : (
@@ -331,7 +331,7 @@ const LookupPanel: React.FC<{
       )}
 
       {/* Add row */}
-      <div className="flex flex-col gap-3 rounded-xl border border-dashed border-black/[0.09] bg-black/[0.012] px-3 py-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-xl border border-dashed border-black/[0.09] bg-surface px-3 py-3 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <Input
             value={draftLabel}

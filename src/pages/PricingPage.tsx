@@ -164,8 +164,8 @@ const ExchangeRateCard: React.FC<{
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 14, padding: '18px 20px',
-      border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      background: 'var(--surface)', borderRadius: 14, padding: '18px 20px',
+      border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       transition: 'transform 180ms ease, box-shadow 180ms ease',
       position: 'relative', overflow: 'hidden',
     }}
@@ -373,11 +373,10 @@ type TierField = 'min_days' | 'max_days' | 'discount_percent';
 const TierRow: React.FC<{
   tier: PricingTier;
   label: string;
-  isEven: boolean;
   onDeleted: () => void;
   onUpdated: (id: number, patch: Partial<PricingTier>) => void;
   showToast: (msg: string, type: 'success' | 'error') => void;
-}> = ({ tier, label, isEven, onDeleted, onUpdated, showToast }) => {
+}> = ({ tier, label, onDeleted, onUpdated, showToast }) => {
   const [editingField, setEditingField] = useState<TierField | null>(null);
   const [editVal,      setEditVal]      = useState('');
   const [saving,       setSaving]       = useState(false);
@@ -489,9 +488,9 @@ const TierRow: React.FC<{
     );
 
   return (
-    <tr style={{ background: isEven ? '#fafafa' : '#fff', transition: 'background 100ms ease', opacity: tier.is_active ? 1 : 0.6 }}
+    <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)', transition: 'background 100ms ease', opacity: tier.is_active ? 1 : 0.6 }}
       onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(75,166,234,0.03)'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = isEven ? '#fafafa' : '#fff'; }}>
+      onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface)'; }}>
 
       {/* Tier label */}
       <td style={{ padding: '11px 16px' }}>
@@ -643,7 +642,7 @@ const ModelPricingCard: React.FC<{
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
+      background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)',
       boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden',
       transition: 'transform 180ms ease, box-shadow 180ms ease',
     }}
@@ -683,8 +682,8 @@ const ModelPricingCard: React.FC<{
 
         {/* Base price */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 12px', background: '#f9fafb', borderRadius: 9,
+          border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 12px', background: 'var(--surface)', borderRadius: 9,
           marginBottom: tiers.length > 0 ? 10 : 0,
         }}>
           <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Base / day</span>
@@ -925,7 +924,7 @@ const PricingPage: React.FC = () => {
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <style>{`
         @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes slideUpIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -996,7 +995,7 @@ const PricingPage: React.FC = () => {
         {loadingRates ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
             {[1, 2, 3, 4].map(i => (
-              <div key={i} style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, padding: '18px 20px', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                 <div style={{ width: 80, height: 14, borderRadius: 6, background: '#f3f4f6', marginBottom: 14, animation: 'pulse 1.5s ease-in-out infinite' }} />
                 <div style={{ width: '100%', height: 30, borderRadius: 6, background: '#f3f4f6', marginBottom: 10, animation: 'pulse 1.5s ease-in-out infinite' }} />
                 <div style={{ width: 60, height: 11, borderRadius: 5, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
@@ -1004,7 +1003,7 @@ const PricingPage: React.FC = () => {
             ))}
           </div>
         ) : rates.length === 0 ? (
-          <div style={{ background: '#fff', borderRadius: 14, padding: '32px 24px', textAlign: 'center', border: '1px solid #f0f0f0', color: '#9ca3af', fontSize: 14 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '32px 24px', textAlign: 'center', border: '1px solid var(--border-subtle)', color: '#9ca3af', fontSize: 14 }}>
             No exchange rates found.
           </div>
         ) : (
@@ -1044,7 +1043,7 @@ const PricingPage: React.FC = () => {
           }
         />
 
-        <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)' }}>
           {loadingTiers ? (
             <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[1, 2, 3].map(i => (
@@ -1073,7 +1072,6 @@ const PricingPage: React.FC = () => {
                     key={tier.id}
                     tier={tier}
                     label={TIER_LABELS[idx] ?? String(idx + 1)}
-                    isEven={idx % 2 !== 0}
                     onDeleted={fetchTiers}
                     onUpdated={(id, patch) => setTiers(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))}
                     showToast={showToast}
@@ -1126,7 +1124,7 @@ const PricingPage: React.FC = () => {
         {loadingModels ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #f0f0f0' }}>
+              <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
                 <div style={{ height: 140, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
                 <div style={{ padding: '14px 16px' }}>
                   <div style={{ width: '60%', height: 14, borderRadius: 5, background: '#f3f4f6', marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
@@ -1136,7 +1134,7 @@ const PricingPage: React.FC = () => {
             ))}
           </div>
         ) : filteredModels.length === 0 ? (
-          <div style={{ background: '#fff', borderRadius: 14, padding: '40px 24px', textAlign: 'center', border: '1px solid #f0f0f0', color: '#9ca3af', fontSize: 14 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '40px 24px', textAlign: 'center', border: '1px solid var(--border-subtle)', color: '#9ca3af', fontSize: 14 }}>
             {modelSearch ? 'No models match your search.' : 'No model groups found.'}
           </div>
         ) : (

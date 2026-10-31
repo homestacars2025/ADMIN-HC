@@ -320,7 +320,7 @@ export const MediaEmptyState: React.FC<{
 }> = ({ Icon, title, description, action, className }) => (
   <div
     className={cn(
-      'flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-black/[0.09] bg-black/[0.012] px-6 py-12 text-center sm:py-16',
+      'flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-black/[0.09] bg-surface px-6 py-12 text-center sm:py-16',
       className,
     )}
   >

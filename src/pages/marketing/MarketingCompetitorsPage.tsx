@@ -335,7 +335,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
           {tab === 'overview' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {c.notes && (
-                <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16 }}>
+                <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 10, padding: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6, textTransform: 'uppercase' }}>Notes</div>
                   <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.6 }}>{c.notes}</div>
                 </div>
@@ -383,7 +383,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
-                      <tr style={{ background: '#f8fafc' }}>
+                      <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)' }}>
                         {['Car', 'Category', 'Year', 'Daily (TRY)', 'vs Our Rate', 'Collected'].map(h => (
                           <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
@@ -427,7 +427,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
               {posts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No posts collected yet.</div>
               ) : posts.map(p => (
-                <div key={p.id} style={{ background: '#f8fafc', borderRadius: 10, padding: 16, border: p.is_winning ? '1px solid #4ba6ea' : '1px solid #e2e8f0' }}>
+                <div key={p.id} style={{ background: 'var(--surface)', borderRadius: 10, padding: 16, border: p.is_winning ? '1px solid #4ba6ea' : '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <span style={{ color: '#4ba6ea' }}>{platformIcon(p.platform)}</span>
@@ -470,7 +470,7 @@ function CompanyDetailModal({ competitor: c, pricing, posts, reports, onClose }:
                 <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No reports generated yet.</div>
               ) : reports.map(r => (
                 <div key={r.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-                  <div style={{ background: '#f8fafc', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{r.title}</div>
                       <div style={{ fontSize: 12, color: '#94a3b8' }}>
@@ -685,7 +685,7 @@ export default function MarketingCompetitorsPage() {
           { label: 'Winning Posts', value: winningPosts, color: '#10b981', icon: '⭐' },
           { label: 'Avg Engagement', value: `${avgEngagement}%`, color: '#f59e0b', icon: '📈' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px' }}>
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px' }}>
             <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
             <div style={{ fontSize: 22, fontWeight: 600, color: s.color }}>
               {loading ? <Skeleton h={24} w={60} /> : s.value}
@@ -696,7 +696,7 @@ export default function MarketingCompetitorsPage() {
       </div>
 
       {/* main tabs */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', padding: '0 16px', overflowX: 'auto' }}>
           {([
             { key: 'companies', label: 'Companies', count: competitors.length },
@@ -770,7 +770,7 @@ export default function MarketingCompetitorsPage() {
                       : null;
                     return (
                       <div key={c.id} onClick={() => setSelectedCompetitor(c)} style={{
-                        background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20,
+                        background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20,
                         cursor: 'pointer', transition: 'all 0.15s',
                         borderTop: `3px solid ${threatColor(c.threat_level)}`,
                       }}
@@ -794,7 +794,7 @@ export default function MarketingCompetitorsPage() {
                             { label: 'Posts', value: compPosts.length },
                             { label: 'Avg Engage', value: avgEngage ? `${avgEngage}%` : '—' },
                           ].map(m => (
-                            <div key={m.label} style={{ background: '#f8fafc', borderRadius: 8, padding: '8px 10px' }}>
+                            <div key={m.label} style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 8, padding: '8px 10px' }}>
                               <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.label}</div>
                               <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>{m.value}</div>
                             </div>
@@ -848,7 +848,7 @@ export default function MarketingCompetitorsPage() {
                     const sorted = [...rows].sort((a, b) => a.price - b.price);
                     return (
                       <div key={cat} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-                        <div style={{ background: '#f8fafc', padding: '10px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                        <div style={{ background: 'var(--surface)', padding: '10px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
                           <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{cat}</span>
                           <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 8 }}>{rows.length} competitors</span>
                         </div>
@@ -960,7 +960,7 @@ export default function MarketingCompetitorsPage() {
                           </span>
                         )}
                         {p.bot_analysis && (
-                          <div style={{ background: '#f8fafc', borderRadius: 8, padding: 10, fontSize: 12, color: '#475569', borderLeft: '3px solid #4ba6ea' }}>
+                          <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 8, padding: 10, fontSize: 12, color: '#475569', borderLeft: '3px solid #4ba6ea' }}>
                             {p.bot_analysis}
                           </div>
                         )}
@@ -987,7 +987,7 @@ export default function MarketingCompetitorsPage() {
                 const comp = r.competitor_id ? competitorMap[r.competitor_id] : null;
                 return (
                   <div key={r.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-                    <div style={{ background: '#f8fafc', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, borderBottom: '1px solid #e2e8f0' }}>
+                    <div style={{ background: 'var(--surface)', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, borderBottom: '1px solid var(--border-subtle)' }}>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 15, color: '#0f172a' }}>{r.title}</div>
                         <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>

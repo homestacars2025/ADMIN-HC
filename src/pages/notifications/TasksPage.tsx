@@ -149,7 +149,7 @@ const TasksPage: React.FC = () => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ borderBottom: `1px solid ${LINE}`, background: '#fafbfc' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)' }}>
                   {[
                     'Task',
                     'Priority',
@@ -279,7 +279,7 @@ const TasksPage: React.FC = () => {
 
         {!loading && rows.length === PAGE_SIZE && (
           <div style={{
-            padding: '12px 18px', background: '#fafbfc', fontSize: 12, color: FAINT,
+            borderBottom: '1px solid var(--border-subtle)', padding: '12px 18px', background: 'var(--surface)', fontSize: 12, color: FAINT,
           }}>
             Showing the first {PAGE_SIZE} tasks.
           </div>

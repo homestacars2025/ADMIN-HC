@@ -423,7 +423,7 @@ const TeamChatView: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Header + filter */}
-      <div style={{ padding: '12px 20px', borderBottom: '1px solid #ebebeb', background: '#fafafa', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>Team Chat</div>
           <div style={{ fontSize: 11.5, color: '#9ca3af' }}>Read-only — bots communicate here</div>
@@ -821,10 +821,10 @@ const MarketingChatPage: React.FC = () => {
       {/* ── Left Sidebar ──────────────────────────────────────────────── */}
       <div style={{
         width: 260, minWidth: 260, height: '100%',
-        borderRight: '1px solid #ebebeb', background: '#fafafa',
+        borderInlineEnd: '1px solid var(--border-subtle)', background: 'var(--surface)',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
-        <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid #ebebeb', flexShrink: 0 }}>
+        <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 10, letterSpacing: '-0.2px' }}>
             CMO Chat
           </div>
@@ -886,7 +886,7 @@ const MarketingChatPage: React.FC = () => {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
         {/* ── Tab switcher ──────────────────────────────────────────── */}
-        <div style={{ borderBottom: '1px solid #ebebeb', padding: '0 20px', display: 'flex', gap: 0, flexShrink: 0, background: '#fff' }}>
+        <div style={{ borderBottom: '1px solid var(--border-subtle)', padding: '0 20px', display: 'flex', gap: 0, flexShrink: 0, background: '#fff' }}>
           {(['cmo', 'team'] as const).map(tab => (
             <button
               key={tab}
@@ -911,7 +911,7 @@ const MarketingChatPage: React.FC = () => {
         ) : (<>
 
         {/* Chat header */}
-        <div style={{ height: 60, borderBottom: '1px solid #ebebeb', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, background: '#fff' }}>
+        <div style={{ height: 60, borderBottom: '1px solid var(--border-subtle)', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, background: '#fff' }}>
           <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #4ba6ea 0%, #2e8fd4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -987,7 +987,7 @@ const MarketingChatPage: React.FC = () => {
         </div>
 
         {/* Input area */}
-        <div style={{ borderTop: '1px solid #ebebeb', padding: '14px 20px', background: '#fff', flexShrink: 0 }}>
+        <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '14px 20px', background: '#fff', flexShrink: 0 }}>
           <div
             style={{ display: 'flex', alignItems: 'flex-end', gap: 10, background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 14, padding: '10px 14px', transition: 'border-color 140ms ease' }}
             onFocusCapture={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#4ba6ea'; }}

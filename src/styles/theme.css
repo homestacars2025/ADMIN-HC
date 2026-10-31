@@ -27,13 +27,15 @@
   --brand-subtle: oklch(0.97 0.02 254.44);         /* #ecf6ff */
 
   /* ── Semantic — verbatim from Stay ────────────────────────────────────── */
-  --background: oklch(1 0 0);                      /* #ffffff */
+  --background: var(--surface);
   --foreground: oklch(0.18 0 0);                   /* #121212 */
-  --surface: oklch(0.985 0 0);                     /* #fafafa */
+  /* Every page, panel and bar is this one white, separated by this one hairline. */
+  --surface: #FFFFFF;
+  --border-subtle: #EBEBEB;
 
-  --card: oklch(1 0 0);
+  --card: var(--surface);
   --card-foreground: oklch(0.18 0 0);
-  --popover: oklch(1 0 0);
+  --popover: var(--surface);
   --popover-foreground: oklch(0.18 0 0);
 
   --primary: oklch(0.7087 0.1142 254.44);
@@ -68,13 +70,13 @@
   /* Stay's sidebar is the SAME white as the page, separated by a hairline. The
    * report singles this out: "A grey sidebar is the single most common way a
    * copy of this layout stops looking like it." */
-  --sidebar: oklch(1 0 0);
+  --sidebar: var(--surface);
   --sidebar-foreground: oklch(0.18 0 0);
   --sidebar-primary: oklch(0.7087 0.1142 254.44);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.96 0 0);               /* #f2f2f2 */
   --sidebar-accent-foreground: oklch(0.18 0 0);
-  --sidebar-border: oklch(0.93 0 0);
+  --sidebar-border: var(--border-subtle);
   --sidebar-ring: oklch(0.7087 0.1142 254.44);
   --sidebar-width: 15rem;                          /* 240px */
   --sidebar-width-icon: 3.5rem;                    /* 56px */

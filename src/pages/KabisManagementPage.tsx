@@ -148,10 +148,10 @@ const Badge: React.FC<{ label: string; color: string; bg: string }> = ({ label, 
 
 const Th: React.FC<{ children: React.ReactNode; align?: 'left' | 'right' | 'center' }> = ({ children, align = 'left' }) => (
   <th style={{
-    padding: '11px 14px', textAlign: align,
+    borderBottom: '1px solid var(--border-subtle)', padding: '11px 14px', textAlign: align,
     fontSize: 11, fontWeight: 600, color: '#9ca3af',
     letterSpacing: '0.5px', textTransform: 'uppercase',
-    whiteSpace: 'nowrap', background: '#fafafa',
+    whiteSpace: 'nowrap', background: 'var(--surface)',
   }}>
     {children}
   </th>
@@ -262,7 +262,7 @@ const EditModal: React.FC<{
           {/* Read-only snapshot */}
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 14,
-            padding: '14px', borderRadius: 10, background: '#fafafa', border: '1px solid #f0f0f0', marginBottom: 18,
+            padding: '14px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border-subtle)', marginBottom: 18,
           }}>
             {field('Plate', dash(entry.plate_number), true)}
             {field('Customer', dash(entry.customer_name))}
@@ -599,11 +599,11 @@ const KabisManagementPage: React.FC = () => {
       )}
 
       {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #ebebeb', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                 <Th>Plate</Th>
                 <Th>Customer</Th>
                 <Th>ID Number</Th>

@@ -101,9 +101,9 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, sub }) =
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: '#fff',
+        background: 'var(--surface)',
         borderRadius: 16,
-        border: '1px solid #f0f0f0',
+        border: '1px solid var(--border-subtle)',
         borderTop: `3px solid ${color}`,
         padding: '20px 22px',
         boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.08)' : '0 1px 4px rgba(0,0,0,0.04)',
@@ -137,8 +137,8 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon, color, sub }) =
 
 const SectionCard: React.FC<{ title: string; action?: React.ReactNode; children: React.ReactNode }> = ({ title, action, children }) => (
   <div style={{
-    background: '#fff', borderRadius: 16,
-    border: '1px solid #f0f0f0',
+    background: 'var(--surface)', borderRadius: 16,
+    border: '1px solid var(--border-subtle)',
     boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
     overflow: 'hidden',
   }}>
@@ -288,9 +288,9 @@ const BotCardComp: React.FC<BotCardProps> = ({ name, role, status, color, pendin
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: '#fff',
+        background: 'var(--surface)',
         borderRadius: 14,
-        border: '1px solid #f0f0f0',
+        border: '1px solid var(--border-subtle)',
         borderTop: `3px solid ${color}`,
         padding: '16px 18px',
         boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.07)' : '0 1px 4px rgba(0,0,0,0.04)',
@@ -459,7 +459,7 @@ const MarketingOverviewPage: React.FC = () => {
     : null;
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 56px)', padding: '40px 40px 60px', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+    <div style={{ minHeight: 'calc(100vh - 56px)', padding: '40px 40px 60px', background: 'var(--surface)' }}>
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>

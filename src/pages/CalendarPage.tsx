@@ -522,8 +522,8 @@ const BlockPopup: React.FC<BlockPopupProps> = ({
           {/* Booked → read-only note */}
           {!isEditable && (
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              background: '#f8fafc', borderRadius: 8, padding: '9px 11px',
+              border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 7,
+              background: 'var(--surface)', borderRadius: 8, padding: '9px 11px',
               fontSize: 12, color: TEXT_MID, lineHeight: 1.4,
             }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: BRAND_BLUE }}>
@@ -1370,8 +1370,7 @@ const CalendarPage: React.FC = () => {
               </div>
             )}
 
-            {filteredCars.map((car, rowIdx) => {
-              const rowBg  = rowIdx % 2 === 0 ? 'white' : '#fafafa';
+            {filteredCars.map((car) => {
               const status = car.car_status;
               const selRange = getSelectionRange(car.id);
 
@@ -1381,7 +1380,7 @@ const CalendarPage: React.FC = () => {
                   {/* Left panel */}
                   <div style={{
                     position: 'sticky', left: 0, zIndex: 5,
-                    background: rowBg,
+                    background: 'var(--surface)',
                     borderRight: `1px solid ${BORDER_SOFT}`,
                     display: 'flex', flexDirection: 'column',
                     justifyContent: 'center',
@@ -1459,7 +1458,7 @@ const CalendarPage: React.FC = () => {
                       <div
                         key={`${car.id}-${day}`}
                         style={{
-                          background: isSelected ? `rgba(75, 166, 234, ${selMidAlpha})` : rowBg,
+                          background: isSelected ? `rgba(75, 166, 234, ${selMidAlpha})` : 'var(--surface)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           cursor: cellCursor,
                           position: 'relative',

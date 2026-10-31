@@ -582,7 +582,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ post, onClose, onSaved, showT
               <label style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Target Questions (this article answers)</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
                 {(form.target_questions ?? []).map((q, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, background: '#f9fafb', fontSize: 12, color: '#374151' }}>
+                  <div key={i} style={{ border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, background: 'var(--surface)', fontSize: 12, color: '#374151' }}>
                     <span style={{ flex: 1 }}>? {q}</span>
                     <button onClick={() => set('target_questions', (form.target_questions ?? []).filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, fontSize: 16, lineHeight: 1 }}>×</button>
                   </div>
@@ -765,7 +765,7 @@ const MarketingBlogPostsPage: React.FC = () => {
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid #f0f0f0', display: 'flex', gap: 16 }}>
+            <div key={i} style={{ background: 'var(--surface)', borderRadius: 12, padding: '16px 20px', border: '1px solid var(--border-subtle)', display: 'flex', gap: 16 }}>
               <Sk w={56} h={56} radius={8} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}><Sk h={14} /><Sk w="60%" h={12} /></div>
             </div>
@@ -785,7 +785,7 @@ const MarketingBlogPostsPage: React.FC = () => {
           )}
         </div>
       ) : (
-        <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #f0f0f0', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f3f4f6' }}>

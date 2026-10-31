@@ -588,7 +588,7 @@ const MarketingCalendarPage: React.FC = () => {
             { label: 'Published', value: allItems.filter(i => i.status === 'published').length, color: '#059669' },
             { label: 'Pending Approval', value: allItems.filter(i => i.status === 'pending_approval').length, color: '#d97706' },
           ].map(({ label, value, color }) => (
-            <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1.5px solid #f0f0f0' }}>
+            <div key={label} style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border-subtle)' }}>
               <div style={{ fontSize: 22, fontWeight: 600, color }}>{value}</div>
               <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{label}</div>
             </div>

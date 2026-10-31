@@ -304,7 +304,7 @@ const ChatThread: React.FC<Props> = ({
   const name = contactLabel(conversation);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, flex: 1, background: '#f7f8fa' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, flex: 1, background: 'var(--surface)' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid #f0f0f0', background: '#fff', flexShrink: 0 }}>
         <button

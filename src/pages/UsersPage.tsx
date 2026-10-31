@@ -488,8 +488,8 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
           {/* ── Avatar section ── */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 18,
-            padding: '16px 18px', background: '#f9fafb', borderRadius: 12,
-            border: '1px solid #f0f0f0', marginBottom: 20,
+            padding: '16px 18px', background: 'var(--surface)', borderRadius: 12,
+            border: '1px solid var(--border-subtle)', marginBottom: 20,
           }}>
             {/* Circle preview */}
             <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -1137,7 +1137,7 @@ const UsersPage: React.FC = () => {
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <style>{`
         @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes slideUpIn{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -1177,8 +1177,8 @@ const UsersPage: React.FC = () => {
 
       {/* Toolbar */}
       <div style={{
-        background: '#fff', borderRadius: 14, padding: '14px 18px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+        background: 'var(--surface)', borderRadius: 14, padding: '14px 18px',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
         marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 360 }}>
@@ -1232,8 +1232,8 @@ const UsersPage: React.FC = () => {
 
       {/* Table */}
       <div style={{
-        background: '#fff', borderRadius: 14, overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+        background: 'var(--surface)', borderRadius: 14, overflow: 'hidden',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
@@ -1260,11 +1260,11 @@ const UsersPage: React.FC = () => {
                       </td>
                     </tr>
                   )
-                  : filtered.map((user, idx) => (
+                  : filtered.map((user) => (
                     <tr
                       key={user.id}
                       className="user-row"
-                      style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'background 100ms ease' }}
+                      style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)', transition: 'background 100ms ease' }}
                     >
                       {/* Name + Avatar */}
                       <td style={{ padding: '10px 12px' }}>

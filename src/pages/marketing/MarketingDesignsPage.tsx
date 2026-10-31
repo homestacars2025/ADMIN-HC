@@ -721,7 +721,7 @@ const MarketingDesignsPage: React.FC = () => {
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 18 }}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #f0f0f0' }}>
+            <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
               <Sk h={200} radius={0} />
               <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <Sk h={14} />
@@ -793,7 +793,7 @@ const MarketingDesignsPage: React.FC = () => {
         </div>
       ) : (
         /* List view */
-        <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #f0f0f0', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #f3f4f6' }}>

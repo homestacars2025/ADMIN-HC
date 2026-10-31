@@ -1035,7 +1035,7 @@ const InvestorsPage: React.FC = () => {
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <style>{`
         @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes slideUpIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -1074,8 +1074,8 @@ const InvestorsPage: React.FC = () => {
 
       {/* Toolbar */}
       <div style={{
-        background: '#fff', borderRadius: 14, padding: '14px 18px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+        background: 'var(--surface)', borderRadius: 14, padding: '14px 18px',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
         marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
       }}>
         {/* Search */}
@@ -1129,8 +1129,8 @@ const InvestorsPage: React.FC = () => {
 
       {/* Table */}
       <div style={{
-        background: '#fff', borderRadius: 14, overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+        background: 'var(--surface)', borderRadius: 14, overflow: 'hidden',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
@@ -1161,11 +1161,11 @@ const InvestorsPage: React.FC = () => {
                       </td>
                     </tr>
                   )
-                  : filtered.map((inv, idx) => (
+                  : filtered.map((inv) => (
                     <tr
                       key={inv.id}
                       className="inv-row"
-                      style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'background 100ms ease' }}
+                      style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)', transition: 'background 100ms ease' }}
                     >
                       {/* Investor Name */}
                       <td style={{ padding: '11px 12px' }}>

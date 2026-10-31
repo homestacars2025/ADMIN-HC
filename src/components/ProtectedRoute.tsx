@@ -14,7 +14,7 @@ const Spinner: React.FC = () => (
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'var(--surface-secondary)',
+    background: 'var(--surface)',
   }}>
     <div style={{
       width: 32,

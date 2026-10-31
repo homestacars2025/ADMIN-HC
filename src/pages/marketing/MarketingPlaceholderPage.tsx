@@ -27,7 +27,7 @@ const MarketingPlaceholderPage: React.FC = () => {
   return (
     <div style={{
       minHeight: 'calc(100vh - 56px)',
-      background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: 'var(--surface)',
       padding: '44px 40px',
     }}>
       {/* Page header */}
@@ -46,9 +46,9 @@ const MarketingPlaceholderPage: React.FC = () => {
 
       {/* Coming soon card */}
       <div style={{
-        background: '#fff',
+        background: 'var(--surface)',
         borderRadius: 18,
-        border: '1px solid #f0f0f0',
+        border: '1px solid var(--border-subtle)',
         boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
         padding: '56px 40px',
         display: 'flex',

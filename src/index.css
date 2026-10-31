@@ -15,8 +15,6 @@
   --text-primary: #0f1117;
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
-  --surface: #ffffff;
-  --surface-secondary: #f9fafb;
   --border: #e5e7eb;
   --border-focus: #6ea4e7;
   --error: #ef4444;
@@ -39,7 +37,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--surface-secondary);
+  background: var(--surface);
   color: var(--text-primary);
   line-height: 1.5;
 }

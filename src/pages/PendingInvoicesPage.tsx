@@ -241,10 +241,10 @@ const PendingInvoicesPage: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   const thStyle: React.CSSProperties = {
-    padding: '11px 16px', textAlign: 'left',
+    borderBottom: '1px solid var(--border-subtle)', padding: '11px 16px', textAlign: 'left',
     fontSize: 11, fontWeight: 600, color: '#9ca3af',
     letterSpacing: '0.5px', textTransform: 'uppercase',
-    whiteSpace: 'nowrap', background: '#fafafa',
+    whiteSpace: 'nowrap', background: 'var(--surface)',
     userSelect: 'none',
   };
 
@@ -317,7 +317,7 @@ const PendingInvoicesPage: React.FC = () => {
       {!loading && !error && (
         <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
           {/* Total */}
-          <div style={{ background: 'white', borderRadius: 13, border: '1px solid #ebebeb', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 16, minWidth: 170 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 13, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 16, minWidth: 170 }}>
             <div style={{ width: 42, height: 42, borderRadius: 11, background: rows.length > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {rows.length > 0 ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#dc2626' }}>
@@ -381,11 +381,11 @@ const PendingInvoicesPage: React.FC = () => {
       )}
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
-      <div style={{ background: 'white', borderRadius: 14, border: '1px solid #ebebeb', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 900 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                 <th style={thStyle}>Booking #</th>
                 <th style={thStyle}>Customer</th>
                 <th style={thStyle}>Car</th>

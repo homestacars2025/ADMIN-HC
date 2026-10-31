@@ -480,7 +480,7 @@ const MarketingLayout: React.FC = () => {
   }, [navigate]);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', display: 'flex', flexDirection: 'column' }}>
       <style>{`
         @keyframes mlSlideUp   { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
         @keyframes mlSlideDown { from{transform:translateY(-8px);opacity:0} to{transform:translateY(0);opacity:1} }
@@ -489,7 +489,7 @@ const MarketingLayout: React.FC = () => {
 
       {/* Sub-header */}
       <div style={{
-        background: '#fff', borderBottom: '1px solid #ebebeb',
+        background: 'var(--surface)', borderBottom: '1px solid var(--border-subtle)',
         padding: '0 40px', height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexShrink: 0, position: 'sticky', top: 0, zIndex: 20,

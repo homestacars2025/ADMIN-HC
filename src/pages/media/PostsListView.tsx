@@ -123,7 +123,7 @@ export const PostsListView: React.FC<{
                   <th
                     scope="colgroup"
                     colSpan={COLUMNS.length}
-                    className="border-y border-black/[0.05] bg-black/[0.018] px-3 py-2 text-left"
+                    className="border-y border-subtle bg-surface px-3 py-2 text-left"
                   >
                     <span className="inline-flex items-center gap-2">
                       <span className="text-[12px] font-semibold tracking-[-0.008em] text-black/70">

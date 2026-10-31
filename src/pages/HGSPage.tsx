@@ -178,7 +178,7 @@ const TransitTable: React.FC<{ rows: HgsTransit[] }> = ({ rows }) => {
   }
   return (
     <div className="overflow-hidden rounded-lg border border-black/[0.06] bg-white">
-      <div className={cn('hidden gap-x-3 border-b border-black/[0.06] bg-black/[0.015] px-3 py-2 sm:grid', TRANSIT_GRID)}>
+      <div className={cn('hidden gap-x-3 border-b border-subtle bg-surface px-3 py-2 sm:grid', TRANSIT_GRID)}>
         {(['Date', 'Entry', 'Exit', 'Amount'] as const).map((h) => (
           <span
             key={h}
@@ -284,7 +284,7 @@ const CarRow: React.FC<{
       </button>
 
       {expanded && openable && (
-        <div id={panelId} className="border-t border-black/[0.06] bg-black/[0.008] px-4 py-3">
+        <div id={panelId} className="border-t border-subtle bg-surface px-4 py-3">
           {history?.status === 'loading' && (
             <div className="flex items-center gap-2 py-4 text-[12.5px] text-black/45">
               <Spinner size={13} /> Loading transits…

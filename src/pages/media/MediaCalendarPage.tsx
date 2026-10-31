@@ -60,7 +60,7 @@ const CalendarSkeleton: React.FC = () => (
       </div>
     </div>
     <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
-      <div className="grid grid-cols-7 border-b border-black/[0.06] bg-black/[0.015]">
+      <div className="grid grid-cols-7 border-b border-subtle bg-surface">
         {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className="px-3 py-2.5">
             <Skeleton className="h-2.5 w-8" />

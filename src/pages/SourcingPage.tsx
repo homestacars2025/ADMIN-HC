@@ -333,7 +333,7 @@ const KpiCard: React.FC<{
       onMouseEnter={() => { if (ref.current) { ref.current.style.transform = 'translateY(-4px)'; ref.current.style.boxShadow = '0 16px 40px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)'; }}}
       onMouseLeave={() => { if (ref.current) { ref.current.style.transform = 'translateY(0)'; ref.current.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)'; }}}
       style={{
-        background: '#fff', borderRadius: 16, overflow: 'hidden',
+        background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden',
         boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
         transition: 'transform 200ms ease, box-shadow 200ms ease',
         display: 'flex', flexDirection: 'column',
@@ -1252,7 +1252,7 @@ const SourcingPage: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: 'var(--surface)',
       padding: '44px 40px',
     }}>
       {/* Page header */}
@@ -1344,7 +1344,7 @@ const SourcingPage: React.FC = () => {
 
       {/* Filter bar */}
       <div style={{
-        background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0',
+        background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)',
         padding: '14px 18px', marginBottom: 20,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
@@ -1451,7 +1451,7 @@ const SourcingPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1560 }}>
             <thead>

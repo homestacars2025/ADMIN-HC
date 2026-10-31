@@ -179,7 +179,7 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
           style={{
             position: 'fixed', top: anchor.top, left: anchor.left, zIndex: 3000,
             width: PANEL_WIDTH, maxWidth: 'calc(100vw - 24px)',
-            background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+            background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
             boxShadow: '0 16px 48px rgba(0,0,0,0.16)',
             overflow: 'hidden', animation: 'nbFade 140ms ease',
           }}

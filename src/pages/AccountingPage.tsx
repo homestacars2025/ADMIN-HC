@@ -423,7 +423,7 @@ const MiniStatCard: React.FC<{
     <div
       onClick={onClick}
       style={{
-        background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0',
+        background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)',
         padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'transform 160ms ease, box-shadow 160ms ease',
@@ -456,7 +456,7 @@ const SheetCard: React.FC<{
     <div
       onClick={onClick}
       style={{
-        background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0',
+        background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)',
         padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         cursor: 'pointer', transition: 'transform 160ms ease, box-shadow 160ms ease',
       }}
@@ -652,7 +652,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {metrics.map(m => (
           <div key={m.label} style={{
-            background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
+            background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)',
             padding: '20px 22px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
             position: 'relative', overflow: 'hidden',
           }}>
@@ -681,7 +681,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
         {/* Expenses Breakdown */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid #f8f9fa' }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>Expenses Breakdown</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{monthLabel(monthKey)}</div>
@@ -724,7 +724,7 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
         </div>
 
         {/* Top Earning Cars */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid #f8f9fa' }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117' }}>Top Earning Cars</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{monthLabel(monthKey)}</div>
@@ -1127,7 +1127,7 @@ const InvestorSheetView: React.FC<{
       )}
 
       {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
@@ -1472,7 +1472,7 @@ const InvestorCarSheetView: React.FC<{
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/></svg>
@@ -1639,7 +1639,7 @@ const InvestorCarListView: React.FC<{
             { label: 'Active Cars',    value: String(activeCars),    mono: false },
             { label: 'Total Records',  value: String(totalRecords),  mono: false },
           ].map(stat => (
-            <div key={stat.label} style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div key={stat.label} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
               <div style={{ fontSize: 24, fontWeight: 600, color: '#0f1117', letterSpacing: stat.mono ? '-0.5px' : '-0.3px', marginBottom: 6 }}>{stat.value}</div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{stat.label}</div>
             </div>
@@ -1651,15 +1651,15 @@ const InvestorCarListView: React.FC<{
       {carsLoading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '20px', height: 140, animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div key={i} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', padding: '20px', height: 140, animation: 'pulse 1.5s ease-in-out infinite' }} />
           ))}
         </div>
       ) : cars.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
           No cars found for this investor.
         </div>
       ) : visibleCars.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #f0f0f0', padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border-subtle)', padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
           No cars found
         </div>
       ) : (
@@ -1677,8 +1677,8 @@ const InvestorCarListView: React.FC<{
                 key={car.id}
                 onClick={() => setSelectedCar(car)}
                 style={{
-                  background: '#fff', borderRadius: 12,
-                  border: '1px solid #f0f0f0', borderLeft,
+                  background: 'var(--surface)', borderRadius: 12,
+                  border: '1px solid var(--border-subtle)', borderLeft,
                   padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                   cursor: 'pointer', opacity: active ? 1 : 0.7,
                   transition: 'transform 160ms ease, box-shadow 160ms ease',
@@ -2085,7 +2085,7 @@ const InvestorSummaryView: React.FC<{
               key={card.title}
               onClick={card.onClick}
               style={{
-                background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
+                background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)',
                 padding: '20px 22px', cursor: card.onClick ? 'pointer' : 'default',
                 boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
                 transition: 'transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease',
@@ -2101,7 +2101,7 @@ const InvestorSummaryView: React.FC<{
                 const el = e.currentTarget as HTMLDivElement;
                 el.style.transform = 'translateY(0)';
                 el.style.boxShadow = '0 1px 6px rgba(0,0,0,0.04)';
-                el.style.borderColor = '#f0f0f0';
+                el.style.borderColor = 'var(--border-subtle)';
               } : undefined}
             >
               <div style={{
@@ -2147,7 +2147,7 @@ const InvestorSummaryView: React.FC<{
             <div
               key={card.title}
               style={{
-                background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
+                background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)',
                 padding: '20px 22px',
                 boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
                 position: 'relative', overflow: 'hidden',
@@ -2454,7 +2454,7 @@ const AddCustomerTxModal: React.FC<{
           {/* Booking context (auto-filled from the sheet — not editable) */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Booking</div>
-            <div style={{ fontSize: 12, color: '#374151', background: '#f8f9fb', border: '1px solid #eef0f2', borderRadius: 8, padding: '9px 12px' }}>
+            <div style={{ fontSize: 12, color: '#374151', background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '9px 12px' }}>
               {bookingLabel ?? '—'}
               {carPlate ? <span className="font-mono tabular-nums" style={{ color: '#9ca3af' }}>{` · ${carPlate}`}</span> : null}
             </div>
@@ -2906,7 +2906,7 @@ const CustomerSheetsTab: React.FC = () => {
               key={car.id}
               onClick={() => navigate(`/dashboard/accounting/customer-sheet/${car.id}`)}
               style={{
-                background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb',
+                background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden', cursor: 'pointer',
                 transition: 'box-shadow 180ms ease, border-color 180ms ease, transform 140ms ease',
               }}
@@ -2919,7 +2919,7 @@ const CustomerSheetsTab: React.FC = () => {
               onMouseLeave={e => {
                 const d = e.currentTarget as HTMLDivElement;
                 d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)';
-                d.style.borderColor = '#e5e7eb';
+                d.style.borderColor = 'var(--border-subtle)';
                 d.style.transform = 'translateY(0)';
               }}
             >
@@ -2961,7 +2961,7 @@ export const InvestorReportPage: React.FC = () => {
   const investorId     = String(searchParams.get('investor_id') ?? '');
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <InvestorSummaryView
         investorId={investorId}
         onBack={() => navigate('/dashboard/accounting')}
@@ -3280,7 +3280,7 @@ export const CarCustomerSheetPage: React.FC = () => {
           { label: 'Total OUT', value: heroTotalOut, color: '#dc2626', signed: false },
           { label: 'Balance',   value: heroBalance,  color: heroBalance >= 0 ? '#16a34a' : '#dc2626', signed: true },
         ].map(stat => (
-          <div key={stat.label} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div key={stat.label} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{stat.label}</div>
             <div style={{ fontSize: 22, fontWeight: 600, color: stat.color, letterSpacing: '-0.5px' }}>
               {stat.signed && stat.value < 0 ? '−' : ''}{fmt(Math.abs(stat.value))}
@@ -4682,9 +4682,9 @@ const CompanyExpensesTab: React.FC = () => {
               <div
                 key={cat.value}
                 onClick={() => setOpenCategory({ value: cat.value, label: cat.label })}
-                style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease' }}
+                style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease' }}
                 onMouseEnter={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 6px 20px rgba(75,166,234,0.13)'; d.style.borderColor = '#4ba6ea'; d.style.transform = 'translateY(-2px)'; }}
-                onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = '#f0f0f0'; d.style.transform = 'translateY(0)'; }}
+                onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = 'var(--border-subtle)'; d.style.transform = 'translateY(0)'; }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <span style={{ fontSize: 18 }}>{cat.icon}</span>
@@ -4726,7 +4726,7 @@ const CompanyExpensesTab: React.FC = () => {
               )}
             </div>
 
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
               {ifMonthLoading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
@@ -4811,7 +4811,7 @@ const CompanyExpensesTab: React.FC = () => {
         {walletsLoading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
             {[1,2,3,4].map(i => (
-              <div key={i} style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
                   <div style={{ height: 14, width: 100, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
@@ -4832,9 +4832,9 @@ const CompanyExpensesTab: React.FC = () => {
                 <div
                   key={emp.employee_id}
                   onClick={() => setOpenWallet({ employee_id: emp.employee_id, full_name: emp.full_name })}
-                  style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease' }}
+                  style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease' }}
                   onMouseEnter={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 6px 20px rgba(75,166,234,0.13)'; d.style.borderColor = '#4ba6ea'; d.style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = '#f0f0f0'; d.style.transform = 'translateY(0)'; }}
+                  onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = 'var(--border-subtle)'; d.style.transform = 'translateY(0)'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                     <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: '#4ba6ea', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>
@@ -5162,24 +5162,24 @@ const BookingAccountsTab: React.FC = () => {
       {loading ? (
         <div style={{ height: 260, borderRadius: 14, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
       ) : visible.length === 0 ? (
-        <div style={{ padding: '54px 20px', textAlign: 'center', background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb' }}>
+        <div style={{ padding: '54px 20px', textAlign: 'center', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>No money events this month</div>
           <div style={{ fontSize: 13, color: '#9ca3af' }}>
             {search ? 'Nothing matches that search.' : `Nothing was charged, paid or deposited in ${monthLabel(monthKey)}.`}
           </div>
         </div>
       ) : (
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1080 }}>
               <thead>
-                <tr style={{ background: '#f8f9fb' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)' }}>
                   {['Booking', 'Customer', 'Plate', 'Entry', 'Amount', 'Date', 'Settlement'].map((h, i) => (
                     <th key={h} style={{
                       padding: '11px 14px', textAlign: i === 4 ? 'right' : 'left',
                       fontSize: 10.5, fontWeight: 600, color: '#6b7280',
                       textTransform: 'uppercase', letterSpacing: '0.7px',
-                      borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap',
+                      borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
                     }}>{h}</th>
                   ))}
                 </tr>
@@ -5330,7 +5330,7 @@ const AccountingPage: React.FC = () => {
 
   if (view === 'investor-report' && activeInvestorId) {
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
         <InvestorSummaryView
           investorId={activeInvestorId}
           onBack={() => { setView('tabs'); setActiveTab('investor'); }}
@@ -5346,7 +5346,7 @@ const AccountingPage: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       {/* Page header */}
       <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>

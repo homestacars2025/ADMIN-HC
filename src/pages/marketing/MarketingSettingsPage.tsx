@@ -28,7 +28,7 @@ function ToastContainer({ toasts }: { toasts: Toast[] }) {
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
       <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9' }}>
         <div style={{ fontWeight: 600, fontSize: 15, color: '#0f172a' }}>{title}</div>
         {description && <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>{description}</div>}
@@ -327,7 +327,7 @@ export default function MarketingSettingsPage() {
             { label: 'Brand Voice', value: 'Premium, warm, trustworthy', type: 'text' },
             { label: 'Target Language', value: 'Arabic, Turkish, English', type: 'text' },
           ].map(g => (
-            <div key={g.label} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 14px' }}>
+            <div key={g.label} style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>{g.label}</div>
               {g.type === 'color' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -421,7 +421,7 @@ export default function MarketingSettingsPage() {
           </div>
 
           {/* SQL snippets for reference */}
-          <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, border: '1px solid #e2e8f0' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 10, padding: 16, border: '1px solid var(--border-subtle)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>Pending SQL — Run in Supabase</div>
             <pre style={{ margin: 0, fontSize: 11, fontFamily: 'var(--font-mono)', color: '#334155', overflow: 'auto', lineHeight: 1.6 }}>{`-- Notifications table
 CREATE TABLE IF NOT EXISTS social.sm_notifications (

@@ -399,8 +399,8 @@ const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, 
     style={{
       padding: '9px 12px', fontSize: 11, fontWeight: 600,
       color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
-      textAlign: 'left', background: '#fff',
-      borderBottom: '1.5px solid #f0f0f0',
+      textAlign: 'left', background: 'var(--surface)',
+      borderBottom: '1px solid var(--border-subtle)',
       position: 'sticky', top: 0, zIndex: 1,
       whiteSpace: 'nowrap', userSelect: 'none',
       ...style,
@@ -443,7 +443,6 @@ const ActionBtn: React.FC<{
 interface RowProps {
   booking: Booking;
   isSelected: boolean;
-  isEven: boolean;
   onSelect: () => void;
   onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
@@ -453,11 +452,11 @@ interface RowProps {
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, isEven, onSelect, onToggle, onEdit, onDelete, onPrint, onExtend,
+  booking, isSelected, onSelect, onToggle, onEdit, onDelete, onPrint, onExtend,
 }) => (
   <tr
     className="bk-row"
-    style={{ background: isSelected ? 'rgba(75,166,234,0.05)' : isEven ? '#fafafa' : '#fff' }}
+    style={{ borderBottom: '1px solid var(--border-subtle)', background: isSelected ? 'rgba(75,166,234,0.05)' : 'var(--surface)' }}
   >
     <td style={{ padding: '9px 8px 9px 16px' }}>
       <input type="checkbox" checked={isSelected} onChange={onSelect}
@@ -3228,7 +3227,7 @@ const ExtendBookingModal: React.FC<ExtendModalProps> = ({ booking, onClose, onSa
 
           <div style={{
             display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 14,
-            padding: '10px 12px', borderRadius: 8, background: '#f9fafb', border: '1px solid #f0f0f0',
+            padding: '10px 12px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border-subtle)',
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
               <circle cx="12" cy="12" r="9" stroke="#9ca3af" strokeWidth="1.8"/>
@@ -3310,7 +3309,7 @@ const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey
   }, [refreshKey]);
 
   return (
-    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #ebebeb', marginTop: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', marginTop: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
@@ -3351,7 +3350,7 @@ const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
                 <thead>
-                  <tr style={{ background: '#fafafa' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)' }}>
                     <Th>Sheet</Th>
                     <Th>Customer</Th>
                     <Th>Original → Replacement</Th>
@@ -3360,8 +3359,8 @@ const ReplacementSheetsSection: React.FC<{ refreshKey: number }> = ({ refreshKey
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, idx) => (
-                    <tr key={r.id} className="bk-row" style={{ background: idx % 2 === 1 ? '#fcfcfd' : '#fff' }}>
+                  {rows.map((r) => (
+                    <tr key={r.id} className="bk-row" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)' }}>
                       <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#0f1117', whiteSpace: 'nowrap' }}>
                         {r.sheet_number}
                       </td>
@@ -3683,7 +3682,7 @@ const BookingsPage: React.FC = () => {
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <div>
 
         {/* ── Page header ── */}
@@ -3775,8 +3774,8 @@ const BookingsPage: React.FC = () => {
 
         {/* ── Search + filter bar ── */}
         <div style={{
-          background: '#fff', borderRadius: 14,
-          border: '1px solid #ebebeb', padding: '12px 14px',
+          background: 'var(--surface)', borderRadius: 14,
+          border: '1px solid var(--border-subtle)', padding: '12px 14px',
           marginBottom: 16,
           display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
           boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -3842,7 +3841,7 @@ const BookingsPage: React.FC = () => {
         )}
 
         {/* ── Table ── */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ebebeb', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
               <thead>
@@ -3897,7 +3896,6 @@ const BookingsPage: React.FC = () => {
                     key={booking.id}
                     booking={booking}
                     isSelected={selectedIds.has(booking.id)}
-                    isEven={idx % 2 === 1}
                     onSelect={() => toggleSelectRow(booking.id)}
                     onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}

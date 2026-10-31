@@ -1106,7 +1106,7 @@ const AddOperationModal: React.FC<{
             <div style={{ marginBottom: 20, border: '1.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-                padding: '10px 14px', background: '#fafafa', borderBottom: '1px solid #f0f0f0',
+                padding: '10px 14px', background: 'var(--surface)', borderBottom: '1px solid var(--border-subtle)',
               }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ color: '#16a34a', flexShrink: 0 }}>
                   <path d="M9 11l3 3 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1441,7 +1441,7 @@ const PhotosModal: React.FC<{
             {operation && operation.type === 'DELIVERY' && hasChecklist(operation) && (
               <div style={{ marginBottom: 20, border: '1.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
                 <div style={{
-                  padding: '10px 14px', background: '#fafafa', borderBottom: '1px solid #f0f0f0',
+                  padding: '10px 14px', background: 'var(--surface)', borderBottom: '1px solid var(--border-subtle)',
                   fontSize: 12, fontWeight: 600, color: '#374151',
                   textTransform: 'uppercase', letterSpacing: '0.6px',
                 }}>
@@ -1493,7 +1493,7 @@ const PhotosModal: React.FC<{
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                 {items.map((item, i) => item.url === null ? (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <div style={{ aspectRatio: '4/3', borderRadius: 10, border: '1.5px dashed #e5e7eb', background: '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, color: '#d1d5db' }}>
+                    <div style={{ aspectRatio: '4/3', borderRadius: 10, border: '1.5px dashed #e5e7eb', background: 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, color: '#d1d5db' }}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                         <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.6"/>
                         <path d="M4 20L20 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -1619,7 +1619,7 @@ const MetricCard: React.FC<{
   incomplete: boolean;
   warning?: string | null;
 }> = ({ label, value, raw, incomplete, warning }) => (
-  <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px', background: '#fafafa' }}>
+  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 16px', background: 'var(--surface)' }}>
     <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
       {label}
     </div>
@@ -1930,7 +1930,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
               )}
 
               {!chargesLoading && !chargesError && charges && (
-                <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, background: '#fafafa', overflow: 'hidden' }}>
+                <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, background: 'var(--surface)', overflow: 'hidden' }}>
                   <ChargeLine
                     label="Extra kilometers"
                     detail={`${Math.round(charges.km.used).toLocaleString()} km used of ${Math.round(charges.km.allowed).toLocaleString()} allowed`
@@ -2151,7 +2151,7 @@ const OperationsPage: React.FC = () => {
   const activeStatCards = tab === 'dp' ? dpStatCards : otherStatCards;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
 
       {/* ── Page header ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 28 }}>
@@ -2262,7 +2262,7 @@ const OperationsPage: React.FC = () => {
       </div>
 
       {/* ── Table ── */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         {error && (
           <div style={{ padding: '16px 20px', color: '#ef4444', fontSize: 13, borderBottom: '1px solid #fef2f2', background: '#fef2f2' }}>
             {error}

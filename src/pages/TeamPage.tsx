@@ -164,8 +164,8 @@ const TeamPage: React.FC = () => {
 
       {/* ── Table card ── */}
       <div style={{
-        background: '#fff', borderRadius: 14,
-        border: '1.5px solid #f0f0f0', overflow: 'hidden',
+        background: 'var(--surface)', borderRadius: 14,
+        border: '1px solid var(--border-subtle)', overflow: 'hidden',
       }}>
         {loading ? (
           <div style={{ padding: '48px 20px', textAlign: 'center' }}>

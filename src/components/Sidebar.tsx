@@ -811,8 +811,8 @@ const Sidebar: React.FC = () => {
       width: W,
       minWidth: W,
       height: '100vh',
-      background: 'var(--sidebar)',
-      borderRight: '1px solid var(--sidebar-border)',
+      background: 'var(--surface)',
+      borderInlineEnd: '1px solid var(--sidebar-border)',
       display: 'flex',
       flexDirection: 'column',
       position: 'sticky',
@@ -829,7 +829,7 @@ const Sidebar: React.FC = () => {
         justifyContent: collapsed ? 'center' : 'flex-start',
         gap: collapsed ? 0 : 11,
         padding: collapsed ? '0' : '0 22px',
-        borderBottom: '1px solid #ebebeb',
+        borderBottom: '1px solid var(--border-subtle)',
         flexShrink: 0,
         position: 'relative',
       }}>
@@ -1003,7 +1003,7 @@ const Sidebar: React.FC = () => {
       </nav>
 
       {/* Currency selector + Profile + Sign out */}
-      <div style={{ padding: '12px', borderTop: '1px solid #ebebeb', flexShrink: 0 }}>
+      <div style={{ padding: '12px', borderTop: '1px solid var(--border-subtle)', flexShrink: 0 }}>
 
         {/* Currency selector */}
         <div style={{ marginBottom: 8 }}>

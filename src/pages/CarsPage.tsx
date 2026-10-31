@@ -167,7 +167,8 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
       style={{
-        background: '#ffffff',
+        background: 'var(--surface)',
+        border: '1px solid var(--border-subtle)',
         borderRadius: 16,
         overflow: 'hidden',
         boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
@@ -240,7 +241,8 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
 
 const SkeletonCard: React.FC = () => (
   <div style={{
-    background: '#ffffff',
+    background: 'var(--surface)',
+    border: '1px solid var(--border-subtle)',
     borderRadius: 16,
     overflow: 'hidden',
     boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
@@ -984,7 +986,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
 
                 {/* Empty state */}
                 {photos.length === 0 && !uploadingFileName && (
-                  <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 9, padding: '22px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, background: '#fafafa', marginBottom: 12 }}>
+                  <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 9, padding: '22px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, background: 'var(--surface)', marginBottom: 12 }}>
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ color: '#d1d5db' }}>
                       <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.6"/>
                       <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
@@ -1216,7 +1218,7 @@ const CarsPage: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: 'var(--surface)',
       padding: '44px 40px',
     }}>
       {/* Page header */}
@@ -1399,7 +1401,7 @@ const CarsPage: React.FC = () => {
         </div>
 
         {/* Table card */}
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
               <thead>

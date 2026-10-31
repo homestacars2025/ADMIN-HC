@@ -481,8 +481,8 @@ const thBase: React.CSSProperties = {
   padding: '12px 16px',
   fontSize: 10.5, fontWeight: 600, color: '#9ca3af',
   letterSpacing: '0.7px', textTransform: 'uppercase',
-  whiteSpace: 'nowrap', background: '#fafbfc',
-  borderBottom: '1px solid #eef0f2',
+  whiteSpace: 'nowrap', background: 'var(--surface)',
+  borderBottom: '1px solid var(--border-subtle)',
 };
 
 /**
@@ -909,7 +909,7 @@ const GoogleReviewsPage: React.FC = () => {
   const colCount = 7;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '32px 28px 56px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '32px 28px 56px' }}>
       <style>{`
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }

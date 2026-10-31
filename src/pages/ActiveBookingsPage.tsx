@@ -164,21 +164,21 @@ const ActiveBookingsPage: React.FC = () => {
 
       {/* Table */}
       <div style={{
-        background: 'white', borderRadius: 14,
-        border: '1px solid #ebebeb',
+        background: 'var(--surface)', borderRadius: 14,
+        border: '1px solid var(--border-subtle)',
         boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
         overflow: 'hidden',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 820 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                 {['Booking #', 'Plate', 'Car', 'Customer', 'Phone', 'Start', 'End', 'Days Left', 'Kabis', 'Invoice'].map(h => (
                   <th key={h} style={{
-                    padding: '11px 14px', textAlign: 'left',
+                    borderBottom: '1px solid var(--border-subtle)', padding: '11px 14px', textAlign: 'left',
                     fontSize: 11, fontWeight: 600, color: '#9ca3af',
                     letterSpacing: '0.5px', textTransform: 'uppercase',
-                    whiteSpace: 'nowrap', background: '#fafafa',
+                    whiteSpace: 'nowrap', background: 'var(--surface)',
                   }}>
                     {h}
                   </th>

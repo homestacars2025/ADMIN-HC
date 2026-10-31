@@ -352,7 +352,7 @@ function DetailModal({ decision: d, onClose }: { decision: SmDecision; onClose: 
 
           {/* Description */}
           {d.description && (
-            <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, marginBottom: 20 }}>
+            <div style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 8 }}>Description</div>
               <div style={{ fontSize: 14, color: '#334155', lineHeight: 1.7 }}>{d.description}</div>
             </div>
@@ -399,7 +399,7 @@ function TimelineCard({ decision: d, onClick }: { decision: SmDecision; onClick:
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          flex: 1, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16,
+          flex: 1, background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 16,
           marginBottom: 12, cursor: 'pointer', transition: 'box-shadow 0.15s',
           boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.07)' : 'none',
         }}
@@ -604,7 +604,7 @@ export default function MarketingDecisionsPage() {
           { label: 'By You (Admin)', value: byAdmin, color: '#10b981' },
           { label: 'By Bots', value: byBots, color: '#f59e0b' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 18px' }}>
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 18px' }}>
             <div style={{ fontSize: 22, fontWeight: 600, color: s.color }}>
               {loading ? <Skeleton h={22} w={40} /> : s.value}
             </div>
@@ -614,7 +614,7 @@ export default function MarketingDecisionsPage() {
       </div>
 
       {/* filters */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, marginBottom: 24 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 16, marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
           <input
             placeholder="Search decisions…"
@@ -693,13 +693,13 @@ export default function MarketingDecisionsPage() {
         </div>
       ) : (
         /* ── Table view ── */
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background: '#f8fafc' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)' }}>
                   {['Date / Time', 'Type', 'Title', 'Made By', 'Has Diff', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border-subtle)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>

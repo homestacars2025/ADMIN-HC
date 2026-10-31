@@ -149,8 +149,8 @@ async function uploadPhotos(folder: string, kind: 'damage' | 'repair', files: Fi
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
 const CARD_STYLE: React.CSSProperties = {
-  background: '#fff', borderRadius: 14,
-  boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+  background: 'var(--surface)', borderRadius: 14,
+  boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
 };
 
 const FIELD_STYLE: React.CSSProperties = {
@@ -1231,7 +1231,7 @@ const CarIssuesPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: 'clamp(22px, 4vw, 44px) clamp(16px, 3vw, 40px)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: 'clamp(22px, 4vw, 44px) clamp(16px, 3vw, 40px)' }}>
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }

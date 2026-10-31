@@ -280,7 +280,7 @@ const InboxPage: React.FC = () => {
   );
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: 'clamp(14px, 2.5vw, 28px)', boxSizing: 'border-box' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', padding: 'clamp(14px, 2.5vw, 28px)', boxSizing: 'border-box' }}>
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -319,7 +319,7 @@ const InboxPage: React.FC = () => {
       )}
 
       {/* 3-column shell */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
 
         {/* LEFT — conversation list */}
         <div
@@ -423,7 +423,7 @@ const InboxPage: React.FC = () => {
               onToggleContactPanel={() => setPanelOpen(o => !o)}
             />
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#9ca3af', background: '#f7f8fa', padding: 24, textAlign: 'center' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#9ca3af', background: 'var(--surface)', padding: 24, textAlign: 'center' }}>
               <svg width="44" height="44" viewBox="0 0 24 24" fill="none" style={{ color: '#d1d5db' }}>
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

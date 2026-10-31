@@ -275,7 +275,7 @@ const ImageSection: React.FC<{
     return (
       <div>
         <div style={sectionLabel}>Image Generation</div>
-        <div style={{ background: '#f9fafb', border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '28px 20px', textAlign: 'center' }}>
+        <div style={{ background: 'var(--surface)', border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '28px 20px', textAlign: 'center' }}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 10px', display: 'block', color: '#9ca3af' }}>
             <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
             <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
@@ -712,7 +712,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
               ) : (
                 <p
                   dir={isRtl ? 'rtl' : 'ltr'}
-                  style={{ margin: 0, fontSize: 14, color: '#1f2937', lineHeight: 1.7, whiteSpace: 'pre-wrap', padding: '13px 15px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}
+                  style={{ margin: 0, fontSize: 14, color: '#1f2937', lineHeight: 1.7, whiteSpace: 'pre-wrap', padding: '13px 15px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}
                 >
                   {post.caption || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>No caption</span>}
                 </p>
@@ -776,7 +776,7 @@ const DetailDrawer: React.FC<DrawerProps> = ({ post, onClose, onUpdated, onDelet
                 { label: 'Requires Design', value: post.requires_design === true ? 'Yes' : post.requires_design === false ? 'No' : '—' },
                 { label: 'Created',         value: fmtDate(post.created_at) },
               ].map(({ label, value }) => (
-                <div key={label} style={{ background: '#f9fafb', borderRadius: 9, padding: '10px 13px' }}>
+                <div key={label} style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 9, padding: '10px 13px' }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>{label}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', textTransform: 'capitalize' }}>{value}</div>
                 </div>
@@ -1054,7 +1054,7 @@ const MarketingSocialPostsPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #f0f0f0', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #f3f4f6' }}>

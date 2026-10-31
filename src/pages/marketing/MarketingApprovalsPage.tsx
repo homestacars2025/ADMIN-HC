@@ -431,11 +431,11 @@ const MarketingApprovalsPage: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column', background: '#f8fafc', overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', overflow: 'hidden' }}>
 
       {/* Filter bar */}
       <div style={{
-        background: '#fff', borderBottom: '1px solid #ebebeb', padding: '0 24px',
+        background: '#fff', borderBottom: '1px solid var(--border-subtle)', padding: '0 24px',
         display: 'flex', alignItems: 'center', gap: 16, height: 52, flexShrink: 0,
         flexWrap: 'wrap',
       }}>
@@ -519,7 +519,7 @@ const MarketingApprovalsPage: React.FC = () => {
 
         {/* Left — item list (40%) */}
         <div style={{
-          width: '40%', minWidth: 280, borderRight: '1px solid #ebebeb',
+          width: '40%', minWidth: 280, borderRight: '1px solid var(--border-subtle)',
           display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden',
         }}>
           <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -607,7 +607,7 @@ const MarketingApprovalsPage: React.FC = () => {
         </div>
 
         {/* Right — detail panel (60%) */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#f8fafc' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--surface)' }}>
           {!selectedItem ? (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style={{ color: '#d1d5db' }}>
@@ -654,7 +654,7 @@ const MarketingApprovalsPage: React.FC = () => {
                       Content Preview
                     </div>
                     <div style={{
-                      background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12,
+                      background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12,
                       padding: '16px 18px', fontSize: 13.5, color: '#374151',
                       lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                     }}>

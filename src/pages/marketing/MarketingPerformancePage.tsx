@@ -271,7 +271,7 @@ function ReportModal({ report: r, onClose }: { report: SmPerformanceAnalysis; on
               { label: 'Posts', value: fmt(r.posts_published) },
               { label: 'Revenue', value: r.revenue != null ? `₺${fmt(r.revenue)}` : '—' },
             ].map(k => (
-              <div key={k.label} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 14px' }}>
+              <div key={k.label} style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface)', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>{k.label}</div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a' }}>{k.value}</div>
               </div>
@@ -450,7 +450,7 @@ export default function MarketingPerformancePage() {
           { label: 'Avg Engagement Rate', value: latestReport ? `${latestReport.avg_engagement_rate ?? '—'}%` : '6.5%', spark: [], color: '#ef4444', change: null, icon: '📈' },
           { label: 'New Followers', value: latestReport ? fmt(latestReport.new_followers) : '—', spark: [], color: '#06b6d4', change: null, icon: '👥' },
         ].map(k => (
-          <div key={k.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px' }}>
+          <div key={k.label} style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '16px 20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
               <div style={{ fontSize: 20 }}>{k.icon}</div>
               {k.change !== null && (
@@ -475,14 +475,14 @@ export default function MarketingPerformancePage() {
       {/* charts row */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>
         {/* revenue vs posts line chart */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Revenue vs Content Output</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Monthly trend</div>
           <LineChart data={lineData} h={180} />
         </div>
 
         {/* bookings bar chart */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Monthly Bookings</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Attributed to marketing</div>
           <BarChart
@@ -495,7 +495,7 @@ export default function MarketingPerformancePage() {
       {/* heatmap + top posts row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
         {/* content heatmap */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Content Mix Heatmap</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Platform × content type (post count)</div>
           <div style={{ overflowX: 'auto' }}>
@@ -529,7 +529,7 @@ export default function MarketingPerformancePage() {
         </div>
 
         {/* top posts */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>Top Performing Posts</div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Ranked by likes</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -592,7 +592,7 @@ export default function MarketingPerformancePage() {
       )}
 
       {/* reports list */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>Analysis Reports</div>
           <span style={{ fontSize: 12, color: '#94a3b8' }}>{analyses.length} reports</span>

@@ -134,11 +134,11 @@ const UserCard: React.FC<{ user: PresenceUser }> = ({ user }) => (
   <div style={{
     display: 'flex', alignItems: 'center', gap: 12,
     padding: '12px 14px', borderRadius: 12,
-    background: '#fff', border: '1.5px solid #f0f0f0',
+    background: 'var(--surface)', border: '1px solid var(--border-subtle)',
     transition: 'border-color 140ms ease',
   }}
     onMouseEnter={e => (e.currentTarget.style.borderColor = '#e2e8f0')}
-    onMouseLeave={e => (e.currentTarget.style.borderColor = '#f0f0f0')}
+    onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
   >
     {/* Avatar + pulse */}
     <div style={{ position: 'relative' }}>
@@ -177,8 +177,8 @@ const AppSection: React.FC<{ app: AppName; users: PresenceUser[] }> = ({ app, us
   const cfg = APP_CONFIG[app];
   return (
     <div style={{
-      background: '#fafafa', borderRadius: 14,
-      border: '1.5px solid #f0f0f0', overflow: 'hidden',
+      background: 'var(--surface)', borderRadius: 14,
+      border: '1px solid var(--border-subtle)', overflow: 'hidden',
     }}>
       {/* Section header */}
       <div style={{
@@ -385,8 +385,8 @@ const OnlineUsersPage: React.FC = () => {
         </div>
 
         <div style={{
-          background: '#fff', borderRadius: 14,
-          border: '1.5px solid #f0f0f0', overflow: 'hidden',
+          background: 'var(--surface)', borderRadius: 14,
+          border: '1px solid var(--border-subtle)', overflow: 'hidden',
         }}>
           {loadingProfiles ? (
             <div style={{ padding: '48px 20px', textAlign: 'center' }}>

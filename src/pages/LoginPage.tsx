@@ -86,7 +86,7 @@ const LoginPage: React.FC = () => {
     padding: '0 14px',
     fontSize: 15,
     color: 'var(--text-primary)',
-    background: 'var(--surface)',
+    background: '#fafafa',
     border: `1.5px solid ${focusedField === field ? 'var(--brand)' : 'var(--border)'}`,
     borderRadius: 'var(--radius-sm)',
     outline: 'none',
@@ -99,7 +99,7 @@ const LoginPage: React.FC = () => {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
-      background: 'var(--surface-secondary)',
+      background: 'var(--surface)',
     }}>
       {/* Left panel */}
       <div style={{

@@ -882,8 +882,8 @@ const CustomerDetailView: React.FC<{
   const th: React.CSSProperties = {
     padding: '10px 16px', fontSize: 11, fontWeight: 600, color: '#9ca3af',
     textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left',
-    borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap',
-    background: '#fafafa', position: 'sticky', top: 0, zIndex: 1,
+    borderBottom: '1px solid var(--border-subtle)', whiteSpace: 'nowrap',
+    background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 1,
   };
   const td: React.CSSProperties = { padding: '11px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f7f7f7' };
 
@@ -895,7 +895,7 @@ const CustomerDetailView: React.FC<{
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#f8fafc 0%,#f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -921,7 +921,7 @@ const CustomerDetailView: React.FC<{
       </div>
 
       {/* Info card */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 20 }}>Customer Information</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 22 }}>
           <InfoField label="Phone"           value={cust.phone} />
@@ -951,7 +951,7 @@ const CustomerDetailView: React.FC<{
           )}
           <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#e5e7eb 0%,transparent 80%)' }} />
         </div>
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
@@ -1099,12 +1099,12 @@ const CustomersPage: React.FC = () => {
   );
 
   const cardStyle: React.CSSProperties = {
-    background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0',
+    background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)',
     boxShadow: '0 1px 6px rgba(0,0,0,0.04)', padding: '20px 22px',
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#f8fafc 0%,#f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
 
       {/* Page header */}
       <div style={{ marginBottom: 28 }}>
@@ -1228,7 +1228,7 @@ const CustomersPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>

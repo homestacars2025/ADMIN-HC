@@ -28,8 +28,8 @@ const grantKey = (profileId: string, sectionKey: string) => `${profileId}::${sec
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
 const CARD_STYLE: React.CSSProperties = {
-  background: '#fff', borderRadius: 14,
-  boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+  background: 'var(--surface)', borderRadius: 14,
+  boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
 };
 
 // ─── Small components ─────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ const SectionToggle: React.FC<{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
       minHeight: 44, padding: '8px 12px', borderRadius: 10,
       cursor: busy ? 'wait' : 'pointer',
-      background: checked ? 'rgba(75,166,234,0.06)' : '#fafbfc',
+      background: checked ? 'rgba(75,166,234,0.06)' : 'var(--surface)',
       border: `1.5px solid ${checked ? 'rgba(75,166,234,0.35)' : '#f0f0f0'}`,
       transition: 'background 140ms ease, border-color 140ms ease',
       opacity: busy ? 0.65 : 1,
@@ -201,7 +201,7 @@ const StaffPermissionsPage: React.FC = () => {
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: 'clamp(22px, 4vw, 44px) clamp(16px, 3vw, 40px)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: 'clamp(22px, 4vw, 44px) clamp(16px, 3vw, 40px)' }}>
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }

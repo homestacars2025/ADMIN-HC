@@ -414,10 +414,10 @@ const MarketingConstitutionsPage: React.FC = () => {
     <div style={{ height: 'calc(100vh - 56px)', display: 'flex', background: '#fff', overflow: 'hidden' }}>
 
       {/* ── Left panel ──────────────────────────────────────────────────── */}
-      <div style={{ width: 288, minWidth: 288, height: '100%', borderRight: '1px solid #ebebeb', background: '#fafafa', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ width: 288, minWidth: 288, height: '100%', borderInlineEnd: '1px solid var(--border-subtle)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid #ebebeb', flexShrink: 0 }}>
+        <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px' }}>Bots</span>
             <button
@@ -514,7 +514,7 @@ const MarketingConstitutionsPage: React.FC = () => {
           return (
             <>
               {/* Header */}
-              <div style={{ padding: '16px 28px', borderBottom: '1px solid #ebebeb', flexShrink: 0, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ padding: '16px 28px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
                   <Avatar url={selectedBot.avatar_url} name={selectedBot.display_name} size={46} color={color} />
                   <div style={{ minWidth: 0 }}>
@@ -556,10 +556,10 @@ const MarketingConstitutionsPage: React.FC = () => {
                 /* ── Split editor ── */
                 <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
                   {/* Left: fields + textarea */}
-                  <div style={{ flex: 1, borderRight: '1px solid #ebebeb', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <div style={{ flex: 1, borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     {/* Top fields */}
-                    <div style={{ padding: '12px 18px', borderBottom: '1px solid #f0f0f0', background: '#f8fafc', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface)', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                       <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160, flex: 1 }}>
                         <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Display Name</span>
                         <input value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} style={{ height: 32, padding: '0 9px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0f1117' }} />
@@ -583,7 +583,7 @@ const MarketingConstitutionsPage: React.FC = () => {
                     </div>
 
                     {/* Constitution textarea */}
-                    <div style={{ padding: '6px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#f8fafc' }}>Constitution (Markdown)</div>
+                    <div style={{ padding: '6px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: 'var(--surface)' }}>Constitution (Markdown)</div>
                     <textarea
                       value={editConstitution}
                       onChange={e => setEditConstitution(e.target.value)}
@@ -592,7 +592,7 @@ const MarketingConstitutionsPage: React.FC = () => {
                     />
 
                     {/* Notes */}
-                    <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 16px', background: '#f8fafc' }}>
+                    <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '10px 16px', background: 'var(--surface)' }}>
                       <div style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Notes</div>
                       <textarea
                         value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={2}
@@ -601,7 +601,7 @@ const MarketingConstitutionsPage: React.FC = () => {
                       />
                     </div>
 
-                    <div style={{ padding: '5px 20px', borderTop: '1px solid #f0f0f0', fontSize: 11, color: '#9ca3af', background: '#f8fafc', display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ padding: '5px 20px', borderTop: '1px solid var(--border-subtle)', fontSize: 11, color: '#9ca3af', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between' }}>
                       <span>Auto-saves every 30 s</span>
                       <span>{editConstitution.length} chars</span>
                     </div>
@@ -609,7 +609,7 @@ const MarketingConstitutionsPage: React.FC = () => {
 
                   {/* Right: live preview */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <div style={{ padding: '8px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#f8fafc' }}>Live Preview</div>
+                    <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border-subtle)', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: 'var(--surface)' }}>Live Preview</div>
                     <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
                       {editConstitution.trim() ? <MarkdownView content={editConstitution} /> : <div style={{ color: '#c0c4cc', fontSize: 14, fontStyle: 'italic' }}>Preview will appear here…</div>}
                     </div>

@@ -263,8 +263,8 @@ export const AllNotificationsTab: React.FC = () => {
         {/* Pager */}
         {!loading && (page > 0 || hasNext) && (
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 12, padding: '12px 18px', background: '#fafbfc',
+            borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 12, padding: '12px 18px', background: 'var(--surface)',
           }}>
             <span style={{ fontSize: 12, color: FAINT }}>
               Page {page + 1}

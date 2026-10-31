@@ -734,7 +734,7 @@ const ModelGroupsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 36 }}>
@@ -787,7 +787,7 @@ const ModelGroupsPage: React.FC = () => {
 
       {/* Row list — grouped by category */}
       {loading && (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
         </div>
       )}
@@ -805,7 +805,7 @@ const ModelGroupsPage: React.FC = () => {
               position: 'sticky', top: 0, zIndex: 10,
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '10px 0 10px',
-              background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+              background: 'var(--surface)',
             }}>
               <span style={{
                 fontSize: 11.5, fontWeight: 600,
@@ -827,7 +827,7 @@ const ModelGroupsPage: React.FC = () => {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 gap: 10, padding: '32px 20px',
                 border: '1.5px dashed #e5e7eb', borderRadius: 16,
-                background: '#fafafa',
+                background: 'var(--surface)',
               }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
                   <rect x="2" y="7" width="20" height="14" rx="2" stroke="#d1d5db" strokeWidth="1.6"/>
@@ -853,9 +853,9 @@ const ModelGroupsPage: React.FC = () => {
             ) : (
               /* Rows container */
               <div style={{
-                background: '#fff',
+                background: 'var(--surface)',
                 borderRadius: 16,
-                border: '1px solid #f0f0f0',
+                border: '1px solid var(--border-subtle)',
                 overflow: 'hidden',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
               }}>

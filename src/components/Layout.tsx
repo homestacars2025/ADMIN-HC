@@ -72,7 +72,7 @@ const Layout: React.FC = () => {
   usePresence(); // broadcast this admin's presence to the shared "online-users" channel
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-secondary)' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--surface)' }}>
       <Sidebar />
       <main style={{ flex: 1, overflowY: 'auto' }}>
         <Outlet />

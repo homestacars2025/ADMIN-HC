@@ -46,6 +46,7 @@ module.exports = {
           border: token('sidebar-border'),
         },
       },
+      borderColor: { subtle: token('border-subtle') },
       borderRadius: {
         sm: 'var(--radius-sm)',
         md: 'var(--radius-md)',

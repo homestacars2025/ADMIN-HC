@@ -241,7 +241,7 @@ const PostForm: React.FC<{
         </Field>
 
         {post?.source_idea_id && (
-          <p className="rounded-xl bg-black/[0.025] px-3 py-2.5 text-[12px] text-black/45">
+          <p className="rounded-xl border border-subtle bg-surface px-3 py-2.5 text-[12px] text-black/45">
             Created from an idea in the Ideas board.
           </p>
         )}
