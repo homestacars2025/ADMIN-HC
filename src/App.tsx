@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CurrencyProvider } from './lib/CurrencyContext';
 import LoginPage from './pages/LoginPage';
 import Layout from './components/Layout';
+import GoalsPage from './pages/GoalsPage';
 import HomePage from './pages/HomePage';
 import PayrollPage from './pages/PayrollPage';
 import ProfilePage from './pages/ProfilePage';
@@ -89,6 +90,7 @@ const App: React.FC = () => {
           <Route path="users" element={<UsersPage />} />
           <Route path="investors" element={<InvestorsPage />} />
           <Route path="payroll" element={<PayrollPage />} />
+          <Route path="goals" element={<GoalsPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="accounting/report" element={<InvestorReportPage />} />

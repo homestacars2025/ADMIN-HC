@@ -235,6 +235,17 @@ const financeItems: NavItem[] = [
         ),
       },
       {
+        label: 'Goals & bonuses',
+        path: '/dashboard/goals',
+        icon: (
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+            <circle cx="12" cy="12" r="4.5" stroke="currentColor" strokeWidth="1.8"/>
+            <circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="currentColor" strokeWidth="1"/>
+          </svg>
+        ),
+      },
+      {
         label: 'Investors',
         path: '/dashboard/investors',
         icon: (

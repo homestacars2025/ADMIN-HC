@@ -326,7 +326,7 @@ export async function searchProfiles(query: string): Promise<ProfileOption[]> {
  */
 const DASHBOARD_SECTIONS = new Set([
   'accounting', 'bookings', 'calendar', 'car-issues', 'cars', 'customers', 'home',
-  'fines', 'google-reviews', 'inbox', 'investors', 'kabis', 'kgm', 'marketing',
+  'fines', 'goals', 'google-reviews', 'inbox', 'investors', 'kabis', 'kgm', 'marketing',
   'media', 'model-groups', 'notifications', 'online-users', 'operations',
   'payroll', 'pending-invoices', 'pricing', 'reminder-rules', 'sourcing',
   'staff-permissions', 'tasks', 'team', 'users',
