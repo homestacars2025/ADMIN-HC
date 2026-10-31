@@ -27,6 +27,11 @@ const ar = {
       body: 'يوجد {{count}} سجل في Car Issues لسه بحالة open. ادخل راجعها.',
     },
   },
+  task: {
+    assigned: { title: 'مهمة جديدة: {{title}}' },
+    due_soon: { title: 'قرب موعد المهمة: {{title}}' },
+    overdue: { title: 'مهمة متأخرة: {{title}}' },
+  },
   kabis: {
     pending: {
       title: 'تسجيل KABIS جديد بانتظار — {{action_label}}',

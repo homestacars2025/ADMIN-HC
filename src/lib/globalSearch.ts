@@ -38,7 +38,7 @@ interface BookingRow {
 const one = <T,>(value: Joined<T>): T | null => (Array.isArray(value) ? value[0] ?? null : value);
 
 /** Strips the characters that carry meaning inside a PostgREST `or` filter. */
-function cleanTerm(query: string): string {
+export function cleanTerm(query: string): string {
   return query.replace(/[,()"\\:*%_]/g, ' ').trim().replace(/\s+/g, ' ');
 }
 

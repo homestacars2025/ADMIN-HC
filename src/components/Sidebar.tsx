@@ -547,17 +547,6 @@ const adminItems: NavItem[] = [
         ),
       },
       {
-        label: 'Reminder Rules',
-        path: '/dashboard/reminder-rules',
-        icon: (
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="13" r="8" stroke="currentColor" strokeWidth="1.8"/>
-            <path d="M12 9.5V13l2.5 1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M5 3 2.5 5M19 3l2.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-        ),
-      },
-      {
       label: 'Tasks',
       path: '/dashboard/tasks',
       icon: (

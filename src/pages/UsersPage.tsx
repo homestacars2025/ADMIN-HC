@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { createUser, deleteUser, updateUserPassword } from '../lib/adminUsers';
+import { StaffDetailDrawer } from '../components/staff/StaffDetailDrawer';
+import { StaffIndicatorCell, useStaffIndicators } from '../components/staff/StaffIndicators';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { COUNTRIES, parsePhone } from '../lib/phone';
 
@@ -178,7 +180,7 @@ const ActionBtn: React.FC<{
 // Skeleton row
 const SkeletonRow: React.FC = () => (
   <tr>
-    {[180, 160, 80, 80, 90, 60].map((w, i) => (
+    {[180, 160, 90, 80, 80, 90, 60].map((w, i) => (
       <td key={i} style={{ padding: '12px 12px' }}>
         <div style={{ height: 13, width: w, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
       </td>
@@ -958,6 +960,8 @@ const CreateUserModal: React.FC<CreateModalProps> = ({ onClose, onSaved, onToast
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const UsersPage: React.FC = () => {
+  const indicators = useStaffIndicators();
+  const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
   const [users,    setUsers]    = useState<UserProfile[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
@@ -1119,6 +1123,7 @@ const UsersPage: React.FC = () => {
               <tr>
                 <Th>Name</Th>
                 <Th>Email</Th>
+                <Th>Indicators</Th>
                 <Th>Role</Th>
                 <Th>Status</Th>
                 <Th>Created At</Th>
@@ -1131,7 +1136,7 @@ const UsersPage: React.FC = () => {
                 : filtered.length === 0
                   ? (
                     <tr>
-                      <td colSpan={6} style={{ padding: '52px 24px', textAlign: 'center' }}>
+                      <td colSpan={7} style={{ padding: '52px 24px', textAlign: 'center' }}>
                         <div style={{ fontSize: 14, color: '#9ca3af' }}>
                           {search ? 'No users match your search.' : 'No users found.'}
                         </div>
@@ -1159,6 +1164,20 @@ const UsersPage: React.FC = () => {
                       {/* Email */}
                       <td style={{ padding: '10px 12px' }}>
                         <span style={{ fontSize: 13, color: '#374151' }}>{user.email || '—'}</span>
+                      </td>
+
+                      {/* Indicators — staff only */}
+                      <td style={{ padding: '10px 12px' }}>
+                        {user.role === 'staff' ? (
+                          <button
+                            type="button"
+                            onClick={() => setDetailUser(user)}
+                            aria-label={`Indicators for ${user.full_name ?? user.email ?? 'staff member'}`}
+                            style={{ minHeight: 44, border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+                          >
+                            <StaffIndicatorCell goals={indicators.byProfile[user.id]} indicators={indicators} />
+                          </button>
+                        ) : <span style={{ fontSize: 13, color: '#d1d5db' }}>—</span>}
                       </td>
 
                       {/* Role */}
@@ -1332,6 +1351,15 @@ const UsersPage: React.FC = () => {
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} />}
+
+      {detailUser && (
+        <StaffDetailDrawer
+          profileId={detailUser.id}
+          name={detailUser.full_name || detailUser.email || 'Staff member'}
+          avatar={detailUser}
+          onClose={() => setDetailUser(null)}
+        />
+      )}
     </div>
   );
 };

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { StaffDetailDrawer } from '../components/staff/StaffDetailDrawer';
+import { StaffIndicatorCell, useStaffIndicators } from '../components/staff/StaffIndicators';
 import StaffAvatar from '../components/shared/StaffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -16,6 +18,7 @@ interface ProfileRow {
 
 interface TeamMemberRow {
   id:                  string;
+  profile_id:          string;
   position:            string | null;
   is_active:           boolean | null;
   can_view_accounting: boolean | null;
@@ -98,6 +101,8 @@ const TeamPage: React.FC = () => {
   const [members, setMembers] = useState<TeamMemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const [detail, setDetail]   = useState<TeamMemberRow | null>(null);
+  const indicators = useStaffIndicators();
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +111,7 @@ const TeamPage: React.FC = () => {
       setError(null);
       const { data, error } = await supabase
         .from('team_members')
-        .select('id, position, is_active, can_view_accounting, created_at, profiles!team_members_profile_id_fkey(full_name, email, phone, role, last_seen_at, avatar_url, gender)')
+        .select('id, profile_id, position, is_active, can_view_accounting, created_at, profiles!team_members_profile_id_fkey(full_name, email, phone, role, last_seen_at, avatar_url, gender)')
         .order('created_at', { ascending: true });
       if (cancelled) return;
       if (error) {
@@ -119,7 +124,7 @@ const TeamPage: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const headers = ['Team Member', 'Phone', 'Position', 'Active', 'Accounting', 'Last Seen'];
+  const headers = ['Team Member', 'Indicators', 'Phone', 'Position', 'Active', 'Accounting', 'Last Seen'];
 
   return (
     <div style={{ padding: '32px 40px', minHeight: '100vh', fontFamily: 'var(--font-sans)' }}>
@@ -175,9 +180,11 @@ const TeamPage: React.FC = () => {
                   return (
                     <tr
                       key={m.id}
+                      onClick={() => setDetail(m)}
                       style={{
                         borderBottom: i < members.length - 1 ? '1px solid #f9fafb' : 'none',
                         background: '#fff',
+                        cursor: 'pointer',
                         transition: 'background 100ms ease',
                       }}
                       onMouseEnter={e => (e.currentTarget.style.background = '#fafafa')}
@@ -196,6 +203,10 @@ const TeamPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
+                      </td>
+
+                      <td style={{ padding: '12px 16px' }}>
+                        <StaffIndicatorCell goals={indicators.byProfile[m.profile_id]} indicators={indicators} />
                       </td>
 
                       {/* Phone */}
@@ -238,6 +249,15 @@ const TeamPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {detail && (
+        <StaffDetailDrawer
+          profileId={detail.profile_id}
+          name={firstProfile(detail.profiles)?.full_name || firstProfile(detail.profiles)?.email || 'Team member'}
+          avatar={firstProfile(detail.profiles) ?? {}}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </div>
   );
 };

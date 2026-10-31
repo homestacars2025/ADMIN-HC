@@ -177,6 +177,12 @@ export async function fetchGoalSettings() {
   };
 }
 
+export async function fetchGoalProgress(month: string, profileId: string): Promise<GoalProgress[]> {
+  const { data, error } = await supabase.rpc('staff_goal_progress', { p_month: month, p_profile: profileId });
+  failIf(error);
+  return (data ?? []) as GoalProgress[];
+}
+
 export async function fetchGoalGaps(month: string, profileId: string): Promise<GoalGap[]> {
   const { data, error } = await supabase.rpc('staff_goal_gaps', { p_month: month, p_profile: profileId });
   failIf(error);

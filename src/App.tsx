@@ -52,7 +52,7 @@ import OnlineUsersPage from './pages/OnlineUsersPage';
 import TeamPage from './pages/TeamPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import ReminderRulesPage from './pages/notifications/ReminderRulesPage';
-import TasksPage from './pages/notifications/TasksPage';
+import TasksPage from './pages/tasks/TasksPage';
 import MediaLayout from './pages/media/MediaLayout';
 import MediaIdeasPage from './pages/media/MediaIdeasPage';
 import MediaCalendarPage from './pages/media/MediaCalendarPage';

@@ -28,6 +28,11 @@ const en = {
       body: 'There are {{count}} record(s) in Car Issues still open. Please review them.',
     },
   },
+  task: {
+    assigned: { title: 'New task: {{title}}' },
+    due_soon: { title: 'Task due soon: {{title}}' },
+    overdue: { title: 'Task overdue: {{title}}' },
+  },
   kabis: {
     pending: {
       title: 'New KABIS {{action_label}} pending',

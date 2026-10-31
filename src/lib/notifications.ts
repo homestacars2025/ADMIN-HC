@@ -16,7 +16,6 @@ import { supabase } from './supabase';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type NotificationCategory = 'event' | 'reminder' | 'task' | 'manual';
-export type TaskStatus = 'open' | 'claimed' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type TargetRole = 'admin' | 'staff' | 'investor' | 'customer';
 
@@ -34,28 +33,6 @@ export interface NotificationRow {
   entity_type: string | null;
   entity_id: string | null;
   is_read: boolean;
-  created_at: string;
-}
-
-export interface TaskRow {
-  id: string;
-  title: string;
-  description: string | null;
-  /** Message key; `title`/`description` above are only the stored fallback. */
-  i18n_key: string | null;
-  body_i18n_key: string | null;
-  vars: Record<string, unknown> | null;
-  category: string | null;
-  status: TaskStatus;
-  priority: TaskPriority;
-  claimed_by: string | null;
-  claimed_by_name: string | null;
-  completed_by: string | null;
-  completed_by_name: string | null;
-  completed_at: string | null;
-  entity_type: string | null;
-  entity_id: string | null;
-  due_at: string | null;
   created_at: string;
 }
 
@@ -157,27 +134,6 @@ export async function getOpenTasksCount(): Promise<number> {
   return (data as number) ?? 0;
 }
 
-/**
- * `my_tasks` decides visibility and now projects `completed_at` and
- * `completed_by_name` itself, so this is a single call — the follow-up read of
- * `tasks` that previously supplied the completion time is no longer needed.
- */
-export async function getTasks(
-  status: 'active' | 'done' | 'all',
-  limit: number,
-  offset: number,
-): Promise<TaskRow[]> {
-  const { data, error } = await supabase.rpc('my_tasks', {
-    p_status: status,
-    p_limit: limit,
-    p_offset: offset,
-  });
-  if (error) throw new Error(friendlyError(error));
-  return (data ?? []) as TaskRow[];
-}
-
-// ── Notification actions ──────────────────────────────────────────────────────
-
 export async function markRead(notificationId: string): Promise<void> {
   const { error } = await supabase.rpc('mark_notification_read', {
     p_notification_id: notificationId,
@@ -208,29 +164,6 @@ export async function sendManualNotification(input: {
   });
   if (error) throw new Error(friendlyError(error));
   return data as string;
-}
-
-// ── Task actions ──────────────────────────────────────────────────────────────
-
-export async function completeTask(taskId: string, notes?: string | null): Promise<void> {
-  const { error } = await supabase.rpc('complete_task', {
-    p_task_id: taskId,
-    p_notes: notes ?? null,
-  });
-  if (error) throw new Error(friendlyError(error));
-}
-
-export async function claimTask(taskId: string): Promise<void> {
-  const { error } = await supabase.rpc('claim_task', { p_task_id: taskId });
-  if (error) throw new Error(friendlyError(error));
-}
-
-export async function cancelTask(taskId: string, notes?: string | null): Promise<void> {
-  const { error } = await supabase.rpc('cancel_task', {
-    p_task_id: taskId,
-    p_notes: notes ?? null,
-  });
-  if (error) throw new Error(friendlyError(error));
 }
 
 // ── Reminder rules ────────────────────────────────────────────────────────────
