@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { AlertTriangle } from '../../components/media/MediaIcons';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, Plus } from '../../components/media/MediaIcons';
 import { PageHeader } from '../../components/media/MediaShared';
 import { MediaToaster } from '../../components/media/MediaToast';
+import { Button } from '../../components/media/MediaUI';
 import { useShell } from '../../components/shell/shellContext';
 import { cn } from '../../lib/media/badgeColor';
 import { supabase } from '../../lib/supabase';
+import { fetchTaskStats, type TaskStats, type TaskTemplate } from '../../lib/tasks';
 import { RecurringTab } from './RecurringTab';
+import { StatTiles } from './StatTiles';
+import { TaskComposer } from './TaskComposer';
 import { TaskListTab } from './TaskListTab';
-import { errorText, type DepartmentOption, type StaffOption } from './shared';
+import { PRIMARY_BUTTON, errorText, type DepartmentOption, type StaffOption } from './shared';
 
 type Tab = 'tasks' | 'recurring';
 
@@ -16,35 +20,63 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'recurring', label: 'Recurring' },
 ];
 
+interface TeamRow {
+  profile_id: string;
+  department_key: string | null;
+  is_active: boolean | null;
+}
+
 const TasksPage: React.FC = () => {
   const { profile } = useShell();
   const [tab, setTab] = useState<Tab>('tasks');
   const [staff, setStaff] = useState<StaffOption[] | null>(null);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+  const [stats, setStats] = useState<TaskStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [composer, setComposer] = useState<{ template: TaskTemplate | null } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      supabase.from('profiles').select('id, full_name, email').eq('role', 'staff').eq('status', 'active').order('full_name'),
+      supabase.from('profiles').select('id, full_name, email, avatar_url, gender').eq('role', 'staff').eq('status', 'active').order('full_name'),
+      supabase.from('team_members').select('profile_id, department_key, is_active'),
       supabase.from('departments').select('key, label_en').eq('is_active', true).order('sort_order'),
     ])
-      .then(([people, teams]) => {
+      .then(([people, team, teams]) => {
         if (cancelled) return;
-        if (people.error) throw new Error(people.error.message);
-        if (teams.error) throw new Error(teams.error.message);
-        setStaff((people.data ?? []) as StaffOption[]);
+        [people, team, teams].forEach((result) => { if (result.error) throw new Error(result.error.message); });
+        const members = new Map(((team.data ?? []) as TeamRow[]).map((row) => [row.profile_id, row]));
+        // The same people admin_create_task sends to: active profile, active member.
+        setStaff((people.data ?? [])
+          .filter((person) => members.get(person.id)?.is_active)
+          .map((person) => ({ ...person, department_key: members.get(person.id)?.department_key ?? null })));
         setDepartments((teams.data ?? []) as DepartmentOption[]);
       })
       .catch((e: unknown) => { if (!cancelled) setError(errorText(e)); });
     return () => { cancelled = true; };
   }, []);
 
+  const loadStats = useCallback(() => {
+    fetchTaskStats().then(setStats).catch(() => {
+      // The tiles are a summary; the list below reports any real problem.
+    });
+  }, []);
+
+  useEffect(() => { loadStats(); }, [loadStats, refreshKey]);
+
   return (
     <div className="media-scope mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
-      <PageHeader eyebrow="Staff" title="Tasks" subtitle="Assign one-off and recurring tasks, and follow them through." />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader eyebrow="Staff" title="Tasks" subtitle="Assign work, set what repeats, and see it through." />
+        <Button size="lg" className={PRIMARY_BUTTON} disabled={!staff} onClick={() => setComposer({ template: null })}>
+          <Plus size={14} /> New task
+        </Button>
+      </div>
 
-      <div role="tablist" aria-label="Task views" className="mt-6 flex gap-1 overflow-x-auto border-b border-subtle">
+      <div className="mt-6"><StatTiles stats={stats} /></div>
+
+      <div role="tablist" aria-label="Task views" className="mt-5 flex gap-1 overflow-x-auto border-b border-subtle">
         {TABS.map(({ key, label }) => (
           <button
             key={key}
@@ -71,11 +103,36 @@ const TasksPage: React.FC = () => {
         ) : !staff ? (
           <div className="h-64 animate-pulse rounded-2xl bg-black/[0.04]" />
         ) : tab === 'tasks' ? (
-          <TaskListTab staff={staff} departments={departments} />
+          <TaskListTab staff={staff} departments={departments} refreshKey={refreshKey} onChanged={loadStats} />
         ) : (
-          <RecurringTab staff={staff} departments={departments} adminId={profile?.id ?? ''} />
+          <RecurringTab
+            staff={staff}
+            departments={departments}
+            refreshKey={refreshKey}
+            onEdit={(template) => setComposer({ template })}
+          />
         )}
       </div>
+
+      {composer && staff && (
+        <TaskComposer
+          key={composer.template?.id ?? 'new'}
+          template={composer.template}
+          staff={staff}
+          departments={departments}
+          admin={{
+            id: profile?.id ?? '',
+            full_name: profile?.full_name ?? null,
+            avatar_url: profile?.avatar_url ?? null,
+            gender: profile?.gender ?? null,
+          }}
+          onClose={() => setComposer(null)}
+          onSaved={() => {
+            setComposer(null);
+            setRefreshKey((n) => n + 1);
+          }}
+        />
+      )}
 
       <MediaToaster />
     </div>

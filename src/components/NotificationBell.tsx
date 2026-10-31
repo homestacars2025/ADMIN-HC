@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 import { useMessageRenderer, useTranslation } from '../lib/i18n';
+import { notificationArrived } from '../lib/notificationEvents';
 import {
   CATEGORY_STYLES,
   getNotifications,
@@ -100,6 +101,14 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
     };
   }, [open]);
 
+  // A notification that arrives while the panel is open joins the top of the list.
+  useEffect(() => notificationArrived.subscribe((notification) => {
+    setItems((current) => [
+      notification,
+      ...current.filter((item) => item.id !== notification.id),
+    ].slice(0, LATEST_COUNT));
+  }), []);
+
   function toggle() {
     const next = !open;
     setOpen(next);
@@ -163,6 +172,8 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
 
         {unread > 0 && (
           <span
+            key={unread}
+            className="motion-safe:animate-[badge-bounce_380ms_ease-out]"
             style={{
               position: 'absolute', top: -5, right: -5,
               minWidth: 17, height: 17, padding: '0 4px',

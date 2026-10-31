@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNotificationCounts } from '../../hooks/useNotificationCounts';
+import { useNotificationRealtime } from '../../hooks/useNotificationRealtime';
 import type { CurrentProfile } from '../../hooks/useCurrentProfile';
 import { playNotificationSound } from '../../lib/notificationSound';
 import { loadUserSettings } from '../../lib/userSettings';
 import { Search } from '../media/MediaIcons';
 import NotificationBell from '../NotificationBell';
 import { CommandPalette } from './CommandPalette';
+import { LiveToasts } from './LiveToasts';
 import { UserMenu } from './UserMenu';
 
 const ICON_BUTTON =
@@ -24,7 +26,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ profile, isMobile, collapsed, bellRequest, onToggleSidebar }) => {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { unread } = useNotificationCounts();
+  const { unread, live } = useNotificationCounts();
   const lastUnread = useRef<number | null>(null);
 
   useEffect(() => {
@@ -38,15 +40,18 @@ export const TopBar: React.FC<TopBarProps> = ({ profile, isMobile, collapsed, be
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Only a rise from a known count chimes, so loading the page stays silent.
   const userId = profile?.id;
+  useNotificationRealtime(userId, profile?.role);
+
+  // Realtime chimes for itself. This covers the polling fallback, and only a rise
+  // from a known count chimes, so loading the page stays silent.
   useEffect(() => {
     const previous = lastUnread.current;
     lastUnread.current = unread;
-    if (previous !== null && unread > previous && userId && loadUserSettings(userId).notificationSound) {
+    if (!live && previous !== null && unread > previous && userId && loadUserSettings(userId).notificationSound) {
       playNotificationSound();
     }
-  }, [unread, userId]);
+  }, [unread, userId, live]);
 
   const toggleLabel = isMobile ? 'Open menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar';
 
@@ -88,6 +93,7 @@ export const TopBar: React.FC<TopBarProps> = ({ profile, isMobile, collapsed, be
       <UserMenu profile={profile} />
 
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+      <LiveToasts />
     </header>
   );
 };

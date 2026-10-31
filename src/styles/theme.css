@@ -141,3 +141,27 @@ b, strong, th {
  * `…:is(a):hover` and so never fires on a <button>. Cars' Button applies its
  * hover unconditionally instead — see `BUTTON_VARIANTS` in MediaUI.
  */
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+
+@keyframes badge-bounce {
+  0% { transform: scale(0.6); }
+  55% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+@keyframes live-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes task-row-in {
+  from { opacity: 0; background-color: var(--brand-subtle); transform: translateY(-4px); }
+  to { opacity: 1; background-color: transparent; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-scope [role='dialog'] {
+    animation: none !important;
+  }
+}

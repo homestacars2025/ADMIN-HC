@@ -4,26 +4,28 @@ import { getOpenTasksCount, getUnreadCount } from '../lib/notifications';
 const POLL_MS = 30_000;
 
 /*
- * One 30s poll drives both the bell badge and the sidebar's Tasks badge.
+ * One store drives both the bell badge and the sidebar's Tasks badge.
  *
- * Deliberately polling rather than Realtime: `notifications_v2` is not in the
- * `supabase_realtime` publication, so a postgres_changes subscription on it
- * would connect and then silently never fire. The project does use Realtime
- * elsewhere (chat, presence) — those tables *are* published.
- *
- * A module-level store keeps the bell and the sidebar on one timer and one
+ * Realtime keeps these current, so the 30s poll only runs while that channel is
+ * down. A module-level store keeps the bell and the sidebar on one timer and one
  * request pair, instead of each mounting its own.
  */
 
 interface Counts {
   unread: number;
   openTasks: number;
+  live: boolean;
 }
 
-let counts: Counts = { unread: 0, openTasks: 0 };
+let counts: Counts = { unread: 0, openTasks: 0, live: false };
 const listeners = new Set<(next: Counts) => void>();
 let timer: ReturnType<typeof setInterval> | null = null;
 let inFlight = false;
+
+function publish(next: Counts) {
+  counts = next;
+  listeners.forEach((listener) => listener(counts));
+}
 
 async function refresh(): Promise<void> {
   // Overlapping polls would be wasted work if a request runs long.
@@ -31,8 +33,7 @@ async function refresh(): Promise<void> {
   inFlight = true;
   try {
     const [unread, openTasks] = await Promise.all([getUnreadCount(), getOpenTasksCount()]);
-    counts = { unread, openTasks };
-    listeners.forEach((listener) => listener(counts));
+    publish({ ...counts, unread, openTasks });
   } catch {
     // A failed poll leaves the last known counts on screen; the next tick
     // retries. A badge is not worth an error toast every 30 seconds.
@@ -41,20 +42,33 @@ async function refresh(): Promise<void> {
   }
 }
 
+function syncTimer() {
+  const shouldPoll = listeners.size > 0 && !counts.live;
+  if (shouldPoll && !timer) {
+    timer = setInterval(refresh, POLL_MS);
+  } else if (!shouldPoll && timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+/** Called as the realtime channel connects and drops. */
+export function setCountsLive(live: boolean) {
+  if (live === counts.live) return;
+  publish({ ...counts, live });
+  syncTimer();
+  // Whatever arrived while the channel was down, catch up on it now.
+  if (live) refresh();
+}
+
 function subscribe(listener: (next: Counts) => void): () => void {
   listeners.add(listener);
-
-  if (!timer) {
-    refresh();
-    timer = setInterval(refresh, POLL_MS);
-  }
+  if (listeners.size === 1) refresh();
+  syncTimer();
 
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0 && timer) {
-      clearInterval(timer);
-      timer = null;
-    }
+    syncTimer();
   };
 }
 
