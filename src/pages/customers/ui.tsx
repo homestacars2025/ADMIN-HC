@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/media/badgeColor';
 import { nationalityToFlag } from '../../lib/countries';
-import { balanceState, DOCUMENT_SLOTS, formatLira } from '../../lib/customers';
+import { balanceState, DOCUMENT_SLOTS, formatLira, type BanMatch } from '../../lib/customers';
 
 const ICON = {
   fill: 'none',
@@ -104,6 +104,37 @@ export const RoadIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
   <svg width={size} height={size} {...ICON}>
     <path d="M7 3 3 21M17 3l4 18M12 5v3M12 11v3M12 17v3" />
   </svg>
+);
+
+export const MoreIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <circle cx="5" cy="12" r="1.8" />
+    <circle cx="12" cy="12" r="1.8" />
+    <circle cx="19" cy="12" r="1.8" />
+  </svg>
+);
+
+/** Shown next to a banned customer's name wherever it appears. */
+export const BannedBadge: React.FC<{ reason?: string | null; className?: string }> = ({ reason, className }) => (
+  <span
+    title={reason ? `Banned: ${reason}` : 'Banned'}
+    className={cn('inline-block shrink-0 whitespace-nowrap rounded-full bg-[#DC2626] px-2 py-0.5 text-[11px] font-semibold leading-none text-white', className)}
+  >
+    Banned
+  </span>
+);
+
+export const BanAlert: React.FC<{ match: BanMatch }> = ({ match }) => (
+  <div role="alert" className="rounded-xl border border-[#DC2626]/30 bg-[#DC2626]/[0.07] px-3.5 py-3">
+    <p className="text-[13.5px] font-semibold text-[#B91C1C]">
+      This customer is banned{match.ban_reason ? ` — ${match.ban_reason}` : ''}
+    </p>
+    {match.matched_on !== 'customer' && (
+      <p className="mt-0.5 text-[12.5px] text-[#B91C1C]/80">
+        Same {match.matched_on === 'phone' ? 'phone' : 'ID number'} as {match.full_name}.
+      </p>
+    )}
+  </div>
 );
 
 export const PlateChip: React.FC<{ plate: string | null; className?: string }> = ({ plate, className }) => (

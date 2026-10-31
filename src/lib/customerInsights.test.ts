@@ -23,7 +23,7 @@ const customer = (id: string, over: Partial<Customer> = {}): Customer => ({
   id_type: null, id_number: null, birth_date: null, address: null, driving_license_number: null,
   license_issue_date: null, notes: null, created_at: '2026-01-10T10:00:00Z', id_photo_url: null,
   id_photo_back_url: null, driving_license_photo_url: null, driving_license_back_url: null,
-  entry_stamp_photo_url: null,
+  entry_stamp_photo_url: null, is_banned: false, ban_reason: null, banned_at: null, banned_by: null,
   ...over,
 });
 
@@ -249,18 +249,20 @@ describe('loyaltyStats', () => {
 });
 
 describe('findDataIssues', () => {
-  it('groups by phone, ID and name, biggest first, naming each reason', () => {
+  it('groups only records that share an ID, biggest first, listing each spelling', () => {
     const { duplicates, duplicateRecords } = findDataIssues([
-      customer('a', { first_name: 'ABDOLGHANI', last_name: 'TOUDZILI', phone: '+905364067730' }),
-      customer('b', { first_name: 'Abdolghani', last_name: 'Toudzili', phone: '05364067730' }),
-      customer('c', { first_name: 'ABDOLGHANI', last_name: 'TOUDZILLI' }),
-      customer('d', { first_name: 'Ibrahim', last_name: 'Albrahim', id_number: 'P1234567' }),
-      customer('e', { first_name: 'Someone', last_name: 'Else', id_number: 'p1234567' }),
-      customer('f', { first_name: 'Unrelated', last_name: 'Person' }),
+      customer('a', { first_name: 'IBRAHIM', last_name: 'ABUSALHA', id_number: '98236166898' }),
+      customer('b', { first_name: 'Ibrahim', last_name: 'Abusaaha', id_number: '982 361 66898' }),
+      customer('c', { first_name: 'IBRAHIM', last_name: 'ABUSALAHA', id_number: '98236166898' }),
+      customer('d', { first_name: 'Ahmad', last_name: 'Ali', id_number: 'R093866' }),
+      customer('e', { first_name: 'Ahmed', last_name: 'Ali', id_number: 'r093866' }),
+      customer('f', { first_name: 'Same', last_name: 'Phone', phone: '+905364067730' }),
+      customer('g', { first_name: 'Same', last_name: 'Phone', phone: '+905364067730' }),
+      customer('h', { first_name: 'Short', last_name: 'Id', id_number: '12345' }),
+      customer('i', { first_name: 'Short', last_name: 'Id', id_number: '12345' }),
     ]);
-    expect(duplicates.map((group) => group.records.length)).toEqual([3, 2]);
-    expect(duplicates[0].reasons).toEqual(['phone', 'name']);
-    expect(duplicates[1].reasons).toEqual(['id']);
+    expect(duplicates.map((group) => group.idNumber)).toEqual(['98236166898', 'R093866']);
+    expect(duplicates[0].names).toEqual(['IBRAHIM ABUSALHA', 'IBRAHIM ABUSAAHA', 'IBRAHIM ABUSALAHA']);
     expect(duplicateRecords).toBe(5);
   });
 

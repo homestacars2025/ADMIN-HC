@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { CalendarPlus, ChevronLeft, ChevronRight, List, Pencil, Search, X } from '../../components/media/MediaIcons';
 import { PageHeader } from '../../components/media/MediaShared';
 import { MediaToaster, toast } from '../../components/media/MediaToast';
-import { Button, Input } from '../../components/media/MediaUI';
+import { Button, DropdownMenu, Input } from '../../components/media/MediaUI';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { whatsAppUrl } from '../../lib/countries';
@@ -27,16 +27,19 @@ import { customerTrends } from '../../lib/customerInsights';
 import { cn } from '../../lib/media/badgeColor';
 import { Eye } from '../tasks/icons';
 import { FilterPill, type FilterOption } from '../tasks/FilterBar';
+import { BanFlow } from './BanFlow';
 import { CustomerEditSheet } from './CustomerEditSheet';
 import { CustomerInsights } from './CustomerInsights';
 import { PremiumTile, TileSkeleton } from './PremiumTile';
 import {
   BalancePill,
+  BannedBadge,
   CarIcon,
   DocumentsRing,
   Flag,
   GridIcon,
   ICON_BUTTON,
+  MoreIcon,
   PlateChip,
   RatingBadge,
   UserPlusIcon,
@@ -56,6 +59,7 @@ const SEGMENTS: Array<{ key: CustomerSegment; label: string }> = [
   { key: 'vip', label: 'VIP' },
   { key: 'low', label: 'Low rating' },
   { key: 'new', label: 'New this month' },
+  { key: 'banned', label: 'Banned' },
 ];
 
 const isSegment = (value: string | null): value is CustomerSegment =>
@@ -67,6 +71,7 @@ const newBookingPath = (customerId: string) => `/dashboard/bookings?new=1&custom
 
 interface RowActions {
   onEdit: (customer: Customer) => void;
+  onBan: (customer: Customer) => void;
 }
 
 const PhoneLink: React.FC<{ phone: string | null }> = ({ phone }) => {
@@ -87,7 +92,7 @@ const PhoneLink: React.FC<{ phone: string | null }> = ({ phone }) => {
   );
 };
 
-const QuickActions: React.FC<{ summary: CustomerSummary; profilePath: string } & RowActions> = ({ summary, profilePath, onEdit }) => {
+const QuickActions: React.FC<{ summary: CustomerSummary; profilePath: string } & RowActions> = ({ summary, profilePath, onEdit, onBan }) => {
   const location = useLocation();
   const url = whatsAppUrl(summary.customer.phone);
   const stop = (event: React.MouseEvent) => event.stopPropagation();
@@ -99,7 +104,11 @@ const QuickActions: React.FC<{ summary: CustomerSummary; profilePath: string } &
       ) : (
         <span aria-hidden="true" className={cn(ICON_BUTTON, 'pointer-events-none opacity-40')}><WhatsAppIcon /></span>
       )}
-      <Link to={newBookingPath(summary.customer.id)} onClick={stop} aria-label={`New booking for ${summary.name}`} title="New booking" className={ICON_BUTTON}><CalendarPlus size={15} /></Link>
+      {summary.customer.is_banned ? (
+        <span aria-hidden="true" title="Banned customers can't book" className={cn(ICON_BUTTON, 'pointer-events-none opacity-40')}><CalendarPlus size={15} /></span>
+      ) : (
+        <Link to={newBookingPath(summary.customer.id)} onClick={stop} aria-label={`New booking for ${summary.name}`} title="New booking" className={ICON_BUTTON}><CalendarPlus size={15} /></Link>
+      )}
       <button
         type="button"
         onClick={(event) => { event.stopPropagation(); onEdit(summary.customer); }}
@@ -109,13 +118,29 @@ const QuickActions: React.FC<{ summary: CustomerSummary; profilePath: string } &
       >
         <Pencil size={14} />
       </button>
+      {/* The menu renders in a portal, and React still bubbles its clicks to the row. */}
+      <span onClick={stop} className="contents">
+        <DropdownMenu
+          ariaLabel={`More actions for ${summary.name}`}
+          align="end"
+          minWidth={150}
+          triggerClassName={ICON_BUTTON}
+          items={[{
+            key: 'ban',
+            label: summary.customer.is_banned ? 'Remove ban' : 'Ban customer',
+            onSelect: () => onBan(summary.customer),
+          }]}
+        >
+          {() => <MoreIcon />}
+        </DropdownMenu>
+      </span>
     </>
   );
 };
 
 const HEADERS = ['Customer', 'Phone', 'Bookings', 'Spent', 'Balance', 'Documents', 'Rating', 'Last booking'];
 
-const CustomerTable: React.FC<{ rows: CustomerSummary[] } & RowActions> = ({ rows, onEdit }) => {
+const CustomerTable: React.FC<{ rows: CustomerSummary[] } & RowActions> = ({ rows, onEdit, onBan }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = { fromList: true, listSearch: location.search };
@@ -148,6 +173,7 @@ const CustomerTable: React.FC<{ rows: CustomerSummary[] } & RowActions> = ({ row
                       {summary.name}
                     </Link>
                     <Flag nationality={summary.customer.nationality} />
+                    {summary.customer.is_banned && <BannedBadge reason={summary.customer.ban_reason} />}
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-[13px]"><PhoneLink phone={summary.customer.phone} /></td>
@@ -159,7 +185,7 @@ const CustomerTable: React.FC<{ rows: CustomerSummary[] } & RowActions> = ({ row
                 <td className="relative whitespace-nowrap px-4 py-2.5 text-[13px] tabular-nums text-black/55">
                   {formatDate(summary.lastBooking)}
                   <div className="absolute inset-y-0 right-2 flex items-center gap-1 bg-[#F8FAFD] pl-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
-                    <QuickActions summary={summary} profilePath={path} onEdit={onEdit} />
+                    <QuickActions summary={summary} profilePath={path} onEdit={onEdit} onBan={onBan} />
                   </div>
                 </td>
               </tr>
@@ -171,7 +197,7 @@ const CustomerTable: React.FC<{ rows: CustomerSummary[] } & RowActions> = ({ row
   );
 };
 
-const CustomerCard: React.FC<{ summary: CustomerSummary } & RowActions> = ({ summary, onEdit }) => {
+const CustomerCard: React.FC<{ summary: CustomerSummary } & RowActions> = ({ summary, onEdit, onBan }) => {
   const location = useLocation();
   const path = `/dashboard/customers/${summary.customer.id}`;
   const { customer } = summary;
@@ -192,6 +218,7 @@ const CustomerCard: React.FC<{ summary: CustomerSummary } & RowActions> = ({ sum
             </Link>
             <Flag nationality={customer.nationality} />
             {summary.isVip && <span className="shrink-0 rounded-full bg-[#F59E0B]/15 px-1.5 text-[10.5px] font-semibold text-[#B45309]">VIP</span>}
+            {customer.is_banned && <BannedBadge reason={customer.ban_reason} />}
           </div>
           <div className="mt-0.5 truncate text-[12.5px] tabular-nums text-black/55" dir="ltr">{customer.phone ?? '—'}</div>
         </div>
@@ -211,7 +238,7 @@ const CustomerCard: React.FC<{ summary: CustomerSummary } & RowActions> = ({ sum
       </dl>
 
       <div className="relative z-10 flex items-center justify-end gap-1.5">
-        <QuickActions summary={summary} profilePath={path} onEdit={onEdit} />
+        <QuickActions summary={summary} profilePath={path} onEdit={onEdit} onBan={onBan} />
       </div>
     </article>
   );
@@ -240,6 +267,7 @@ const CustomersPage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [banning, setBanning] = useState<Customer | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -486,10 +514,10 @@ const CustomersPage: React.FC = () => {
             )}
           </div>
         ) : wide && !cardView ? (
-          <CustomerTable rows={visible} onEdit={setEditing} />
+          <CustomerTable rows={visible} onEdit={setEditing} onBan={setBanning} />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {visible.map((summary) => <CustomerCard key={summary.customer.id} summary={summary} onEdit={setEditing} />)}
+            {visible.map((summary) => <CustomerCard key={summary.customer.id} summary={summary} onEdit={setEditing} onBan={setBanning} />)}
           </div>
         )}
       </div>
@@ -512,6 +540,7 @@ const CustomersPage: React.FC = () => {
       )}
 
       {editing && <CustomerEditSheet customer={editing} onClose={() => setEditing(null)} onSaved={onSaved} />}
+      <BanFlow customer={banning} onClose={() => setBanning(null)} onChanged={() => setAttempt((value) => value + 1)} />
     </div>
   );
 };

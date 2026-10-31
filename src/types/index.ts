@@ -85,4 +85,5 @@ export interface Booking {
   plate_number: string;
   car_model: string;
   customer_name: string;
+  customer_banned?: boolean;
 }

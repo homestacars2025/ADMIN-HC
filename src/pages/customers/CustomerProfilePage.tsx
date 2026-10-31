@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CalendarDays, CalendarPlus, ChevronLeft, Mail, Pencil, Plus } from '../../components/media/MediaIcons';
 import { MediaToaster, toast } from '../../components/media/MediaToast';
-import { Button } from '../../components/media/MediaUI';
+import { Button, DropdownMenu } from '../../components/media/MediaUI';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
 import { whatsAppUrl } from '../../lib/countries';
 import {
@@ -26,11 +26,12 @@ import {
 } from '../../lib/customers';
 import { cn } from '../../lib/media/badgeColor';
 import { AddPaymentSheet } from './AddPaymentSheet';
+import { BanFlow } from './BanFlow';
 import { CustomerEditSheet } from './CustomerEditSheet';
 import { DocumentsTab } from './DocumentsTab';
 import { PremiumTile } from './PremiumTile';
 import { BookingsTab, FinesHgsTab, NotesTab, OverviewTab, WalletTab } from './ProfileTabs';
-import { ClockIcon, Flag, ICON_BUTTON, PhoneIcon, ReceiptIcon, RoadIcon, WalletIcon, WhatsAppIcon } from './ui';
+import { BannedBadge, ClockIcon, Flag, ICON_BUTTON, MoreIcon, PhoneIcon, ReceiptIcon, RoadIcon, WalletIcon, WhatsAppIcon } from './ui';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -68,17 +69,27 @@ const ProfileSkeleton: React.FC = () => (
 
 const PrimaryActions: React.FC<{
   customerId: string;
+  banned: boolean;
   onPayment: () => void;
   onEdit: () => void;
   className?: string;
-}> = ({ customerId, onPayment, onEdit, className }) => (
+}> = ({ customerId, banned, onPayment, onEdit, className }) => (
   <div className={cn('flex items-center gap-2', className)}>
-    <Link
-      to={`/dashboard/bookings?new=1&customer=${customerId}`}
-      className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[var(--btn-primary-bg)] px-3 text-[13px] font-semibold text-white transition-colors hover:bg-[var(--btn-primary-hover)] active:bg-[var(--btn-primary-active)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/30 md:h-10 md:flex-none md:px-4"
-    >
-      <CalendarPlus size={14} className="shrink-0 max-[359px]:hidden" /> New booking
-    </Link>
+    {banned ? (
+      <span
+        title="Banned customers can't book"
+        className="inline-flex h-11 min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[var(--btn-primary-disabled)] px-3 text-[13px] font-semibold text-white md:h-10 md:flex-none md:px-4"
+      >
+        <CalendarPlus size={14} className="shrink-0 max-[359px]:hidden" /> New booking
+      </span>
+    ) : (
+      <Link
+        to={`/dashboard/bookings?new=1&customer=${customerId}`}
+        className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] bg-[var(--btn-primary-bg)] px-3 text-[13px] font-semibold text-white transition-colors hover:bg-[var(--btn-primary-hover)] active:bg-[var(--btn-primary-active)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/30 md:h-10 md:flex-none md:px-4"
+      >
+        <CalendarPlus size={14} className="shrink-0 max-[359px]:hidden" /> New booking
+      </Link>
+    )}
     <Button variant="secondary" size="lg" className="!h-11 min-w-0 flex-1 md:!h-10 md:flex-none" onClick={onPayment}>
       <Plus size={14} className="shrink-0 max-[359px]:hidden" /> Add payment
     </Button>
@@ -100,7 +111,7 @@ const CustomerProfilePage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [isVip, setIsVip] = useState(false);
-  const [sheet, setSheet] = useState<'edit' | 'payment' | null>(null);
+  const [sheet, setSheet] = useState<'edit' | 'payment' | 'ban' | null>(null);
   const tabRefs = useRef<Partial<Record<TabKey, HTMLButtonElement | null>>>({});
 
   const today = istanbulDate();
@@ -216,12 +227,27 @@ const CustomerProfilePage: React.FC = () => {
       <MediaToaster />
       {back}
 
+      {customer.is_banned && (
+        <div role="status" className="mt-2 rounded-2xl border border-[#DC2626]/30 bg-[#DC2626]/[0.07] px-4 py-3">
+          <p className="text-[14px] font-semibold text-[#B91C1C]">Banned{customer.ban_reason ? ` — ${customer.ban_reason}` : ''}</p>
+          <p className="mt-0.5 text-[12.5px] text-[#B91C1C]/80">
+            {[
+              customer.banned_at ? `Since ${formatDate(istanbulDate(customer.banned_at))}` : null,
+              profile.bannedByName ? `by ${profile.bannedByName}` : null,
+            ].filter(Boolean).join(' ')}
+          </p>
+        </div>
+      )}
+
       <header className="mt-2 rounded-[20px] border border-subtle bg-surface p-4 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <CustomerAvatar alt={name} size={88} style={{ border: '1px solid var(--border-subtle)' }} />
             <div className="min-w-0">
-              <h1 className="truncate text-[20px] font-medium tracking-[-0.022em] text-foreground sm:text-[24px]">{name}</h1>
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="truncate text-[20px] font-medium tracking-[-0.022em] text-foreground sm:text-[24px]">{name}</h1>
+                {customer.is_banned && <BannedBadge reason={customer.ban_reason} />}
+              </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-black/55">
                 <span className="inline-flex items-center gap-1.5"><Flag nationality={customer.nationality} /> {customer.nationality ?? 'Nationality unknown'}</span>
                 <span aria-hidden="true">·</span>
@@ -247,9 +273,22 @@ const CustomerProfilePage: React.FC = () => {
               {customer.phone && <a href={`tel:${customer.phone}`} aria-label={`Call ${customer.phone}`} title={customer.phone} className={ICON_BUTTON}><PhoneIcon /></a>}
               {whatsapp && <a href={whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Open in WhatsApp" title="WhatsApp" className={ICON_BUTTON}><WhatsAppIcon /></a>}
               {customer.email && <a href={`mailto:${customer.email}`} aria-label={`Email ${customer.email}`} title={customer.email} className={ICON_BUTTON}><Mail size={15} /></a>}
+              <DropdownMenu
+                ariaLabel="More actions"
+                align="end"
+                minWidth={150}
+                triggerClassName={ICON_BUTTON}
+                items={[{
+                  key: 'ban',
+                  label: customer.is_banned ? 'Remove ban' : 'Ban customer',
+                  onSelect: () => setSheet('ban'),
+                }]}
+              >
+                {() => <MoreIcon />}
+              </DropdownMenu>
               {customer.phone && <span className="ms-1 truncate text-[13px] tabular-nums text-black/55" dir="ltr">{customer.phone}</span>}
             </div>
-            <PrimaryActions customerId={customer.id} onPayment={() => setSheet('payment')} onEdit={() => setSheet('edit')} className="hidden md:flex" />
+            <PrimaryActions customerId={customer.id} banned={customer.is_banned} onPayment={() => setSheet('payment')} onEdit={() => setSheet('edit')} className="hidden md:flex" />
           </div>
         </div>
       </header>
@@ -312,9 +351,10 @@ const CustomerProfilePage: React.FC = () => {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-subtle bg-surface px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 md:hidden">
-        <PrimaryActions customerId={customer.id} onPayment={() => setSheet('payment')} onEdit={() => setSheet('edit')} />
+        <PrimaryActions customerId={customer.id} banned={customer.is_banned} onPayment={() => setSheet('payment')} onEdit={() => setSheet('edit')} />
       </div>
 
+      <BanFlow customer={sheet === 'ban' ? customer : null} onClose={() => setSheet(null)} onChanged={reload} />
       {sheet === 'edit' && (
         <CustomerEditSheet
           customer={customer}

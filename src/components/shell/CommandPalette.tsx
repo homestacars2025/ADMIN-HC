@@ -1,4 +1,5 @@
 import { CustomerAvatar } from '../shared/PersonAvatar';
+import { BannedBadge } from '../../pages/customers/ui';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -149,6 +150,7 @@ export const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) =
                         <span className={cn('truncate text-[13.5px] text-foreground', (group === 'Cars' || group === 'Bookings') && 'font-mono tabular-nums')}>
                           {result.title}
                         </span>
+                        {result.banned && <BannedBadge />}
                       </span>
                       <span className="shrink-0 truncate text-[12px] text-black/45">{result.subtitle}</span>
                     </button>

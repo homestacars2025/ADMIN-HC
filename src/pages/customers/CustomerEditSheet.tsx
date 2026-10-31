@@ -19,6 +19,7 @@ import { COUNTRIES, parseStoredPhone } from '../../lib/countries';
 import {
   LANGUAGE_OPTIONS,
   customerName,
+  idNumberChange,
   istanbulDate,
   normalizeLanguage,
   updateCustomer,
@@ -214,7 +215,7 @@ export const CustomerEditSheet: React.FC<{
         email: form.email.trim() || null,
         address: form.address.trim() || null,
         id_type: form.id_type || null,
-        id_number: form.id_number.trim() || null,
+        ...idNumberChange(customer.id_number, form.id_number),
         driving_license_number: form.driving_license_number.trim() || null,
         license_issue_date: form.license_issue_date || null,
         notes: form.notes.trim() || null,

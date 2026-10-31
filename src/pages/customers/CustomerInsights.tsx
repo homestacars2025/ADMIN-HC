@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, ChevronDown } from '../../components/media/MediaIcons';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
 import {
-  DUPLICATE_REASON_LABELS,
   OTHERS,
   findDataIssues,
   languageRows,
@@ -360,10 +359,10 @@ const DuplicateRow: React.FC<{ group: DuplicateGroup }> = ({ group }) => {
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium text-foreground">
-            {group.name} <span className="font-normal tabular-nums text-black/45">×{group.records.length}</span>
+            {group.names[0]} <span className="font-normal tabular-nums text-black/45">×{group.records.length}</span>
           </span>
           <span className="block truncate text-[11.5px] text-black/45">
-            {group.reasons.map((reason) => DUPLICATE_REASON_LABELS[reason]).join(' · ')}
+            ID {group.idNumber}{group.names.length > 1 ? ` · ${group.names.length} spellings` : ''}
           </span>
         </span>
         <ChevronDown size={14} className={cn('shrink-0 text-black/35 transition-transform', open && 'rotate-180')} />
@@ -378,7 +377,7 @@ const DuplicateRow: React.FC<{ group: DuplicateGroup }> = ({ group }) => {
               aria-label={`Open ${record.name}, record ${index + 1} of ${group.records.length}`}
               className={OPEN_LINK}
             >
-              Open {index + 1}
+              {record.name}
             </Link>
           ))}
         </div>
@@ -397,7 +396,7 @@ const DataQuality: React.FC<{ issues: DataIssues }> = ({ issues }) => {
   ];
 
   return (
-    <Card title="Data quality" note={`${issues.duplicateRecords} records may be duplicates. Read only, nothing is merged.`}>
+    <Card title="Data quality" note={`${issues.duplicateRecords} records share an ID under different spellings. Read only.`}>
       <div className="mb-2 flex gap-1 rounded-lg bg-black/[0.05] p-0.5" role="group" aria-label="Data quality view">
         {views.map((item) => (
           <button
@@ -433,7 +432,7 @@ const DataQuality: React.FC<{ issues: DataIssues }> = ({ issues }) => {
       ) : issues.duplicates.length === 0 ? <p className="py-6 text-center text-[13px] text-black/45">No duplicates found.</p> : (
         <>
           <ul className={cn(showAll && 'max-h-[380px] overflow-y-auto pe-1')}>
-            {groups.map((group) => <DuplicateRow key={group.id} group={group} />)}
+            {groups.map((group) => <DuplicateRow key={group.idNumber} group={group} />)}
           </ul>
           {issues.duplicates.length > GROUPS_SHOWN && (
             <button

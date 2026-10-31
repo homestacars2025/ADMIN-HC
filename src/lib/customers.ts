@@ -44,6 +44,10 @@ export interface Customer {
   driving_license_photo_url: string | null;
   driving_license_back_url: string | null;
   entry_stamp_photo_url: string | null;
+  is_banned: boolean;
+  ban_reason: string | null;
+  banned_at: string | null;
+  banned_by: string | null;
 }
 
 type Joined<T> = T | T[] | null;
@@ -155,6 +159,7 @@ export interface CustomerProfile {
   hgs: CustomerHgs[];
   review: CustomerReview | null;
   raterName: string | null;
+  bannedByName: string | null;
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────
@@ -346,7 +351,7 @@ export function summarizeCustomers(directory: CustomerDirectory, today: string):
   }));
 }
 
-export type CustomerSegment = 'all' | 'active' | 'owes' | 'credit' | 'documents' | 'vip' | 'low' | 'new';
+export type CustomerSegment = 'all' | 'active' | 'owes' | 'credit' | 'documents' | 'vip' | 'low' | 'new' | 'banned';
 
 export function inSegment(summary: CustomerSummary, segment: CustomerSegment): boolean {
   switch (segment) {
@@ -357,6 +362,7 @@ export function inSegment(summary: CustomerSummary, segment: CustomerSegment): b
     case 'vip': return summary.isVip;
     case 'low': return summary.rating !== null && summary.rating <= LOW_RATING_MAX;
     case 'new': return summary.isNew;
+    case 'banned': return summary.customer.is_banned;
     default: return true;
   }
 }
@@ -396,7 +402,7 @@ const CUSTOMER_COLUMNS = [
   'id', 'first_name', 'last_name', 'phone', 'email', 'nationality', 'language', 'id_type', 'id_number',
   'birth_date', 'address', 'driving_license_number', 'license_issue_date', 'notes', 'created_at',
   'id_photo_url', 'id_photo_back_url', 'driving_license_photo_url', 'driving_license_back_url',
-  'entry_stamp_photo_url',
+  'entry_stamp_photo_url', 'is_banned', 'ban_reason', 'banned_at', 'banned_by',
 ].join(', ');
 
 type PageResult = PromiseLike<{ data: unknown; error: { message: string } | null }>;
@@ -481,18 +487,24 @@ export async function fetchCustomerProfile(id: string): Promise<CustomerProfile 
   if (!customer.data) return null;
 
   const reviewRow = review.data as CustomerReview | null;
+  const customerRow = customer.data as unknown as Customer;
+  const [raterName, bannedByName] = await Promise.all([
+    fetchProfileName(reviewRow?.rated_by),
+    fetchProfileName(customerRow.banned_by),
+  ]);
   return {
-    customer: customer.data as unknown as Customer,
+    customer: customerRow,
     bookings: (bookings.data ?? []) as unknown as ProfileBooking[],
     ledger: (ledger.data ?? []) as LedgerEntry[],
     fines: (fines.data ?? []) as CustomerFine[],
     hgs,
     review: reviewRow,
-    raterName: await fetchRaterName(reviewRow?.rated_by),
+    raterName,
+    bannedByName,
   };
 }
 
-async function fetchRaterName(profileId: string | null | undefined): Promise<string | null> {
+async function fetchProfileName(profileId: string | null | undefined): Promise<string | null> {
   if (!profileId) return null;
   const { data } = await supabase.from('profiles').select('full_name').eq('id', profileId).maybeSingle();
   return (data as { full_name: string | null } | null)?.full_name ?? null;
@@ -500,7 +512,48 @@ async function fetchRaterName(profileId: string | null | undefined): Promise<str
 
 // ─── Writing ──────────────────────────────────────────────────────────────────
 
-export type CustomerPatch = Partial<Omit<Customer, 'id' | 'created_at'>>;
+export type CustomerPatch = Partial<Omit<Customer, 'id' | 'created_at' | 'is_banned' | 'ban_reason' | 'banned_at' | 'banned_by'>>;
+
+/** Same rules as the database's norm_id_number and valid_id_number. */
+export function normalizeIdNumber(value: string | null | undefined): string {
+  return (value ?? '').replace(/[\s.-]/g, '').toUpperCase();
+}
+
+export function isValidIdNumber(value: string | null | undefined): boolean {
+  const id = normalizeIdNumber(value);
+  return id.length >= 6 && !/^(.)\1*$/.test(id);
+}
+
+/**
+ * `id_number` for an update, only if it changed. The duplicate-ID trigger runs
+ * whenever the column is written, so resending an unchanged value fails for any
+ * customer who still shares an ID with another record.
+ */
+export function idNumberChange(before: string | null | undefined, after: string | null | undefined) {
+  const next = (after ?? '').trim() || null;
+  return next === ((before ?? '').trim() || null) ? {} : { id_number: next };
+}
+
+export type CustomerWriteError =
+  | { kind: 'banned'; text: string }
+  | { kind: 'duplicate_id'; text: string; customerId: string; name: string }
+  | { kind: 'other'; text: string };
+
+/** Turns what the database rules raise into something a person can read. */
+export function friendlyCustomerError(message: string): CustomerWriteError {
+  const banned = message.match(/CUSTOMER_BANNED:.*Reason:\s*([\s\S]*)$/);
+  if (banned) {
+    const reason = banned[1].trim();
+    return { kind: 'banned', text: reason && reason !== '-' ? `This customer is banned — ${reason}` : 'This customer is banned.' };
+  }
+  const duplicate = message.match(/DUPLICATE_ID_NUMBER:.*registered for ([\s\S]*) \(([0-9a-f-]{36})\)/i);
+  if (duplicate) {
+    const name = duplicate[1].trim() || 'another customer';
+    return { kind: 'duplicate_id', text: `This ID belongs to ${name}`, customerId: duplicate[2], name };
+  }
+  if (message.trim().toLowerCase() === 'forbidden') return { kind: 'other', text: 'Only admins can do this.' };
+  return { kind: 'other', text: message };
+}
 
 export async function updateCustomer(id: string, patch: CustomerPatch): Promise<Customer> {
   const { data, error } = await supabase
@@ -509,8 +562,94 @@ export async function updateCustomer(id: string, patch: CustomerPatch): Promise<
     .eq('id', id)
     .select(CUSTOMER_COLUMNS)
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyCustomerError(error.message).text);
   return data as unknown as Customer;
+}
+
+// ─── Finding customers, and bans ──────────────────────────────────────────────
+
+export interface CustomerSearchResult {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  id_number: string | null;
+  nationality: string | null;
+  is_banned: boolean;
+  ban_reason: string | null;
+  bookings_count: number;
+  balance: number;
+  last_booking: string | null;
+  match_type: 'id_number' | 'phone' | 'name';
+}
+
+export async function searchCustomers(query: string, limit = 8): Promise<CustomerSearchResult[]> {
+  const { data, error } = await supabase.rpc('search_customers', { p_query: query, p_limit: limit });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as CustomerSearchResult[]).map((row) => ({
+    ...row,
+    bookings_count: Number(row.bookings_count),
+    balance: Number(row.balance),
+  }));
+}
+
+export async function customersWithPhone(
+  phone: string,
+  exclude: string | null,
+): Promise<Array<{ id: string; full_name: string; is_banned: boolean }>> {
+  const { data, error } = await supabase.rpc('customers_with_phone', { p_phone: phone, p_exclude: exclude });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Array<{ id: string; full_name: string; is_banned: boolean }>;
+}
+
+export interface BanMatch {
+  customer_id: string;
+  full_name: string;
+  ban_reason: string | null;
+  matched_on: 'customer' | 'id_number' | 'phone';
+}
+
+/** The ban that applies to this person: their own, or one on the same ID or phone. */
+export async function customerBanMatch(
+  customerId: string | null,
+  idNumber: string | null,
+  phone: string | null,
+): Promise<BanMatch | null> {
+  const { data, error } = await supabase.rpc('customer_ban_match', {
+    p_customer: customerId,
+    p_id_number: idNumber,
+    p_phone: phone,
+  });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as BanMatch[])[0] ?? null;
+}
+
+/** For flows that start from a booking, like an extension or a replacement. */
+export async function checkCustomerBan(customerId: string): Promise<BanMatch | null> {
+  const { data, error } = await supabase.from('customers').select('id_number, phone').eq('id', customerId).maybeSingle();
+  if (error) throw new Error(error.message);
+  const customer = data as { id_number: string | null; phone: string | null } | null;
+  return customerBanMatch(customerId, customer?.id_number ?? null, customer?.phone ?? null);
+}
+
+export async function setCustomerBan(customerId: string, banned: boolean, reason: string | null): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_customer_ban', {
+    p_customer: customerId,
+    p_banned: banned,
+    p_reason: reason,
+  });
+  if (error) throw new Error(friendlyCustomerError(error.message).text);
+}
+
+/** What someone typed into the search, sorted into the field it belongs in. */
+export function prefillFromQuery(query: string): { first_name?: string; last_name?: string; id_number?: string; phone?: string } {
+  const text = query.trim().replace(/\s+/g, ' ');
+  if (!text) return {};
+  if (/^[+\d][\d\s()-]*$/.test(text)) {
+    return /^(\+|0)/.test(text) ? { phone: text.replace(/[^\d+]/g, '') } : { id_number: text.replace(/\s/g, '') };
+  }
+  if (/\d/.test(text) && !text.includes(' ')) return { id_number: text };
+  const [first, ...rest] = text.split(' ');
+  return { first_name: first, last_name: rest.join(' ') };
 }
 
 /** Keyed on the customer id, never the name: Storage rejects non-ASCII object keys. */

@@ -436,7 +436,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
                   item.onSelect();
                 }}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] transition-colors hover:bg-muted',
+                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] transition-colors hover:bg-muted max-md:min-h-[44px]',
                   item.muted ? 'text-black/45' : 'text-black/75',
                 )}
               >

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
+import { BannedBadge } from './customers/ui';
 
 interface ActiveBookingRow {
   booking_id: number;
@@ -63,6 +64,7 @@ const SkeletonRow: React.FC = () => (
 
 const ActiveBookingsPage: React.FC = () => {
   const [rows, setRows] = useState<ActiveBookingRow[]>([]);
+  const [bannedIds, setBannedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -71,10 +73,10 @@ const ActiveBookingsPage: React.FC = () => {
     setLoading(true);
 
     (async () => {
-      const { data, error } = await supabase
-        .from('active_bookings')
-        .select('*')
-        .order('end_date', { ascending: true });
+      const [{ data, error }, banned] = await Promise.all([
+        supabase.from('active_bookings').select('*').order('end_date', { ascending: true }),
+        supabase.from('customers').select('id').eq('is_banned', true),
+      ]);
 
       if (cancelled) return;
 
@@ -85,12 +87,8 @@ const ActiveBookingsPage: React.FC = () => {
         return;
       }
 
-      const bookings = (data ?? []) as ActiveBookingRow[];
-      if (bookings.length > 0) {
-        console.log('[active_bookings] first row:', bookings[0]);
-      }
-
-      setRows(bookings);
+      setRows((data ?? []) as ActiveBookingRow[]);
+      setBannedIds(new Set(((banned.data ?? []) as Array<{ id: string }>).map(customer => customer.id)));
       setLoading(false);
     })();
 
@@ -255,6 +253,7 @@ const ActiveBookingsPage: React.FC = () => {
                         >
                           <CustomerAvatar size={28} />
                           {row.customer_full_name || '—'}
+                          {bannedIds.has(String(row.customer_id)) && <BannedBadge />}
                         </Link>
                       </td>
 

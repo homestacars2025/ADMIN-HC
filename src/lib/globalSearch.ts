@@ -8,6 +8,7 @@ export interface SearchResult {
   title: string;
   subtitle: string;
   to: string;
+  banned?: boolean;
 }
 
 const LIMIT = 5;
@@ -25,6 +26,7 @@ interface CustomerRow {
   first_name: string;
   last_name: string;
   phone: string | null;
+  is_banned: boolean;
 }
 
 interface BookingRow {
@@ -61,7 +63,7 @@ export async function searchRecords(query: string): Promise<SearchResult[]> {
       .limit(20),
     supabase
       .from('customers')
-      .select('id, first_name, last_name, phone')
+      .select('id, first_name, last_name, phone, is_banned')
       .or(`first_name.ilike.${wordPattern},last_name.ilike.${wordPattern},phone.ilike.${wordPattern}`)
       .limit(40),
   ]);
@@ -119,6 +121,7 @@ export async function searchRecords(query: string): Promise<SearchResult[]> {
         title: name,
         subtitle: customer.phone ?? '',
         to: `/dashboard/customers/${customer.id}`,
+        banned: customer.is_banned,
       };
     }),
   ];

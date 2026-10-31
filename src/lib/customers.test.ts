@@ -1,4 +1,9 @@
 import {
+  friendlyCustomerError,
+  idNumberChange,
+  isValidIdNumber,
+  normalizeIdNumber,
+  prefillFromQuery,
   balanceState,
   bookingCountdown,
   buildActivity,
@@ -36,7 +41,7 @@ const customer = (over: Partial<Customer> = {}): Customer => ({
   language: 'tr', id_type: 'passport', id_number: 'U123', birth_date: '1990-05-01', address: null,
   driving_license_number: null, license_issue_date: null, notes: null, created_at: '2026-01-10T10:00:00Z',
   id_photo_url: null, id_photo_back_url: null, driving_license_photo_url: null, driving_license_back_url: null,
-  entry_stamp_photo_url: null,
+  entry_stamp_photo_url: null, is_banned: false, ban_reason: null, banned_at: null, banned_by: null,
   ...over,
 });
 
@@ -264,6 +269,7 @@ describe('profile helpers', () => {
       hgs: [],
       review: { id: 7, our_rating: 5, status: 'awaiting_send', rated_at: '2026-09-10T10:00:00Z', rated_by: null, review_sent_at: null },
       raterName: null,
+      bannedByName: null,
     };
     expect(buildActivity(profile).map((item) => item.kind)).toEqual(['review', 'payment', 'fine', 'booking']);
   });
@@ -282,5 +288,72 @@ describe('small helpers', () => {
   it('keeps language inside the database constraint', () => {
     expect(normalizeLanguage('tr')).toBe('tr');
     expect(normalizeLanguage('de')).toBe('ar');
+  });
+});
+
+describe('database errors', () => {
+  it('reads a ban and keeps only the reason', () => {
+    expect(friendlyCustomerError('CUSTOMER_BANNED: Omar Saleh is banned (matched on phone). Reason: Stole the car')).toEqual({
+      kind: 'banned',
+      text: 'This customer is banned — Stole the car',
+    });
+  });
+
+  it('copes with a ban that has no reason', () => {
+    expect(friendlyCustomerError('CUSTOMER_BANNED: Omar is banned (matched on customer). Reason: -').text).toBe('This customer is banned.');
+  });
+
+  it('reads a duplicate ID and finds who owns it', () => {
+    const id = 'cccccccc-0000-4000-8000-000000000001';
+    expect(friendlyCustomerError(`DUPLICATE_ID_NUMBER: this ID/passport is already registered for Ayşe Yılmaz (${id})`)).toEqual({
+      kind: 'duplicate_id',
+      text: 'This ID belongs to Ayşe Yılmaz',
+      customerId: id,
+      name: 'Ayşe Yılmaz',
+    });
+  });
+
+  it('never shows the raw forbidden error, and leaves anything else alone', () => {
+    expect(friendlyCustomerError('forbidden').text).toBe('Only admins can do this.');
+    expect(friendlyCustomerError('network down')).toEqual({ kind: 'other', text: 'network down' });
+  });
+});
+
+describe('ID numbers', () => {
+  it('normalises like the database', () => {
+    expect(normalizeIdNumber(' u12-34.56 7 ')).toBe('U1234567');
+  });
+
+  it('agrees with valid_id_number', () => {
+    expect(isValidIdNumber('U12345')).toBe(true);
+    expect(isValidIdNumber('12345')).toBe(false);
+    expect(isValidIdNumber('111111')).toBe(false);
+    expect(isValidIdNumber(null)).toBe(false);
+  });
+
+  it('only writes id_number when it really changed', () => {
+    expect(idNumberChange('U123', 'U123')).toEqual({});
+    expect(idNumberChange('U123 ', ' U123')).toEqual({});
+    expect(idNumberChange(null, '')).toEqual({});
+    expect(idNumberChange('U123', 'U124')).toEqual({ id_number: 'U124' });
+    expect(idNumberChange('U123', '')).toEqual({ id_number: null });
+  });
+});
+
+describe('prefillFromQuery', () => {
+  it('puts a phone in the phone field', () => {
+    expect(prefillFromQuery('+90 536 406 77 30')).toEqual({ phone: '+905364067730' });
+    expect(prefillFromQuery('0536 406 77 30')).toEqual({ phone: '05364067730' });
+  });
+
+  it('puts an ID or passport in the ID field', () => {
+    expect(prefillFromQuery('98236166898')).toEqual({ id_number: '98236166898' });
+    expect(prefillFromQuery('U1234567')).toEqual({ id_number: 'U1234567' });
+  });
+
+  it('splits a name', () => {
+    expect(prefillFromQuery('  Ayşe   Nur Yılmaz ')).toEqual({ first_name: 'Ayşe', last_name: 'Nur Yılmaz' });
+    expect(prefillFromQuery('Omar')).toEqual({ first_name: 'Omar', last_name: '' });
+    expect(prefillFromQuery('')).toEqual({});
   });
 });

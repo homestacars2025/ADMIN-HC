@@ -2,8 +2,10 @@ import {
   customerName,
   daysBetween,
   formatDate,
+  isValidIdNumber,
   istanbulDate,
   languageLabel,
+  normalizeIdNumber,
   type Customer,
   type CustomerDirectory,
   type CustomerSummary,
@@ -389,14 +391,6 @@ export function loyaltyStats(directory: CustomerDirectory, summaries: CustomerSu
 
 // ─── Data quality ─────────────────────────────────────────────────────────────
 
-export type DuplicateReason = 'phone' | 'id' | 'name';
-
-export const DUPLICATE_REASON_LABELS: Record<DuplicateReason, string> = {
-  phone: 'Same phone',
-  id: 'Same ID',
-  name: 'Similar name',
-};
-
 export interface DuplicateRecord {
   id: string;
   name: string;
@@ -404,9 +398,9 @@ export interface DuplicateRecord {
 }
 
 export interface DuplicateGroup {
-  id: string;
-  name: string;
-  reasons: DuplicateReason[];
+  idNumber: string;
+  /** Each spelling on file, as far as case and spacing can tell them apart. */
+  names: string[];
   records: DuplicateRecord[];
 }
 
@@ -432,45 +426,30 @@ function testReason(customer: Customer): string | null {
   return null;
 }
 
+/**
+ * Duplicates that exact matching couldn't settle were left for a person to judge:
+ * records with the same ID under differently spelled names. Those are the only
+ * groups shown, using the same ID rules as the database.
+ */
 export function findDataIssues(customers: Customer[]): DataIssues {
   const testRecords = customers
     .map((customer) => ({ customer, why: testReason(customer) }))
     .filter((row): row is { customer: Customer; why: string } => row.why !== null)
     .map(({ customer, why }) => ({ ...toRecord(customer), phone: customer.phone, why }));
 
-  const { union, groups } = grouper(customers.length);
-  const reasons = new Map<number, Set<DuplicateReason>>();
-  const link = (reason: DuplicateReason) => (a: number, b: number) => {
-    union(a, b);
-    [a, b].forEach((index) => {
-      reasons.set(index, (reasons.get(index) ?? new Set<DuplicateReason>()).add(reason));
-    });
-  };
+  const byId = new Map<string, Customer[]>();
+  customers.filter((customer) => isValidIdNumber(customer.id_number)).forEach((customer) => {
+    const key = normalizeIdNumber(customer.id_number);
+    byId.set(key, [...(byId.get(key) ?? []), customer]);
+  });
 
-  linkByKey(customers, (customer) => phoneKey(customer.phone), link('phone'));
-  linkByKey(customers, (customer) => idKey(customer.id_number), link('id'));
-
-  const names = customers.map((customer) => nameKey(customerName(customer)));
-  const linkName = link('name');
-  for (let a = 0; a < customers.length; a += 1) {
-    for (let b = a + 1; b < customers.length; b += 1) {
-      if (similarNames(names[a], names[b])) linkName(a, b);
-    }
-  }
-
-  const duplicates = groups()
-    .filter((members) => members.length > 1)
-    .map((members): DuplicateGroup => {
-      const records = members.map((index) => toRecord(customers[index]));
-      const found = new Set(members.flatMap((index) => Array.from(reasons.get(index) ?? [])));
-      return {
-        id: records[0].id,
-        name: records[0].name,
-        reasons: (['phone', 'id', 'name'] as DuplicateReason[]).filter((reason) => found.has(reason)),
-        records,
-      };
-    })
-    .sort((a, b) => b.records.length - a.records.length || a.name.localeCompare(b.name));
+  const duplicates = Array.from(byId, ([idNumber, records]): DuplicateGroup => ({
+    idNumber,
+    names: Array.from(new Set(records.map((record) => customerName(record).replace(/\s+/g, ' ').toUpperCase()))),
+    records: records.map(toRecord),
+  }))
+    .filter((group) => group.records.length > 1)
+    .sort((a, b) => b.records.length - a.records.length || a.idNumber.localeCompare(b.idNumber));
 
   return {
     duplicates,
