@@ -8,8 +8,14 @@ import { MonthNav } from '../components/shared/MonthNav';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { Button } from '../components/media/MediaUI';
-import { fetchPendingSummary, type PendingSummary } from '../lib/expenseApprovals';
-import { ExpenseApprovalsTab } from './accounting/ExpenseApprovalsTab';
+import { CarThumb } from '../components/shared/CarThumb';
+import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, type PendingSummary } from '../lib/expenseApprovals';
+import { CashAccountsTab } from './accounting/CashAccountsTab';
+import { FinanceOverviewTab } from './accounting/FinanceOverviewTab';
+import { StaffCustodyTab } from './accounting/StaffCustodyTab';
+import { SupplierSheet } from './accounting/SupplierSheet';
+import { SuppliersTab } from './accounting/SuppliersTab';
+import { LicensePlate, Segmented } from './bookings/ui';
 
 /** Scrolls the row a link pointed at into view. Pair it with `HIGHLIGHT_ROW` on that row. */
 function useScrollToRow(rowId: number | null, ready: boolean) {
@@ -91,14 +97,6 @@ interface CompanyExpenseRow {
   receipt_url: string | null;
   car_id: number | null;
   created_by: string | null;
-}
-
-interface EmployeeWalletBalance {
-  employee_id: string;
-  full_name: string | null;
-  total_in: number;
-  total_out: number;
-  balance: number;
 }
 
 interface ProfileRow {
@@ -1443,9 +1441,8 @@ const InvestorCarSheetView: React.FC<{
   investorId: string;
   car: CarOption;
   monthKey: string;
-  highlight?: number | null;
   onBack: () => void;
-}> = ({ investorId, car, monthKey, highlight = null, onBack }) => {
+}> = ({ investorId, car, monthKey, onBack }) => {
   const { fmt, symbol } = useCurrency();
   const [txs,       setTxs]       = useState<FinancialTransaction[]>([]);
   const [loading,   setLoading]   = useState(true);
@@ -1466,7 +1463,6 @@ const InvestorCarSheetView: React.FC<{
   };
 
   useEffect(() => { fetchTxs(); }, [investorId, car.id, monthKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  useScrollToRow(highlight, !loading);
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Delete this transaction? This cannot be undone.')) return;
@@ -1516,7 +1512,7 @@ const InvestorCarSheetView: React.FC<{
               </thead>
               <tbody>
                 {txs.map((t, i) => (
-                  <tr key={t.id} id={`entry-${t.id}`} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7', background: t.id === highlight ? HIGHLIGHT_ROW : undefined }}>
+                  <tr key={t.id} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7' }}>
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
                     <td style={td}>{t.direction?.toUpperCase() === 'IN' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>}</td>
                     <td style={{ ...td, color: '#6b7280' }}>{t.category ?? '—'}</td>
@@ -1569,9 +1565,8 @@ const InvestorCarListView: React.FC<{
   investorId: string;
   monthKey: string;
   txs: FinancialTransaction[];
-  entry?: { carId: number; id: number } | null;
   onBack: () => void;
-}> = ({ investorId, monthKey, txs, entry, onBack }) => {
+}> = ({ investorId, monthKey, txs, onBack }) => {
   const { fmt } = useCurrency();
   const [cars,        setCars]        = useState<CarOption[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
@@ -1586,17 +1581,15 @@ const InvestorCarListView: React.FC<{
       .eq('is_active', true)
       .then(({ data }) => {
         const raw = (data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
-        const options = raw
+        setCars(raw
           .map(c => ({ id: c.id, plate_number: c.plate_number, model_name: c.model_group?.name ?? '—' }))
-          .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number));
-        setCars(options);
-        setSelectedCar(options.find(c => c.id === entry?.carId) ?? null);
+          .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number)));
         setCarsLoading(false);
       });
-  }, [investorId, entry?.carId]);
+  }, [investorId]);
 
   if (selectedCar) {
-    return <InvestorCarSheetView investorId={investorId} car={selectedCar} monthKey={monthKey} highlight={selectedCar.id === entry?.carId ? entry.id : null} onBack={() => setSelectedCar(null)} />;
+    return <InvestorCarSheetView investorId={investorId} car={selectedCar} monthKey={monthKey} onBack={() => setSelectedCar(null)} />;
   }
 
   const carTxs = txs.filter(t => t.sheet_type === 'car');
@@ -1752,15 +1745,13 @@ const InvestorSummaryView: React.FC<{
   investorId: string;
   onBack: () => void;
   hideBackButton?: boolean;
-  /** From a "Posted" link: opens this car's sheet in this month, on this row. */
-  entry?: { month: string; carId: number; id: number } | null;
-}> = ({ investorId, onBack, hideBackButton = false, entry = null }) => {
+}> = ({ investorId, onBack, hideBackButton = false }) => {
   const { fmt } = useCurrency();
-  const [monthKey,        setMonthKey]        = useState(entry?.month ?? currentMonthKey());
+  const [monthKey,        setMonthKey]        = useState(currentMonthKey());
   const [txs,             setTxs]             = useState<FinancialTransaction[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [sheetView,       setSheetView]       = useState<{ type: string; label: string } | null>(null);
-  const [showCarsList,    setShowCarsList]    = useState(entry !== null);
+  const [showCarsList,    setShowCarsList]    = useState(false);
   const [carCount,        setCarCount]        = useState<number | null>(null);
   const [commissionRate,  setCommissionRate]  = useState<number | null>(null);
 
@@ -1814,7 +1805,6 @@ const InvestorSummaryView: React.FC<{
         investorId={investorId}
         monthKey={monthKey}
         txs={txs}
-        entry={entry}
         onBack={() => setShowCarsList(false)}
       />
     );
@@ -2222,20 +2212,7 @@ const InvestorSummaryView: React.FC<{
   );
 };
 
-// ─── Tab 1: Overview ──────────────────────────────────────────────────────────
-
-// ─── Internal Finance Overview ────────────────────────────────────────────────
-
-// Company-expense categories. Stored as free text in company_expenses.category —
-// these are suggested presets shown in the UI, not a rigid DB enum.
-const COMPANY_EXPENSE_CATEGORIES = [
-  { value: 'marketing',   label: 'Marketing',   icon: '📣' },
-  { value: 'operations',  label: 'Operations',  icon: '⚙️' },
-  { value: 'branch',      label: 'Branch',      icon: '🏢' },
-  { value: 'maintenance', label: 'Maintenance', icon: '🔧' },
-  { value: 'food',        label: 'Food',        icon: '🍽️' },
-  { value: 'other',       label: 'Other',       icon: '📦' },
-] as const;
+// ─── Car sheets: monthly summary ──────────────────────────────────────────────
 
 function monthDateRange(monthKey: string): { start: string; end: string } {
   const [y, m] = monthKey.split('-').map(Number);
@@ -2246,7 +2223,7 @@ function monthDateRange(monthKey: string): { start: string; end: string } {
   };
 }
 
-const OverviewTab: React.FC = () => {
+const MonthlySummary: React.FC = () => {
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const [txs, setTxs]           = useState<FinancialTransaction[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -2272,9 +2249,200 @@ const OverviewTab: React.FC = () => {
   );
 };
 
+// ─── Car sheets: one row per car ──────────────────────────────────────────────
+
+interface SheetCar {
+  id: number;
+  plate_number: string;
+  investor_id: string | null;
+  model_group: { name: string; image_url: string | null } | { name: string; image_url: string | null }[] | null;
+}
+
+const validMonth = (value: string | null) => (value && /^\d{4}-\d{2}$/.test(value) ? value : null);
+
+const CarSheetsList: React.FC = () => {
+  const { fmt } = useCurrency();
+  const [params] = useSearchParams();
+  const linkedCar = Number(params.get('car')) || null;
+  const linkedEntry = Number(params.get('entry')) || null;
+  const [monthKey,  setMonthKey]  = useState(validMonth(params.get('month')) ?? currentMonthKey());
+  const [txs,       setTxs]       = useState<FinancialTransaction[]>([]);
+  const [cars,      setCars]      = useState<SheetCar[]>([]);
+  const [investors, setInvestors] = useState<Record<string, string>>({});
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [reload,    setReload]    = useState(0);
+  const [search,    setSearch]    = useState('');
+  const [open,      setOpen]      = useState<Set<number>>(() => new Set(linkedCar ? [linkedCar] : []));
+  const [editing,   setEditing]   = useState<FinancialTransaction | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      supabase.from('financial_transactions').select('*').eq('month_key', monthKey).eq('sheet_type', 'car').order('date', { ascending: false }),
+      supabase.from('cars').select('id, plate_number, investor_id, model_group:model_group_id(name, image_url)'),
+      supabase.from('investors').select('id, company_name, profiles!fk_investor_profile(full_name)'),
+    ]).then(([txRes, carRes, investorRes]) => {
+      if (cancelled) return;
+      const failed = txRes.error ?? carRes.error ?? investorRes.error;
+      if (failed) { setError(failed.message); setLoading(false); return; }
+      setTxs((txRes.data ?? []) as FinancialTransaction[]);
+      setCars((carRes.data ?? []) as unknown as SheetCar[]);
+      const rows = (investorRes.data ?? []) as unknown as { id: string; company_name: string | null; profiles: { full_name: string | null } | null }[];
+      setInvestors(Object.fromEntries(rows.map(r => [String(r.id), r.company_name || r.profiles?.full_name || '—'])));
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [monthKey, reload]);
+
+  useScrollToRow(linkedEntry, !loading);
+
+  const rows = useMemo(() => {
+    const byCar = new Map(cars.map(car => [car.id, car]));
+    const groups = new Map<number, FinancialTransaction[]>();
+    txs.forEach(t => {
+      if (t.car_id !== null) groups.set(t.car_id, [...(groups.get(t.car_id) ?? []), t]);
+    });
+    const q = search.trim().toLowerCase();
+    return Array.from(groups, ([id, own]) => {
+      const car = byCar.get(id);
+      const group = Array.isArray(car?.model_group) ? car?.model_group[0] : car?.model_group;
+      const income = sumTx(own, t => t.direction?.toLowerCase() === 'in');
+      const spent = sumTx(own, t => t.direction?.toLowerCase() === 'out');
+      return {
+        id,
+        plate: car?.plate_number ?? '—',
+        model: group?.name ?? null,
+        image: group?.image_url ?? null,
+        investor: car?.investor_id ? investors[String(car.investor_id)] ?? null : null,
+        income,
+        spent,
+        own,
+      };
+    })
+      .filter(row => !q || [row.plate, row.model, row.investor].some(text => text?.toLowerCase().includes(q)))
+      .sort((a, b) => (a.model ?? '').localeCompare(b.model ?? '') || a.plate.localeCompare(b.plate));
+  }, [txs, cars, investors, search]);
+
+  const totalIn = rows.reduce((sum, row) => sum + row.income, 0);
+  const totalOut = rows.reduce((sum, row) => sum + row.spent, 0);
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Delete this transaction? This cannot be undone.')) return;
+    const { error: failure } = await supabase.from('financial_transactions').delete().eq('id', id);
+    if (failure) { setError(failure.message); return; }
+    setReload(value => value + 1);
+  };
+
+  const toggle = (id: number) => setOpen(current => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+
+  return (
+    <div className="media-scope flex max-w-[1100px] flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <MonthNavigator monthKey={monthKey} onChange={setMonthKey} />
+        <p className="text-[13.5px] tabular-nums text-black/55">
+          In <span className="font-semibold text-[#15803D]">{fmt(totalIn)}</span> · Out <span className="font-semibold text-[#B91C1C]">{fmt(totalOut)}</span> · Net <span className="font-semibold text-foreground">{fmt(totalIn - totalOut)}</span>
+        </p>
+      </div>
+
+      <input
+        type="search"
+        aria-label="Search plate, model or investor"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search plate, model or investor…"
+        className="h-11 w-full rounded-[10px] border border-[#E5E7EB] bg-white px-3 text-[14px] outline-none focus:border-[#6EA4E7] md:h-10"
+      />
+
+      {error && <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-[13px] text-red-700">Couldn't load the car sheets: {error}</p>}
+
+      {loading ? (
+        <div style={{ height: 160, borderRadius: 12, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      ) : rows.length === 0 ? (
+        <p className="rounded-xl border border-subtle bg-surface px-4 py-10 text-center text-[13.5px] text-black/45">
+          {search ? 'No cars match your search.' : `Nothing on the car sheets in ${monthLabel(monthKey)}.`}
+        </p>
+      ) : (
+        <ul className="overflow-hidden rounded-xl border border-subtle bg-surface">
+          {rows.map(row => {
+            const expanded = open.has(row.id);
+            return (
+              <li key={row.id} className="border-b border-subtle last:border-b-0">
+                <button type="button" aria-expanded={expanded} onClick={() => toggle(row.id)} className="flex min-h-[44px] w-full flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 text-start transition-colors hover:bg-black/[0.02] sm:px-4">
+                  <span className="flex min-w-[190px] flex-1 items-center gap-2.5">
+                    <CarThumb src={row.image} />
+                    <span className="min-w-0">
+                      <LicensePlate plate={row.plate} />
+                      <span className="mt-1 block truncate text-[12.5px] text-black/55">{[row.model, row.investor].filter(Boolean).join(' · ') || '—'}</span>
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-4 text-[13px] tabular-nums sm:gap-6">
+                    <span className="text-[#15803D]">{fmt(row.income)}</span>
+                    <span className="text-[#B91C1C]">{fmt(row.spent)}</span>
+                    <span className="min-w-[84px] text-end font-semibold text-foreground">{fmt(row.income - row.spent)}</span>
+                  </span>
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, transform: expanded ? 'rotate(180deg)' : undefined, color: '#9ca3af' }}>
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {expanded && (
+                  <div className="overflow-x-auto border-t border-subtle">
+                    <table className="w-full min-w-[620px] text-[13px]">
+                      <thead>
+                        <tr className="text-[11.5px] text-black/45">
+                          {['Date', 'Category', 'Note', 'Receipt'].map(label => <th key={label} scope="col" className="px-3 py-1.5 text-start font-medium">{label}</th>)}
+                          <th scope="col" className="px-3 py-1.5 text-end font-medium">Amount</th>
+                          <th scope="col"><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {row.own.map(t => (
+                          <tr key={t.id} id={`entry-${t.id}`} className="border-t border-subtle" style={{ background: t.id === linkedEntry ? HIGHLIGHT_ROW : undefined }}>
+                            <td className="whitespace-nowrap px-3 py-1.5 text-black/60">{fmtDate(t.date)}</td>
+                            <td className="px-3 py-1.5 text-black/60">{t.category ?? '—'}</td>
+                            <td className="max-w-[260px] px-3 py-1.5 text-black/60"><span className="block truncate" title={t.note ?? undefined}>{t.note ?? '—'}</span></td>
+                            <td className="px-3 py-1.5"><ReceiptCell url={t.receipt_url} /></td>
+                            <td className="whitespace-nowrap px-3 py-1.5 text-end font-semibold tabular-nums" style={{ color: t.direction?.toLowerCase() === 'in' ? '#15803D' : '#B91C1C' }}>
+                              {t.direction?.toLowerCase() === 'in' ? '+' : '-'}{fmt(Number(t.amount))}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-1.5 text-end">
+                              <button type="button" onClick={() => setEditing(t)} className="min-h-[32px] px-1.5 text-[12.5px] font-medium text-primary hover:underline">Edit</button>
+                              <button type="button" onClick={() => handleDelete(t.id)} className="min-h-[32px] px-1.5 text-[12.5px] font-medium text-[#B91C1C] hover:underline">Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {editing && (
+        <EditFinancialTxModal
+          entry={editing}
+          receiptKey={rows.find(row => row.id === editing.car_id)?.plate}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); setReload(value => value + 1); }}
+        />
+      )}
+    </div>
+  );
+};
+
 // ─── Tab 2: Investor Sheets ───────────────────────────────────────────────────
 
-const InvestorSheetsTab: React.FC<{ onViewReport: (id: string) => void }> = ({ onViewReport: _onViewReport }) => {
+const InvestorSheetsTab: React.FC = () => {
   const [investors,        setInvestors]        = useState<InvestorOption[]>([]);
   const [selectedInvestor, setSelectedInvestor] = useState<InvestorOption | null>(null);
   const [autoSelectDone,   setAutoSelectDone]   = useState(false);
@@ -3000,19 +3168,11 @@ export const InvestorReportPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
   const investorId     = String(searchParams.get('investor_id') ?? '');
-  const month          = searchParams.get('month');
-  const carId          = Number(searchParams.get('car'));
-  const entryId        = Number(searchParams.get('entry'));
-  const entry          = useMemo(
-    () => (month && /^\d{4}-\d{2}$/.test(month) && carId > 0 && entryId > 0 ? { month, carId, id: entryId } : null),
-    [month, carId, entryId],
-  );
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <InvestorSummaryView
         investorId={investorId}
-        entry={entry}
         onBack={() => navigate('/dashboard/accounting')}
       />
       <style>{`
@@ -3899,25 +4059,22 @@ const AddFinancialTxModal: React.FC<{
 
 // ─── Internal Finance: Add Transaction Modal ─────────────────────────────────
 
-// Company-expense category presets + a special "Employee Wallet" option that
-// routes the transaction to the employee_wallets table instead.
-const IF_TX_CATEGORIES: { value: string; label: string }[] = [
-  ...COMPANY_EXPENSE_CATEGORIES.map(c => ({ value: c.value, label: c.label })),
-  { value: 'employee_account', label: 'Employee Wallet' },
-];
-
+// One modal for two jobs: a company expense from Company expenses, or money moved
+// in or out of someone's wallet from Staff custody.
 const AddInternalFinanceTxModal: React.FC<{
-  profiles: ProfileRow[];
+  /** Staff to choose from. Passing them makes this a wallet entry. */
+  profiles?: ProfileRow[];
   onClose:  () => void;
   onSaved:  () => void;
-}> = ({ profiles, onClose, onSaved }) => {
+}> = ({ profiles = [], onClose, onSaved }) => {
+  const walletOnly = profiles.length > 0;
   const { rates } = useCurrency();
   const [form, setForm] = useState<AddIfTxForm>(() => ({
     date:          new Date().toISOString().slice(0, 10),
     direction:     'OUT',
     amount:        '',
     inputCurrency: 'TRY',
-    category:      '',
+    category:      walletOnly ? 'employee_account' : '',
     employee_id:   '',
     note:          '',
   }));
@@ -4142,27 +4299,20 @@ const AddInternalFinanceTxModal: React.FC<{
           </div>
 
           {/* Category */}
-          <div>
-            <label style={lbl}>Category <span style={{ color: '#ef4444' }}>*</span></label>
-            <select
-              value={form.category}
-              onChange={e => { set('category', e.target.value); if (e.target.value !== 'employee_account') set('employee_id', ''); }}
-              style={inp} onFocus={focusB} onBlur={blurG}
-            >
-              <option value="">— Select category —</option>
-              {IF_TX_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
-          </div>
+          {!walletOnly && (
+            <div>
+              <label style={lbl}>Category <span style={{ color: '#ef4444' }}>*</span></label>
+              <select value={form.category} onChange={e => set('category', e.target.value)} style={inp} onFocus={focusB} onBlur={blurG}>
+                <option value="">— Select category —</option>
+                {COMPANY_EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Employee — searchable dropdown */}
+          {walletOnly && (
           <div>
-            <label style={lbl}>
-              Employee
-              {form.category === 'employee_account'
-                ? <span style={{ color: '#ef4444' }}> *</span>
-                : <span style={{ color: '#9ca3af', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> (optional)</span>
-              }
-            </label>
+            <label style={lbl}>Employee <span style={{ color: '#ef4444' }}> *</span></label>
             <div ref={empDropRef} style={{ position: 'relative' }}>
               <div
                 onClick={() => setEmpOpen(o => !o)}
@@ -4215,6 +4365,7 @@ const AddInternalFinanceTxModal: React.FC<{
               )}
             </div>
           </div>
+          )}
 
           {/* Receipt upload */}
           <div>
@@ -4428,50 +4579,6 @@ const TransactionListModal: React.FC<{
   );
 };
 
-// Wallet history — fetches all-time employee_wallets rows for one employee.
-const WalletHistoryModal: React.FC<{
-  employeeId: string;
-  name:       string;
-  onClose:    () => void;
-}> = ({ employeeId, name, onClose }) => {
-  const [rows,    setRows]    = useState<EmployeeWalletRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    supabase.from('employee_wallets')
-      .select('id, transaction_date, direction, category, amount, description, receipt_url')
-      .eq('employee_id', employeeId)
-      .order('transaction_date', { ascending: false })
-      .then(({ data }) => {
-        if (cancelled) return;
-        setRows((data ?? []) as EmployeeWalletRow[]);
-        setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [employeeId]);
-
-  const totalIn  = rows.filter(r => r.direction?.toUpperCase() === 'IN' ).reduce((a, r) => a + (r.amount ?? 0), 0);
-  const totalOut = rows.filter(r => r.direction?.toUpperCase() === 'OUT').reduce((a, r) => a + (r.amount ?? 0), 0);
-
-  return (
-    <TransactionListModal
-      title={name}
-      subtitle="Staff custody history · all time"
-      statLabel="Running Balance"
-      statValue={totalIn - totalOut}
-      showCategory
-      loading={loading}
-      rows={rows.map(r => ({
-        id: r.id, date: r.transaction_date, direction: r.direction,
-        amount: r.amount, category: r.category, description: r.description, receipt_url: r.receipt_url,
-      }))}
-      onClose={onClose}
-    />
-  );
-};
-
 // ─── Edit modal for a single company_expenses row ─────────────────────────────
 
 const EditCompanyExpenseModal: React.FC<{
@@ -4621,11 +4728,7 @@ const CompanyExpensesTab: React.FC = () => {
   const [showAddTx,      setShowAddTx]      = useState(false);
   const [ifMonthData,    setIfMonthData]    = useState<CompanyExpenseRow[]>([]);
   const [ifMonthLoading, setIfMonthLoading] = useState(true);
-  const [wallets,        setWallets]        = useState<EmployeeWalletBalance[]>([]);
-  const [walletAvatars,  setWalletAvatars]  = useState<Record<string, ProfileRow>>({});
-  const [walletsLoading, setWalletsLoading] = useState(true);
   const [openCategory,   setOpenCategory]   = useState<{ value: string; label: string } | null>(null);
-  const [openWallet,     setOpenWallet]     = useState<{ employee_id: string; full_name: string | null } | null>(null);
   const [editExpense,    setEditExpense]    = useState<CompanyExpenseRow | null>(null);
 
   const handleDeleteExpense = async (id: number) => {
@@ -4635,22 +4738,6 @@ const CompanyExpensesTab: React.FC = () => {
   };
 
   useScrollToRow(linkedEntry, !ifMonthLoading);
-
-  // employee_wallet_balances is already scoped to role='staff' — one card per row.
-  useEffect(() => {
-    let cancelled = false;
-    setWalletsLoading(true);
-    Promise.all([
-      supabase.from('employee_wallet_balances').select('employee_id, full_name, total_in, total_out, balance'),
-      supabase.from('profiles').select('id, full_name, avatar_url, avatar_bg, gender').eq('role', 'staff'),
-    ]).then(([{ data }, { data: staff }]) => {
-      if (cancelled) return;
-      setWallets((data ?? []) as EmployeeWalletBalance[]);
-      setWalletAvatars(Object.fromEntries(((staff ?? []) as ProfileRow[]).map(p => [p.id, p])));
-      setWalletsLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false;
@@ -4869,62 +4956,8 @@ const CompanyExpensesTab: React.FC = () => {
         );
       })()}
 
-      {/* ── Company Expenses: Section 4 — Staff custody ─────────────────── */}
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 16 }}>
-          Staff custody
-        </div>
-        {walletsLoading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-            {[1,2,3,4].map(i => (
-              <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                  <div style={{ height: 14, width: 100, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                </div>
-                <div style={{ height: 26, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-              </div>
-            ))}
-          </div>
-        ) : wallets.length === 0 ? (
-          <div style={{ color: '#9ca3af', fontSize: 14, padding: '32px 0', textAlign: 'center' }}>No employees found.</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-            {wallets.map(emp => {
-              const bal = Number(emp.balance ?? 0);
-              const balColor = bal > 0 ? '#16a34a' : bal < 0 ? '#dc2626' : '#9ca3af';
-              return (
-                <div
-                  key={emp.employee_id}
-                  onClick={() => setOpenWallet({ employee_id: emp.employee_id, full_name: emp.full_name })}
-                  style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease' }}
-                  onMouseEnter={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 6px 20px rgba(75,166,234,0.13)'; d.style.borderColor = '#4ba6ea'; d.style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { const d = e.currentTarget as HTMLDivElement; d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; d.style.borderColor = 'var(--border-subtle)'; d.style.transform = 'translateY(0)'; }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    <StaffAvatar profile={walletAvatars[emp.employee_id]} alt={emp.full_name ?? ''} size={40} />
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', lineHeight: 1.3 }}>{emp.full_name ?? '—'}</div>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Balance</div>
-                  <div style={{ fontSize: 22, fontWeight: 600, color: balColor, letterSpacing: '-0.5px' }}>
-                    {bal < 0 ? '-' : ''}{fmt(Math.abs(bal))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {showAddTx && (
         <AddInternalFinanceTxModal
-          profiles={wallets.map(w => ({
-            id: w.employee_id,
-            full_name: w.full_name,
-            avatar_url: walletAvatars[w.employee_id]?.avatar_url ?? null,
-            avatar_bg: walletAvatars[w.employee_id]?.avatar_bg ?? null,
-            gender: walletAvatars[w.employee_id]?.gender ?? null,
-          }))}
           onClose={() => setShowAddTx(false)}
           onSaved={() => { setShowAddTx(false); setRefreshKey(k => k + 1); }}
         />
@@ -4958,15 +4991,6 @@ const CompanyExpensesTab: React.FC = () => {
           />
         );
       })()}
-
-      {/* Employee wallet history — all time */}
-      {openWallet && (
-        <WalletHistoryModal
-          employeeId={openWallet.employee_id}
-          name={openWallet.full_name ?? '—'}
-          onClose={() => setOpenWallet(null)}
-        />
-      )}
     </div>
   );
 };
@@ -5597,23 +5621,135 @@ const BookingAccountsTab: React.FC = () => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type AccountingTab = 'custody' | 'overview' | 'investor' | 'customer' | 'expenses' | 'bookings';
+// ─── Tabs with more than one view ─────────────────────────────────────────────
 
-const ACCOUNTING_TABS: readonly AccountingTab[] = ['custody', 'overview', 'investor', 'customer', 'expenses', 'bookings'];
+const ViewSwitch: React.FC<{ views: ReadonlyArray<{ value: string; label: string }>; current: string }> = ({ views, current }) => {
+  const [params, setParams] = useSearchParams();
+  return (
+    <div className="media-scope mb-4">
+      <Segmented
+        ariaLabel="View"
+        value={current}
+        options={views}
+        onChange={(view) => {
+          const next = new URLSearchParams();
+          next.set('tab', params.get('tab') ?? '');
+          if (view !== views[0].value) next.set('view', view);
+          setParams(next);
+        }}
+      />
+    </div>
+  );
+};
+
+const CAR_VIEWS = [
+  { value: 'cars', label: 'By car' },
+  { value: 'investors', label: 'By investor' },
+  { value: 'summary', label: 'Monthly summary' },
+] as const;
+
+const CarSheetsTab: React.FC<{ view: string | null }> = ({ view }) => {
+  const current = CAR_VIEWS.some(option => option.value === view) ? view as string : 'cars';
+  return (
+    <>
+      <ViewSwitch views={CAR_VIEWS} current={current} />
+      {current === 'cars' && <CarSheetsList />}
+      {current === 'investors' && <InvestorSheetsTab />}
+      {current === 'summary' && <MonthlySummary />}
+    </>
+  );
+};
+
+const CUSTOMER_VIEWS = [
+  { value: 'cars', label: 'By car' },
+  { value: 'bookings', label: 'Booking accounts' },
+] as const;
+
+const CustomerWalletsTab: React.FC<{ view: string | null }> = ({ view }) => {
+  const current = view === 'bookings' ? 'bookings' : 'cars';
+  return (
+    <>
+      <ViewSwitch views={CUSTOMER_VIEWS} current={current} />
+      {current === 'cars' ? <CustomerSheetsTab /> : <BookingAccountsTab />}
+    </>
+  );
+};
+
+/** Staff custody, plus the admin's own way to put money in or take it out of a wallet. */
+const CustodyTab: React.FC<{ onPending: (summary: PendingSummary) => void }> = ({ onPending }) => {
+  const [adding, setAdding] = useState(false);
+  const [staff,  setStaff]  = useState<ProfileRow[]>([]);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('profiles').select('id, full_name, avatar_url, avatar_bg, gender').eq('role', 'staff').order('full_name').then(({ data }) => {
+      if (!cancelled) setStaff((data ?? []) as ProfileRow[]);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <>
+      <StaffCustodyTab
+        onPending={onPending}
+        refresh={refresh}
+        action={<Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" disabled={staff.length === 0} onClick={() => setAdding(true)}>Add to wallet</Button>}
+      />
+      {adding && (
+        <AddInternalFinanceTxModal
+          profiles={staff}
+          onClose={() => setAdding(false)}
+          onSaved={() => { setAdding(false); setRefresh(value => value + 1); }}
+        />
+      )}
+    </>
+  );
+};
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+type AccountingTab = 'overview' | 'cars' | 'expenses' | 'custody' | 'customers' | 'suppliers' | 'cash';
+
+const TABS: ReadonlyArray<{ key: AccountingTab; label: string }> = [
+  { key: 'overview',  label: 'Overview'         },
+  { key: 'cars',      label: 'Car sheets'       },
+  { key: 'expenses',  label: 'Company expenses' },
+  { key: 'custody',   label: 'Staff custody'    },
+  { key: 'customers', label: 'Customer wallets' },
+  { key: 'suppliers', label: 'Suppliers'        },
+  { key: 'cash',      label: 'Cash accounts'    },
+];
+
+/** Links from before the tabs moved. */
+const OLD_TABS: Record<string, string> = {
+  investor: 'tab=cars&view=investors',
+  customer: 'tab=customers',
+  bookings: 'tab=customers&view=bookings',
+};
 
 const AccountingPage: React.FC = () => {
-  const [tabParam, setTabParam] = useSearchParams();
-  const requestedTab = tabParam.get('tab') as AccountingTab | null;
-  const activeTab: AccountingTab = requestedTab && ACCOUNTING_TABS.includes(requestedTab) ? requestedTab : 'overview';
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('tab');
+  const activeTab: AccountingTab = TABS.find(tab => tab.key === requested)?.key ?? 'overview';
+  const supplierId = Number(params.get('supplier')) || null;
   // Each tab keeps its own filters in the URL, so they don't carry over.
-  const setActiveTab = useCallback((tab: AccountingTab) => {
-    setTabParam(tab === 'overview' ? {} : { tab });
-  }, [setTabParam]);
-  const [pending,          setPending]          = useState<PendingSummary | null>(null);
-  const [view,             setView]             = useState<'tabs' | 'investor-report'>('tabs');
-  const [activeInvestorId, setActiveInvestorId] = useState<string | null>(null);
-  const [showAddTx,        setShowAddTx]        = useState(false);
-  const [refreshKey,       setRefreshKey]       = useState(0);
+  const openTab = useCallback((tab: AccountingTab) => {
+    setParams(tab === 'overview' ? {} : { tab });
+  }, [setParams]);
+  const [pending,    setPending]    = useState<PendingSummary | null>(null);
+  const [showAddTx,  setShowAddTx]  = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (requested && OLD_TABS[requested]) setParams(new URLSearchParams(OLD_TABS[requested]), { replace: true });
+  }, [requested, setParams]);
+
+  // On a phone the row scrolls, and a link can land on a tab that's out of view.
+  const tabBar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    tabBar.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -5623,39 +5759,17 @@ const AccountingPage: React.FC = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const handleViewReport = (id: string) => {
-    setActiveInvestorId(id);
-    setView('investor-report');
-  };
-
-  if (view === 'investor-report' && activeInvestorId) {
-    return (
-      <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
-        <InvestorSummaryView
-          investorId={activeInvestorId}
-          onBack={() => { setView('tabs'); setActiveTab('investor'); }}
-        />
-        <style>{`
-          @keyframes pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-          @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
-          @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-          @keyframes spin    { to { transform: rotate(360deg); } }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-11" style={{ minHeight: '100vh', background: 'var(--surface)' }}>
       {/* Page header */}
-      <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Finance</span>
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>Accounting</h1>
-          <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Financial overview, investor reports, and customer billing.</p>
+          <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Sheets, expenses, custody and what we owe.</p>
         </div>
         <Button
           onClick={() => setShowAddTx(true)}
@@ -5669,22 +5783,15 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div role="tablist" aria-label="Accounting views" style={{ display: 'flex', gap: 4, marginBottom: 28, background: '#f3f4f6', padding: 4, borderRadius: 12, width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
-        {([
-          { key: 'custody',   label: 'Expense approvals' },
-          { key: 'overview',  label: 'Overview'          },
-          { key: 'investor',  label: 'Investor Sheets'   },
-          { key: 'customer',  label: 'Customer Sheets'   },
-          { key: 'expenses',  label: 'Company Expenses'  },
-          { key: 'bookings',  label: 'Booking Accounts'  },
-        ] as { key: AccountingTab; label: string }[]).map(tab => (
+      <div ref={tabBar} role="tablist" aria-label="Accounting views" style={{ display: 'flex', gap: 4, marginBottom: 28, background: '#f3f4f6', padding: 4, borderRadius: 12, width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
+        {TABS.map(tab => (
           <button
             key={tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => openTab(tab.key)}
             style={{
-              padding: '8px 20px', minHeight: 40, flexShrink: 0, whiteSpace: 'nowrap',
+              padding: '8px 16px', minHeight: 40, flexShrink: 0, whiteSpace: 'nowrap',
               borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 500,
               color: activeTab === tab.key ? '#0f1117' : '#6b7280',
@@ -5704,12 +5811,13 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'custody'   && <ExpenseApprovalsTab  onPending={setPending} />}
-      {activeTab === 'overview'  && <OverviewTab          key={refreshKey} />}
-      {activeTab === 'investor'  && <InvestorSheetsTab   key={refreshKey} onViewReport={handleViewReport} />}
-      {activeTab === 'customer'  && <CustomerSheetsTab   key={refreshKey} />}
-      {activeTab === 'expenses'  && <CompanyExpensesTab  key={refreshKey} />}
-      {activeTab === 'bookings'  && <BookingAccountsTab  key={refreshKey} />}
+      {activeTab === 'overview'  && <FinanceOverviewTab key={refreshKey} onAddTransaction={() => setShowAddTx(true)} />}
+      {activeTab === 'cars'      && <CarSheetsTab key={refreshKey} view={params.get('view')} />}
+      {activeTab === 'expenses'  && <CompanyExpensesTab key={refreshKey} />}
+      {activeTab === 'custody'   && <CustodyTab onPending={setPending} />}
+      {activeTab === 'customers' && <CustomerWalletsTab key={refreshKey} view={params.get('view')} />}
+      {activeTab === 'suppliers' && (supplierId ? <SupplierSheet key={supplierId} supplierId={supplierId} /> : <SuppliersTab />)}
+      {activeTab === 'cash'      && <CashAccountsTab />}
 
       {/* Global Add Transaction */}
       {showAddTx && (

@@ -9,16 +9,17 @@ const CarSilhouette: React.FC<{ width: number }> = ({ width }) => (
 );
 
 /**
- * The model's photo, or a neutral silhouette when there's none or it won't load.
- * The photos are tall, with the car across the full width just below the middle on
- * white. Fitting a whole one in here would leave a tiny car, so this trims the blank
- * space above and below instead, and `multiply` lets the white take the soft background.
+ * The model's photo, sitting directly on the row with no box of its own, or a neutral
+ * silhouette when there's none or it won't load. The photos are tall, with the car
+ * across the full width just below the middle on white. Fitting a whole one in here
+ * would leave a tiny car, so this trims the blank space above and below instead, and
+ * `multiply` melts whatever white is left into the page.
  */
-export const CarThumb: React.FC<{ src: string | null; width?: number; height?: number }> = ({ src, width = 56, height = 40 }) => {
+export const CarThumb: React.FC<{ src: string | null; width?: number; height?: number }> = ({ src, width = 64, height = 40 }) => {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const usable = src && src !== failedSrc;
   return (
-    <span className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#F3F5F8]" style={{ width, height }}>
+    <span className="relative flex shrink-0 items-center justify-center overflow-hidden" style={{ width, height }}>
       {usable
         ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} className="absolute inset-0 h-full w-full object-cover mix-blend-multiply" style={{ objectPosition: '50% 80%' }} />
         : <CarSilhouette width={width} />}

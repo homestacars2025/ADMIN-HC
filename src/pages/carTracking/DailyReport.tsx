@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowUpRight, Minus } from '../../components/media/MediaIcons';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../../components/shared/FilterTile';
 import { LoadError, SearchField } from '../../components/shared/PageBits';
 import { StatusImage } from '../../components/shared/StatusImage';
-import { StatusTile } from '../../components/shared/StatusTile';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useUrlFilter } from '../../hooks/useUrlFilter';
 import { useUrlSort } from '../../hooks/useUrlSort';
@@ -32,7 +33,7 @@ import {
 } from '../../lib/carTracking';
 import { cn } from '../../lib/media/badgeColor';
 import { CarHistorySheet } from './CarHistorySheet';
-import { CarLead, CARD, KmChart, OilBar, SignalAge, SortHeader, SortMenu, Sparkline, TileSkeleton, TileTriangle } from './ui';
+import { CarLead, CARD, KmChart, OilBar, SignalAge, SortHeader, SortMenu, Sparkline, TileTriangle } from './ui';
 
 const SORT_LABELS: Array<{ key: DailySort; label: string }> = [
   { key: 'km', label: 'Km driven' },
@@ -175,17 +176,19 @@ export const DailyReport: React.FC<{ fleet: Fleet; day: string; today: string; n
     <>
       {error && <LoadError message={`Couldn't load the history: ${error}`} onRetry={() => setReload((value) => value + 1)} />}
 
-      {loading ? <div className="mt-3"><TileSkeleton count={6} /></div>
+      {loading ? <div className="mt-3"><FilterTileSkeleton count={6} columns={6} /></div>
         : !error && rows.length === 0 ? <NoHistory day={day} />
           : rows.length > 0 && (
             <>
-              <div role="group" aria-label="Filter the day" className="status-tiles six mt-3">
-                <StatusTile accent="#4ba6ea" art={<StatusImage status="fleet" size={72} />} label="Total km" value={km(stats.total)} sub={isToday ? `${stats.cars} of ${stats.cars + noGps.length} cars` : `${stats.cars} cars`} active={filter === 'all'} onClick={clear} />
-                <StatusTile accent="#22c55e" art={<StatusImage status="working" size={72} />} label="Moved" value={String(stats.moved)} sub="cars" active={filter === 'moved'} onClick={() => toggle('moved')} />
-                <StatusTile accent="#9ca3af" art={<StatusImage status="parking" size={72} />} label="Idle" value={String(stats.idle)} sub="0 km" active={filter === 'idle'} onClick={() => toggle('idle')} />
-                <StatusTile accent="#f59e0b" art={<TileTriangle tone="amber" />} label="No signal > 24h" value={String(stats.noSignal)} sub="cars" active={filter === 'no_signal'} onClick={() => toggle('no_signal')} />
-                <StatusTile accent="#ef4444" art={<TileTriangle tone="red" />} label={`Over ${OVER_KM} km`} value={String(stats.over)} sub="cars" active={filter === 'over_500'} onClick={() => toggle('over_500')} />
-                <StatusTile accent="#f59e0b" art={<TileTriangle tone="amber" />} label="No GPS" value={String(noGps.length)} sub="no tracker" active={filter === 'no_gps'} onClick={() => toggle('no_gps')} />
+              <div className="mt-3">
+                <FilterTileRow label="Filter the day" columns={6}>
+                  <FilterTile tone="blue" bareIcon icon={<StatusImage status="fleet" size={32} />} label="Total km" value={km(stats.total)} sub={isToday ? `${stats.cars} of ${stats.cars + noGps.length} cars` : `${stats.cars} cars`} active={filter === 'all'} onClick={clear} />
+                  <FilterTile tone="green" icon={<ArrowUpRight size={15} />} label="Moved" value={String(stats.moved)} sub="cars" active={filter === 'moved'} onClick={() => toggle('moved')} />
+                  <FilterTile tone="neutral" icon={<Minus size={15} />} label="Idle" value={String(stats.idle)} sub="0 km" active={filter === 'idle'} onClick={() => toggle('idle')} />
+                  <FilterTile tone="amber" bareIcon icon={<TileTriangle tone="amber" />} label="No signal > 24h" value={String(stats.noSignal)} sub="cars" active={filter === 'no_signal'} onClick={() => toggle('no_signal')} />
+                  <FilterTile tone="red" bareIcon icon={<TileTriangle tone="red" />} label={`Over ${OVER_KM} km`} value={String(stats.over)} sub="cars" active={filter === 'over_500'} onClick={() => toggle('over_500')} />
+                  <FilterTile tone="amber" bareIcon icon={<TileTriangle tone="amber" />} label="No GPS" value={String(noGps.length)} sub="no tracker" active={filter === 'no_gps'} onClick={() => toggle('no_gps')} />
+                </FilterTileRow>
               </div>
 
               <SearchField value={search} onChange={setSearch} placeholder="Search plate or model…" className="mt-4 max-w-[1100px]" />

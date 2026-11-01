@@ -276,6 +276,9 @@ b, strong, th {
   color: #fff;
 }
 
+.filter-tile-icon.is-bare { width: 32px; height: 32px; background: none; }
+.filter-tile-icon.is-bare img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
 .filter-tile-label {
   min-width: 0;
   font-size: 13px;
@@ -325,6 +328,17 @@ b, strong, th {
 
 @container tile-room (min-width: 860px) {
   .filter-tiles { grid-template-columns: repeat(5, minmax(0, 220px)); }
+  .filter-tiles.is-6 { grid-template-columns: repeat(3, minmax(0, 220px)); }
+  .filter-tiles.is-7 { grid-template-columns: repeat(4, minmax(0, 220px)); }
+}
+
+@container tile-room (min-width: 1000px) {
+  .filter-tiles.is-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .filter-tiles.is-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .filter-tiles.is-7 .filter-tile { padding-inline: 12px; }
+  .filter-tiles.is-7 .filter-tile-head { gap: 6px; }
+  .filter-tiles.is-7 .filter-tile:not(.is-active) .filter-tile-head { padding-inline-end: 0; }
+  .filter-tiles.is-7 .filter-tile-label { font-size: 12.5px; }
 }
 
 /* Big stat tiles: Cars and Car Tracking. Every tile is the same size in a row. */
@@ -439,7 +453,6 @@ b, strong, th {
 
 @media (min-width: 1280px) {
   .status-tiles.six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .status-tiles.seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .status-tiles > .status-tile:first-child:nth-last-child(odd) { grid-column: auto; }
 }
 

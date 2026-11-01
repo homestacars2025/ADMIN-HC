@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import { ArrowUpRight } from '../../components/media/MediaIcons';
+import { FilterTile, FilterTileRow } from '../../components/shared/FilterTile';
 import { SearchField } from '../../components/shared/PageBits';
 import { StatusImage } from '../../components/shared/StatusImage';
-import { StatusTile } from '../../components/shared/StatusTile';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useUrlFilter } from '../../hooks/useUrlFilter';
 import { useUrlSort } from '../../hooks/useUrlSort';
@@ -33,6 +34,12 @@ const SORT_LABELS: Array<{ key: LiveSort; label: string }> = [
   { key: 'model', label: 'Model' },
 ];
 const DEFAULT_SORT = { key: 'remaining', direction: 'asc' } as const;
+
+const IgnitionIcon: React.FC = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M12 3v9M6.3 7.3a8 8 0 1 0 11.4 0" />
+  </svg>
+);
 
 const Dash: React.FC = () => <span className="text-black/30">—</span>;
 
@@ -89,14 +96,16 @@ export const LiveFleet: React.FC<{
 
   return (
     <>
-      <div role="group" aria-label="Filter the fleet" className="status-tiles seven mt-3">
-        <StatusTile accent="#4ba6ea" art={<StatusImage status="fleet" size={72} />} label="All cars" value={String(stats.cars + noGps.length)} sub={`${stats.cars} tracked`} active={filter === 'all'} onClick={clear} />
-        <StatusTile accent="#22c55e" art={<StatusImage status="working" size={72} />} label="Moving now" value={String(stats.moving)} sub="cars" active={filter === 'moving'} onClick={() => toggle('moving')} />
-        <StatusTile accent="#14b8a6" art={<StatusImage status="parking" size={72} />} label="Ignition on" value={String(stats.ignition)} sub="cars" active={filter === 'ignition'} onClick={() => toggle('ignition')} />
-        <StatusTile accent="#f59e0b" art={<TileTriangle tone="amber" />} label="Oil change due" value={String(stats.oilDue)} sub="1,000 km or less" active={filter === 'oil_due'} onClick={() => toggle('oil_due')} />
-        <StatusTile accent="#ef4444" art={<TileTriangle tone="red" />} label="Overdue oil" value={String(stats.oilOver)} sub="cars" active={filter === 'oil_over'} onClick={() => toggle('oil_over')} />
-        <StatusTile accent="#f59e0b" art={<TileTriangle tone="amber" />} label="No signal > 24h" value={String(stats.noSignal)} sub="cars" active={filter === 'no_signal'} onClick={() => toggle('no_signal')} />
-        <StatusTile accent="#f59e0b" art={<TileTriangle tone="amber" />} label="No GPS" value={String(noGps.length)} sub="no tracker" active={filter === 'no_gps'} onClick={() => toggle('no_gps')} />
+      <div className="mt-3">
+        <FilterTileRow label="Filter the fleet" columns={7}>
+          <FilterTile tone="blue" bareIcon icon={<StatusImage status="fleet" size={32} />} label="All cars" value={String(stats.cars + noGps.length)} sub={`${stats.cars} tracked`} active={filter === 'all'} onClick={clear} />
+          <FilterTile tone="blue" icon={<ArrowUpRight size={15} />} label="Moving now" value={String(stats.moving)} sub="cars" active={filter === 'moving'} onClick={() => toggle('moving')} />
+          <FilterTile tone="green" icon={<IgnitionIcon />} label="Ignition on" value={String(stats.ignition)} sub="cars" active={filter === 'ignition'} onClick={() => toggle('ignition')} />
+          <FilterTile tone="amber" bareIcon icon={<TileTriangle tone="amber" />} label="Oil change due" value={String(stats.oilDue)} sub="1,000 km or less" active={filter === 'oil_due'} onClick={() => toggle('oil_due')} />
+          <FilterTile tone="red" bareIcon icon={<TileTriangle tone="red" />} label="Overdue oil" value={String(stats.oilOver)} sub="cars" active={filter === 'oil_over'} onClick={() => toggle('oil_over')} />
+          <FilterTile tone="amber" bareIcon icon={<TileTriangle tone="amber" />} label="No signal > 24h" value={String(stats.noSignal)} sub="cars" active={filter === 'no_signal'} onClick={() => toggle('no_signal')} />
+          <FilterTile tone="amber" bareIcon icon={<TileTriangle tone="amber" />} label="No GPS" value={String(noGps.length)} sub="no tracker" active={filter === 'no_gps'} onClick={() => toggle('no_gps')} />
+        </FilterTileRow>
       </div>
 
       <SearchField value={search} onChange={setSearch} placeholder="Search plate or model…" className="mt-4 max-w-[1100px]" />

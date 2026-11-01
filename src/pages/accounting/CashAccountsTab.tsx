@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus } from '../components/media/MediaIcons';
-import { MediaToaster, toast } from '../components/media/MediaToast';
-import { Button, Switch } from '../components/media/MediaUI';
-import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
-import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
-import { useUrlFilter } from '../hooks/useUrlFilter';
+import { Plus } from '../../components/media/MediaIcons';
+import { MediaToaster, toast } from '../../components/media/MediaToast';
+import { Button, Switch } from '../../components/media/MediaUI';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../../components/shared/FilterTile';
+import { LoadError, SearchField, SkeletonRows } from '../../components/shared/PageBits';
+import { useUrlFilter } from '../../hooks/useUrlFilter';
 import {
   ACCOUNT_FILTERS,
   fetchCashAccounts,
@@ -14,11 +14,11 @@ import {
   setAccountActive,
   type AccountKind,
   type CashAccount,
-} from '../lib/cashAccounts';
-import { cn } from '../lib/media/badgeColor';
-import { CURRENCY_SYMBOLS } from '../lib/money';
-import { AccountFormSheet } from './cashAccounts/AccountFormSheet';
-import { WalletIcon } from './customers/ui';
+} from '../../lib/cashAccounts';
+import { cn } from '../../lib/media/badgeColor';
+import { CURRENCY_SYMBOLS } from '../../lib/money';
+import { AccountFormSheet } from '../cashAccounts/AccountFormSheet';
+import { WalletIcon } from '../customers/ui';
 
 const KIND_PATHS: Record<AccountKind, React.ReactNode> = {
   safe: <><path d="M4 4h16v16H4z" /><circle cx="12" cy="12" r="3.5" /><path d="M12 8.5V7M12 17v-1.5M4 20v1M20 20v1" /></>,
@@ -64,7 +64,7 @@ const AccountRow: React.FC<{ account: CashAccount; onEdit: () => void; onActive:
   </li>
 );
 
-const CashAccountsPage: React.FC = () => {
+export const CashAccountsTab: React.FC = () => {
   const { filter, toggle, clear } = useUrlFilter(ACCOUNT_FILTERS);
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,14 +109,7 @@ const CashAccountsPage: React.FC = () => {
   };
 
   return (
-    <div className="media-scope min-h-screen bg-surface px-4 py-6 sm:px-6 lg:px-10 lg:py-11">
-      <PageHeader
-        eyebrow="Finance"
-        title="Cash accounts"
-        subtitle="Where the money sits: safes, banks, POS devices and staff custody."
-        action={<Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setSheet({ account: null })}><Plus size={15} /> New account</Button>}
-      />
-
+    <div className="media-scope">
       {error && <LoadError message={`Couldn't load the accounts: ${error}`} onRetry={() => { setLoading(true); setReload((value) => value + 1); }} />}
 
       {loading ? <FilterTileSkeleton /> : (
@@ -129,7 +122,10 @@ const CashAccountsPage: React.FC = () => {
         </FilterTileRow>
       )}
 
-      <SearchField value={search} onChange={setSearch} placeholder="Search name, code, branch…" className="mt-4 max-w-[1100px]" />
+      <div className="mt-4 flex max-w-[1100px] flex-wrap items-center gap-2">
+        <SearchField value={search} onChange={setSearch} placeholder="Search name, code, branch…" className="min-w-[220px] flex-1" />
+        <Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setSheet({ account: null })}><Plus size={15} /> New account</Button>
+      </div>
 
       <div className="mt-4 max-w-[1100px] overflow-hidden rounded-xl border border-subtle bg-surface">
         {loading ? <SkeletonRows /> : visible.length === 0 ? (
@@ -159,4 +155,3 @@ const CashAccountsPage: React.FC = () => {
   );
 };
 
-export default CashAccountsPage;

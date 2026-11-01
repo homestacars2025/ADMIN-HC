@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { CurrencyProvider } from './lib/CurrencyContext';
 import LoginPage from './pages/LoginPage';
 import Layout from './components/Layout';
@@ -20,9 +20,6 @@ import InvestorsPage from './pages/InvestorsPage';
 import PricingPage from './pages/PricingPage';
 import AccountingPage, { InvestorReportPage, CarCustomerSheetPage } from './pages/AccountingPage';
 import CarTrackingPage from './pages/CarTrackingPage';
-import CashAccountsPage from './pages/CashAccountsPage';
-import SuppliersPage from './pages/SuppliersPage';
-import SupplierDetailPage from './pages/suppliers/SupplierDetailPage';
 import ActiveBookingsPage from './pages/ActiveBookingsPage';
 import PendingInvoicesPage from './pages/PendingInvoicesPage';
 import CustomersPage from './pages/customers/CustomersPage';
@@ -63,6 +60,11 @@ import MediaCalendarPage from './pages/media/MediaCalendarPage';
 import MediaInfluencersPage from './pages/media/MediaInfluencersPage';
 import MediaListsPage from './pages/media/MediaListsPage';
 
+const SupplierRedirect: React.FC = () => {
+  const { id } = useParams();
+  return <Navigate to={`/dashboard/accounting?tab=suppliers&supplier=${id}`} replace />;
+};
+
 const App: React.FC = () => {
   return (
     <CurrencyProvider>
@@ -99,9 +101,10 @@ const App: React.FC = () => {
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="accounting/report" element={<InvestorReportPage />} />
           <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
-          <Route path="suppliers" element={<SuppliersPage />} />
-          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
-          <Route path="cash-accounts" element={<CashAccountsPage />} />
+          <Route path="suppliers" element={<Navigate to="/dashboard/accounting?tab=suppliers" replace />} />
+          <Route path="suppliers/:id" element={<SupplierRedirect />} />
+          <Route path="cash-accounts" element={<Navigate to="/dashboard/accounting?tab=cash" replace />} />
+          <Route path="customer-wallets" element={<Navigate to="/dashboard/accounting?tab=customers" replace />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/:id" element={<CustomerProfilePage />} />
           <Route path="google-reviews" element={<GoogleReviewsPage />} />

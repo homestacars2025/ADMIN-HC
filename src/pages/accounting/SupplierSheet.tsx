@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, Plus } from '../../components/media/MediaIcons';
 import { MediaToaster, toast } from '../../components/media/MediaToast';
 import { Button, Select } from '../../components/media/MediaUI';
@@ -27,9 +27,9 @@ import {
 } from '../../lib/suppliers';
 import { LicensePlate } from '../bookings/ui';
 import { PhoneIcon, WhatsAppIcon } from '../customers/ui';
-import { SupplierFormSheet } from './SupplierFormSheet';
-import { SupplierTxSheet } from './SupplierTxSheet';
-import { CategoryIcon } from './ui';
+import { SupplierFormSheet } from '../suppliers/SupplierFormSheet';
+import { SupplierTxSheet } from '../suppliers/SupplierTxSheet';
+import { CategoryIcon } from '../suppliers/ui';
 
 const ALL = 'all';
 const MONTH = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -73,9 +73,7 @@ function downloadCsv(name: string, csv: string): void {
   URL.revokeObjectURL(url);
 }
 
-const SupplierDetailPage: React.FC = () => {
-  const { id } = useParams();
-  const supplierId = Number(id);
+export const SupplierSheet: React.FC<{ supplierId: number }> = ({ supplierId }) => {
   const wide = useMediaQuery('(min-width: 1280px)');
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [ledger, setLedger] = useState<SupplierTx[]>([]);
@@ -126,14 +124,14 @@ const SupplierDetailPage: React.FC = () => {
 
   const chat = whatsappLink(supplier?.whatsapp || supplier?.phone || '');
   const back = (
-    <Link to="/dashboard/suppliers" className="inline-flex min-h-[44px] items-center gap-1 text-[13px] text-black/50 hover:text-foreground md:min-h-[32px]">
+    <Link to="/dashboard/accounting?tab=suppliers" className="inline-flex min-h-[44px] items-center gap-1 text-[13px] text-black/50 hover:text-foreground md:min-h-[32px]">
       <ChevronLeft size={14} /> Suppliers
     </Link>
   );
 
   if (!loading && !error && !supplier) {
     return (
-      <div className="media-scope min-h-screen bg-surface px-4 py-6 sm:px-6 lg:px-10 lg:py-11">
+      <div className="media-scope">
         {back}
         <p className="mt-6 text-[15px] font-medium text-foreground">This supplier isn't here any more.</p>
       </div>
@@ -141,7 +139,7 @@ const SupplierDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="media-scope min-h-screen bg-surface px-4 py-6 sm:px-6 lg:px-10 lg:py-11">
+    <div className="media-scope">
       {back}
       {error && <LoadError message={`Couldn't load this supplier: ${error}`} onRetry={() => { setLoading(true); refresh(); }} />}
 
@@ -283,4 +281,3 @@ const SupplierDetailPage: React.FC = () => {
   );
 };
 
-export default SupplierDetailPage;

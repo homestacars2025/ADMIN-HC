@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MediaToaster } from '../components/media/MediaToast';
+import { FilterTileSkeleton } from '../components/shared/FilterTile';
 import { LoadError, PageHeader, SkeletonRows } from '../components/shared/PageBits';
 import { fetchFleet, silentCars, todayInIstanbul, trackingOutage, validDay, type Fleet } from '../lib/carTracking';
 import { cn } from '../lib/media/badgeColor';
 import { DailyReport } from './carTracking/DailyReport';
 import { LiveFleet } from './carTracking/LiveFleet';
-import { DateNav, GpsWarning, OutageBanner, TileSkeleton, UnlinkedTrackers } from './carTracking/ui';
+import { DateNav, GpsWarning, OutageBanner, UnlinkedTrackers } from './carTracking/ui';
 
 const REFRESH_MS = 60_000;
 const TABS = [
@@ -106,7 +107,7 @@ const CarTrackingPage: React.FC = () => {
 
       {!fleet ? !error && (
         <div className="mt-2">
-          <TileSkeleton count={tab === 'live' ? 7 : 6} />
+          <FilterTileSkeleton count={tab === 'live' ? 7 : 6} columns={tab === 'live' ? 7 : 6} />
           <div className={cn('mt-4 max-w-[1100px] rounded-xl border border-subtle bg-surface')}><SkeletonRows /></div>
         </div>
       ) : (

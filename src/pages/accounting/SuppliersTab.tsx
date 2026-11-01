@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, Plus } from '../components/media/MediaIcons';
-import { MediaToaster, toast } from '../components/media/MediaToast';
-import { Button } from '../components/media/MediaUI';
-import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
-import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
-import { useUrlFilter } from '../hooks/useUrlFilter';
-import { formatMoney } from '../lib/money';
+import { Check, Plus } from '../../components/media/MediaIcons';
+import { MediaToaster, toast } from '../../components/media/MediaToast';
+import { Button } from '../../components/media/MediaUI';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../../components/shared/FilterTile';
+import { LoadError, SearchField, SkeletonRows } from '../../components/shared/PageBits';
+import { useUrlFilter } from '../../hooks/useUrlFilter';
+import { formatMoney } from '../../lib/money';
 import {
   CATEGORY_LABELS,
   fetchSupplierBalances,
@@ -18,10 +18,12 @@ import {
   whatsappLink,
   type Supplier,
   type SupplierBalance,
-} from '../lib/suppliers';
-import { MoreIcon, PhoneIcon, UsersIcon, WalletIcon, WhatsAppIcon } from './customers/ui';
-import { SupplierFormSheet } from './suppliers/SupplierFormSheet';
-import { BalanceLines, CategoryIcon } from './suppliers/ui';
+} from '../../lib/suppliers';
+import { MoreIcon, PhoneIcon, UsersIcon, WalletIcon, WhatsAppIcon } from '../customers/ui';
+import { SupplierFormSheet } from '../suppliers/SupplierFormSheet';
+import { BalanceLines, CategoryIcon } from '../suppliers/ui';
+
+export const supplierPath = (id: number) => `/dashboard/accounting?tab=suppliers&supplier=${id}`;
 
 const supplierWord = (count: number) => (count === 1 ? 'supplier' : 'suppliers');
 
@@ -34,7 +36,7 @@ const SupplierCard: React.FC<{ supplier: Supplier; balances: SupplierBalance[] }
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[14.5px] font-medium text-foreground">
             {/* The whole card opens the sheet. The phone links sit above this. */}
-            <Link to={`/dashboard/suppliers/${supplier.id}`} className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary">{supplier.name}</Link>
+            <Link to={supplierPath(supplier.id)} className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary">{supplier.name}</Link>
           </h2>
           <p className="text-[12.5px] text-black/50">
             {CATEGORY_LABELS[supplier.category]}{supplier.district ? ` · ${supplier.district}` : ''}
@@ -53,7 +55,7 @@ const SupplierCard: React.FC<{ supplier: Supplier; balances: SupplierBalance[] }
   );
 };
 
-const SuppliersPage: React.FC = () => {
+export const SuppliersTab: React.FC = () => {
   const navigate = useNavigate();
   const { filter, toggle, clear } = useUrlFilter(SUPPLIER_FILTERS);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -92,14 +94,7 @@ const SuppliersPage: React.FC = () => {
   const owedCount = count('owed');
 
   return (
-    <div className="media-scope min-h-screen bg-surface px-4 py-6 sm:px-6 lg:px-10 lg:py-11">
-      <PageHeader
-        eyebrow="Finance"
-        title="Suppliers"
-        subtitle="Workshops, parts shops and services, with what we owe each one."
-        action={<Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setAdding(true)}><Plus size={15} /> New supplier</Button>}
-      />
-
+    <div className="media-scope">
       {error && <LoadError message={`Couldn't load the suppliers: ${error}`} onRetry={() => { setLoading(true); setReload((value) => value + 1); }} />}
 
       {loading ? <FilterTileSkeleton count={4} /> : (
@@ -119,7 +114,10 @@ const SuppliersPage: React.FC = () => {
         </FilterTileRow>
       )}
 
-      <SearchField value={search} onChange={setSearch} placeholder="Search name or category…" className="mt-4 max-w-[1100px]" />
+      <div className="mt-4 flex max-w-[1100px] flex-wrap items-center gap-2">
+        <SearchField value={search} onChange={setSearch} placeholder="Search name or category…" className="min-w-[220px] flex-1" />
+        <Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setAdding(true)}><Plus size={15} /> New supplier</Button>
+      </div>
 
       <div className="mt-4 max-w-[1100px]">
         {loading ? <div className="rounded-xl border border-subtle bg-surface"><SkeletonRows /></div>
@@ -144,7 +142,7 @@ const SuppliersPage: React.FC = () => {
         <SupplierFormSheet
           supplier={null}
           onClose={() => setAdding(false)}
-          onSaved={(saved) => { toast.success('Supplier added.'); navigate(`/dashboard/suppliers/${saved.id}`); }}
+          onSaved={(saved) => { toast.success('Supplier added.'); navigate(supplierPath(saved.id)); }}
         />
       )}
       <MediaToaster />
@@ -152,4 +150,3 @@ const SuppliersPage: React.FC = () => {
   );
 };
 
-export default SuppliersPage;

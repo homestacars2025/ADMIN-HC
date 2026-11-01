@@ -5,9 +5,9 @@ import { Check } from '../media/MediaIcons';
 export type FilterTileTone = 'blue' | 'teal' | 'red' | 'green' | 'violet' | 'amber' | 'neutral';
 
 /** Columns follow the room the page really has, which the sidebar changes. */
-export const FilterTileRow: React.FC<{ label?: string; children: React.ReactNode }> = ({ label, children }) => (
+export const FilterTileRow: React.FC<{ label?: string; columns?: 6 | 7; children: React.ReactNode }> = ({ label, columns, children }) => (
   <div className="filter-tiles-room">
-    <div role={label ? 'group' : undefined} aria-label={label} className="filter-tiles">{children}</div>
+    <div role={label ? 'group' : undefined} aria-label={label} className={cn('filter-tiles', columns && `is-${columns}`)}>{children}</div>
   </div>
 );
 
@@ -15,12 +15,14 @@ export const FilterTileRow: React.FC<{ label?: string; children: React.ReactNode
 export const FilterTile: React.FC<{
   tone: FilterTileTone;
   icon: React.ReactNode;
+  /** For a small 3D image, which brings its own shape and has no chip behind it. */
+  bareIcon?: boolean;
   label: string;
   value: string;
   sub: string;
   active: boolean;
   onClick: () => void;
-}> = ({ tone, icon, label, value, sub, active, onClick }) => (
+}> = ({ tone, icon, bareIcon, label, value, sub, active, onClick }) => (
   <button
     type="button"
     aria-pressed={active}
@@ -31,7 +33,7 @@ export const FilterTile: React.FC<{
       <span aria-hidden="true" className="filter-tile-check"><Check size={11} strokeWidth={3} /></span>
     )}
     <span className="filter-tile-head">
-      <span aria-hidden="true" className="filter-tile-icon">{icon}</span>
+      <span aria-hidden="true" className={cn('filter-tile-icon', bareIcon && 'is-bare')}>{icon}</span>
       <span className="filter-tile-label">{label}</span>
     </span>
     <span className="filter-tile-bottom">
@@ -41,8 +43,8 @@ export const FilterTile: React.FC<{
   </button>
 );
 
-export const FilterTileSkeleton: React.FC<{ count?: number }> = ({ count = 5 }) => (
-  <FilterTileRow>
+export const FilterTileSkeleton: React.FC<{ count?: number; columns?: 6 | 7 }> = ({ count = 5, columns }) => (
+  <FilterTileRow columns={columns}>
     {Array.from({ length: count }, (_, index) => (
       <div key={index} className="filter-tile animate-pulse bg-black/[0.04]" />
     ))}

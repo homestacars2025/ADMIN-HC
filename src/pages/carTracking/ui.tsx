@@ -186,16 +186,8 @@ export function SortMenu<T extends string>({ columns, sort }: { columns: Array<{
   );
 }
 
-/** A warning sticker for a stat tile. It fills its square, so it sits a little inside to match the cars. */
-export const TileTriangle: React.FC<{ tone: 'amber' | 'red' }> = ({ tone }) => (
-  <span className="block h-full w-full p-[9%]"><ComplianceTriangle tone={tone} size={72} /></span>
-);
-
-export const TileSkeleton: React.FC<{ count: number }> = ({ count }) => (
-  <div aria-hidden="true" className={cn('status-tiles', count === 7 ? 'seven' : 'six')}>
-    {Array.from({ length: count }, (_, index) => <div key={index} className="h-[176px] animate-pulse rounded-2xl bg-black/[0.04]" />)}
-  </div>
-);
+/** The small 3D warning in a tile's chip area. */
+export const TileTriangle: React.FC<{ tone: 'amber' | 'red' }> = ({ tone }) => <ComplianceTriangle tone={tone} size={32} />;
 
 // ─── Date navigator ───────────────────────────────────────────────────────────
 
