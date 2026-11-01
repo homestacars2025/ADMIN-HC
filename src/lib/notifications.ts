@@ -1,5 +1,5 @@
 import type { ComplianceTone } from './carCompliance';
-import { withComplianceMessage } from './complianceNotifications';
+import { withComplianceMessage, withFineReminder } from './complianceNotifications';
 import { supabase } from './supabase';
 
 /**
@@ -38,6 +38,8 @@ export interface NotificationRow {
   created_at: string;
   /** Set on insurance and inspection expiry reminders, which show a triangle. */
   compliance_tone?: ComplianceTone;
+  /** Set on the unpaid fines reminder, which shows the fine image in red. */
+  fine_alert?: boolean;
 }
 
 /** `[{ kind: 'role', value: 'staff' }, { kind: 'profile', value: '<uuid>' }]` */
@@ -123,7 +125,7 @@ export async function getNotifications(
     p_only_unread: onlyUnread,
   });
   if (error) throw new Error(friendlyError(error));
-  return ((data ?? []) as NotificationRow[]).map(withComplianceMessage);
+  return ((data ?? []) as NotificationRow[]).map((row) => withFineReminder(withComplianceMessage(row)));
 }
 
 export async function getUnreadCount(): Promise<number> {
@@ -289,9 +291,10 @@ export function resolveNotificationLink(link: string | null | undefined): string
   if (!raw || !raw.startsWith('/')) return null;
   if (raw === '/dashboard' || raw.startsWith('/dashboard/')) return raw;
 
-  const section = raw.split('/').filter(Boolean)[0];
+  const [path, query] = raw.split('?');
+  const section = path.split('/').filter(Boolean)[0];
   if (!section || !DASHBOARD_SECTIONS.has(section)) return null;
-  return `/dashboard/${section}`;
+  return `/dashboard/${section}${query ? `?${query}` : ''}`;
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────

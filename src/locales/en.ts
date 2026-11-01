@@ -49,6 +49,14 @@ const en = {
     expiring_body: '{{model}} · Expires {{expiry}}',
     expiring_body_no_model: 'Expires {{expiry}}',
   },
+  fines: {
+    unpaid: {
+      one: '{{count}} unpaid fine — {{total}}',
+      many: '{{count}} unpaid fines — {{total}}',
+      not_linked: '{{count}} not linked to a customer',
+      oldest: 'Oldest from {{oldest}}',
+    },
+  },
   kabis: {
     pending: {
       title: 'New KABIS {{action_label}} pending',

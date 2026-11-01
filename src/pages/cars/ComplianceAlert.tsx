@@ -11,10 +11,12 @@ import {
   type ComplianceDoc,
   type IssueState,
 } from '../../lib/carCompliance';
-import { claimComplianceAlert, refreshCompliance, useComplianceCars } from '../../lib/complianceStore';
+import { claimComplianceAlert, refreshCompliance, releaseComplianceAlert, useComplianceCars, useUnpaidFines } from '../../lib/complianceStore';
 import { formatDate } from '../../lib/customers';
+import type { Fine } from '../../lib/fines';
 import { cn } from '../../lib/media/badgeColor';
 import { LicensePlate } from '../bookings/ui';
+import { FinesAlertSection, UNPAID_FINES_LINK } from '../fines/UnpaidAlert';
 
 const TITLE = 'Critical: cars without valid insurance or inspection';
 const EXPLANATION = 'These cars must not be rented until this is fixed.';
@@ -51,20 +53,27 @@ const CarRow: React.FC<{ car: CarCompliance; onFix?: () => void }> = ({ car, onF
 /**
  * The same modal in two places. On the Cars page it has an "Add date" on each car
  * and closes with "Got it". After sign-in the fix is on another page, so it has
- * "Fix now" and "Remind me later". There's never a "don't show again". A bottom
- * sheet on phones.
+ * "Fix now" and "Remind me later", and any unpaid fines follow the cars in the same
+ * modal. There's never a "don't show again". A bottom sheet on phones.
  */
 export const ComplianceModal: React.FC<{
   cars: CarCompliance[];
+  fines?: Fine[];
   /** The car edit form is open on top, so keys belong to it. */
   paused?: boolean;
   onFix?: (car: CarCompliance) => void;
   onFixNow?: () => void;
+  onOpenFine?: (fine: Fine) => void;
+  onPayFine?: (fine: Fine) => void;
+  onReviewFines?: () => void;
   onClose: () => void;
-}> = ({ cars, paused = false, onFix, onFixNow, onClose }) => {
+}> = ({ cars, fines = [], paused = false, onFix, onFixNow, onOpenFine, onPayFine, onReviewFines, onClose }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
   const summary = summarize(cars);
+  const hasCars = cars.length > 0;
+  const hasFines = fines.length > 0;
+  const acts = Boolean(onFixNow || onReviewFines);
 
   useEffect(() => {
     primaryRef.current?.focus({ preventScroll: true });
@@ -86,19 +95,30 @@ export const ComplianceModal: React.FC<{
         ref={panelRef}
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="compliance-title"
-        aria-describedby="compliance-explanation"
+        aria-labelledby={hasCars ? 'compliance-title' : 'unpaid-fines-title'}
+        aria-describedby={hasCars ? 'compliance-explanation' : undefined}
         onKeyDown={(event) => trapTab(event, panelRef.current)}
         className="flex h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface shadow-lg sm:h-auto sm:max-h-[86vh] sm:max-w-[640px] sm:rounded-3xl"
         style={{ animation: 'live-toast-in 200ms ease' }}
       >
-        <header className="shrink-0 border-b border-subtle px-5 pb-4 pt-5 text-center sm:px-7 sm:pt-6">
-          <ComplianceTriangle tone={summary.tone} size={84} className="mx-auto sm:h-24 sm:w-24" />
-          <h2 id="compliance-title" className="mx-auto mt-3 max-w-[460px] text-[18px] font-semibold leading-snug tracking-[-0.015em] text-foreground sm:text-[20px]">{TITLE}</h2>
-          <p id="compliance-explanation" className="mt-1.5 text-[13.5px] text-black/60">{EXPLANATION}</p>
-        </header>
+        {hasCars && !hasFines && (
+          <header className="shrink-0 border-b border-subtle px-5 pb-4 pt-5 text-center sm:px-7 sm:pt-6">
+            <ComplianceTriangle tone={summary.tone} size={84} className="mx-auto sm:h-24 sm:w-24" />
+            <h2 id="compliance-title" className="mx-auto mt-3 max-w-[460px] text-[18px] font-semibold leading-snug tracking-[-0.015em] text-foreground sm:text-[20px]">{TITLE}</h2>
+            <p id="compliance-explanation" className="mt-1.5 text-[13.5px] text-black/60">{EXPLANATION}</p>
+          </header>
+        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-2 sm:px-7">
+          {hasCars && hasFines && (
+            <div className="flex items-center gap-3 py-3">
+              <ComplianceTriangle tone={summary.tone} size={64} />
+              <div className="min-w-0">
+                <h2 id="compliance-title" className="text-[15.5px] font-semibold leading-snug tracking-[-0.015em] text-foreground">{TITLE}</h2>
+                <p id="compliance-explanation" className="mt-1 text-[13.5px] text-black/60">{EXPLANATION}</p>
+              </div>
+            </div>
+          )}
           {GROUPS.map(({ state, title }) => {
             const group = cars.filter((car) => car.severity === state);
             if (group.length === 0) return null;
@@ -116,13 +136,17 @@ export const ComplianceModal: React.FC<{
               </section>
             );
           })}
+          {hasFines && onOpenFine && onPayFine && (
+            <FinesAlertSection fines={fines} alone={!hasCars} onOpen={onOpenFine} onPay={onPayFine} />
+          )}
         </div>
 
         <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-subtle px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3.5 sm:flex-row sm:justify-end sm:px-7">
-          {onFixNow ? (
+          {acts ? (
             <>
               <Button variant="secondary" size="lg" className="!h-11 w-full sm:w-auto md:!h-10" onClick={onClose}>Remind me later</Button>
-              <Button ref={primaryRef} size="lg" className="!h-11 w-full sm:w-auto sm:min-w-[120px] md:!h-10" onClick={onFixNow}>Fix now</Button>
+              {hasCars && onFixNow && <Button ref={primaryRef} size="lg" className="!h-11 w-full sm:w-auto sm:min-w-[120px] md:!h-10" onClick={onFixNow}>{hasFines ? 'Fix cars' : 'Fix now'}</Button>}
+              {hasFines && onReviewFines && <Button ref={hasCars ? undefined : primaryRef} size="lg" className="!h-11 w-full sm:w-auto sm:min-w-[120px] md:!h-10" onClick={onReviewFines}>Review fines</Button>}
             </>
           ) : (
             <Button ref={primaryRef} size="lg" className="!h-11 w-full sm:w-auto sm:min-w-[120px] md:!h-10" onClick={onClose}>Got it</Button>
@@ -136,11 +160,12 @@ export const ComplianceModal: React.FC<{
 
 /**
  * After every sign-in, and once per browser session for someone already signed in,
- * on whatever page they land. Cars opens the same modal itself, so there this only
- * counts as seen, or the two would stack.
+ * on whatever page they land, until no car and no fine is left. It waits for both
+ * reads so there's only ever one modal. Cars skips its own while this one is around.
  */
 export const ComplianceSignInAlert: React.FC = () => {
   const cars = useComplianceCars();
+  const fines = useUnpaidFines();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -148,16 +173,29 @@ export const ComplianceSignInAlert: React.FC = () => {
   useEffect(() => { refreshCompliance(); }, [pathname]);
 
   useEffect(() => {
-    if (!cars || cars.length === 0 || !claimComplianceAlert()) return;
-    if (pathname !== '/dashboard/cars') setOpen(true);
-  }, [cars, pathname]);
+    if (!cars || !fines || (cars.length === 0 && fines.length === 0) || !claimComplianceAlert()) return;
+    setOpen(true);
+  }, [cars, fines]);
 
-  if (!open || !cars || cars.length === 0) return null;
+  const close = () => {
+    releaseComplianceAlert();
+    setOpen(false);
+  };
+  const goTo = (path: string) => {
+    close();
+    navigate(path);
+  };
+
+  if (!open || !cars || !fines || (cars.length === 0 && fines.length === 0)) return null;
   return (
     <ComplianceModal
       cars={cars}
-      onClose={() => setOpen(false)}
-      onFixNow={() => { setOpen(false); navigate('/dashboard/cars?issues=1'); }}
+      fines={fines}
+      onClose={close}
+      onFixNow={() => goTo('/dashboard/cars?issues=1')}
+      onOpenFine={(fine) => goTo(`/dashboard/fines?fine=${encodeURIComponent(fine.id)}`)}
+      onPayFine={(fine) => goTo(`/dashboard/fines?fine=${encodeURIComponent(fine.id)}&action=pay`)}
+      onReviewFines={() => goTo(UNPAID_FINES_LINK)}
     />
   );
 };

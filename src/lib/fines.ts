@@ -1,5 +1,5 @@
 import { compressImage } from './imageCompression';
-import { istanbulDate } from './customers';
+import { daysBetween, istanbulDate } from './customers';
 import { supabase } from './supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -183,6 +183,31 @@ export function filterFines(fines: Fine[], segment: FineSegment, search: string,
     return [fine.plate_number, fine.violation_number, fine.resolved_customer_name, fine.customer_name, fine.location]
       .some((field) => (field ?? '').toLowerCase().includes(query));
   });
+}
+
+export type FineAgeTone = 'neutral' | 'amber' | 'red';
+
+export const fineAgeDays = (fine: Pick<Fine, 'violation_date' | 'notification_date' | 'created_at'>, today: string = istanbulDate()): number => {
+  const day = fineDay(fine) ?? fine.created_at?.slice(0, 10);
+  return day ? Math.max(daysBetween(day, today), 0) : 0;
+};
+
+export const fineAgeTone = (days: number): FineAgeTone => (days > 30 ? 'red' : days > 15 ? 'amber' : 'neutral');
+
+/** Anything that isn't paid, with the oldest first. */
+export function unpaidFines(fines: Fine[], today: string = istanbulDate()): Fine[] {
+  return fines
+    .filter((fine) => fine.status !== 'paid')
+    .sort((a, b) => fineAgeDays(b, today) - fineAgeDays(a, today));
+}
+
+export function unpaidSummary(fines: Fine[], today: string = istanbulDate()) {
+  return {
+    count: fines.length,
+    total: fines.reduce((sum, fine) => sum + Number(fine.amount || 0), 0),
+    unassigned: fines.filter((fine) => !fine.customer_id).length,
+    oldestDays: fines.reduce((oldest, fine) => Math.max(oldest, fineAgeDays(fine, today)), 0),
+  };
 }
 
 export interface FineDocument {

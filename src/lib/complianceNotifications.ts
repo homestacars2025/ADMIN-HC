@@ -36,3 +36,24 @@ export function withComplianceMessage(row: NotificationRow): NotificationRow {
     compliance_tone: daysLeft <= 1 ? 'red' : 'amber',
   };
 }
+
+const wholeLira = (amount: number) => `₺${Math.round(amount).toLocaleString('en-US')}`;
+
+/** The two-day reminder, written from `vars` and pointed at the unpaid fines. */
+export function withFineReminder(row: NotificationRow): NotificationRow {
+  if (row.event_key !== 'fines.unpaid.reminder') return row;
+  const vars = row.vars ?? {};
+  const count = Number(vars.count) || 0;
+  const unassigned = Number(vars.unassigned) || 0;
+  const total = wholeLira(Number(vars.total) || 0);
+  const title = t(count === 1 ? 'fines.unpaid.one' : 'fines.unpaid.many', { count, total });
+  return {
+    ...row,
+    i18n_key: null,
+    body_i18n_key: null,
+    title: unassigned > 0 ? `${title} · ${t('fines.unpaid.not_linked', { count: unassigned })}` : title,
+    body: typeof vars.oldest === 'string' ? t('fines.unpaid.oldest', { oldest: formatDate(vars.oldest) }) : null,
+    link: '/dashboard/fines?filter=unpaid',
+    fine_alert: true,
+  };
+}

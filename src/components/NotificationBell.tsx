@@ -1,4 +1,4 @@
-import { ComplianceTriangle } from './shared/ComplianceBits';
+import { ComplianceTriangle, FineImage } from './shared/ComplianceBits';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -267,14 +267,14 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
                     item.is_read ? '#fff' : 'rgba(75,166,234,0.045)';
                 }}
               >
-                {item.compliance_tone
+                {item.fine_alert ? <FineImage size={32} /> : item.compliance_tone
                   ? <ComplianceTriangle tone={item.compliance_tone} size={28} />
                   : <CategoryDot category={item.category} />}
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: 12.8, fontWeight: item.is_read ? 500 : 600,
-                    color: '#0f1117', lineHeight: 1.4,
+                    color: item.fine_alert ? '#B91C1C' : '#0f1117', lineHeight: 1.4,
                   }}>
                     {renderMessage(item.i18n_key, item.vars, item.title)}
                   </div>

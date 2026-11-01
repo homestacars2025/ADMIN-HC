@@ -36,6 +36,19 @@ export const ComplianceTriangle: React.FC<{ tone: ComplianceTone; size: number; 
   );
 };
 
+export const FineImage: React.FC<{ size: number; className?: string }> = ({ size, className }) => (
+  <img
+    src={`${TRIANGLE_DIR}/fine.webp`}
+    srcSet={`${TRIANGLE_DIR}/fine.webp 256w, ${TRIANGLE_DIR}/fine@2x.webp 512w`}
+    sizes={`${size}px`}
+    width={size}
+    height={size}
+    alt=""
+    draggable={false}
+    className={cn('shrink-0 object-contain', className)}
+  />
+);
+
 export const IssueChip: React.FC<{ issue: ComplianceIssue }> = ({ issue }) => (
   <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium leading-none', TONE_CLASSES[toneOf(issue.state)].chip)}>
     {issueLabel(issue)}

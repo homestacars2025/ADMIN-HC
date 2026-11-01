@@ -11,7 +11,8 @@ import { fineDocuments, linkFineCustomer, markFinePaid, type Fine, type FineCar 
 import { cn } from '../../lib/media/badgeColor';
 import { BookingSheet, FOOTER_BUTTON, FormCard, LicensePlate, Notice, PrimaryButton } from '../bookings/ui';
 import { FileIcon, ReceiptIcon, WalletIcon } from '../customers/ui';
-import { FineStatusPill, LinkedCustomerField, UnassignedChip, type PickedCustomer } from './ui';
+import { UnassignedChip } from './UnpaidAlert';
+import { FineStatusPill, LinkedCustomerField, type PickedCustomer } from './ui';
 
 const noSubmit = (event: React.FormEvent) => event.preventDefault();
 

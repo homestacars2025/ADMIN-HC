@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '../components/media/ConfirmDialog';
 import { Plus } from '../components/media/MediaIcons';
 import { Button } from '../components/media/MediaUI';
@@ -8,6 +9,7 @@ import { Lightbox, type LightboxItem } from '../components/shared/Lightbox';
 import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { useUrlFilter } from '../hooks/useUrlFilter';
+import { publishUnpaidFines } from '../lib/complianceStore';
 import { useCurrency } from '../lib/CurrencyContext';
 import { formatDate } from '../lib/customers';
 import {
@@ -18,6 +20,7 @@ import {
   filterFines,
   fineDocuments,
   fineStats,
+  unpaidFines,
   type Fine,
   type FineCar,
 } from '../lib/fines';
@@ -25,7 +28,8 @@ import { LicensePlate } from './bookings/ui';
 import { ClockIcon, GridIcon, ReceiptIcon, UsersIcon, WalletIcon } from './customers/ui';
 import { FineDetailSheet, LinkCustomerSheet, PaymentSheet } from './fines/FineDetailSheet';
 import { FineFormSheet } from './fines/FineFormSheet';
-import { DocumentIcons, FineStatusPill, UnassignedChip } from './fines/ui';
+import { DocumentIcons, FineStatusPill } from './fines/ui';
+import { UnassignedChip, UnpaidFinesBanner } from './fines/UnpaidAlert';
 
 type Sheet =
   | { type: 'add' }
@@ -113,6 +117,7 @@ const FinesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const { filter: segment, toggle, clear } = useUrlFilter(FINE_FILTERS);
+  const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [sheet, setSheet] = useState<Sheet>(null);
   const [lightbox, setLightbox] = useState<{ items: LightboxItem[]; start: number } | null>(null);
@@ -127,6 +132,7 @@ const FinesPage: React.FC = () => {
         if (cancelled) return;
         setFines(rows);
         setCars(carRows);
+        publishUnpaidFines(rows);
       })
       .catch((failure: unknown) => {
         if (!cancelled) setError(failure instanceof Error ? failure.message : "Couldn't load the fines.");
@@ -135,6 +141,21 @@ const FinesPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [reload]);
 
+  // The sign-in alert opens a fine with ?fine=<id>, and its payment with &action=pay.
+  const linkedFine = params.get('fine');
+  const linkedAction = params.get('action');
+  useEffect(() => {
+    if (!linkedFine || loading || error || fines.length === 0) return;
+    const fine = fines.find((row) => row.id === linkedFine);
+    if (fine) setSheet({ type: linkedAction === 'pay' && fine.status !== 'paid' ? 'pay' : 'view', id: fine.id });
+    else toast.error("That fine isn't here any more.");
+    const next = new URLSearchParams(params);
+    next.delete('fine');
+    next.delete('action');
+    setParams(next, { replace: true });
+  }, [linkedFine, linkedAction, loading, fines, error, params, setParams]);
+
+  const unpaid = useMemo(() => unpaidFines(fines), [fines]);
   const carsById = useMemo(() => new Map(cars.map((car) => [car.id, car])), [cars]);
   const stats = useMemo(() => fineStats(fines), [fines]);
   const visible = useMemo(() => filterFines(fines, segment, search), [fines, segment, search]);
@@ -175,6 +196,10 @@ const FinesPage: React.FC = () => {
       />
 
       {error && <LoadError message={`Couldn't load the fines: ${error}`} onRetry={() => setReload((value) => value + 1)} />}
+
+      {!loading && unpaid.length > 0 && (
+        <UnpaidFinesBanner fines={unpaid} onReview={segment === 'unpaid' ? undefined : () => toggle('unpaid')} />
+      )}
 
       {loading ? <FilterTileSkeleton /> : (
         <FilterTileRow label="Filter fines">

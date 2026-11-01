@@ -1,4 +1,15 @@
-import { bookingsCovering, filterFines, fineDocuments, fineStats, type BookingOnCar, type Fine } from './fines';
+import {
+  bookingsCovering,
+  filterFines,
+  fineAgeDays,
+  fineAgeTone,
+  fineDocuments,
+  fineStats,
+  unpaidFines,
+  unpaidSummary,
+  type BookingOnCar,
+  type Fine,
+} from './fines';
 
 jest.mock('./supabase', () => ({ supabase: {} }));
 
@@ -92,6 +103,43 @@ describe('bookingsCovering', () => {
 
   it('needs a date', () => {
     expect(bookingsCovering([booking()], '')).toEqual([]);
+  });
+});
+
+describe('unpaid fines', () => {
+  const today = '2026-11-01';
+
+  it('counts days since the violation, then the notification, then when it was added', () => {
+    expect(fineAgeDays(fine({ violation_date: '2026-10-22' }), today)).toBe(10);
+    expect(fineAgeDays(fine({ violation_date: null, notification_date: '2026-10-30' }), today)).toBe(2);
+    expect(fineAgeDays(fine({ violation_date: null, notification_date: null, created_at: '2026-10-31T10:00:00' }), today)).toBe(1);
+    expect(fineAgeDays(fine({ violation_date: '2026-12-01' }), today)).toBe(0);
+  });
+
+  it('turns amber after 15 days and red after 30', () => {
+    expect(fineAgeTone(15)).toBe('neutral');
+    expect(fineAgeTone(16)).toBe('amber');
+    expect(fineAgeTone(30)).toBe('amber');
+    expect(fineAgeTone(31)).toBe('red');
+  });
+
+  it('keeps everything not paid, oldest first', () => {
+    const rows = [
+      fine({ id: 'new', violation_date: '2026-10-30' }),
+      fine({ id: 'paid', status: 'paid' }),
+      fine({ id: 'old', violation_date: '2026-07-05' }),
+      fine({ id: 'odd', status: 'disputed' as Fine['status'], violation_date: '2026-09-01' }),
+    ];
+    expect(unpaidFines(rows, today).map((row) => row.id)).toEqual(['old', 'odd', 'new']);
+  });
+
+  it('sums the alert', () => {
+    const rows = [fine({ amount: 1000, violation_date: '2026-07-05' }), fine({ amount: 500, customer_id: null, violation_date: '2026-10-30' })];
+    expect(unpaidSummary(rows, today)).toEqual({ count: 2, total: 1500, unassigned: 1, oldestDays: 119 });
+  });
+
+  it('has nothing to say with no fines', () => {
+    expect(unpaidSummary([], today)).toEqual({ count: 0, total: 0, unassigned: 0, oldestDays: 0 });
   });
 });
 

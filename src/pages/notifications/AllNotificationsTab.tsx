@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ComplianceTriangle } from '../../components/shared/ComplianceBits';
+import { ComplianceTriangle, FineImage } from '../../components/shared/ComplianceBits';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../../hooks/useNotificationCounts';
 import { useMessageRenderer } from '../../lib/i18n';
@@ -220,6 +220,7 @@ export const AllNotificationsTab: React.FC = () => {
                 : <span style={{ width: 7, flexShrink: 0 }} />}
 
               {item.compliance_tone && <ComplianceTriangle tone={item.compliance_tone} size={32} />}
+              {item.fine_alert && <FineImage size={36} />}
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
@@ -232,7 +233,7 @@ export const AllNotificationsTab: React.FC = () => {
                 </div>
                 <div style={{
                   fontSize: 13.5, fontWeight: item.is_read ? 500 : 600,
-                  color: INK, lineHeight: 1.45,
+                  color: item.fine_alert ? '#B91C1C' : INK, lineHeight: 1.45,
                 }}>
                   {renderMessage(item.i18n_key, item.vars, item.title)}
                 </div>

@@ -1,4 +1,4 @@
-import { withComplianceMessage } from './complianceNotifications';
+import { withComplianceMessage, withFineReminder } from './complianceNotifications';
 import { resolveNotificationLink, type NotificationRow } from './notifications';
 
 jest.mock('./supabase', () => ({ supabase: {} }));
@@ -71,5 +71,48 @@ describe('compliance notifications', () => {
     expect(withComplianceMessage(other)).toBe(other);
     const unset = row({ event_key: null });
     expect(withComplianceMessage(unset)).toBe(unset);
+  });
+});
+
+describe('the unpaid fines reminder', () => {
+  const reminder = (vars: Record<string, unknown> | null) => withFineReminder({
+    id: 'n2', category: 'reminder', event_key: 'fines.unpaid.reminder', i18n_key: 'fines.unpaid.reminder',
+    body_i18n_key: null, vars, title: 'stored', body: 'stored', link: '/fines?filter=unpaid', entity_type: 'fines',
+    entity_id: null, is_read: false, created_at: '2026-11-01T10:36:00Z',
+  });
+
+  it('writes the title from vars', () => {
+    expect(reminder({ count: 5, total: 48738, unassigned: 2, oldest: '2026-07-05' }).title).toBe('5 unpaid fines — ₺48,738 · 2 not linked to a customer');
+  });
+
+  it('leaves out the last part when every fine is linked', () => {
+    expect(reminder({ count: 5, total: 48738, unassigned: 0 }).title).toBe('5 unpaid fines — ₺48,738');
+  });
+
+  it('says one fine properly', () => {
+    expect(reminder({ count: 1, total: 1246, unassigned: 0 }).title).toBe('1 unpaid fine — ₺1,246');
+  });
+
+  it('shows the oldest date, and opens the unpaid list', () => {
+    const row = reminder({ count: 5, total: 48738, unassigned: 1, oldest: '2026-07-05' });
+    expect(row.body).toBe('Oldest from 05.07.2026');
+    expect(resolveNotificationLink(row.link)).toBe('/dashboard/fines?filter=unpaid');
+    expect(row.fine_alert).toBe(true);
+  });
+
+  it('copes with no vars', () => {
+    expect(reminder(null).title).toBe('0 unpaid fines — ₺0');
+  });
+
+  it('leaves everything else alone', () => {
+    const other = { ...reminder({}), event_key: 'task.assigned' };
+    expect(withFineReminder(other)).toBe(other);
+  });
+});
+
+describe('notification links', () => {
+  it('keeps the query on a stored link', () => {
+    expect(resolveNotificationLink('/fines?filter=unpaid')).toBe('/dashboard/fines?filter=unpaid');
+    expect(resolveNotificationLink('/cars/57')).toBe('/dashboard/cars');
   });
 });

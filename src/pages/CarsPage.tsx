@@ -6,8 +6,10 @@ import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
 import { Button } from '../components/media/MediaUI';
 import { ComplianceTriangle } from '../components/shared/ComplianceBits';
+import { StatusImage, type StatusArt } from '../components/shared/StatusImage';
+import { useUrlFilter } from '../hooks/useUrlFilter';
 import { buildCompliance, toneOf, type CarCompliance, type ComplianceDoc } from '../lib/carCompliance';
-import { publishCompliance } from '../lib/complianceStore';
+import { publishCompliance, signInAlertActive } from '../lib/complianceStore';
 import { cn } from '../lib/media/badgeColor';
 import {
   ComplianceAlertCard,
@@ -36,6 +38,8 @@ interface CarTableRow {
 }
 
 type CarTableStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
+
+const STATUS_FILTERS: readonly CarTableStatus[] = ['working', 'parking', 'maintenance', 'selling', 'replacement'];
 
 const STATUS_CONFIG: Record<CarTableStatus, { label: string; color: string; bg: string }> = {
   working:     { label: 'Working',     color: '#16a34a', bg: 'rgba(34,197,94,0.1)'  },
@@ -68,7 +72,7 @@ interface StatCard {
   description: string;
   accentColor: string;
   iconBg: string;
-  icon: React.ReactNode;
+  art: StatusArt;
 }
 
 const CARDS: StatCard[] = [
@@ -78,13 +82,7 @@ const CARDS: StatCard[] = [
     description: 'All registered vehicles',
     accentColor: '#4ba6ea',
     iconBg: 'rgba(75,166,234,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/>
-        <circle cx="9" cy="7" r="4" stroke="#4ba6ea" strokeWidth="1.8"/>
-        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/>
-      </svg>
-    ),
+    art: 'fleet',
   },
   {
     key: 'working',
@@ -92,12 +90,7 @@ const CARDS: StatCard[] = [
     description: 'Active on the road',
     accentColor: '#22c55e',
     iconBg: 'rgba(34,197,94,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M9 12l2 2 4-4" stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <circle cx="12" cy="12" r="9" stroke="#22c55e" strokeWidth="1.8"/>
-      </svg>
-    ),
+    art: 'working',
   },
   {
     key: 'parking',
@@ -105,12 +98,7 @@ const CARDS: StatCard[] = [
     description: 'Parked at branch',
     accentColor: '#ef4444',
     iconBg: 'rgba(239,68,68,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="3" width="18" height="18" rx="3" stroke="#ef4444" strokeWidth="1.8"/>
-        <path d="M9 17V7h4.5a3 3 0 010 6H9" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
+    art: 'parking',
   },
   {
     key: 'maintenance',
@@ -118,11 +106,7 @@ const CARDS: StatCard[] = [
     description: 'Under service',
     accentColor: '#6b7280',
     iconBg: 'rgba(107,114,128,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
+    art: 'maintenance',
   },
   {
     key: 'selling',
@@ -130,12 +114,7 @@ const CARDS: StatCard[] = [
     description: 'Listed for sale',
     accentColor: '#eab308',
     iconBg: 'rgba(234,179,8,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#eab308" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <circle cx="7" cy="7" r="1.5" fill="#eab308"/>
-      </svg>
-    ),
+    art: 'selling',
   },
   {
     key: 'replacement',
@@ -143,13 +122,7 @@ const CARDS: StatCard[] = [
     description: 'Replacement vehicles',
     accentColor: '#06b6d4',
     iconBg: 'rgba(6,182,212,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M1 4v6h6" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M23 20v-6h-6" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
+    art: 'replacement',
   },
 ];
 
@@ -157,10 +130,12 @@ interface HoverCardProps {
   card: StatCard;
   count: number;
   total: number;
+  active: boolean;
+  onClick: () => void;
 }
 
-const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => {
-  const ref = useRef<HTMLDivElement>(null);
+const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total, active, onClick }) => {
+  const ref = useRef<HTMLButtonElement>(null);
 
   const handleEnter = () => {
     if (!ref.current) return;
@@ -177,40 +152,42 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
   const pct = total > 0 && card.key !== 'all' ? Math.round((count / total) * 100) : null;
 
   return (
-    <div
+    <button
       ref={ref}
+      type="button"
+      aria-pressed={active}
+      aria-label={`${card.label}: ${count}`}
+      onClick={onClick}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
+      className="focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40"
       style={{
-        background: 'var(--surface)',
+        position: 'relative',
+        padding: 0,
+        textAlign: 'start',
+        fontFamily: 'inherit',
+        background: active ? `color-mix(in srgb, ${card.accentColor} 5%, var(--surface))` : 'var(--surface)',
         border: '1px solid var(--border-subtle)',
         borderRadius: 16,
-        overflow: 'hidden',
+        outline: active ? `2px solid ${card.accentColor}` : undefined,
+        outlineOffset: -1,
         boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
         transition: 'transform 200ms ease, box-shadow 200ms ease',
-        cursor: 'default',
+        cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
+        minWidth: 0,
       }}
     >
       {/* Colored top bar */}
-      <div style={{ height: 4, background: card.accentColor, flexShrink: 0 }} />
+      <div style={{ height: 4, background: card.accentColor, flexShrink: 0, alignSelf: 'stretch', borderRadius: '15px 15px 0 0' }} />
 
-      <div style={{ padding: '24px 24px 22px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Icon + label row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{
-            width: 42,
-            height: 42,
-            borderRadius: 11,
-            background: card.iconBg,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            {card.icon}
-          </div>
+      {/* A sticker over the tile's top corner, which is why nothing here clips */}
+      <StatusImage status={card.art} size={72} style={{ position: 'absolute', top: -10, insetInlineStart: -6, pointerEvents: 'none' }} />
+
+      <div className="px-4 pb-5 pt-4 sm:px-5" style={{ flex: 1, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Room beside the sticker, and the % badge */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', minHeight: 40 }}>
           {pct !== null && (
             <span style={{
               fontSize: 12,
@@ -250,7 +227,7 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -1127,6 +1104,7 @@ const CarsPage: React.FC = () => {
   const [carsLoading, setCarsLoading] = useState(true);
   const [tableSearch, setTableSearch] = useState('');
   const [searchParams] = useSearchParams();
+  const { filter: statusFilter, toggle: toggleStatus, clear: clearStatus } = useUrlFilter(STATUS_FILTERS);
   const { key: locationKey } = useLocation();
   useEffect(() => {
     const q = searchParams.get('q');
@@ -1264,7 +1242,7 @@ const CarsPage: React.FC = () => {
   useEffect(() => {
     if (carsLoading || alertShown.current || compliance.length === 0) return;
     alertShown.current = true;
-    setAlertOpen(true);
+    if (!signInAlertActive()) setAlertOpen(true);
   }, [carsLoading, compliance]);
 
   useEffect(() => {
@@ -1295,6 +1273,12 @@ const CarsPage: React.FC = () => {
   };
 
   const total = totalCars;
+
+  const pickStatus = (key: StatCard['key']) => {
+    if (key === 'all') { clearStatus(); return; }
+    if (statusFilter !== key) document.querySelector('[data-fleet-table]')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    toggleStatus(key);
+  };
 
   const countFor = (key: StatCard['key']): number => {
     if (!counts) return 0;
@@ -1384,6 +1368,8 @@ const CarsPage: React.FC = () => {
                 card={card}
                 count={countFor(card.key)}
                 total={total}
+                active={statusFilter === card.key}
+                onClick={() => pickStatus(card.key)}
               />
             ))
         }
@@ -1441,7 +1427,7 @@ const CarsPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              All Vehicles
+              {statusFilter === 'all' ? 'All Vehicles' : `${STATUS_CONFIG[statusFilter].label} Vehicles`}
             </span>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -1592,6 +1578,7 @@ const CarsPage: React.FC = () => {
                   const q = tableSearch.trim().toLowerCase();
                   const filtered = cars.filter(car => {
                     if (onlyIssues && !issuesByCar.has(car.id)) return false;
+                    if (statusFilter !== 'all' && car.status?.toLowerCase() !== statusFilter) return false;
                     if (!q) return true;
                     return car.plate_number.toLowerCase().includes(q) || car.model.toLowerCase().includes(q);
                   });
@@ -1617,7 +1604,8 @@ const CarsPage: React.FC = () => {
                     return (
                       <tr>
                         <td colSpan={13} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
-                          {tableSearch ? 'No cars match your search.' : 'No cars found.'}
+                          {statusFilter !== 'all' && <StatusImage status={statusFilter} size={96} className="mx-auto mb-2" />}
+                          {tableSearch ? 'No cars match your search.' : statusFilter !== 'all' ? `No cars in ${STATUS_CONFIG[statusFilter].label}.` : 'No cars found.'}
                         </td>
                       </tr>
                     );

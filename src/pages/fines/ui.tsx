@@ -22,10 +22,6 @@ export const FineStatusPill: React.FC<{ status: FineStatus }> = ({ status }) => 
   );
 };
 
-export const UnassignedChip: React.FC = () => (
-  <span className="inline-flex whitespace-nowrap rounded-full bg-[#F59E0B]/[0.16] px-2.5 py-1 text-[12px] font-semibold leading-none text-[#92400E]">Not linked to a customer</span>
-);
-
 const DOCUMENT_ICON: Record<FineDocument['key'], React.ReactNode> = {
   image: <><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></>,
   pdf: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6" /></>,

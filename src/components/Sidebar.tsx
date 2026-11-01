@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useComplianceCars } from '../lib/complianceStore';
+import { useComplianceCars, useUnpaidFines } from '../lib/complianceStore';
 import { ComplianceTriangle } from './shared/ComplianceBits';
 import { NavLink, useLocation } from 'react-router-dom';
 import Logo from './shared/Logo';
@@ -18,6 +18,8 @@ export interface NavItem {
   badge?: number;
   /** Cars with missing or expired dates, shown as a red triangle and a count. */
   alertCount?: number;
+  /** Unpaid fines, shown as a solid red count. */
+  fineCount?: number;
 }
 
 export interface NavGroup {
@@ -664,6 +666,7 @@ interface SidebarProps {
 }
 
 const CARS_PATH = '/dashboard/cars';
+const FINES_PATH = '/dashboard/fines';
 
 const ComplianceCount: React.FC<{ count: number }> = ({ count }) => (
   <span
@@ -680,11 +683,28 @@ const ComplianceCount: React.FC<{ count: number }> = ({ count }) => (
   </span>
 );
 
+const FineCount: React.FC<{ count: number; rail?: boolean }> = ({ count, rail }) => (
+  <span
+    title={`${count} unpaid fines`}
+    aria-label={`${count} unpaid fines`}
+    style={{
+      ...(rail ? { position: 'absolute', top: -7, right: -9 } : { marginLeft: 'auto' }),
+      minWidth: rail ? 16 : 20, padding: rail ? '0 4px' : '0 6px', borderRadius: 10,
+      background: '#DC2626', color: '#fff', fontSize: rail ? 10 : 11, fontWeight: 700,
+      lineHeight: rail ? '16px' : '20px', letterSpacing: 0, textAlign: 'center',
+      fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+    }}
+  >
+    {count > 99 ? '99+' : count}
+  </span>
+);
+
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) => {
   const location = useLocation();
 
   const { openTasks } = useNotificationCounts();
   const complianceCars = useComplianceCars();
+  const unpaidFineCount = useUnpaidFines()?.length ?? 0;
 
   /**
    * Which groups are open. Seeded with Daily only; after that the user's own
@@ -728,11 +748,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
   const toggleGroup = (key: string) =>
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  /** Tasks and Cars carry a live count; everything else is static. */
+  /** Tasks, Cars and Fines carry a live count; everything else is static. */
   const withBadge = (items: NavItem[]): NavItem[] =>
     items.map((item) => {
       if (item.path === '/dashboard/tasks') return { ...item, badge: openTasks };
       if (item.path === CARS_PATH) return { ...item, alertCount: complianceCars?.length ?? 0 };
+      if (item.path === FINES_PATH) return { ...item, fineCount: unpaidFineCount };
       return item;
     });
 
@@ -793,6 +814,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
               {collapsed && !!item.alertCount && (
                 <ComplianceTriangle tone="red" size={15} alt={`${item.alertCount} cars need attention`} className="absolute -right-2 -top-2" />
               )}
+              {collapsed && !!item.fineCount && <FineCount count={item.fineCount} rail />}
             </span>
             {!collapsed && item.label}
             {!collapsed && !!item.badge && item.badge > 0 && (
@@ -808,6 +830,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
               </span>
             )}
             {!collapsed && !!item.alertCount && <ComplianceCount count={item.alertCount} />}
+            {!collapsed && !!item.fineCount && <FineCount count={item.fineCount} />}
           </>
         )}
       </NavLink>
@@ -871,8 +894,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
             ))
           : NAV_GROUPS.map((group) => {
               const open = openGroups[group.key] === true;
-              // Groups start closed, and a closed one would hide the Cars badge with it.
+              // Groups start closed, and a closed one would hide the Cars and Fines badges with it.
               const hiddenAlert = !open && group.items.some((item) => item.path === CARS_PATH) ? complianceCars?.length ?? 0 : 0;
+              const hiddenFines = !open && group.items.some((item) => item.path === FINES_PATH) ? unpaidFineCount : 0;
               return (
                 <div key={group.key} style={{ marginTop: 4 }}>
                   <button
@@ -904,6 +928,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
                       {group.label}
                     </span>
                     {hiddenAlert > 0 && <ComplianceCount count={hiddenAlert} />}
+                    {hiddenFines > 0 && <FineCount count={hiddenFines} />}
                     <svg
                       width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"
                       style={{

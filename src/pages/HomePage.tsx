@@ -4,7 +4,7 @@ import { useShell } from '../components/shell/shellContext';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { useOnlineUsers } from '../hooks/usePresence';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
-import { useComplianceCars } from '../lib/complianceStore';
+import { useComplianceCars, useUnpaidFines } from '../lib/complianceStore';
 import { useCurrency } from '../lib/CurrencyContext';
 import {
   fetchAdminHome,
@@ -24,7 +24,9 @@ import {
   type NotificationRow,
   type ProfileOption,
 } from '../lib/notifications';
+import { StatusImage, type StatusArt } from '../components/shared/StatusImage';
 import { ComplianceHomeCard } from './cars/ComplianceAlert';
+import { UnpaidFinesHomeCard } from './fines/UnpaidAlert';
 
 const CARD = 'rounded-2xl border border-subtle bg-surface';
 const LATEST_NOTIFICATIONS = 5;
@@ -60,6 +62,8 @@ interface StatCard {
   subline: string;
   color: string;
   icon: IconName;
+  /** A 3D picture in place of the icon, for the tiles that are about a car status. */
+  art?: StatusArt;
   to?: string;
   onOpen?: () => void;
   money?: boolean;
@@ -75,13 +79,15 @@ const StatTile: React.FC<{ card: StatCard }> = ({ card }) => (
       <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: card.color }} />
       <h2 className="truncate text-[13px] font-medium text-black/60">{card.title}</h2>
     </div>
-    <span
-      aria-hidden="true"
-      className="absolute end-4 top-4 grid h-10 w-10 place-items-center rounded-full"
-      style={{ background: `${card.color}14`, color: card.color }}
-    >
-      <Icon name={card.icon} />
-    </span>
+    {card.art ? <StatusImage status={card.art} size={56} className="absolute end-2.5 top-2" /> : (
+      <span
+        aria-hidden="true"
+        className="absolute end-4 top-4 grid h-10 w-10 place-items-center rounded-full"
+        style={{ background: `${card.color}14`, color: card.color }}
+      >
+        <Icon name={card.icon} />
+      </span>
+    )}
     <div className={cn('mt-4 truncate text-[28px] font-semibold leading-tight tracking-[-0.02em] text-foreground', card.money && 'font-mono tabular-nums')}>
       {card.value}
     </div>
@@ -149,6 +155,7 @@ const HomePage: React.FC = () => {
   const [reloadCount, setReloadCount] = useState(0);
   const [onlineProfiles, setOnlineProfiles] = useState<Record<string, ProfileOption>>({});
   const compliance = useComplianceCars();
+  const unpaidFines = useUnpaidFines();
 
   useEffect(() => {
     let cancelled = false;
@@ -208,11 +215,11 @@ const HomePage: React.FC = () => {
       },
       {
         title: 'Active rentals now', value: String(data.activeRentals), subline: 'Cars out with customers',
-        color: '#16a34a', icon: 'key', to: '/dashboard/bookings/active',
+        color: '#16a34a', icon: 'key', art: 'working', to: '/dashboard/bookings/active',
       },
       {
         title: 'Cars available today', value: String(data.carsAvailable), subline: `of ${data.carsTotal} cars`,
-        color: '#0891b2', icon: 'car', to: '/dashboard/cars',
+        color: '#0891b2', icon: 'car', art: 'fleet', to: '/dashboard/cars',
       },
       {
         title: 'Open car issues', value: String(data.openIssues), subline: data.openIssues ? 'Need attention' : 'All clear',
@@ -252,6 +259,7 @@ const HomePage: React.FC = () => {
       </header>
 
       {compliance && compliance.length > 0 && <ComplianceHomeCard cars={compliance} />}
+      {unpaidFines && unpaidFines.length > 0 && <UnpaidFinesHomeCard fines={unpaidFines} />}
 
       {error ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-[13px] text-red-700">
