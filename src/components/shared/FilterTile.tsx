@@ -19,7 +19,7 @@ export const FilterTile: React.FC<{
   bareIcon?: boolean;
   label: string;
   value: string;
-  sub: string;
+  sub: React.ReactNode;
   active: boolean;
   onClick: () => void;
 }> = ({ tone, icon, bareIcon, label, value, sub, active, onClick }) => (

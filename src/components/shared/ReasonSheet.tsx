@@ -7,16 +7,18 @@ export const ReasonSheet: React.FC<{
   description: string;
   label: string;
   confirmLabel: string;
+  /** For a step that isn't destructive and can go ahead without a word. */
+  optional?: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void>;
-}> = ({ title, description, label, confirmLabel, onClose, onConfirm }) => {
+}> = ({ title, description, label, confirmLabel, optional = false, onClose, onConfirm }) => {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!reason.trim()) { setError('A reason is required.'); return; }
+    if (!optional && !reason.trim()) { setError('A reason is required.'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -49,7 +51,7 @@ export const ReasonSheet: React.FC<{
         </SheetBody>
         <SheetFooter>
           <Button type="button" variant="outline" size="lg" className="!h-11 md:!h-10" disabled={saving} onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="danger" size="lg" className="!h-11 md:!h-10" disabled={saving}>
+          <Button type="submit" variant={optional ? 'default' : 'danger'} size="lg" className="!h-11 md:!h-10" disabled={saving}>
             {saving && <Spinner size={13} />} {confirmLabel}
           </Button>
         </SheetFooter>

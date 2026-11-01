@@ -11,6 +11,7 @@ import { Button } from '../components/media/MediaUI';
 import { CarThumb } from '../components/shared/CarThumb';
 import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, fetchSuggestedExpenses, type PendingSummary } from '../lib/expenseApprovals';
 import { CashEnvelopesTab } from './accounting/CashEnvelopesTab';
+import { MonthlyCloseTab } from './accounting/MonthlyCloseTab';
 import { OverviewTiles } from './accounting/OverviewTiles';
 import { StaffCustodyTab } from './accounting/StaffCustodyTab';
 import { WalletsTab } from './accounting/WalletsTab';
@@ -5803,10 +5804,11 @@ const CustodyTab: React.FC<{ onPending: (summary: PendingSummary) => void }> = (
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type AccountingTab = 'overview' | 'investors' | 'expenses' | 'custody' | 'wallets' | 'customers' | 'suppliers' | 'vault';
+type AccountingTab = 'overview' | 'close' | 'investors' | 'expenses' | 'custody' | 'wallets' | 'customers' | 'suppliers' | 'vault';
 
 const TABS: ReadonlyArray<{ key: AccountingTab; label: string }> = [
   { key: 'overview',  label: 'Overview'         },
+  { key: 'close',     label: 'Monthly close'    },
   { key: 'investors', label: 'Investors'        },
   { key: 'expenses',  label: 'Company expenses' },
   { key: 'custody',   label: 'Staff custody'    },
@@ -5920,6 +5922,7 @@ const AccountingPage: React.FC = () => {
 
       {/* Tab content */}
       {activeTab === 'overview'  && <OverviewTab key={refreshKey} />}
+      {activeTab === 'close'     && <MonthlyCloseTab key={refreshKey} />}
       {activeTab === 'investors' && <InvestorsTab key={refreshKey} view={params.get('view')} onExpensesChanged={recheckPending} />}
       {activeTab === 'expenses'  && <CompanyExpensesTab key={refreshKey} onExpensesChanged={recheckPending} />}
       {activeTab === 'custody'   && <CustodyTab onPending={setPending} />}
