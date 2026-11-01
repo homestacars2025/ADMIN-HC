@@ -12,6 +12,7 @@ import OperationPhotoGrid, {
 import { FuelRangeInput } from '../components/shared/FuelRangeInput';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { Button } from '../components/media/MediaUI';
+import { PickupPaymentSheet } from './bookings/PickupPaymentSheet';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -388,7 +389,8 @@ const YesNoResult: React.FC<{ value: boolean | null }> = ({ value }) => {
 // ─── Pickup charges (RPC-backed) ──────────────────────────────────────────────
 
 type ToastKind = 'success' | 'error' | 'info';
-interface ToastNotice { message: string; kind: ToastKind }
+interface ToastNotice { message: string; kind: ToastKind; settle?: PickupSettlement }
+interface PickupSettlement { bookingId: number; charged: number }
 
 /** Ledger descriptions written by `apply_pickup_charges` all start with this. */
 const pickupChargeTag = (pickupId: number) => `pickup_charge:op=${pickupId}`;
@@ -459,7 +461,11 @@ async function applyPickupCharges(pickupId: number, uid: string | null): Promise
   if (!charges || Number(charges.total_charge) <= 0) {
     return { message: 'Picked up — no extra charges.', kind: 'info' };
   }
-  return { message: `Charged to customer wallet: ${chargeBreakdown(charges)}`, kind: 'success' };
+  return {
+    message: `Charged to customer wallet: ${chargeBreakdown(charges)}`,
+    kind: 'success',
+    settle: charges.booking_id === null ? undefined : { bookingId: charges.booking_id, charged: Number(charges.total_charge) },
+  };
 }
 
 // ─── Add Operation Modal ──────────────────────────────────────────────────────
@@ -2011,6 +2017,7 @@ const OperationsPage: React.FC = () => {
   const [photosOp, setPhotosOp]     = useState<Operation | null>(null);
   const [reportOp, setReportOp]     = useState<Operation | null>(null);
   const [toast, setToast] = useState<ToastNotice | null>(null);
+  const [settling, setSettling] = useState<PickupSettlement | null>(null);
 
   const showToast = (message: string, kind: ToastKind) => {
     setToast({ message, kind });
@@ -2470,10 +2477,20 @@ const OperationsPage: React.FC = () => {
             // A pickup reports what was charged; everything else just confirms.
             if (notice) {
               showToast(notice.message, notice.kind);
+              setSettling(notice.settle ?? null);
             } else {
               showToast('Operation saved successfully.', 'success');
             }
           }}
+        />
+      )}
+
+      {settling && (
+        <PickupPaymentSheet
+          bookingId={settling.bookingId}
+          charged={settling.charged}
+          onClose={() => setSettling(null)}
+          onSaved={() => { setSettling(null); showToast('Payment recorded.', 'success'); }}
         />
       )}
 

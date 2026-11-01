@@ -556,6 +556,8 @@ export interface SheetProps {
   maxWidthClass?: string;
   children: React.ReactNode;
   ariaLabel: string;
+  /** Only the sheet's own button closes it: no Escape, backdrop or X. */
+  blocking?: boolean;
 }
 
 /**
@@ -568,11 +570,12 @@ export const Sheet: React.FC<SheetProps> = ({
   maxWidthClass = 'sm:max-w-[480px]',
   children,
   ariaLabel,
+  blocking = false,
 }) => {
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !blocking) onClose();
     }
     document.addEventListener('keydown', onKeyDown);
     const previous = document.body.style.overflow;
@@ -581,7 +584,7 @@ export const Sheet: React.FC<SheetProps> = ({
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previous;
     };
-  }, [open, onClose]);
+  }, [open, onClose, blocking]);
 
   if (!open) return null;
 
@@ -590,7 +593,7 @@ export const Sheet: React.FC<SheetProps> = ({
       <div
         className="absolute inset-0 bg-black/10 backdrop-blur-[2px]"
         style={{ animation: 'm-fade-in 150ms ease-out' }}
-        onClick={onClose}
+        onClick={blocking ? undefined : onClose}
       />
       <div
         role="dialog"
@@ -602,15 +605,17 @@ export const Sheet: React.FC<SheetProps> = ({
         )}
         style={{ animation: 'm-sheet-in 200ms ease-in-out' }}
       >
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClose}
-          className="absolute top-3 right-3 z-10 text-black/40"
-          aria-label="Close"
-        >
-          <X size={15} strokeWidth={1.75} />
-        </Button>
+        {!blocking && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClose}
+            className="absolute top-3 right-3 z-10 text-black/40"
+            aria-label="Close"
+          >
+            <X size={15} strokeWidth={1.75} />
+          </Button>
+        )}
         {children}
       </div>
     </div>,

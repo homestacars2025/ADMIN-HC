@@ -625,7 +625,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     for (const item of items) {
       try {
         const result = await recordCustomerPayment({ bookingId, type: item.type, amount: item.amount, choice: payment });
-        receipts.push(...envelopeReceipt(result, item.amount, payment.currency, selectedCar?.plate_number ?? null, customerName));
+        receipts.push(...envelopeReceipt(result));
       } catch (failure) {
         showToast(`Booking saved, but the ${item.type} wasn't recorded: ${failure instanceof Error ? failure.message : 'try again'}`, 'error');
       }
@@ -749,8 +749,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
       setFormError("Today's USD rate hasn't loaded. Reload, or enter the amounts in TRY.");
       return;
     }
-    const problem = newPayments().length > 0 ? paymentProblem(payment, paymentAccounts, rates) : null;
-    if (problem) { setFormError(problem); return; }
+    if (paymentIssue) { setFormError(paymentIssue); return; }
 
     savingRef.current = true;
     setSaving(true);
@@ -779,6 +778,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
   // The money is entered on Review, so before that the footer carries the running total.
   const footerTotal = mode === 'add' && step > 0 && step < REVIEW_STEP;
+  const paymentIssue = newPayments().length > 0 ? paymentProblem(payment, paymentAccounts.list, rates) : null;
 
   const summaryItems = [
     { label: 'Car', value: selectedCar ? <LicensePlate plate={selectedCar.plate_number} /> : '—' },
@@ -1036,8 +1036,11 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     </FormCard>
   );
 
-  const takesMoney = (!existingLedger.deposit && parseAmount(form.fin_deposit_amount) > 0)
-    || (!existingLedger.payment && parseAmount(form.fin_paid_amount) > 0);
+  const takesMoney = newPayments().length > 0;
+  const skipPayment = () => {
+    if (!existingLedger.deposit) set('fin_deposit_amount', '');
+    if (!existingLedger.payment) set('fin_paid_amount', '');
+  };
 
   const paymentSection = (
     <FormCard
@@ -1066,7 +1069,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
           <CurrencyField value={payment.currency} onChange={(currency) => setPayment({ ...payment, currency })} />
         </Field>
       )}
-      {takesMoney && <PaymentMethod choice={payment} accounts={paymentAccounts} onChange={setPayment} />}
+      {takesMoney && <PaymentMethod choice={payment} accounts={paymentAccounts} onChange={setPayment} onSkip={skipPayment} />}
       {(otherLedger.rental > 0 || otherLedger.paid > 0) && (
         <Notice tone="blue" span>
           This booking also has {formatLira(otherLedger.rental)} in other rental charges and {formatLira(otherLedger.paid)} in other payments, from extensions. The summary includes them. Change those in Accounting.
@@ -1173,7 +1176,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
           {mode === 'add' && step > 0 && (
             <Button variant="secondary" size="lg" className={FOOTER_BUTTON} disabled={saving} onClick={() => goToStep(step - 1)}>Back</Button>
           )}
-          <PrimaryButton saving={saving}>
+          <PrimaryButton saving={saving} disabled={(mode === 'edit' || step === REVIEW_STEP) && Boolean(paymentIssue)}>
             {mode === 'edit'
               ? `Save changes${changeCount > 0 ? ` (${changeCount})` : ''}`
               : step < REVIEW_STEP ? 'Continue' : 'Create booking'}

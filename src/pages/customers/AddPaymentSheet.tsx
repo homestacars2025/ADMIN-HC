@@ -53,6 +53,8 @@ export const AddPaymentSheet: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const problem = paymentProblem(choice, accounts.list, rates);
+
   const options = bookings.map((booking) => {
     const car = bookingCar(booking);
     return {
@@ -67,14 +69,13 @@ export const AddPaymentSheet: React.FC<{
     const value = parseAmount(amount);
     if (!booking) { setError('Choose the booking this payment belongs to.'); return; }
     if (value <= 0) { setError('Enter an amount above zero.'); return; }
-    const problem = paymentProblem(choice, accounts, rates);
     if (problem) { setError(problem); return; }
 
     setSaving(true);
     setError(null);
     try {
       const result = await recordCustomerPayment({ bookingId: booking.id, type, amount: value, choice, note: description.trim() });
-      showEnvelopes(envelopeReceipt(result, value, choice.currency, bookingCar(booking).plate ?? null, customerName(customer)));
+      showEnvelopes(envelopeReceipt(result));
       onSaved();
       onClose();
     } catch (failure) {
@@ -121,7 +122,7 @@ export const AddPaymentSheet: React.FC<{
 
         <SheetFooter>
           <Button variant="secondary" size="lg" className="!h-11 md:!h-10" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="lg" className="!h-11 md:!h-10" disabled={saving || bookings.length === 0}>
+          <Button type="submit" size="lg" className="!h-11 md:!h-10" disabled={saving || bookings.length === 0 || Boolean(problem)}>
             {saving && <Spinner size={13} />} Add payment
           </Button>
         </SheetFooter>

@@ -119,6 +119,7 @@ export const ExtendSheet: React.FC<{
   const newBalance = oldBalance === null ? null : oldBalance + rental - paid;
 
   const needsRate = rentalCurrency === 'USD' && parseAmount(rentalAmount) > 0;
+  const paymentIssue = parseAmount(paidAmount) > 0 ? paymentProblem(payment, accounts.list, rates) : null;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -132,8 +133,7 @@ export const ExtendSheet: React.FC<{
     if (newEndDate <= booking.end_date) { setFormError(`New end date must be after ${formatDate(booking.end_date)}`); return; }
     if (!rentalAmount.trim() || Number.isNaN(rentalNumber) || rentalNumber <= 0) { setFormError('Rental amount must be greater than 0'); return; }
     if (Number.isNaN(paidNumber) || paidNumber < 0) { setFormError('Paid amount cannot be negative'); return; }
-    const problem = paidNumber > 0 ? paymentProblem(payment, accounts, rates) : null;
-    if (problem) { setFormError(problem); return; }
+    if (paymentIssue) { setFormError(paymentIssue); return; }
     if (needsRate && !usdRate) { setFormError("Today's USD rate hasn't loaded. Reload, or enter the amounts in TRY."); return; }
 
     savingRef.current = true;
@@ -185,7 +185,7 @@ export const ExtendSheet: React.FC<{
           choice: payment,
           note: `Extension to ${formatDate(newEndDate)}`,
         });
-        showEnvelopes(envelopeReceipt(result, paidNumber, payment.currency, booking.plate_number ?? null, booking.customer_name ?? null));
+        showEnvelopes(envelopeReceipt(result));
       } catch (failure) {
         paymentFailed = failure instanceof Error ? failure.message : 'try again';
       }
@@ -207,7 +207,7 @@ export const ExtendSheet: React.FC<{
   };
 
   const dirty = Boolean(newEndDate || rentalAmount || paidAmount);
-  const blocked = Boolean(banMatch) || !newEndDate || !rentalAmount.trim();
+  const blocked = Boolean(banMatch) || !newEndDate || !rentalAmount.trim() || Boolean(paymentIssue);
 
   return (
     <BookingSheet
@@ -262,7 +262,7 @@ export const ExtendSheet: React.FC<{
         <Field label="Received in">
           <CurrencyField value={payment.currency} onChange={(currency) => setPayment({ ...payment, currency })} />
         </Field>
-        {parseAmount(paidAmount) > 0 && <PaymentMethod choice={payment} accounts={accounts} onChange={setPayment} />}
+        {parseAmount(paidAmount) > 0 && <PaymentMethod choice={payment} accounts={accounts} onChange={setPayment} onSkip={() => setPaidAmount('')} />}
       </FormCard>
 
       <FormCard icon={<WalletIcon size={15} />} title="Summary">

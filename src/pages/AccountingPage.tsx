@@ -2631,7 +2631,10 @@ const AddCustomerTxModal: React.FC<{
   const accounts = usePaymentAccounts();
   const { rates } = useCurrency();
   // Money coming in has its own form. Charges and refunds stay as they were.
-  const paymentType = form.typePreset === 'payment' || form.typePreset === 'deposit' ? form.typePreset : null;
+  // Typed by hand as "Other" it's still money received, so it takes the same road.
+  const typedType = (form.typePreset === 'other' ? form.typeCustom : form.typePreset).trim().toLowerCase();
+  const paymentType = typedType === 'payment' || typedType === 'deposit' ? typedType : null;
+  const paymentIssue = paymentType ? paymentProblem(payment, accounts.list, rates) : null;
 
   const set = (k: keyof AddCustomerTxForm, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
@@ -2641,7 +2644,7 @@ const AddCustomerTxModal: React.FC<{
     setForm(prev => ({ ...prev, typePreset: preset, direction: dir ?? prev.direction }));
   };
 
-  const canSave = !saving;
+  const canSave = !saving && !paymentIssue;
 
   const handleSave = async () => {
     const amount    = parseFloat(form.amount);
@@ -2651,13 +2654,12 @@ const AddCustomerTxModal: React.FC<{
       return;
     }
     if (paymentType) {
-      const problem = paymentProblem(payment, accounts, rates);
-      if (problem) { setError(problem); return; }
+      if (paymentIssue) { setError(paymentIssue); return; }
       setSaving(true);
       setError(null);
       try {
         const result = await recordCustomerPayment({ bookingId, type: paymentType, amount, choice: payment, note: form.description });
-        showEnvelopes(envelopeReceipt(result, amount, payment.currency, carPlate ?? null, customerName));
+        showEnvelopes(envelopeReceipt(result));
         onSaved();
         onClose();
       } catch (failure) {
@@ -2780,7 +2782,7 @@ const AddCustomerTxModal: React.FC<{
 
           {/* Amount */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount (TRY)</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount ({paymentType ? payment.currency : 'TRY'})</div>
             <input type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} style={inputStyle}
               onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
               onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
@@ -2788,7 +2790,7 @@ const AddCustomerTxModal: React.FC<{
 
           {paymentType && (
             <div className="media-scope grid grid-cols-1 gap-3">
-              <CurrencyField value={payment.currency} onChange={(currency) => setPayment({ ...payment, currency })} />
+              <div><CurrencyField value={payment.currency} onChange={(currency) => setPayment({ ...payment, currency })} /></div>
               {equivalentLabel(parseFloat(form.amount) || 0, payment.currency, rates) && (
                 <p className="text-[12.5px] tabular-nums text-black/55">{equivalentLabel(parseFloat(form.amount) || 0, payment.currency, rates)}</p>
               )}
