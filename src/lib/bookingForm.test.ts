@@ -9,7 +9,6 @@ import {
   formatDays,
   formatShortRange,
   friendlyBookingError,
-  fuelPercent,
   groupCars,
   insuranceValue,
   parseAdditionalServices,
@@ -192,20 +191,6 @@ describe('groupCars', () => {
     expect(carMatches(cars[1], 'egea')).toBe(true);
     expect(carMatches(cars[1], 'audi')).toBe(false);
     expect(groupCars(cars, [3], 'egea').map((group) => group.label)).toEqual(['Fiat Egea']);
-  });
-});
-
-describe('fuelPercent', () => {
-  it('places normal readings on the slider', () => {
-    expect(fuelPercent('75')).toBe(75);
-    expect(fuelPercent('0')).toBe(0);
-    expect(fuelPercent(' 100 ')).toBe(100);
-  });
-
-  it('refuses values the slider would have to rewrite', () => {
-    expect(fuelPercent('150')).toBeNull();
-    expect(fuelPercent('3/4')).toBeNull();
-    expect(fuelPercent('')).toBeNull();
   });
 });
 

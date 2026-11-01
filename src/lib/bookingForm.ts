@@ -413,19 +413,6 @@ export function rememberCar(id: number): void {
   }
 }
 
-// ─── Fuel ─────────────────────────────────────────────────────────────────────
-
-/**
- * Where a stored fuel value sits on the 0–100 slider, or null when it can't.
- * Older rows hold free text and readings above 100, which must survive an edit.
- */
-export function fuelPercent(value: string): number | null {
-  const text = value.trim();
-  if (!/^\d+(\.\d+)?$/.test(text)) return null;
-  const percent = Number(text);
-  return percent <= 100 ? percent : null;
-}
-
 // ─── Changes ──────────────────────────────────────────────────────────────────
 
 const SIMPLE_FIELDS: Array<keyof BookingFormData> = [

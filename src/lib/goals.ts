@@ -91,7 +91,7 @@ const MISSING_LABELS: Record<string, string> = {
   license: 'License',
   tutanak: 'Tutanak',
   km: 'KM',
-  fuel: 'Fuel',
+  fuel: 'Fuel range',
   receipt: 'Receipt',
 };
 

@@ -1,3 +1,4 @@
+import { formatFuelRange } from './fuelRange';
 import { supabase } from './supabase';
 import { standaloneFontCss } from './standaloneFonts';
 
@@ -45,11 +46,6 @@ export function fmt(s: string | null | undefined): string {
 export function fmtKm(n: number | null | undefined): string {
   if (n == null) return '—';
   return n.toLocaleString('en-US') + ' km';
-}
-
-export function fmtFuel(s: string | null | undefined): string {
-  if (!s?.trim()) return '—';
-  return s.trim();
 }
 
 export function fmtDate(s: string | null | undefined): string {
@@ -895,7 +891,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
         )}
         ${infoRowPair(
           'TESL&#304;MDEK&#304; KM',    'KM at Delivery',   'الكيلومتر عند التسليم', fmtKm(booking.km_at_delivery),
-          'TESL&#304;MDEK&#304; YAKIT', 'Fuel at Delivery', 'الوقود عند التسليم',    fmtFuel(booking.fuel_at_delivery)
+          'TESL&#304;MDEK&#304; YAKIT', 'Fuel at Delivery', 'الوقود عند التسليم',    formatFuelRange(booking.fuel_at_delivery)
         )}
         ${infoRow('NOT', 'Notes', 'ملاحظة', fmt(booking.notes))}
         ${infoRow('S&#304;GORTA T&Uuml;R&Uuml;', 'Insurance Type', 'نوع التأمين', fmt(booking.insurance_type))}

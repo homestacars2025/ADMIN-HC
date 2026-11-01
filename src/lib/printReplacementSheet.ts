@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { standaloneFontCss } from './standaloneFonts';
-import { fmt, fmtDate, fmtKm, fmtFuel, infoRow, infoRowPair } from './printContract';
+import { formatFuelRange } from './fuelRange';
+import { fmt, fmtDate, fmtKm, infoRow, infoRowPair } from './printContract';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -542,7 +543,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
         )}
         ${infoRowPair(
           'TESL&#304;MDEK&#304; KM',    'KM at Handover',   'الكيلومتر عند التسليم', fmtKm(sheet.km_at_handover),
-          'TESL&#304;MDEK&#304; YAKIT', 'Fuel at Handover', 'الوقود عند التسليم',    fmtFuel(esc(sheet.fuel_at_handover))
+          'TESL&#304;MDEK&#304; YAKIT', 'Fuel at Handover', 'الوقود عند التسليم',    formatFuelRange(esc(sheet.fuel_at_handover))
         )}
         ${infoRow('NOT', 'Notes', 'ملاحظة', safe(sheet.notes))}
       </table>
@@ -682,7 +683,7 @@ export function __previewReplacementSheet(): Promise<void> {
     start_date:              '2026-08-16',
     end_date:                '2026-08-24',
     km_at_handover:          48250,
-    fuel_at_handover:        '3/4',
+    fuel_at_handover:        '280',
     notes:                   'Original vehicle in service for scheduled maintenance.',
   });
 }

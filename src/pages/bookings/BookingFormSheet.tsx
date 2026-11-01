@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Tag } from '../../components/media/MediaIcons';
 import { Button } from '../../components/media/MediaUI';
+import { FuelRangeInput } from '../../components/shared/FuelRangeInput';
 import { useCurrency } from '../../lib/CurrencyContext';
 import {
   EMPTY_FORM,
@@ -14,7 +15,6 @@ import {
   formatDays,
   formatShortRange,
   friendlyBookingError,
-  fuelPercent,
   insuranceValue,
   parseAmount,
   rangeDays,
@@ -40,6 +40,7 @@ import {
   searchCustomers,
   type BanMatch,
 } from '../../lib/customers';
+import { FUEL_RANGE_LABEL, formatFuelRange } from '../../lib/fuelRange';
 import { cn } from '../../lib/media/badgeColor';
 import { supabase } from '../../lib/supabase';
 import type { Booking, BookingStatus } from '../../types';
@@ -57,7 +58,6 @@ import {
   Field,
   FooterTotal,
   FormCard,
-  FuelSlider,
   INPUT,
   LicensePlate,
   MoneyField,
@@ -992,7 +992,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
   const conditionSection = (
     <FormCard icon={<Tag size={15} />} title="Vehicle condition at delivery">
-      <Field label="KM at delivery" span changed={isChanged('km_at_delivery')}>
+      <Field label="KM at delivery" changed={isChanged('km_at_delivery')}>
         <input
           type="number"
           inputMode="numeric"
@@ -1005,13 +1005,9 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
           className={INPUT}
         />
       </Field>
-      <FuelSlider
-        label="Fuel at delivery"
-        value={form.fuel_at_delivery}
-        percent={fuelPercent(form.fuel_at_delivery)}
-        changed={isChanged('fuel_at_delivery')}
-        onChange={(value) => set('fuel_at_delivery', value)}
-      />
+      <Field label={FUEL_RANGE_LABEL} changed={isChanged('fuel_at_delivery')}>
+        <FuelRangeInput value={form.fuel_at_delivery} onChange={(value) => set('fuel_at_delivery', value)} className={INPUT} />
+      </Field>
     </FormCard>
   );
 
@@ -1057,7 +1053,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     ['Insurance', insuranceLabel || '—'],
     ['Extras', extras || '—'],
     ['KM at delivery', form.km_at_delivery || '—'],
-    ['Fuel at delivery', form.fuel_at_delivery ? `${form.fuel_at_delivery}${fuelPercent(form.fuel_at_delivery) === null ? '' : '%'}` : '—'],
+    ['Fuel range', formatFuelRange(form.fuel_at_delivery)],
   ] as const;
 
   const reviewSection = (

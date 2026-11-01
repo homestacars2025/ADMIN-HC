@@ -294,54 +294,6 @@ export const MoneyField: React.FC<{
   </Field>
 );
 
-// ── Fuel ─────────────────────────────────────────────────────────────────────
-
-const FUEL_MARKS = ['E', '¼', '½', '¾', 'F'];
-
-/**
- * A 0–100 slider. A saved value the slider can't show (above 100, or free text
- * like "3/4") stays exactly as it is unless someone moves the handle.
- */
-export const FuelSlider: React.FC<{
-  label: string;
-  value: string;
-  percent: number | null;
-  onChange: (value: string) => void;
-  changed?: boolean;
-}> = ({ label, value, percent, onChange, changed }) => {
-  const recorded = value.trim() !== '';
-  return (
-    <Field label={label} changed={changed} span>
-      <div className="rounded-[10px] border border-[#E5E7EB] bg-white px-3 pb-2 pt-2.5">
-        <div className="flex items-center justify-between gap-3 text-[13px]">
-          <span className={cn('font-medium tabular-nums', recorded ? 'text-foreground' : 'text-black/40')}>
-            {!recorded ? 'Not recorded' : percent === null ? `Saved as ${value}` : `${percent}%`}
-          </span>
-          {recorded && (
-            <button type="button" onClick={() => onChange('')} className="h-11 rounded-md px-1.5 text-[12px] font-medium text-black/45 hover:text-foreground md:h-8">
-              Clear
-            </button>
-          )}
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          aria-label={label}
-          aria-valuetext={recorded ? `${percent ?? value}` : 'Not recorded'}
-          value={percent ?? (recorded ? 100 : 0)}
-          onChange={(event) => onChange(event.target.value)}
-          className="mt-1 h-7 w-full cursor-pointer accent-[#6EA4E7]"
-        />
-        <div aria-hidden="true" className="flex justify-between px-0.5 text-[11px] text-black/40">
-          {FUEL_MARKS.map((mark) => <span key={mark}>{mark}</span>)}
-        </div>
-      </div>
-    </Field>
-  );
-};
-
 // ── Summary ──────────────────────────────────────────────────────────────────
 
 export interface SummaryItem {

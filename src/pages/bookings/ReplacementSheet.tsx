@@ -1,16 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Check, StickyNote, Tag } from '../../components/media/MediaIcons';
 import { Button } from '../../components/media/MediaUI';
+import { FuelRangeInput } from '../../components/shared/FuelRangeInput';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
-import { formatDays, formatShortRange, friendlyBookingError, fuelPercent, rangeDays, type CarChoice } from '../../lib/bookingForm';
+import { formatDays, formatShortRange, friendlyBookingError, rangeDays, type CarChoice } from '../../lib/bookingForm';
 import { checkCustomerBan, formatDate, istanbulDate, type BanMatch } from '../../lib/customers';
+import { FUEL_RANGE_LABEL } from '../../lib/fuelRange';
 import { cn } from '../../lib/media/badgeColor';
 import { printReplacementSheet, type ReplacementSheet as PrintableSheet } from '../../lib/printReplacementSheet';
 import { supabase } from '../../lib/supabase';
 import { BanAlert, CarIcon } from '../customers/ui';
 import { CarPicker, useBusyCars } from './CarPicker';
 import { DateRangeField } from './DateRangeField';
-import { BookingSheet, FOOTER_BUTTON, Field, FormCard, FuelSlider, INPUT, LicensePlate, Notice, PrimaryButton, SelectedRow, SummaryBar } from './ui';
+import { BookingSheet, FOOTER_BUTTON, Field, FormCard, INPUT, LicensePlate, Notice, PrimaryButton, SelectedRow, SummaryBar } from './ui';
 
 type Joined<T> = T | T[] | null;
 
@@ -387,10 +389,12 @@ export const ReplacementSheet: React.FC<{
           </FormCard>
 
           <FormCard icon={<Tag size={15} />} title="Handover condition">
-            <Field label="KM at handover" span>
+            <Field label="KM at handover">
               <input type="number" min="0" aria-label="KM at handover" value={kmAtHandover} onChange={(event) => setKmAtHandover(event.target.value)} placeholder="e.g. 48250" className={INPUT} />
             </Field>
-            <FuelSlider label="Fuel at handover" value={fuelAtHandover} percent={fuelPercent(fuelAtHandover)} onChange={setFuelAtHandover} />
+            <Field label={FUEL_RANGE_LABEL}>
+              <FuelRangeInput value={fuelAtHandover} onChange={setFuelAtHandover} className={INPUT} />
+            </Field>
           </FormCard>
 
           <FormCard icon={<StickyNote size={15} />} title="Notes">

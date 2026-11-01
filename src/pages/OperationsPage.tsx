@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { FUEL_RANGE_LABEL, formatFuelRange } from '../lib/fuelRange';
 import { supabase } from '../lib/supabase';
 import OperationPhotoGrid, {
   OPERATION_PHOTO_SLOTS,
@@ -8,6 +9,7 @@ import OperationPhotoGrid, {
   missingSlotLabels,
   type SlotFiles,
 } from '../components/OperationPhotoGrid';
+import { FuelRangeInput } from '../components/shared/FuelRangeInput';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { Button } from '../components/media/MediaUI';
 
@@ -685,11 +687,11 @@ const AddOperationModal: React.FC<{
     }
 
     if (form.fuel_level === '') {
-      setFuelLevelError('Fuel level is required.');
+      setFuelLevelError('Fuel range is required.');
       return;
     }
     if (Number(form.fuel_level) > 2000) {
-      setFuelLevelError('Maximum fuel level is 2000');
+      setFuelLevelError('Maximum fuel range is 2,000 km');
       return;
     }
     // Every checklist item must be an explicit Yes or No before a NEW delivery
@@ -1072,18 +1074,15 @@ const AddOperationModal: React.FC<{
               <input type="number" min="0" placeholder="e.g. 54200" value={form.current_km} onChange={set('current_km')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
             </div>
 
-            {/* Fuel Level */}
+            {/* Fuel range */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Fuel Range (km) <span style={{ color: '#ef4444' }}>*</span></label>
-              <input
-                type="number"
-                min="0"
+              <label style={labelStyle}>{FUEL_RANGE_LABEL} <span style={{ color: '#ef4444' }}>*</span></label>
+              <FuelRangeInput
                 max="2000"
-                placeholder="e.g. 420"
                 value={form.fuel_level}
-                onChange={e => {
+                onChange={value => {
                   setFuelLevelError(null);
-                  setForm(f => ({ ...f, fuel_level: e.target.value }));
+                  setForm(f => ({ ...f, fuel_level: value }));
                 }}
                 onFocus={onFocus}
                 onBlur={onBlur}
@@ -1604,10 +1603,6 @@ const DELIVERY_MATCH_COLUMNS = 'id, operation_date, operation_time, current_km, 
 const cleanlinessLabel = (s: string | null): string =>
   s === 'clean' ? 'Clean' : s === 'not_clean' ? 'Not clean' : '—';
 
-// Fuel readings above this are assumed to be a different unit than the small
-// 0–100 values most rows use. We never convert — we only flag for manual review.
-const FUEL_UNIT_WARNING_THRESHOLD = 100;
-
 /** Whole calendar days between two 'YYYY-MM-DD' dates (b − a). */
 function daysBetween(a: string, b: string): number {
   const from = new Date(a + 'T00:00:00').getTime();
@@ -1626,8 +1621,7 @@ const MetricCard: React.FC<{
   value: React.ReactNode;
   raw: React.ReactNode;
   incomplete: boolean;
-  warning?: string | null;
-}> = ({ label, value, raw, incomplete, warning }) => (
+}> = ({ label, value, raw, incomplete }) => (
   <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 16px', background: 'var(--surface)' }}>
     <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
       {label}
@@ -1636,9 +1630,6 @@ const MetricCard: React.FC<{
     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>{raw}</div>
     {incomplete && (
       <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, fontWeight: 600 }}>Incomplete data</div>
-    )}
-    {warning && (
-      <div style={{ fontSize: 11, color: '#b45309', marginTop: 4, fontWeight: 600 }}>{warning}</div>
     )}
   </div>
 );
@@ -1763,10 +1754,6 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
 
   const fuelKnown = delivery != null && delivery.fuel_level != null && pickup.fuel_level != null;
   const fuelDiff  = fuelKnown ? (pickup.fuel_level as number) - (delivery!.fuel_level as number) : null;
-  // Mixed units live in this column, so flag rather than guess.
-  const fuelUnitsSuspect = fuelKnown
-    && ((delivery!.fuel_level as number) > FUEL_UNIT_WARNING_THRESHOLD
-     || (pickup.fuel_level as number)   > FUEL_UNIT_WARNING_THRESHOLD);
 
   const cleanKnown  = delivery != null && delivery.cleanliness_status != null && pickup.cleanliness_status != null;
   const washNeeded  = cleanKnown
@@ -1868,17 +1855,16 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                 />
 
                 <MetricCard
-                  label="Fuel reading difference"
+                  label="Fuel range difference"
                   incomplete={!fuelKnown}
-                  warning={fuelUnitsSuspect ? 'Inconsistent fuel units detected — verify manually' : null}
                   value={fuelDiff != null
                     ? <span style={{ color: fuelDiff < 0 ? '#ef4444' : '#16a34a' }}>
-                        {fuelDiff < 0 ? '−' : '+'}{Math.abs(fuelDiff).toLocaleString()}
+                        {fuelDiff < 0 ? '−' : '+'}{formatFuelRange(Math.abs(fuelDiff))}
                       </span>
                     : <span style={muted}>—</span>}
                   raw={fuelKnown
-                    ? `Delivery: ${(delivery.fuel_level as number).toLocaleString()} → Pickup: ${(pickup.fuel_level as number).toLocaleString()}`
-                    : 'Fuel level missing on delivery or pickup'}
+                    ? `Delivery: ${formatFuelRange(delivery.fuel_level)} → Pickup: ${formatFuelRange(pickup.fuel_level)}`
+                    : 'Fuel range missing on delivery or pickup'}
                 />
 
                 <MetricCard
@@ -2285,7 +2271,7 @@ const OperationsPage: React.FC = () => {
                 <Th>Handled By</Th>
                 {tab === 'dp' && <Th>Customer</Th>}
                 <Th>Mileage</Th>
-                <Th>Fuel Level</Th>
+                <Th>Fuel range</Th>
                 <Th style={{ textAlign: 'center' }}>Cleanliness</Th>
                 <Th>Notes</Th>
                 <Th style={{ textAlign: 'center' }}>Photos</Th>
@@ -2340,7 +2326,7 @@ const OperationsPage: React.FC = () => {
 
                   <td style={{ ...td, fontVariantNumeric: 'tabular-nums' }}>
                     {op.fuel_level != null
-                      ? op.fuel_level + ' L'
+                      ? formatFuelRange(op.fuel_level)
                       : <span style={{ color: '#d1d5db' }}>—</span>}
                   </td>
 
