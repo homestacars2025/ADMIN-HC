@@ -3,6 +3,7 @@ import { ConfirmDialog } from '../components/media/ConfirmDialog';
 import { Plus } from '../components/media/MediaIcons';
 import { MediaToaster, toast } from '../components/media/MediaToast';
 import { Button } from '../components/media/MediaUI';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
 import { Lightbox, type LightboxItem } from '../components/shared/Lightbox';
 import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -26,7 +27,6 @@ import { EditIssueSheet, IssueDetailSheet, ResolveSheet } from './carIssues/Issu
 import { IssueFormSheet } from './carIssues/IssueFormSheet';
 import { IssueCard, IssueRow, TYPE_CONFIG, TypeIcon } from './carIssues/ui';
 import { ClockIcon, GridIcon, ReceiptIcon } from './customers/ui';
-import { FILTER_TILE_ROW, PremiumTile, TileSkeleton } from './customers/PremiumTile';
 
 type Layout = 'board' | 'list';
 type Sheet =
@@ -132,26 +132,25 @@ const CarIssuesPage: React.FC = () => {
 
       {error && <LoadError message={`Couldn't load the issues: ${error}`} onRetry={() => setReload((value) => value + 1)} />}
 
-      {loading ? <div className={FILTER_TILE_ROW}><TileSkeleton compact count={5} /></div> : (
-        <div role="group" aria-label="Filter issues" className={FILTER_TILE_ROW}>
-          <PremiumTile compact slim tone="neutral" icon={<GridIcon size={14} />} label="All issues" value={stats.all} active={filter === 'all'} onClick={clear} />
-          <PremiumTile compact tone="red" icon={<ClockIcon size={14} />} label="Open" value={stats.open} hint={`${stats.overdue} over 7 days`} active={filter === 'open'} onClick={() => toggle('open')} />
-          <PremiumTile compact tone="green" icon={<ReceiptIcon size={14} />} label="Resolved this month" value={stats.resolvedThisMonth} hint={`${stats.resolved} in total`} active={filter === 'month'} onClick={() => toggle('month')} />
-          <PremiumTile compact tone="amber" icon={<TypeIcon type="accident" size={14} />} label="Accidents" value={stats.accidents} hint={`${stats.openAccidents} open`} active={filter === 'accidents'} onClick={() => { setType('all'); toggle('accidents'); }} />
-          <PremiumTile
-            compact
+      {loading ? <FilterTileSkeleton /> : (
+        <FilterTileRow label="Filter issues">
+          <FilterTile tone="neutral" icon={<GridIcon size={15} />} label="All issues" value={String(stats.all)} sub={`${stats.resolved} resolved`} active={filter === 'all'} onClick={clear} />
+          <FilterTile tone="red" icon={<ClockIcon size={15} />} label="Open" value={String(stats.open)} sub={`${stats.overdue} over 7 days`} active={filter === 'open'} onClick={() => toggle('open')} />
+          <FilterTile tone="green" icon={<ReceiptIcon size={15} />} label="Resolved this month" value={String(stats.resolvedThisMonth)} sub={`${stats.resolved} in total`} active={filter === 'month'} onClick={() => toggle('month')} />
+          <FilterTile tone="amber" icon={<TypeIcon type="accident" size={15} />} label="Accidents" value={String(stats.accidents)} sub={`${stats.openAccidents} open`} active={filter === 'accidents'} onClick={() => { setType('all'); toggle('accidents'); }} />
+          <FilterTile
             tone="blue"
-            icon={<ClockIcon size={14} />}
+            icon={<ClockIcon size={15} />}
             label="Avg. days to resolve"
-            value={stats.averageDays ?? '—'}
-            hint={`${stats.resolved} resolved`}
+            value={stats.averageDays === null ? '—' : `${stats.averageDays} days`}
+            sub={`${stats.resolved} resolved`}
             active={filter === 'resolved'}
             onClick={() => toggle('resolved')}
           />
-        </div>
+        </FilterTileRow>
       )}
 
-      <div className="mt-4 flex max-w-[900px] flex-wrap items-center gap-2">
+      <div className="mt-4 flex max-w-[1100px] flex-wrap items-center gap-2">
         <SearchField value={search} onChange={setSearch} placeholder="Search plate, customer…" className="min-w-[200px] flex-1" />
         <select
           aria-label="Issue type"

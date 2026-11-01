@@ -4,9 +4,6 @@ import { cn } from '../../lib/media/badgeColor';
 
 export type TileTone = 'blue' | 'teal' | 'red' | 'green' | 'violet' | 'amber' | 'neutral';
 
-/** Tiles are the filters: a compact row on desktop, two to a row below that. */
-export const FILTER_TILE_ROW = 'grid max-w-[900px] grid-cols-2 gap-3 lg:grid-cols-5';
-
 const SPARK_WIDTH = 120;
 const SPARK_HEIGHT = 28;
 
@@ -62,8 +59,6 @@ export interface PremiumTileProps {
   active?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
-  /** Below desktop this one lies flat across the row, for the odd tile out. */
-  slim?: boolean;
   /** A smaller figure for a strip of six on the profile. */
   compact?: boolean;
 }
@@ -81,7 +76,6 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
   onClick,
   ariaLabel,
   compact,
-  slim,
 }) => {
   const body = (
     <>
@@ -99,15 +93,14 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
         </span>
         {change !== null && change !== undefined && <Delta change={change} upIsBad={upIsBad} />}
       </span>
-      <span className={cn('mt-2.5 block text-[12.5px] font-medium leading-snug opacity-80', slim && 'max-lg:mt-0 max-lg:flex-1')}>{label}</span>
+      <span className="mt-2.5 block text-[12.5px] font-medium leading-snug opacity-80">{label}</span>
       <span className={cn(
         'mt-1 block font-semibold leading-none tracking-[-0.02em] tabular-nums',
         compact ? 'truncate text-[17px] sm:text-[19px]' : 'text-[24px] sm:text-[28px]',
-        slim && 'max-lg:mt-0 max-lg:me-7 max-lg:shrink-0',
       )}>
         {value}
       </span>
-      {hint && <span className={cn('mt-1.5 block text-[12px] font-medium leading-snug tabular-nums opacity-75', compact && 'truncate', slim && 'max-lg:hidden')}>{hint}</span>}
+      {hint && <span className={cn('mt-1.5 block text-[12px] font-medium leading-snug tabular-nums opacity-75', compact && 'truncate')}>{hint}</span>}
       {spark && spark.length > 1 && <Sparkline points={spark} />}
     </>
   );
@@ -116,7 +109,6 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
     'tile-depth relative block min-w-0 rounded-[20px] text-left',
     compact ? 'p-3.5' : 'p-4',
     `tile-${tone}`,
-    slim && 'max-lg:col-span-2 max-lg:flex max-lg:items-center max-lg:gap-2.5 max-lg:py-2.5',
   );
 
   if (!onClick) return <div className={shape}>{body}</div>;
@@ -137,10 +129,10 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
   );
 };
 
-export const TileSkeleton: React.FC<{ count?: number; className?: string; compact?: boolean }> = ({ count = 4, className, compact }) => (
+export const TileSkeleton: React.FC<{ count?: number; className?: string }> = ({ count = 4, className }) => (
   <>
     {Array.from({ length: count }, (_, index) => (
-      <div key={index} className={cn('animate-pulse rounded-[20px] bg-black/[0.04]', compact ? 'h-[128px]' : 'h-[176px]', className)} />
+      <div key={index} className={cn('h-[176px] animate-pulse rounded-[20px] bg-black/[0.04]', className)} />
     ))}
   </>
 );

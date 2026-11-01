@@ -199,6 +199,134 @@ b, strong, th {
   color: var(--tile-ink);
 }
 
+/* Stat tiles that double as filters. A phone gets two to a row, with the odd tile out
+   lying across the top, and from there the row stays compact however wide the page. */
+.filter-tiles-room { container: tile-room / inline-size; width: 100%; max-width: 1100px; }
+
+.filter-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.filter-tile {
+  container-type: inline-size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  /* About 1.2 to 1, and able to stretch so a two-line label keeps its row level. */
+  min-height: min(140px, calc((100cqi - 10px) / 2.4));
+  padding: 10px 12px;
+  border-radius: 20px;
+  font-family: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+.filter-tile:hover { transform: translateY(-1px); }
+.filter-tile:focus-visible { outline: 2px solid #6ea4e7; outline-offset: 2px; }
+
+.filter-tile.is-active {
+  --tile-from: var(--tile-to);
+  box-shadow:
+    inset 0 0 0 2px var(--tile-chip),
+    0 8px 24px -12px rgb(16 24 40 / 0.12);
+}
+
+.filter-tiles > .filter-tile:first-child:nth-last-child(odd) {
+  grid-column: 1 / -1;
+  height: 112px;
+  min-height: 0;
+}
+
+.filter-tile-check {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--tile-chip);
+  color: #fff;
+}
+
+.filter-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-inline-end: 20px;
+}
+
+.filter-tile-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--tile-chip);
+  color: #fff;
+}
+
+.filter-tile-label {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.filter-tile-bottom { display: block; margin-top: auto; min-width: 0; }
+
+/* `100cqi` is the tile's inner width, so a number of any length stays on one line. */
+.filter-tile-value {
+  display: block;
+  font-size: clamp(12px, calc(100cqi / (var(--chars) * 0.62)), 34px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.filter-tile-sub {
+  display: block;
+  overflow: hidden;
+  margin-top: 1px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  opacity: 0.7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container tile-room (min-width: 560px) {
+  .filter-tiles {
+    grid-template-columns: repeat(3, minmax(0, 220px));
+    gap: 12px;
+  }
+
+  .filter-tile,
+  .filter-tiles > .filter-tile:first-child:nth-last-child(odd) {
+    grid-column: auto;
+    height: 140px;
+    padding: 14px 16px;
+  }
+
+  .filter-tile-value { font-size: min(28px, calc(100cqi / (var(--chars) * 0.62))); }
+}
+
+@container tile-room (min-width: 860px) {
+  .filter-tiles { grid-template-columns: repeat(5, minmax(0, 220px)); }
+}
+
 .tile-blue { --tile-from: #EAF3FD; --tile-to: #D6E7FA; --tile-ink: #1F4E8C; --tile-chip: #6EA4E7; }
 .tile-teal { --tile-from: #E7F8F5; --tile-to: #CFEFE9; --tile-ink: #115E59; --tile-chip: #14B8A6; }
 .tile-red { --tile-from: #FDEEEE; --tile-to: #F8D9D9; --tile-ink: #991B1B; --tile-chip: #EF4444; }

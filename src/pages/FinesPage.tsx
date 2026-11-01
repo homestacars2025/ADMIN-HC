@@ -3,6 +3,7 @@ import { ConfirmDialog } from '../components/media/ConfirmDialog';
 import { Plus } from '../components/media/MediaIcons';
 import { Button } from '../components/media/MediaUI';
 import { MediaToaster, toast } from '../components/media/MediaToast';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
 import { Lightbox, type LightboxItem } from '../components/shared/Lightbox';
 import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
@@ -22,7 +23,6 @@ import {
 } from '../lib/fines';
 import { LicensePlate } from './bookings/ui';
 import { ClockIcon, GridIcon, ReceiptIcon, UsersIcon, WalletIcon } from './customers/ui';
-import { FILTER_TILE_ROW, PremiumTile, TileSkeleton } from './customers/PremiumTile';
 import { FineDetailSheet, LinkCustomerSheet, PaymentSheet } from './fines/FineDetailSheet';
 import { FineFormSheet } from './fines/FineFormSheet';
 import { DocumentIcons, FineStatusPill, UnassignedChip } from './fines/ui';
@@ -31,6 +31,8 @@ type Sheet =
   | { type: 'add' }
   | { type: 'view' | 'edit' | 'pay' | 'link'; id: string }
   | null;
+
+const countOf = (count: number) => `${count} ${count === 1 ? 'fine' : 'fines'}`;
 
 const FineRow: React.FC<{
   fine: Fine;
@@ -174,26 +176,25 @@ const FinesPage: React.FC = () => {
 
       {error && <LoadError message={`Couldn't load the fines: ${error}`} onRetry={() => setReload((value) => value + 1)} />}
 
-      {loading ? <div className={FILTER_TILE_ROW}><TileSkeleton compact count={5} /></div> : (
-        <div role="group" aria-label="Filter fines" className={FILTER_TILE_ROW}>
-          <PremiumTile compact slim tone="neutral" icon={<GridIcon size={14} />} label="All fines" value={stats.all.count} hint={fmt(stats.all.amount)} active={segment === 'all'} onClick={clear} />
-          <PremiumTile compact tone="red" icon={<WalletIcon size={14} />} label="Unpaid" value={stats.unpaid.count} hint={fmt(stats.unpaid.amount)} active={segment === 'unpaid'} onClick={() => toggle('unpaid')} />
-          <PremiumTile compact tone="green" icon={<ReceiptIcon size={14} />} label="Paid" value={stats.paid.count} hint={fmt(stats.paid.amount)} active={segment === 'paid'} onClick={() => toggle('paid')} />
-          <PremiumTile compact tone="blue" icon={<ClockIcon size={14} />} label="This month" value={stats.month.count} hint={fmt(stats.month.amount)} active={segment === 'month'} onClick={() => toggle('month')} />
-          <PremiumTile
-            compact
+      {loading ? <FilterTileSkeleton /> : (
+        <FilterTileRow label="Filter fines">
+          <FilterTile tone="neutral" icon={<GridIcon size={15} />} label="All fines" value={fmt(stats.all.amount)} sub={countOf(stats.all.count)} active={segment === 'all'} onClick={clear} />
+          <FilterTile tone="red" icon={<WalletIcon size={15} />} label="Unpaid" value={fmt(stats.unpaid.amount)} sub={countOf(stats.unpaid.count)} active={segment === 'unpaid'} onClick={() => toggle('unpaid')} />
+          <FilterTile tone="green" icon={<ReceiptIcon size={15} />} label="Paid" value={fmt(stats.paid.amount)} sub={countOf(stats.paid.count)} active={segment === 'paid'} onClick={() => toggle('paid')} />
+          <FilterTile tone="blue" icon={<ClockIcon size={15} />} label="This month" value={fmt(stats.month.amount)} sub={countOf(stats.month.count)} active={segment === 'month'} onClick={() => toggle('month')} />
+          <FilterTile
             tone={stats.unassigned.count > 0 ? 'amber' : 'neutral'}
-            icon={<UsersIcon size={14} />}
+            icon={<UsersIcon size={15} />}
             label="Unassigned"
-            value={stats.unassigned.count}
-            hint={stats.unassigned.count > 0 ? fmt(stats.unassigned.amount) : `All ${stats.linked} linked`}
+            value={fmt(stats.unassigned.amount)}
+            sub={stats.unassigned.count > 0 ? countOf(stats.unassigned.count) : `All ${stats.linked} linked`}
             active={segment === 'unassigned'}
             onClick={() => toggle('unassigned')}
           />
-        </div>
+        </FilterTileRow>
       )}
 
-      <SearchField value={search} onChange={setSearch} placeholder="Search plate, violation, customer…" className="mt-4 max-w-[900px]" />
+      <SearchField value={search} onChange={setSearch} placeholder="Search plate, violation, customer…" className="mt-4 max-w-[1100px]" />
 
       <section aria-label="Fines" className="surface-depth mt-3 overflow-hidden rounded-2xl border border-subtle bg-surface">
         {loading ? <SkeletonRows /> : visible.length === 0 ? (

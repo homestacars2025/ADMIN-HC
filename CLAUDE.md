@@ -19,8 +19,8 @@ Admin dashboard for HomestaCars — a premium car rental company based in Istanb
   - Clicking a tile filters the list, and clicking the active tile clears it. An "All" tile is always there.
   - The active tile has a 2px border in its own color, a stronger tint and a check badge, and tiles are buttons with `aria-pressed`.
   - The active filter lives in the URL (`?filter=unpaid`), so refresh and back keep it. Use `useUrlFilter`.
-  - Tiles show the count, and the amount where it's relevant. Search sits below the tiles.
-  - Sizing: compact on desktop (about 140px tall, about 220px wide at most, row about 900px at most), and two to a row with short tiles on mobile. Never tall empty tiles. Use `FILTER_TILE_ROW` and `PremiumTile compact`.
+  - Tiles show the amount as the big value with the count below it, or the count alone where there's no amount. Search sits below the tiles.
+  - Sizing: about 140px tall, about 220px wide at most, row about 1100px at most, and two to a row with short tiles on mobile. Never tall empty tiles. Use `FilterTile` and `FilterTileRow`.
 
 ## Architecture
 - /src/components — reusable UI components
