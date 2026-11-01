@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { ConfirmDialog, type ConfirmState } from '../../components/media/ConfirmDialog';
-import { AlertTriangle, Check, ChevronDown, X } from '../../components/media/MediaIcons';
+import { AlertTriangle, ChevronDown, X } from '../../components/media/MediaIcons';
 import { Button, Spinner } from '../../components/media/MediaUI';
 import { formatRate, parseAmount, toTry, type BookingCurrency } from '../../lib/bookingForm';
 import { formatLira } from '../../lib/customers';
@@ -232,37 +232,6 @@ export function Segmented<T extends string>({ value, options, onChange, ariaLabe
   );
 }
 
-export const ChoiceCard: React.FC<{
-  selected: boolean;
-  title: string;
-  description?: string;
-  role?: 'radio' | 'checkbox';
-  onToggle: () => void;
-}> = ({ selected, title, description, role = 'radio', onToggle }) => (
-  <button
-    type="button"
-    role={role}
-    aria-checked={selected}
-    onClick={onToggle}
-    className={cn(
-      'flex min-h-[56px] w-full items-start gap-2.5 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40',
-      selected ? 'border-[#6EA4E7] bg-[#6EA4E7]/[0.09]' : 'border-[#E5E7EB] bg-white hover:bg-black/[0.02]',
-    )}
-  >
-    <span className={cn(
-      'mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center border text-white',
-      role === 'radio' ? 'rounded-full' : 'rounded-[5px]',
-      selected ? 'border-[#6EA4E7] bg-[#6EA4E7]' : 'border-black/25 bg-white',
-    )}>
-      {selected && <Check size={11} strokeWidth={3} />}
-    </span>
-    <span className="min-w-0">
-      <span className="block text-[13.5px] font-medium text-foreground">{title}</span>
-      {description && <span className="mt-0.5 block text-[12px] leading-snug text-black/50">{description}</span>}
-    </span>
-  </button>
-);
-
 // ── Money ────────────────────────────────────────────────────────────────────
 
 const CURRENCIES: ReadonlyArray<{ value: BookingCurrency; label: string }> = [
@@ -406,6 +375,16 @@ export const SummaryBar: React.FC<{ headline: React.ReactNode; items: SummaryIte
     </div>
   );
 };
+
+/** The running total in the footer, until the amounts are entered on Review. */
+export const FooterTotal: React.FC<{ amount: number }> = ({ amount }) => (
+  <div className="min-w-0 flex-1">
+    <div className="text-[11px] leading-tight text-black/45">Total</div>
+    <div className="truncate text-[15px] font-semibold tabular-nums tracking-[-0.01em] text-foreground">
+      {amount > 0 ? formatLira(amount) : <span className="text-[12.5px] font-medium text-black/55">Set in Review</span>}
+    </div>
+  </div>
+);
 
 // ── Stepper ──────────────────────────────────────────────────────────────────
 

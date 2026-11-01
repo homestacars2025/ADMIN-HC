@@ -1,18 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, Tag } from '../../components/media/MediaIcons';
+import { CalendarDays, Tag } from '../../components/media/MediaIcons';
 import { Button } from '../../components/media/MediaUI';
 import { useCurrency } from '../../lib/CurrencyContext';
 import {
-  ADDITIONAL_SERVICE_PRESETS,
   EMPTY_FORM,
-  INSURANCE_DESCRIPTIONS,
-  INSURANCE_PRESETS,
   LOCATION_PRESETS,
   OTHER_PRESET,
   PRESET_LABELS,
   additionalServicesValue,
   changedFields,
   editFormData,
+  extrasLabel,
   formatDays,
   formatShortRange,
   friendlyBookingError,
@@ -49,14 +47,15 @@ import { DialCodePicker } from '../customers/CustomerEditSheet';
 import { CustomerPicker } from '../customers/CustomerPicker';
 import { BanAlert, CarIcon, FileIcon, UsersIcon, WalletIcon } from '../customers/ui';
 import { CarPicker, useBusyCars } from './CarPicker';
+import { CoverSection } from './CoverSection';
 import { DateRangeField } from './DateRangeField';
 import { DocUploadField } from './DocUploadField';
 import {
   BookingSheet,
-  ChoiceCard,
   CurrencySwitch,
   FOOTER_BUTTON,
   Field,
+  FooterTotal,
   FormCard,
   FuelSlider,
   INPUT,
@@ -626,7 +625,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
         km_at_delivery: form.km_at_delivery ? Number(form.km_at_delivery) : null,
         fuel_at_delivery: form.fuel_at_delivery || null,
         insurance_type: insuranceValue(form),
-        additional_services: additionalServicesValue(form),
+        additional_services: additionalServicesValue(form, booking?.additional_services),
         ...(customerChanged && { customer_id: customerId }),
       })
       .eq('id', editId as number);
@@ -751,19 +750,19 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
   const insuranceLabel = PRESET_LABELS[form.insurance_type_select] && form.insurance_type_select !== OTHER_PRESET
     ? PRESET_LABELS[form.insurance_type_select]
     : insuranceValue(form);
-  const extrasLabel = [
-    ...form.additional_services_selected.filter((service) => service !== OTHER_PRESET).map((service) => PRESET_LABELS[service]),
-    ...(form.additional_services_selected.includes(OTHER_PRESET) && form.additional_services_custom.trim() ? [form.additional_services_custom.trim()] : []),
-  ].join(', ');
+  const extras = extrasLabel(form);
   const customerName = `${form.cust_first_name} ${form.cust_last_name}`.trim();
+
+  // The money is entered on Review, so before that the footer carries the running total.
+  const footerTotal = mode === 'add' && step > 0 && step < REVIEW_STEP;
 
   const summaryItems = [
     { label: 'Car', value: selectedCar ? <LicensePlate plate={selectedCar.plate_number} /> : '—' },
     { label: 'Dates', value: formatShortRange(form.start_date, form.end_date) },
     { label: 'Days', value: days || '—' },
     { label: 'Insurance', value: insuranceLabel || '—' },
-    { label: 'Extras', value: extrasLabel || '—' },
-    { label: 'Total', value: formatLira(total), strong: true },
+    { label: 'Extras', value: extras || '—' },
+    ...(footerTotal ? [] : [{ label: 'Total', value: formatLira(total), strong: true }]),
     { label: 'Paid', value: formatLira(paid) },
     { label: 'Remaining', value: formatLira(total - paid), strong: true },
   ];
@@ -988,54 +987,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
   );
 
   const coverSection = (
-    <FormCard icon={<Check size={15} />} title="Insurance and extras">
-      <div role="radiogroup" aria-label="Insurance" className="grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
-        {[...INSURANCE_PRESETS, OTHER_PRESET].map((preset) => (
-          <ChoiceCard
-            key={preset}
-            title={PRESET_LABELS[preset]}
-            description={INSURANCE_DESCRIPTIONS[preset]}
-            selected={form.insurance_type_select === preset}
-            onToggle={() => setForm((current) => {
-              const next = current.insurance_type_select === preset ? '' : preset;
-              return { ...current, insurance_type_select: next, insurance_type_custom: next === OTHER_PRESET ? current.insurance_type_custom : '' };
-            })}
-          />
-        ))}
-      </div>
-      {form.insurance_type_select === OTHER_PRESET && (
-        <Field label="Insurance name" span changed={isChanged('insurance')}>
-          <input value={form.insurance_type_custom} aria-label="Insurance name" onChange={(event) => set('insurance_type_custom', event.target.value)} placeholder="Enter insurance" className={INPUT} />
-        </Field>
-      )}
-
-      <div className="mt-1 text-[12.5px] font-medium text-black/65 sm:col-span-2">Extras</div>
-      <div role="group" aria-label="Extras" className="grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
-        {[...ADDITIONAL_SERVICE_PRESETS, OTHER_PRESET].map((service) => (
-          <ChoiceCard
-            key={service}
-            role="checkbox"
-            title={PRESET_LABELS[service]}
-            selected={form.additional_services_selected.includes(service)}
-            onToggle={() => setForm((current) => {
-              const on = current.additional_services_selected.includes(service);
-              return {
-                ...current,
-                additional_services_selected: on
-                  ? current.additional_services_selected.filter((item) => item !== service)
-                  : [...current.additional_services_selected, service],
-                additional_services_custom: on && service === OTHER_PRESET ? '' : current.additional_services_custom,
-              };
-            })}
-          />
-        ))}
-      </div>
-      {form.additional_services_selected.includes(OTHER_PRESET) && (
-        <Field label="Other extra" span changed={isChanged('extras')}>
-          <input value={form.additional_services_custom} aria-label="Other extra" onChange={(event) => set('additional_services_custom', event.target.value)} placeholder="Enter custom service" className={INPUT} />
-        </Field>
-      )}
-    </FormCard>
+    <CoverSection form={form} setForm={setForm} insuranceChanged={isChanged('insurance')} extrasChanged={isChanged('extras')} />
   );
 
   const conditionSection = (
@@ -1103,7 +1055,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     ['Pickup', form.pickup_location || '—'],
     ['Drop-off', form.dropoff_location || '—'],
     ['Insurance', insuranceLabel || '—'],
-    ['Extras', extrasLabel || '—'],
+    ['Extras', extras || '—'],
     ['KM at delivery', form.km_at_delivery || '—'],
     ['Fuel at delivery', form.fuel_at_delivery ? `${form.fuel_at_delivery}${fuelPercent(form.fuel_at_delivery) === null ? '' : '%'}` : '—'],
   ] as const;
@@ -1169,15 +1121,19 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
       onSubmit={handleSubmit}
       footer={(requestClose) => (
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="lg" className={FOOTER_BUTTON} disabled={saving} onClick={requestClose}>Cancel</Button>
-          <span className="flex-1 max-sm:hidden" />
+          {footerTotal ? <FooterTotal amount={total} /> : (
+            <>
+              <Button variant="secondary" size="lg" className={FOOTER_BUTTON} disabled={saving} onClick={requestClose}>Cancel</Button>
+              <span className="flex-1 max-sm:hidden" />
+            </>
+          )}
           {mode === 'add' && step > 0 && (
             <Button variant="secondary" size="lg" className={FOOTER_BUTTON} disabled={saving} onClick={() => goToStep(step - 1)}>Back</Button>
           )}
           <PrimaryButton saving={saving}>
             {mode === 'edit'
               ? `Save changes${changeCount > 0 ? ` (${changeCount})` : ''}`
-              : step < REVIEW_STEP ? 'Next' : 'Create booking'}
+              : step < REVIEW_STEP ? 'Continue' : 'Create booking'}
           </PrimaryButton>
         </div>
       )}

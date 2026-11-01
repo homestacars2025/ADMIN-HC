@@ -5,6 +5,7 @@ import {
   carMatches,
   changedFields,
   editFormData,
+  extrasLabel,
   formatDays,
   formatShortRange,
   friendlyBookingError,
@@ -13,11 +14,14 @@ import {
   insuranceValue,
   parseAdditionalServices,
   parseAdditionalServicesCustom,
+  parseServiceCounts,
   rangeDays,
   resolveInsuranceSelect,
   resolveLocationSelect,
+  serviceQuantity,
   toTry,
   usdLedgerNote,
+  withServiceQuantity,
   type BookingFormData,
   type CarChoice,
 } from './bookingForm';
@@ -44,6 +48,83 @@ describe('saved values', () => {
     expect(selected).toEqual(['Çocuk Koltuğu', 'Diğer']);
     expect(custom).toBe('AIRPORT DELIVERY');
     expect(additionalServicesValue(form({ additional_services_selected: selected, additional_services_custom: custom }))).toBe(saved);
+  });
+
+  it('saves one of an extra as the plain name, and more as a count', () => {
+    const one = withServiceQuantity(form(), 'Yedek Sürücü', 1);
+    expect(additionalServicesValue(one)).toBe('Yedek Sürücü');
+    const three = withServiceQuantity(one, 'Yedek Sürücü', 3);
+    expect(additionalServicesValue(three)).toBe('Yedek Sürücü x3');
+    expect(extrasLabel(three)).toBe('Additional driver × 3');
+    expect(serviceQuantity(three, 'Yedek Sürücü')).toBe(3);
+  });
+
+  it('removes an extra at 0, and keeps the others in order', () => {
+    const start = form({ additional_services_selected: ['Çocuk Koltuğu', 'Ek Kilometre'], additional_services_counts: { 'Çocuk Koltuğu': 2 } });
+    const bumped = withServiceQuantity(start, 'Çocuk Koltuğu', 3);
+    expect(additionalServicesValue(bumped)).toBe('Çocuk Koltuğu x3, Ek Kilometre');
+    const gone = withServiceQuantity(bumped, 'Çocuk Koltuğu', 0);
+    expect(additionalServicesValue(gone)).toBe('Ek Kilometre');
+    expect(gone.additional_services_counts).toEqual({});
+  });
+
+  it('reads counted extras back the way they were stored', () => {
+    const saved = 'Çocuk Koltuğu x2, Yedek Sürücü, AIRPORT DELIVERY';
+    const back = form({
+      additional_services_selected: parseAdditionalServices(saved),
+      additional_services_counts: parseServiceCounts(saved),
+      additional_services_custom: parseAdditionalServicesCustom(saved),
+    });
+    expect(back.additional_services_selected).toEqual(['Çocuk Koltuğu', 'Yedek Sürücü', 'Diğer']);
+    expect(back.additional_services_counts).toEqual({ 'Çocuk Koltuğu': 2 });
+    expect(additionalServicesValue(back)).toBe(saved);
+  });
+
+  it('keeps anything it cannot count as free text, untouched', () => {
+    ['Ek Kilometre x2', 'Çocuk Koltuğu x0', 'Çocuk Koltuğu x1', 'Çocuk Koltuğu x10', 'Taxi x2', '{broken'].forEach((saved) => {
+      expect(parseServiceCounts(saved)).toEqual({});
+      expect(parseAdditionalServices(saved)).toEqual(['Diğer']);
+      expect(parseAdditionalServicesCustom(saved)).toBe(saved);
+      expect(additionalServicesValue(form({
+        additional_services_selected: parseAdditionalServices(saved),
+        additional_services_custom: parseAdditionalServicesCustom(saved),
+      }))).toBe(saved);
+    });
+  });
+
+  const fromStored = (saved: string) => form({
+    additional_services_selected: parseAdditionalServices(saved),
+    additional_services_counts: parseServiceCounts(saved),
+    additional_services_custom: parseAdditionalServicesCustom(saved),
+  });
+
+  it('reads the JSON format as real choices, as on booking HOM-09-26-033', () => {
+    const back = fromStored('{"child_seat":1, "additional_drivers":2, "extra_km":true}');
+    expect(serviceQuantity(back, 'Çocuk Koltuğu')).toBe(1);
+    expect(serviceQuantity(back, 'Yedek Sürücü')).toBe(2);
+    expect(back.additional_services_selected).toContain('Ek Kilometre');
+    expect(back.additional_services_custom).toBe('');
+  });
+
+  it.each([
+    'Çocuk Koltuğu',
+    'Ek Kilometre,Çocuk Koltuğu',
+    'Çocuk Koltuğu x2,Yedek Sürücü x3',
+    'Çocuk Koltuğu,GPS,Roof rack',
+    '{"child_seat":1, "additional_drivers":2, "extra_km":true}',
+  ])('unchanged, %s goes back exactly as stored', (saved) => {
+    expect(additionalServicesValue(fromStored(saved), saved)).toBe(saved);
+  });
+
+  it('keeps a changed JSON booking as JSON, with what it does not know', () => {
+    const saved = '{"child_seat":1,"additional_drivers":2,"extra_km":true,"source":"app"}';
+    const changed = withServiceQuantity(fromStored(saved), 'Çocuk Koltuğu', 3);
+    expect(JSON.parse(additionalServicesValue(changed, saved) as string))
+      .toEqual({ child_seat: 3, additional_drivers: 2, extra_km: true, source: 'app' });
+  });
+
+  it('writes a changed comma list in the usual form', () => {
+    expect(additionalServicesValue(withServiceQuantity(fromStored('Çocuk Koltuğu,Ek Kilometre'), 'Çocuk Koltuğu', 0), 'Çocuk Koltuğu,Ek Kilometre')).toBe('Ek Kilometre');
   });
 
   it('reads insurance back the way it was stored', () => {

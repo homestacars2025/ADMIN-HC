@@ -86,6 +86,8 @@ export const Megaphone = makeIcon(
 
 export const Plus = makeIcon(<path d="M5 12h14M12 5v14" />, 'Plus');
 
+export const Minus = makeIcon(<path d="M5 12h14" />, 'Minus');
+
 export const Search = makeIcon(
   <>
     <circle cx="11" cy="11" r="8" />
