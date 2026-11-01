@@ -11,16 +11,16 @@ const MIN_QUERY = 2;
 
 const isExact = (row: CustomerSearchResult) => row.match_type !== 'name';
 
-const ResultRow: React.FC<{ row: CustomerSearchResult; onSelect: (row: CustomerSearchResult) => void }> = ({ row, onSelect }) => (
+const ResultRow: React.FC<{ row: CustomerSearchResult; onSelect: (row: CustomerSearchResult) => void; allowBanned?: boolean }> = ({ row, onSelect, allowBanned }) => (
   <li title={row.is_banned ? `Banned: ${row.ban_reason ?? 'no reason given'}` : undefined}>
     <button
       type="button"
-      disabled={row.is_banned}
+      disabled={row.is_banned && !allowBanned}
       onClick={() => onSelect(row)}
       className={cn(
         'flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/30',
         row.is_banned
-          ? 'cursor-not-allowed border-[#DC2626]/30 bg-[#DC2626]/[0.06]'
+          ? cn('border-[#DC2626]/30 bg-[#DC2626]/[0.06]', !allowBanned && 'cursor-not-allowed')
           : 'border-subtle bg-surface hover:bg-black/[0.02]',
       )}
     >
@@ -57,7 +57,9 @@ export const CustomerPicker: React.FC<{
   onSelect: (row: CustomerSearchResult) => void;
   /** Left out where a new customer can't be created, like when editing a booking. */
   onNew?: (query: string) => void;
-}> = ({ onSelect, onNew }) => {
+  /** A fine or a damaged car still belongs to whoever had it, banned or not. */
+  allowBanned?: boolean;
+}> = ({ onSelect, onNew, allowBanned }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CustomerSearchResult[]>([]);
   const [searched, setSearched] = useState('');
@@ -105,7 +107,7 @@ export const CustomerPicker: React.FC<{
     if (event.key !== 'Enter') return;
     // Enter here must never submit the booking form around it.
     event.preventDefault();
-    const exact = results.find((row) => isExact(row) && !row.is_banned);
+    const exact = results.find((row) => isExact(row) && (allowBanned || !row.is_banned));
     if (exact) onSelect(exact);
   };
 
@@ -136,7 +138,7 @@ export const CustomerPicker: React.FC<{
 
       {results.length > 0 && (
         <ul ref={listRef} onKeyDown={onListKey} className="flex max-h-[320px] flex-col gap-1.5 overflow-y-auto">
-          {results.map((row) => <ResultRow key={row.id} row={row} onSelect={onSelect} />)}
+          {results.map((row) => <ResultRow key={row.id} row={row} onSelect={onSelect} allowBanned={allowBanned} />)}
         </ul>
       )}
 

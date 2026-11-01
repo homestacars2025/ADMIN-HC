@@ -31,13 +31,15 @@ export const BookingSheet: React.FC<{
   badge?: React.ReactNode;
   stepper?: React.ReactNode;
   summary?: React.ReactNode;
+  /** Fines and car issues use the slightly narrower sheet. */
+  narrow?: boolean;
   dirty: boolean;
   saving: boolean;
   onClose: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   footer: (requestClose: () => void) => React.ReactNode;
   children: React.ReactNode;
-}> = ({ label, title, subtitle, badge, stepper, summary, dirty, saving, onClose, onSubmit, footer, children }) => {
+}> = ({ label, title, subtitle, badge, stepper, summary, narrow, dirty, saving, onClose, onSubmit, footer, children }) => {
   const [confirming, setConfirming] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -70,7 +72,7 @@ export const BookingSheet: React.FC<{
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className="absolute inset-y-0 right-0 flex w-full flex-col bg-[#F8F9FB] shadow-lg outline-none sm:max-w-[640px]"
+        className={cn('absolute inset-y-0 right-0 flex w-full flex-col bg-[#F8F9FB] shadow-lg outline-none', narrow ? 'sm:max-w-[600px]' : 'sm:max-w-[640px]')}
         style={{ animation: 'm-sheet-in 200ms ease-in-out' }}
       >
         <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">

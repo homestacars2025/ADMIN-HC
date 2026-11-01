@@ -78,8 +78,11 @@ const Calendar: React.FC<{
   min?: string;
   focusDay: string;
   onPick: (day: string) => void;
-}> = ({ start, end, min, focusDay, onPick }) => {
-  const twoMonths = useMediaQuery('(min-width: 640px)');
+  /** For a field that only has half the row to open into. */
+  oneMonth?: boolean;
+}> = ({ start, end, min, focusDay, onPick, oneMonth }) => {
+  const wide = useMediaQuery('(min-width: 640px)');
+  const twoMonths = wide && !oneMonth;
   const [view, setView] = useState(() => initialMonth(focusDay));
   const today = useMemo(() => istanbulDate(), []);
 
@@ -167,6 +170,75 @@ export const DateRangeField: React.FC<{
           : 'Pick the dates'}
       </Trigger>
       {open && <Calendar start={start} end={end} focusDay={start} onPick={onPick} />}
+    </Field>
+  );
+};
+
+/** One date anywhere, in place of the browser's own dd.mm.yyyy input. */
+export const DateField: React.FC<{
+  label: string;
+  value: string;
+  onChange: (day: string) => void;
+  required?: boolean;
+  changed?: boolean;
+  error?: string | null;
+  span?: boolean;
+  clearable?: boolean;
+  placeholder?: string;
+}> = ({ label, value, onChange, required, changed, error, span, clearable, placeholder = 'Pick a date' }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Field
+      label={label}
+      required={required}
+      changed={changed}
+      span={span}
+      error={error}
+      hint={clearable && value ? (
+        <button type="button" onClick={() => onChange('')} className="min-h-[28px] font-medium text-brand-strong">Clear</button>
+      ) : undefined}
+    >
+      <Trigger open={open} empty={!value} aria={label} onToggle={() => setOpen((current) => !current)}>
+        {value ? formatDate(value) : placeholder}
+      </Trigger>
+      {open && (
+        <Calendar
+          start={value}
+          end=""
+          oneMonth={!span}
+          focusDay={value}
+          onPick={(day) => { onChange(day); setOpen(false); }}
+        />
+      )}
+    </Field>
+  );
+};
+
+const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, minute) => String(minute).padStart(2, '0'));
+const TIME_PART = 'h-11 min-w-0 flex-1 rounded-[10px] border border-[#E5E7EB] bg-white px-2.5 text-[14px] tabular-nums text-foreground outline-none transition-[border-color,box-shadow] focus:border-[#6EA4E7] focus:ring-[3px] focus:ring-[#6EA4E7]/25 md:h-10';
+
+/** Hours and minutes, stored as "HH:MM" the way a time input does. */
+export const TimeField: React.FC<{
+  label: string;
+  value: string;
+  onChange: (time: string) => void;
+  changed?: boolean;
+}> = ({ label, value, onChange, changed }) => {
+  const [hour = '', minute = ''] = value.split(':');
+  return (
+    <Field label={label} changed={changed}>
+      <div className="flex items-center gap-1.5">
+        <select aria-label={`${label}, hour`} value={hour} onChange={(event) => onChange(event.target.value ? `${event.target.value}:${minute || '00'}` : '')} className={TIME_PART}>
+          <option value="">--</option>
+          {HOURS.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <span aria-hidden="true" className="font-semibold text-black/40">:</span>
+        <select aria-label={`${label}, minute`} value={minute} disabled={!hour} onChange={(event) => onChange(`${hour}:${event.target.value}`)} className={cn(TIME_PART, !hour && 'opacity-50')}>
+          <option value="">--</option>
+          {MINUTES.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      </div>
     </Field>
   );
 };
