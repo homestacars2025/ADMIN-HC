@@ -4,7 +4,7 @@ import { useShell } from '../components/shell/shellContext';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { useOnlineUsers } from '../hooks/usePresence';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
-import { fetchCarCompliance, type CarCompliance } from '../lib/carCompliance';
+import { useComplianceCars } from '../lib/complianceStore';
 import { useCurrency } from '../lib/CurrencyContext';
 import {
   fetchAdminHome,
@@ -148,16 +148,7 @@ const HomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [reloadCount, setReloadCount] = useState(0);
   const [onlineProfiles, setOnlineProfiles] = useState<Record<string, ProfileOption>>({});
-  const [compliance, setCompliance] = useState<CarCompliance[]>([]);
-
-  // Separate from the overview, so a failed read here never costs the whole page.
-  useEffect(() => {
-    let cancelled = false;
-    fetchCarCompliance()
-      .then((cars) => { if (!cancelled) setCompliance(cars); })
-      .catch(() => { if (!cancelled) setCompliance([]); });
-    return () => { cancelled = true; };
-  }, [reloadCount]);
+  const compliance = useComplianceCars();
 
   useEffect(() => {
     let cancelled = false;
@@ -260,7 +251,7 @@ const HomePage: React.FC = () => {
         )}
       </header>
 
-      {compliance.length > 0 && <ComplianceHomeCard cars={compliance} />}
+      {compliance && compliance.length > 0 && <ComplianceHomeCard cars={compliance} />}
 
       {error ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-[13px] text-red-700">

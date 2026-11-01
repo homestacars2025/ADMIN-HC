@@ -7,6 +7,7 @@ import { resolveNotificationLink, type NotificationRow } from '../../lib/notific
 import { formatDue } from '../../lib/tasks';
 import { X } from '../media/MediaIcons';
 import { Button } from '../media/MediaUI';
+import { ComplianceTriangle } from '../shared/ComplianceBits';
 
 const TOAST_MS = 7000;
 const MAX_TOASTS = 3;
@@ -75,10 +76,16 @@ export const LiveToasts: React.FC = () => {
             aria-live="polite"
             className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-subtle bg-surface p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.12)] motion-safe:animate-[live-toast-in_220ms_ease-out]"
           >
-            <span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />
+            {notification.compliance_tone
+              ? <ComplianceTriangle tone={notification.compliance_tone} size={32} />
+              : <span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />}
             <div className="min-w-0 flex-1">
               {isTask && <div className="text-[11.5px] font-medium text-brand-strong">New task</div>}
-              <div dir="auto" className="truncate text-[13.5px] font-medium text-foreground">{title}</div>
+              {/* The plate comes last in these, so they wrap rather than lose it. */}
+              <div dir="auto" className={notification.compliance_tone ? 'text-[13.5px] font-medium leading-snug text-foreground' : 'truncate text-[13.5px] font-medium text-foreground'}>{title}</div>
+              {notification.compliance_tone && notification.body && (
+                <div className="mt-0.5 text-[12px] text-black/50">{notification.body}</div>
+              )}
               {due && <div className="mt-0.5 text-[12px] text-black/50">Due {due}</div>}
               {isTask && (
                 <Button onClick={() => open(toast)} className="mt-2 px-4">Open</Button>

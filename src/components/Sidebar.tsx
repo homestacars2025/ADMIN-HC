@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useComplianceCars } from '../lib/complianceStore';
+import { ComplianceTriangle } from './shared/ComplianceBits';
 import { NavLink, useLocation } from 'react-router-dom';
 import Logo from './shared/Logo';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
@@ -14,6 +16,8 @@ export interface NavItem {
   path: string;
   icon: React.ReactNode;
   badge?: number;
+  /** Cars with missing or expired dates, shown as a red triangle and a count. */
+  alertCount?: number;
 }
 
 export interface NavGroup {
@@ -659,10 +663,28 @@ interface SidebarProps {
   drawerOpen: boolean;
 }
 
+const CARS_PATH = '/dashboard/cars';
+
+const ComplianceCount: React.FC<{ count: number }> = ({ count }) => (
+  <span
+    title={`${count} cars with missing or expired dates`}
+    aria-label={`${count} cars with missing or expired dates`}
+    style={{
+      marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 3,
+      padding: '0 7px 0 4px', borderRadius: 10, background: 'rgba(220,38,38,0.1)', color: '#B91C1C',
+      fontSize: 11, fontWeight: 700, lineHeight: '20px', letterSpacing: 0, fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+    }}
+  >
+    <ComplianceTriangle tone="red" size={14} />
+    {count > 99 ? '99+' : count}
+  </span>
+);
+
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) => {
   const location = useLocation();
 
   const { openTasks } = useNotificationCounts();
+  const complianceCars = useComplianceCars();
 
   /**
    * Which groups are open. Seeded with Daily only; after that the user's own
@@ -706,15 +728,17 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
   const toggleGroup = (key: string) =>
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  /** The Tasks row carries a live count; everything else is static. */
+  /** Tasks and Cars carry a live count; everything else is static. */
   const withBadge = (items: NavItem[]): NavItem[] =>
-    items.map((item) =>
-      item.path === '/dashboard/tasks' ? { ...item, badge: openTasks } : item,
-    );
+    items.map((item) => {
+      if (item.path === '/dashboard/tasks') return { ...item, badge: openTasks };
+      if (item.path === CARS_PATH) return { ...item, alertCount: complianceCars?.length ?? 0 };
+      return item;
+    });
 
   const W = collapsed ? COLLAPSED_W : EXPANDED_W;
 
-  const renderNavItems = (items: Array<{ label: string; path: string; icon: React.ReactNode; badge?: number }>) =>
+  const renderNavItems = (items: NavItem[]) =>
     items.map(item => (
       <NavLink
         key={item.path}
@@ -766,6 +790,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
                   background: 'var(--sidebar-primary)', border: '1.5px solid var(--sidebar)',
                 }} />
               )}
+              {collapsed && !!item.alertCount && (
+                <ComplianceTriangle tone="red" size={15} alt={`${item.alertCount} cars need attention`} className="absolute -right-2 -top-2" />
+              )}
             </span>
             {!collapsed && item.label}
             {!collapsed && !!item.badge && item.badge > 0 && (
@@ -780,6 +807,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
                 {item.badge > 99 ? '99+' : item.badge}
               </span>
             )}
+            {!collapsed && !!item.alertCount && <ComplianceCount count={item.alertCount} />}
           </>
         )}
       </NavLink>
@@ -843,6 +871,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
             ))
           : NAV_GROUPS.map((group) => {
               const open = openGroups[group.key] === true;
+              // Groups start closed, and a closed one would hide the Cars badge with it.
+              const hiddenAlert = !open && group.items.some((item) => item.path === CARS_PATH) ? complianceCars?.length ?? 0 : 0;
               return (
                 <div key={group.key} style={{ marginTop: 4 }}>
                   <button
@@ -873,6 +903,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
                     <span style={{ flex: 1, textAlign: 'left', whiteSpace: 'nowrap' }}>
                       {group.label}
                     </span>
+                    {hiddenAlert > 0 && <ComplianceCount count={hiddenAlert} />}
                     <svg
                       width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"
                       style={{

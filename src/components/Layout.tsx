@@ -11,6 +11,7 @@ import { loadUserSettings } from '../lib/userSettings';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 import { usePresence } from '../hooks/usePresence';
 import { Button } from './media/MediaUI';
+import { ComplianceSignInAlert } from '../pages/cars/ComplianceAlert';
 
 // ─── Inactivity Warning Modal ─────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ const Layout: React.FC = () => {
         </main>
       </div>
 
+      <ComplianceSignInAlert />
       {showWarning && <InactivityWarning onStay={stayLoggedIn} />}
     </div>
   );

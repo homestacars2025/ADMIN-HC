@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/media/MediaUI';
 import { ComplianceTriangle, IssueChip, TONE_CLASSES, trapTab } from '../../components/shared/ComplianceBits';
 import {
@@ -11,6 +11,7 @@ import {
   type ComplianceDoc,
   type IssueState,
 } from '../../lib/carCompliance';
+import { claimComplianceAlert, refreshCompliance, useComplianceCars } from '../../lib/complianceStore';
 import { formatDate } from '../../lib/customers';
 import { cn } from '../../lib/media/badgeColor';
 import { LicensePlate } from '../bookings/ui';
@@ -23,7 +24,7 @@ const GROUPS: ReadonlyArray<{ state: IssueState; title: string }> = [
   { state: 'missing', title: 'Date not recorded' },
 ];
 
-const CarRow: React.FC<{ car: CarCompliance; onFix: () => void }> = ({ car, onFix }) => (
+const CarRow: React.FC<{ car: CarCompliance; onFix?: () => void }> = ({ car, onFix }) => (
   <li className="flex flex-col gap-2.5 border-t border-subtle py-3 first:border-t-0 sm:flex-row sm:items-center sm:gap-3">
     <div className="min-w-0 flex-1">
       <div className="flex min-w-0 items-center gap-2">
@@ -34,34 +35,39 @@ const CarRow: React.FC<{ car: CarCompliance; onFix: () => void }> = ({ car, onFi
         {car.issues.map((issue) => <IssueChip key={issue.doc} issue={issue} />)}
       </div>
     </div>
-    <button
-      type="button"
-      onClick={onFix}
-      aria-label={`Add date for ${car.plate_number}`}
-      className="h-11 shrink-0 rounded-[10px] border border-subtle bg-surface px-3.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:h-9"
-    >
-      Add date
-    </button>
+    {onFix && (
+      <button
+        type="button"
+        onClick={onFix}
+        aria-label={`Add date for ${car.plate_number}`}
+        className="h-11 shrink-0 rounded-[10px] border border-subtle bg-surface px-3.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:h-9"
+      >
+        Add date
+      </button>
+    )}
   </li>
 );
 
 /**
- * Opens on every visit to the Cars page while anything is wrong. "Got it" is the
- * only way out, and there's no "don't show again". A bottom sheet on phones.
+ * The same modal in two places. On the Cars page it has an "Add date" on each car
+ * and closes with "Got it". After sign-in the fix is on another page, so it has
+ * "Fix now" and "Remind me later". There's never a "don't show again". A bottom
+ * sheet on phones.
  */
 export const ComplianceModal: React.FC<{
   cars: CarCompliance[];
   /** The car edit form is open on top, so keys belong to it. */
-  paused: boolean;
-  onFix: (car: CarCompliance) => void;
+  paused?: boolean;
+  onFix?: (car: CarCompliance) => void;
+  onFixNow?: () => void;
   onClose: () => void;
-}> = ({ cars, paused, onFix, onClose }) => {
+}> = ({ cars, paused = false, onFix, onFixNow, onClose }) => {
   const panelRef = useRef<HTMLDivElement>(null);
-  const gotItRef = useRef<HTMLButtonElement>(null);
+  const primaryRef = useRef<HTMLButtonElement>(null);
   const summary = summarize(cars);
 
   useEffect(() => {
-    gotItRef.current?.focus({ preventScroll: true });
+    primaryRef.current?.focus({ preventScroll: true });
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previous; };
@@ -75,7 +81,7 @@ export const ComplianceModal: React.FC<{
   }, [onClose, paused]);
 
   return ReactDOM.createPortal(
-    <div className="media-scope fixed inset-0 z-[1000] flex items-end justify-center bg-[#0f1117]/50 backdrop-blur-[3px] sm:items-center sm:p-6" style={{ animation: 'fadeIn 160ms ease' }}>
+    <div className="media-scope fixed inset-0 z-[1000] flex items-end justify-center bg-[#0f1117]/50 backdrop-blur-[3px] sm:items-center sm:p-6" style={{ animation: 'm-fade-in 160ms ease' }}>
       <div
         ref={panelRef}
         role="alertdialog"
@@ -84,7 +90,7 @@ export const ComplianceModal: React.FC<{
         aria-describedby="compliance-explanation"
         onKeyDown={(event) => trapTab(event, panelRef.current)}
         className="flex h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface shadow-lg sm:h-auto sm:max-h-[86vh] sm:max-w-[640px] sm:rounded-3xl"
-        style={{ animation: 'slideUp 200ms ease' }}
+        style={{ animation: 'live-toast-in 200ms ease' }}
       >
         <header className="shrink-0 border-b border-subtle px-5 pb-4 pt-5 text-center sm:px-7 sm:pt-6">
           <ComplianceTriangle tone={summary.tone} size={84} className="mx-auto sm:h-24 sm:w-24" />
@@ -105,19 +111,54 @@ export const ComplianceModal: React.FC<{
                   <span className="tabular-nums">({group.length})</span>
                 </h3>
                 <ul className="mt-1">
-                  {group.map((car) => <CarRow key={car.id} car={car} onFix={() => onFix(car)} />)}
+                  {group.map((car) => <CarRow key={car.id} car={car} onFix={onFix && (() => onFix(car))} />)}
                 </ul>
               </section>
             );
           })}
         </div>
 
-        <footer className="shrink-0 border-t border-subtle px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3.5 sm:px-7">
-          <Button ref={gotItRef} size="lg" className="!h-11 w-full sm:ms-auto sm:flex sm:w-auto sm:min-w-[120px] md:!h-10" onClick={onClose}>Got it</Button>
+        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-subtle px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3.5 sm:flex-row sm:justify-end sm:px-7">
+          {onFixNow ? (
+            <>
+              <Button variant="secondary" size="lg" className="!h-11 w-full sm:w-auto md:!h-10" onClick={onClose}>Remind me later</Button>
+              <Button ref={primaryRef} size="lg" className="!h-11 w-full sm:w-auto sm:min-w-[120px] md:!h-10" onClick={onFixNow}>Fix now</Button>
+            </>
+          ) : (
+            <Button ref={primaryRef} size="lg" className="!h-11 w-full sm:w-auto sm:min-w-[120px] md:!h-10" onClick={onClose}>Got it</Button>
+          )}
         </footer>
       </div>
     </div>,
     document.body,
+  );
+};
+
+/**
+ * After every sign-in, and once per browser session for someone already signed in,
+ * on whatever page they land. Cars opens the same modal itself, so there this only
+ * counts as seen, or the two would stack.
+ */
+export const ComplianceSignInAlert: React.FC = () => {
+  const cars = useComplianceCars();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => { refreshCompliance(); }, [pathname]);
+
+  useEffect(() => {
+    if (!cars || cars.length === 0 || !claimComplianceAlert()) return;
+    if (pathname !== '/dashboard/cars') setOpen(true);
+  }, [cars, pathname]);
+
+  if (!open || !cars || cars.length === 0) return null;
+  return (
+    <ComplianceModal
+      cars={cars}
+      onClose={() => setOpen(false)}
+      onFixNow={() => { setOpen(false); navigate('/dashboard/cars?issues=1'); }}
+    />
   );
 };
 

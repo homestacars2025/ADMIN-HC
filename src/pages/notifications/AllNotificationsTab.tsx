@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { ComplianceTriangle } from '../../components/shared/ComplianceBits';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationCounts } from '../../hooks/useNotificationCounts';
 import { useMessageRenderer } from '../../lib/i18n';
@@ -217,6 +218,8 @@ export const AllNotificationsTab: React.FC = () => {
               {!item.is_read
                 ? <span style={{ width: 7, height: 7, borderRadius: '50%', background: BRAND, flexShrink: 0, marginTop: 8 }} />
                 : <span style={{ width: 7, flexShrink: 0 }} />}
+
+              {item.compliance_tone && <ComplianceTriangle tone={item.compliance_tone} size={32} />}
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>

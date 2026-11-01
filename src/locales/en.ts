@@ -33,6 +33,22 @@ const en = {
     due_soon: { title: 'Task due soon: {{title}}' },
     overdue: { title: 'Task overdue: {{title}}' },
   },
+  compliance: {
+    insurance: {
+      expires_today: 'Insurance expires today — {{plate}}',
+      expires_tomorrow: 'Insurance expires tomorrow — {{plate}}',
+      expires_in_days: 'Insurance expires in {{days_left}} days — {{plate}}',
+      expires_soon: 'Insurance expires soon — {{plate}}',
+    },
+    inspection: {
+      expires_today: 'Inspection expires today — {{plate}}',
+      expires_tomorrow: 'Inspection expires tomorrow — {{plate}}',
+      expires_in_days: 'Inspection expires in {{days_left}} days — {{plate}}',
+      expires_soon: 'Inspection expires soon — {{plate}}',
+    },
+    expiring_body: '{{model}} · Expires {{expiry}}',
+    expiring_body_no_model: 'Expires {{expiry}}',
+  },
   kabis: {
     pending: {
       title: 'New KABIS {{action_label}} pending',

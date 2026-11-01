@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { resetComplianceAlert } from '../lib/complianceStore';
 import { supabase } from '../lib/supabase';
 import Logo from '../components/shared/Logo';
 import { Button } from '../components/media/MediaUI';
@@ -78,6 +79,7 @@ const LoginPage: React.FC = () => {
       return;
     }
 
+    resetComplianceAlert();
     navigate('/dashboard', { replace: true });
   };
 

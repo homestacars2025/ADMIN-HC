@@ -1,3 +1,4 @@
+import { ComplianceTriangle } from './shared/ComplianceBits';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -266,7 +267,9 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
                     item.is_read ? '#fff' : 'rgba(75,166,234,0.045)';
                 }}
               >
-                <CategoryDot category={item.category} />
+                {item.compliance_tone
+                  ? <ComplianceTriangle tone={item.compliance_tone} size={28} />
+                  : <CategoryDot category={item.category} />}
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{

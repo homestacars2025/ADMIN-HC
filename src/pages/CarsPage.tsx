@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
 import { Button } from '../components/media/MediaUI';
 import { ComplianceTriangle } from '../components/shared/ComplianceBits';
 import { buildCompliance, toneOf, type CarCompliance, type ComplianceDoc } from '../lib/carCompliance';
+import { publishCompliance } from '../lib/complianceStore';
 import { cn } from '../lib/media/badgeColor';
 import {
   ComplianceAlertCard,
@@ -1126,18 +1127,25 @@ const CarsPage: React.FC = () => {
   const [carsLoading, setCarsLoading] = useState(true);
   const [tableSearch, setTableSearch] = useState('');
   const [searchParams] = useSearchParams();
+  const { key: locationKey } = useLocation();
   useEffect(() => {
     const q = searchParams.get('q');
     if (q !== null) setTableSearch(q);
   }, [searchParams]);
+
+  // "Fix now" arrives with ?issues=1, and an expiry notification with ?car=<id>.
+  const wantsIssues = searchParams.get('issues') === '1';
+  const targetCar = Number(searchParams.get('car')) || null;
 
   const [editingCarId, setEditingCarId] = useState<number | null>(null);
   const [editFocusDocs, setEditFocusDocs] = useState<ComplianceDoc[]>([]);
   const [compliance, setCompliance] = useState<CarCompliance[]>([]);
   const [complianceError, setComplianceError] = useState<string | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
-  const [onlyIssues, setOnlyIssues] = useState(false);
-  const alertShown = useRef(false);
+  const [onlyIssues, setOnlyIssues] = useState(wantsIssues);
+  const [highlightCar, setHighlightCar] = useState<number | null>(null);
+  // Someone sent here to act on a car shouldn't have the modal put in front of it.
+  const alertShown = useRef(wantsIssues || targetCar !== null);
   const [sortCol,  setSortCol]  = useState<'plate_number' | 'model' | 'year' | 'current_km' | 'status' | null>(null);
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('asc');
   const [totalCars, setTotalCars] = useState(0);
@@ -1244,7 +1252,9 @@ const CarsPage: React.FC = () => {
       setCars(combined);
       const readError = carsRes.error ?? registrationsRes.error;
       setComplianceError(readError ? readError.message : null);
-      setCompliance(readError ? [] : buildCompliance(combined, rawRegs));
+      const affected = readError ? [] : buildCompliance(combined, rawRegs);
+      setCompliance(affected);
+      if (!readError) publishCompliance(affected);
       setCarsLoading(false);
     })();
     return () => { cancelled = true; };
@@ -1256,6 +1266,21 @@ const CarsPage: React.FC = () => {
     alertShown.current = true;
     setAlertOpen(true);
   }, [carsLoading, compliance]);
+
+  useEffect(() => {
+    setOnlyIssues(wantsIssues);
+    if (targetCar !== null) setTableSearch('');
+  }, [wantsIssues, targetCar, locationKey]);
+
+  useEffect(() => {
+    if (carsLoading || (!wantsIssues && targetCar === null)) return undefined;
+    const selector = targetCar !== null ? `[data-car-id="${targetCar}"]` : '[data-fleet-table]';
+    document.querySelector(selector)?.scrollIntoView({ block: targetCar !== null ? 'center' : 'start', behavior: 'smooth' });
+    if (targetCar === null) return undefined;
+    setHighlightCar(targetCar);
+    const timer = setTimeout(() => setHighlightCar(null), 4000);
+    return () => clearTimeout(timer);
+  }, [carsLoading, wantsIssues, targetCar, locationKey]);
 
   const issuesByCar = useMemo(() => new Map(compliance.map(car => [car.id, car])), [compliance]);
 
@@ -1410,7 +1435,7 @@ const CarsPage: React.FC = () => {
       </div>
 
       {/* Fleet Table */}
-      <div style={{ marginTop: 32 }}>
+      <div data-fleet-table style={{ marginTop: 32 }}>
         {/* Section header + search */}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1602,7 +1627,15 @@ const CarsPage: React.FC = () => {
                     const affected = issuesByCar.get(car.id);
                     const stripe = affected ? (affected.severity === 'expired' ? '#DC2626' : '#F59E0B') : null;
                     return (
-                    <tr key={car.plate_number + idx} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
+                    <tr
+                      key={car.plate_number + idx}
+                      data-car-id={car.id}
+                      style={{
+                        borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7',
+                        background: highlightCar === car.id ? 'rgba(75,166,234,0.16)' : undefined,
+                        transition: 'background 400ms ease',
+                      }}
+                    >
                       <td style={{ padding: '12px 14px', boxShadow: stripe ? `inset 3px 0 0 ${stripe}` : undefined }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.3px' }}>

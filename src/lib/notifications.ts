@@ -1,3 +1,5 @@
+import type { ComplianceTone } from './carCompliance';
+import { withComplianceMessage } from './complianceNotifications';
 import { supabase } from './supabase';
 
 /**
@@ -34,6 +36,8 @@ export interface NotificationRow {
   entity_id: string | null;
   is_read: boolean;
   created_at: string;
+  /** Set on insurance and inspection expiry reminders, which show a triangle. */
+  compliance_tone?: ComplianceTone;
 }
 
 /** `[{ kind: 'role', value: 'staff' }, { kind: 'profile', value: '<uuid>' }]` */
@@ -119,7 +123,7 @@ export async function getNotifications(
     p_only_unread: onlyUnread,
   });
   if (error) throw new Error(friendlyError(error));
-  return (data ?? []) as NotificationRow[];
+  return ((data ?? []) as NotificationRow[]).map(withComplianceMessage);
 }
 
 export async function getUnreadCount(): Promise<number> {
