@@ -1,25 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Plus } from '../../components/media/MediaIcons';
-import { MediaToaster, toast } from '../../components/media/MediaToast';
+import { toast } from '../../components/media/MediaToast';
 import { Button, Switch } from '../../components/media/MediaUI';
-import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../../components/shared/FilterTile';
-import { LoadError, SearchField, SkeletonRows } from '../../components/shared/PageBits';
-import { useUrlFilter } from '../../hooks/useUrlFilter';
-import {
-  ACCOUNT_FILTERS,
-  fetchCashAccounts,
-  formatIban,
-  inAccountFilter,
-  KIND_LABELS,
-  setAccountActive,
-  type AccountKind,
-  type CashAccount,
-} from '../../lib/cashAccounts';
+import { formatIban, KIND_LABELS, setAccountActive, type AccountKind, type CashAccount } from '../../lib/cashAccounts';
 import { cn } from '../../lib/media/badgeColor';
-import { balancesOf, fetchAccountBalances, type AccountBalance, type CurrencyTotal } from '../../lib/cashEnvelopes';
+import { balancesOf, type AccountBalance, type CurrencyTotal } from '../../lib/cashEnvelopes';
 import { CURRENCY_SYMBOLS, formatMoney } from '../../lib/money';
 import { AccountFormSheet } from '../cashAccounts/AccountFormSheet';
-import { WalletIcon } from '../customers/ui';
 
 const KIND_PATHS: Record<AccountKind, React.ReactNode> = {
   safe: <><path d="M4 4h16v16H4z" /><circle cx="12" cy="12" r="3.5" /><path d="M12 8.5V7M12 17v-1.5M4 20v1M20 20v1" /></>,
@@ -35,8 +22,6 @@ const KindIcon: React.FC<{ kind: AccountKind; size?: number }> = ({ kind, size =
     {KIND_PATHS[kind]}
   </svg>
 );
-
-const accountWord = (count: number) => (count === 1 ? 'account' : 'accounts');
 
 const AccountRow: React.FC<{ account: CashAccount; balances: CurrencyTotal[]; onEdit: () => void; onActive: (on: boolean) => void }> = ({ account, balances, onEdit, onActive }) => (
   <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-subtle px-4 py-3 last:border-b-0 xl:grid-cols-[minmax(0,1.3fr)_120px_130px_minmax(0,1.2fr)_120px_92px]">
@@ -67,39 +52,16 @@ const AccountRow: React.FC<{ account: CashAccount; balances: CurrencyTotal[]; on
   </li>
 );
 
-export const CashAccountsTab: React.FC = () => {
-  const { filter, toggle, clear } = useUrlFilter(ACCOUNT_FILTERS);
-  const [accounts, setAccounts] = useState<CashAccount[]>([]);
-  const [balances, setBalances] = useState<AccountBalance[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reload, setReload] = useState(0);
-  const [search, setSearch] = useState('');
+/** The accounts themselves. Cash & Envelopes loads them, so this only adds and edits. */
+export const AccountsSection: React.FC<{
+  accounts: CashAccount[];
+  balances: AccountBalance[];
+  onChange: (update: (current: CashAccount[]) => CashAccount[]) => void;
+}> = ({ accounts, balances, onChange }) => {
   const [sheet, setSheet] = useState<{ account: CashAccount | null } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    Promise.all([fetchCashAccounts(), fetchAccountBalances()])
-      .then(([rows, balanceRows]) => {
-        if (cancelled) return;
-        setAccounts(rows);
-        setBalances(balanceRows);
-      })
-      .catch((failure: unknown) => { if (!cancelled) setError(failure instanceof Error ? failure.message : 'Try again.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [reload]);
-
-  const count = (key: typeof ACCOUNT_FILTERS[number]) => accounts.filter((account) => inAccountFilter(account, key)).length;
-  const visible = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return accounts.filter((account) => inAccountFilter(account, filter)
-      && (!query || [account.name, account.code, account.branch, account.bank_name].some((text) => text?.toLowerCase().includes(query))));
-  }, [accounts, filter, search]);
-
   const setActive = async (account: CashAccount, active: boolean) => {
-    const put = (value: boolean) => setAccounts((current) => current.map((row) => (row.id === account.id ? { ...row, is_active: value } : row)));
+    const put = (value: boolean) => onChange((current) => current.map((row) => (row.id === account.id ? { ...row, is_active: value } : row)));
     put(active);
     try {
       await setAccountActive(account.id, active);
@@ -111,40 +73,27 @@ export const CashAccountsTab: React.FC = () => {
 
   const saved = (account: CashAccount) => {
     const adding = sheet?.account === null;
-    setAccounts((current) => (adding ? [...current, account] : current.map((row) => (row.id === account.id ? account : row))));
+    onChange((current) => (adding ? [...current, account] : current.map((row) => (row.id === account.id ? account : row))));
     setSheet(null);
     toast.success(adding ? 'Account added.' : 'Account updated.');
   };
 
   return (
-    <div className="media-scope">
-      {error && <LoadError message={`Couldn't load the accounts: ${error}`} onRetry={() => { setLoading(true); setReload((value) => value + 1); }} />}
-
-      {loading ? <FilterTileSkeleton /> : (
-        <FilterTileRow label="Filter accounts">
-          <FilterTile tone="blue" icon={<WalletIcon size={15} />} label="All" value={String(accounts.length)} sub={accountWord(accounts.length)} active={filter === 'all'} onClick={clear} />
-          <FilterTile tone="amber" icon={<KindIcon kind="safe" size={15} />} label="Safes" value={String(count('safe'))} sub={accountWord(count('safe'))} active={filter === 'safe'} onClick={() => toggle('safe')} />
-          <FilterTile tone="teal" icon={<KindIcon kind="bank" size={15} />} label="Banks" value={String(count('bank'))} sub={accountWord(count('bank'))} active={filter === 'bank'} onClick={() => toggle('bank')} />
-          <FilterTile tone="violet" icon={<KindIcon kind="pos" size={15} />} label="POS & gateways" value={String(count('pos'))} sub={accountWord(count('pos'))} active={filter === 'pos'} onClick={() => toggle('pos')} />
-          <FilterTile tone="green" icon={<KindIcon kind="custody" size={15} />} label="Custody" value={String(count('custody'))} sub={accountWord(count('custody'))} active={filter === 'custody'} onClick={() => toggle('custody')} />
-        </FilterTileRow>
-      )}
-
-      <div className="mt-4 flex max-w-[1100px] flex-wrap items-center gap-2">
-        <SearchField value={search} onChange={setSearch} placeholder="Search name, code, branch…" className="min-w-[220px] flex-1" />
-        <Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setSheet({ account: null })}><Plus size={15} /> New account</Button>
-      </div>
-
-      <div className="mt-4 max-w-[1100px] overflow-hidden rounded-xl border border-subtle bg-surface">
-        {loading ? <SkeletonRows /> : visible.length === 0 ? (
-          <p className="px-4 py-10 text-center text-[13.5px] text-black/45">{accounts.length === 0 ? 'No accounts yet.' : 'No accounts match this view.'}</p>
+    <section id="cash-accounts" aria-label="Accounts" className="mt-5 max-w-[1100px] scroll-mt-4">
+      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[15px] font-medium text-foreground">Accounts</h2>
+        <Button size="lg" className="!h-11 px-4 md:!h-9" onClick={() => setSheet({ account: null })}><Plus size={15} /> New account</Button>
+      </header>
+      <div className="overflow-hidden rounded-xl border border-subtle bg-surface">
+        {accounts.length === 0 ? (
+          <p className="px-4 py-10 text-center text-[13.5px] text-black/45">No accounts yet.</p>
         ) : (
           <>
             <div aria-hidden="true" className="hidden grid-cols-[minmax(0,1.3fr)_120px_130px_minmax(0,1.2fr)_120px_92px] gap-x-3 border-b border-subtle px-4 py-2 text-[11.5px] font-medium text-black/45 xl:grid">
               <span>Account</span><span>Kind</span><span>Currencies</span><span>IBAN</span><span className="text-end">Balance</span><span className="text-end">Active</span>
             </div>
             <ul>
-              {visible.map((account) => (
+              {accounts.map((account) => (
                 <AccountRow
                   key={account.id}
                   account={account}
@@ -157,10 +106,7 @@ export const CashAccountsTab: React.FC = () => {
           </>
         )}
       </div>
-
       {sheet && <AccountFormSheet account={sheet.account} accounts={accounts} onClose={() => setSheet(null)} onSaved={saved} />}
-      <MediaToaster />
-    </div>
+    </section>
   );
 };
-

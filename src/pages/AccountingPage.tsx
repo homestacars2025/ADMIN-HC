@@ -9,11 +9,11 @@ import StaffAvatar from '../components/shared/StaffAvatar';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { Button } from '../components/media/MediaUI';
 import { CarThumb } from '../components/shared/CarThumb';
-import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, type PendingSummary } from '../lib/expenseApprovals';
-import { CashAccountsTab } from './accounting/CashAccountsTab';
+import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, fetchSuggestedExpenses, type PendingSummary } from '../lib/expenseApprovals';
 import { CashEnvelopesTab } from './accounting/CashEnvelopesTab';
-import { FinanceOverviewTab } from './accounting/FinanceOverviewTab';
+import { OverviewTiles } from './accounting/OverviewTiles';
 import { StaffCustodyTab } from './accounting/StaffCustodyTab';
+import { WalletsTab } from './accounting/WalletsTab';
 import { SuggestedExpense, SuggestionBanner, SuggestionDialogs, useSuggestions } from './accounting/Suggestions';
 import { SupplierSheet } from './accounting/SupplierSheet';
 import { SuppliersTab } from './accounting/SuppliersTab';
@@ -496,7 +496,7 @@ const SheetCard: React.FC<{
 
 // ─── Summary View ─────────────────────────────────────────────────────────────
 
-const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; monthKey: string }> = ({ txs, loading, monthKey }) => {
+const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; monthKey: string; belowHero?: React.ReactNode }> = ({ txs, loading, monthKey, belowHero }) => {
   const { fmt } = useCurrency();
   const [carsMap, setCarsMap] = useState<Map<number, { plate: string; model: string }>>(new Map());
   const [ifData,  setIfData]  = useState<Pick<CompanyExpenseRow, 'amount' | 'direction'>[]>([]);
@@ -669,8 +669,10 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
         </div>
       )}
 
+      {belowHero}
+
       {/* ── Key Metrics Row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {metrics.map(m => (
           <div key={m.label} style={{
             background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)',
@@ -2217,7 +2219,7 @@ const InvestorSummaryView: React.FC<{
   );
 };
 
-// ─── Car sheets: monthly summary ──────────────────────────────────────────────
+// ─── Overview ─────────────────────────────────────────────────────────────────
 
 function monthDateRange(monthKey: string): { start: string; end: string } {
   const [y, m] = monthKey.split('-').map(Number);
@@ -2228,7 +2230,7 @@ function monthDateRange(monthKey: string): { start: string; end: string } {
   };
 }
 
-const MonthlySummary: React.FC = () => {
+const OverviewTab: React.FC = () => {
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const [txs, setTxs]           = useState<FinancialTransaction[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -2249,12 +2251,12 @@ const MonthlySummary: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <MonthNavigator monthKey={monthKey} onChange={setMonthKey} />
       </div>
-      <SummaryView txs={txs} loading={loading} monthKey={monthKey} />
+      <SummaryView txs={txs} loading={loading} monthKey={monthKey} belowHero={<OverviewTiles />} />
     </div>
   );
 };
 
-// ─── Car sheets: one row per car ──────────────────────────────────────────────
+// ─── Investors: one row per car ───────────────────────────────────────────────
 
 interface SheetCar {
   id: number;
@@ -4133,9 +4135,9 @@ const AddFinancialTxModal: React.FC<{
 // ─── Internal Finance: Add Transaction Modal ─────────────────────────────────
 
 // One modal for two jobs: a company expense from Company expenses, or money moved
-// in or out of someone's wallet from Staff custody.
+// in or out of someone's custody from Staff custody.
 const AddInternalFinanceTxModal: React.FC<{
-  /** Staff to choose from. Passing them makes this a wallet entry. */
+  /** Staff to choose from. Passing them makes this a custody entry. */
   profiles?: ProfileRow[];
   onClose:  () => void;
   onSaved:  () => void;
@@ -4194,7 +4196,7 @@ const AddInternalFinanceTxModal: React.FC<{
 
     const isWallet = form.category === 'employee_account';
     if (isWallet && !form.employee_id) {
-      setError('Employee is required for an Employee Wallet transaction.');
+      setError('Choose the employee holding this custody.');
       return;
     }
 
@@ -4308,7 +4310,7 @@ const AddInternalFinanceTxModal: React.FC<{
         <div style={{ padding: '22px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 600, color: '#0f1117' }}>New Transaction</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{form.category === 'employee_account' ? 'employee_wallets' : 'company_expenses'}</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{form.category === 'employee_account' ? 'Staff custody' : 'Company expenses'}</div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
@@ -4514,7 +4516,7 @@ const AddInternalFinanceTxModal: React.FC<{
   );
 };
 
-// ─── Transaction List Modal (category expenses / wallet history) ─────────────
+// ─── Transaction List Modal (category expenses) ──────────────────────────────
 
 interface TxDisplayRow {
   id:          number | string;
@@ -4524,16 +4526,6 @@ interface TxDisplayRow {
   category?:   string | null;
   description: string | null;
   receipt_url: string | null;
-}
-
-interface EmployeeWalletRow {
-  id:               number;
-  transaction_date: string;
-  direction:        string;
-  category:         string | null;
-  amount:           number;
-  description:      string | null;
-  receipt_url:      string | null;
 }
 
 const DirBadge: React.FC<{ dir: string }> = ({ dir }) => {
@@ -5735,20 +5727,27 @@ const ViewSwitch: React.FC<{ views: ReadonlyArray<{ value: string; label: string
   );
 };
 
-const CAR_VIEWS = [
-  { value: 'cars', label: 'By car' },
-  { value: 'investors', label: 'By investor' },
-  { value: 'summary', label: 'Monthly summary' },
-] as const;
+/** The count sits on the toggle, so suggested rows aren't missed from the default view. */
+const InvestorsTab: React.FC<{ view: string | null; onExpensesChanged: () => void }> = ({ view, onExpensesChanged }) => {
+  const [waiting, setWaiting] = useState(0);
 
-const CarSheetsTab: React.FC<{ view: string | null; onExpensesChanged: () => void }> = ({ view, onExpensesChanged }) => {
-  const current = CAR_VIEWS.some(option => option.value === view) ? view as string : 'cars';
+  useEffect(() => {
+    let cancelled = false;
+    fetchSuggestedExpenses('car', currentMonthKey())
+      .then((rows) => { if (!cancelled) setWaiting(rows.length); })
+      .catch(() => { /* Only the count goes missing. */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const current = view === 'cars' ? 'cars' : 'investors';
+  const views = [
+    { value: 'investors', label: 'By investor' },
+    { value: 'cars', label: waiting > 0 ? `By car (${waiting})` : 'By car' },
+  ];
   return (
     <>
-      <ViewSwitch views={CAR_VIEWS} current={current} />
-      {current === 'cars' && <CarSheetsList onExpensesChanged={onExpensesChanged} />}
-      {current === 'investors' && <InvestorSheetsTab />}
-      {current === 'summary' && <MonthlySummary />}
+      <ViewSwitch views={views} current={current} />
+      {current === 'investors' ? <InvestorSheetsTab /> : <CarSheetsList onExpensesChanged={onExpensesChanged} />}
     </>
   );
 };
@@ -5768,7 +5767,7 @@ const CustomerWalletsTab: React.FC<{ view: string | null }> = ({ view }) => {
   );
 };
 
-/** Staff custody, plus the admin's own way to put money in or take it out of a wallet. */
+/** Staff custody, plus the admin's own way to put money in or take it out of someone's custody. */
 const CustodyTab: React.FC<{ onPending: (summary: PendingSummary) => void }> = ({ onPending }) => {
   const [adding, setAdding] = useState(false);
   const [staff,  setStaff]  = useState<ProfileRow[]>([]);
@@ -5787,7 +5786,7 @@ const CustodyTab: React.FC<{ onPending: (summary: PendingSummary) => void }> = (
       <StaffCustodyTab
         onPending={onPending}
         refresh={refresh}
-        action={<Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" disabled={staff.length === 0} onClick={() => setAdding(true)}>Add to wallet</Button>}
+        action={<Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" disabled={staff.length === 0} onClick={() => setAdding(true)}>Add to custody</Button>}
       />
       {adding && (
         <AddInternalFinanceTxModal
@@ -5802,25 +5801,35 @@ const CustodyTab: React.FC<{ onPending: (summary: PendingSummary) => void }> = (
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type AccountingTab = 'overview' | 'cars' | 'expenses' | 'custody' | 'vault' | 'customers' | 'suppliers' | 'cash';
+type AccountingTab = 'overview' | 'investors' | 'expenses' | 'custody' | 'wallets' | 'customers' | 'suppliers' | 'vault';
 
 const TABS: ReadonlyArray<{ key: AccountingTab; label: string }> = [
   { key: 'overview',  label: 'Overview'         },
-  { key: 'cars',      label: 'Car sheets'       },
+  { key: 'investors', label: 'Investors'        },
   { key: 'expenses',  label: 'Company expenses' },
   { key: 'custody',   label: 'Staff custody'    },
-  { key: 'vault',     label: 'Cash & Envelopes' },
+  { key: 'wallets',   label: 'Wallets'          },
   { key: 'customers', label: 'Customer wallets' },
   { key: 'suppliers', label: 'Suppliers'        },
-  { key: 'cash',      label: 'Cash accounts'    },
+  { key: 'vault',     label: 'Cash & Envelopes' },
 ];
 
-/** Links from before the tabs moved. */
-const OLD_TABS: Record<string, string> = {
-  investor: 'tab=cars&view=investors',
-  customer: 'tab=customers',
-  bookings: 'tab=customers&view=bookings',
-};
+/** Links from before the tabs moved. Anything else on the link, like its month, carries over. */
+function movedTab(params: URLSearchParams): URLSearchParams | null {
+  const tab = params.get('tab');
+  const view = params.get('view');
+  const next = new URLSearchParams(params);
+  next.delete('view');
+  if (tab === 'cars' && view === 'summary') return new URLSearchParams();
+  if (tab === 'cars' && view === 'investors') next.set('tab', 'investors');
+  else if (tab === 'cars') { next.set('tab', 'investors'); next.set('view', 'cars'); }
+  else if (tab === 'investor') next.set('tab', 'investors');
+  else if (tab === 'customer') next.set('tab', 'customers');
+  else if (tab === 'bookings') { next.set('tab', 'customers'); next.set('view', 'bookings'); }
+  else if (tab === 'cash') next.set('tab', 'vault');
+  else return null;
+  return next;
+}
 
 const AccountingPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
@@ -5838,8 +5847,9 @@ const AccountingPage: React.FC = () => {
   const recheckPending = useCallback(() => setPendingCheck(value => value + 1), []);
 
   useEffect(() => {
-    if (requested && OLD_TABS[requested]) setParams(new URLSearchParams(OLD_TABS[requested]), { replace: true });
-  }, [requested, setParams]);
+    const moved = movedTab(params);
+    if (moved) setParams(moved, { replace: true });
+  }, [params, setParams]);
 
   // On a phone the row scrolls, and a link can land on a tab that's out of view.
   const tabBar = useRef<HTMLDivElement>(null);
@@ -5907,14 +5917,14 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'overview'  && <FinanceOverviewTab key={refreshKey} onAddTransaction={() => setShowAddTx(true)} />}
-      {activeTab === 'cars'      && <CarSheetsTab key={refreshKey} view={params.get('view')} onExpensesChanged={recheckPending} />}
+      {activeTab === 'overview'  && <OverviewTab key={refreshKey} />}
+      {activeTab === 'investors' && <InvestorsTab key={refreshKey} view={params.get('view')} onExpensesChanged={recheckPending} />}
       {activeTab === 'expenses'  && <CompanyExpensesTab key={refreshKey} onExpensesChanged={recheckPending} />}
       {activeTab === 'custody'   && <CustodyTab onPending={setPending} />}
-      {activeTab === 'vault'     && <CashEnvelopesTab key={refreshKey} />}
+      {activeTab === 'wallets'   && <WalletsTab />}
       {activeTab === 'customers' && <CustomerWalletsTab key={refreshKey} view={params.get('view')} />}
       {activeTab === 'suppliers' && (supplierId ? <SupplierSheet key={supplierId} supplierId={supplierId} /> : <SuppliersTab />)}
-      {activeTab === 'cash'      && <CashAccountsTab />}
+      {activeTab === 'vault'     && <CashEnvelopesTab key={refreshKey} />}
 
       {/* Global Add Transaction */}
       {showAddTx && (

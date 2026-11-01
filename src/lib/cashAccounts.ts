@@ -13,9 +13,6 @@ export const KIND_LABELS: Record<AccountKind, string> = {
   other: 'Other',
 };
 
-export const ACCOUNT_FILTERS = ['safe', 'bank', 'pos', 'custody'] as const;
-export type AccountFilter = typeof ACCOUNT_FILTERS[number];
-
 export interface CashAccount {
   id: number;
   code: string;
@@ -61,13 +58,6 @@ export async function setAccountActive(id: number, active: boolean): Promise<voi
   const { data, error } = await supabase.from('cash_accounts').update({ is_active: active }).eq('id', id).select('id');
   if (error) throw new Error(error.message);
   if (!data?.length) throw new Error("You can't change this account.");
-}
-
-/** The tiles group the two card-style kinds, and "other" only shows under All. */
-export function inAccountFilter(account: Pick<CashAccount, 'kind'>, filter: AccountFilter | 'all'): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'pos') return account.kind === 'pos' || account.kind === 'gateway';
-  return account.kind === filter;
 }
 
 /** Spaces are for reading, so they aren't stored. Empty is allowed. */

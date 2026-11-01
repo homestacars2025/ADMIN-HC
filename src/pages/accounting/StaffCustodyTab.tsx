@@ -320,7 +320,7 @@ const EmployeeSection: React.FC<{
 
 export const StaffCustodyTab: React.FC<{
   action?: React.ReactNode;
-  /** Bumped after money is added to a wallet from outside the tab. */
+  /** Bumped after money is added to someone's custody from outside the tab. */
   refresh?: number;
   onPending: (summary: PendingSummary) => void;
 }> = ({ action, refresh = 0, onPending }) => {

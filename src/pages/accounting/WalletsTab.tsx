@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ConfirmDialog } from '../components/media/ConfirmDialog';
-import { AlertTriangle } from '../components/media/MediaIcons';
-import { PageHeader } from '../components/media/MediaShared';
-import { MediaToaster, toast } from '../components/media/MediaToast';
-import { Button } from '../components/media/MediaUI';
-import { useShell } from '../components/shell/shellContext';
-import { MonthNav } from '../components/shared/MonthNav';
-import StaffAvatar from '../components/shared/StaffAvatar';
-import { cn } from '../lib/media/badgeColor';
+import { ConfirmDialog } from '../../components/media/ConfirmDialog';
+import { AlertTriangle } from '../../components/media/MediaIcons';
+import { MediaToaster, toast } from '../../components/media/MediaToast';
+import { Button } from '../../components/media/MediaUI';
+import { useShell } from '../../components/shell/shellContext';
+import { MonthNav } from '../../components/shared/MonthNav';
+import StaffAvatar from '../../components/shared/StaffAvatar';
+import { cn } from '../../lib/media/badgeColor';
 import {
   currentMonth,
   fetchPayroll,
@@ -21,9 +20,9 @@ import {
   staffMonth,
   type PayrollData,
   type PayrollStaff,
-} from '../lib/payroll';
-import { useConfirm } from './media/useConfirm';
-import { StaffDrawer } from './payroll/StaffDrawer';
+} from '../../lib/payroll';
+import { useConfirm } from '../media/useConfirm';
+import { StaffDrawer } from '../payroll/StaffDrawer';
 
 const CARD = 'rounded-2xl border border-subtle bg-surface';
 const TH = 'whitespace-nowrap px-4 py-3 text-[11px] font-medium uppercase tracking-[0.06em] text-black/45';
@@ -82,7 +81,8 @@ const SalaryCell: React.FC<{
   );
 };
 
-const PayrollPage: React.FC = () => {
+/** Salaries and bonuses: the employee's own money, not the custody they hold for the company. */
+export const WalletsTab: React.FC = () => {
   const { profile } = useShell();
   const [month, setMonth] = useState(currentMonth);
   const [data, setData] = useState<PayrollData | null>(null);
@@ -161,9 +161,9 @@ const PayrollPage: React.FC = () => {
   const anySalarySet = data?.staff.some((staff) => staff.monthly_salary > 0) ?? false;
 
   return (
-    <div className="media-scope mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeader eyebrow="Finance" title="Payroll" subtitle="Staff salaries, bonuses and payouts. Always in Turkish lira." />
+    <div className="media-scope">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-[13.5px] text-black/50">Staff salaries, bonuses and payouts. Always in Turkish lira.</p>
         <MonthNav
           label={label}
           onPrev={() => setMonth((m) => shiftMonth(m, -1))}
@@ -281,4 +281,3 @@ const PayrollPage: React.FC = () => {
   );
 };
 
-export default PayrollPage;

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Check } from '../../components/media/MediaIcons';
 import { MediaToaster, toast } from '../../components/media/MediaToast';
 import { Button, Select, Spinner } from '../../components/media/MediaUI';
@@ -43,6 +42,7 @@ import { formatMoney } from '../../lib/money';
 import { getAvatarProfiles, type ProfileOption } from '../../lib/notifications';
 import { LicensePlate } from '../bookings/ui';
 import { WalletIcon } from '../customers/ui';
+import { AccountsSection } from './AccountsSection';
 import { ReceiveEnvelopeSheet, TransferSheet } from './EnvelopeSheets';
 
 const TONES: Record<AccountKind, FilterTileTone> = { safe: 'teal', pos: 'violet', bank: 'green', gateway: 'green', custody: 'neutral', other: 'neutral' };
@@ -244,7 +244,7 @@ export const CashEnvelopesTab: React.FC = () => {
       <div className="mt-4 flex max-w-[1100px] flex-wrap items-center gap-2">
         <Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setReceiving(true)}>Receive envelope</Button>
         <Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setTransferring(true)}>Transfer</Button>
-        <Link to="/dashboard/accounting?tab=cash" className="inline-flex min-h-[44px] items-center px-2 text-[13px] font-medium text-primary hover:underline md:min-h-[40px]">Manage accounts</Link>
+        <a href="#cash-accounts" onClick={(event) => { event.preventDefault(); document.getElementById('cash-accounts')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex min-h-[44px] items-center px-2 text-[13px] font-medium text-primary hover:underline md:min-h-[40px]">Manage accounts</a>
       </div>
 
       <Section
@@ -385,6 +385,8 @@ export const CashEnvelopesTab: React.FC = () => {
               </ul>
             )}
       </Section>
+
+      {!loading && <AccountsSection accounts={accounts} balances={balances} onChange={setAccounts} />}
 
       {receiving && (
         <ReceiveEnvelopeSheet

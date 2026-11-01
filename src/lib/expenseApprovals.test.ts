@@ -62,7 +62,7 @@ describe('where an expense will be posted', () => {
 describe('sheetLink', () => {
   it('points at the car it was really posted to, not the one on the expense', () => {
     expect(sheetLink(expense({ transaction_date: '2026-10-30', car_id: 5, posted_car_id: 9, posted_car_tx_id: 77 })))
-      .toBe('/dashboard/accounting?tab=cars&month=2026-10&car=9&entry=77');
+      .toBe('/dashboard/accounting?tab=investors&view=cars&month=2026-10&car=9&entry=77');
   });
 
   it('points at the row in company expenses', () => {

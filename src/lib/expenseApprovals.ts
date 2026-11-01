@@ -296,7 +296,7 @@ export function postingLabel(target: PostingTarget): string {
 export function sheetLink(row: Pick<ReviewExpense, 'transaction_date' | 'posted_car_id' | 'posted_car_tx_id' | 'posted_company_expense_id'>): string | null {
   const month = row.transaction_date.slice(0, 7);
   if (row.posted_car_tx_id !== null && row.posted_car_id !== null) {
-    return `/dashboard/accounting?tab=cars&month=${month}&car=${row.posted_car_id}&entry=${row.posted_car_tx_id}`;
+    return `/dashboard/accounting?tab=investors&view=cars&month=${month}&car=${row.posted_car_id}&entry=${row.posted_car_tx_id}`;
   }
   if (row.posted_company_expense_id !== null) return `/dashboard/accounting?tab=expenses&month=${month}&entry=${row.posted_company_expense_id}`;
   return null;

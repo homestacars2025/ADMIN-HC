@@ -11,9 +11,9 @@ import { Field, INPUT, Notice, Segmented } from './ui';
 const CURRENCY_OPTIONS = CURRENCIES.map((value) => ({ value, label: `${CURRENCY_SYMBOLS[value]} ${value}` }));
 
 const NO_ACCOUNT: Record<Exclude<PayMethod, 'cash'>, string> = {
-  bank_transfer: 'No bank account takes this currency yet. Add one in Accounting, under Cash accounts.',
-  card: 'No POS takes this currency yet. Add one in Accounting, under Cash accounts.',
-  online: 'No gateway or bank account takes this currency yet. Add one in Accounting, under Cash accounts.',
+  bank_transfer: 'No bank account takes this currency yet. Add one in Accounting, under Cash & Envelopes.',
+  card: 'No POS takes this currency yet. Add one in Accounting, under Cash & Envelopes.',
+  online: 'No gateway or bank account takes this currency yet. Add one in Accounting, under Cash & Envelopes.',
 };
 
 /** The accounts money can land in. A failed read only leaves the pickers empty. */

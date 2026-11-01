@@ -1,18 +1,6 @@
-import { cleanIban, formatIban, inAccountFilter, validIban } from './cashAccounts';
+import { cleanIban, formatIban, validIban } from './cashAccounts';
 
 jest.mock('./supabase', () => ({ supabase: {} }));
-
-describe('inAccountFilter', () => {
-  it('groups POS and gateways on one tile', () => {
-    expect(inAccountFilter({ kind: 'gateway' }, 'pos')).toBe(true);
-    expect(inAccountFilter({ kind: 'pos' }, 'pos')).toBe(true);
-    expect(inAccountFilter({ kind: 'bank' }, 'pos')).toBe(false);
-  });
-
-  it('shows everything under All', () => {
-    expect(inAccountFilter({ kind: 'other' }, 'all')).toBe(true);
-  });
-});
 
 describe('IBAN', () => {
   it('stores it without spaces, in capitals', () => {

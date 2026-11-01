@@ -5,7 +5,6 @@ import LoginPage from './pages/LoginPage';
 import Layout from './components/Layout';
 import GoalsPage from './pages/GoalsPage';
 import HomePage from './pages/HomePage';
-import PayrollPage from './pages/PayrollPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import CarsPage from './pages/CarsPage';
@@ -95,7 +94,7 @@ const App: React.FC = () => {
           <Route path="fines" element={<FinesPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="investors" element={<InvestorsPage />} />
-          <Route path="payroll" element={<PayrollPage />} />
+          <Route path="payroll" element={<Navigate to="/dashboard/accounting?tab=wallets" replace />} />
           <Route path="goals" element={<GoalsPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="accounting" element={<AccountingPage />} />
@@ -103,7 +102,7 @@ const App: React.FC = () => {
           <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
           <Route path="suppliers" element={<Navigate to="/dashboard/accounting?tab=suppliers" replace />} />
           <Route path="suppliers/:id" element={<SupplierRedirect />} />
-          <Route path="cash-accounts" element={<Navigate to="/dashboard/accounting?tab=cash" replace />} />
+          <Route path="cash-accounts" element={<Navigate to="/dashboard/accounting?tab=vault" replace />} />
           <Route path="customer-wallets" element={<Navigate to="/dashboard/accounting?tab=customers" replace />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/:id" element={<CustomerProfilePage />} />
