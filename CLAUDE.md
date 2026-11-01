@@ -14,6 +14,14 @@ Admin dashboard for HomestaCars — a premium car rental company based in Istanb
 - Language: English
 - No generic AI patterns — distinctive, memorable UI
 
+## Design Rules
+- Stat tiles double as filters; no separate filter chip rows.
+  - Clicking a tile filters the list, and clicking the active tile clears it. An "All" tile is always there.
+  - The active tile has a 2px border in its own color, a stronger tint and a check badge, and tiles are buttons with `aria-pressed`.
+  - The active filter lives in the URL (`?filter=unpaid`), so refresh and back keep it. Use `useUrlFilter`.
+  - Tiles show the count, and the amount where it's relevant. Search sits below the tiles.
+  - Sizing: compact on desktop (about 140px tall, about 220px wide at most, row about 900px at most), and two to a row with short tiles on mobile. Never tall empty tiles. Use `FILTER_TILE_ROW` and `PremiumTile compact`.
+
 ## Architecture
 - /src/components — reusable UI components
 - /src/pages — dashboard pages

@@ -1,7 +1,11 @@
 import React from 'react';
+import { Check } from '../../components/media/MediaIcons';
 import { cn } from '../../lib/media/badgeColor';
 
 export type TileTone = 'blue' | 'teal' | 'red' | 'green' | 'violet' | 'amber' | 'neutral';
+
+/** Tiles are the filters: a compact row on desktop, two to a row below that. */
+export const FILTER_TILE_ROW = 'grid max-w-[900px] grid-cols-2 gap-3 lg:grid-cols-5';
 
 const SPARK_WIDTH = 120;
 const SPARK_HEIGHT = 28;
@@ -58,6 +62,8 @@ export interface PremiumTileProps {
   active?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
+  /** Below desktop this one lies flat across the row, for the odd tile out. */
+  slim?: boolean;
   /** A smaller figure for a strip of six on the profile. */
   compact?: boolean;
 }
@@ -75,9 +81,15 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
   onClick,
   ariaLabel,
   compact,
+  slim,
 }) => {
   const body = (
     <>
+      {active && (
+        <span aria-hidden="true" className="absolute end-2 top-2 grid h-5 w-5 place-items-center rounded-full text-white" style={{ background: 'var(--tile-chip)' }}>
+          <Check size={12} strokeWidth={3} />
+        </span>
+      )}
       <span className="flex items-center justify-between gap-2">
         <span
           className={cn('grid shrink-0 place-items-center rounded-[10px] text-white', compact ? 'h-7 w-7' : 'h-8 w-8')}
@@ -87,22 +99,24 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
         </span>
         {change !== null && change !== undefined && <Delta change={change} upIsBad={upIsBad} />}
       </span>
-      <span className="mt-2.5 block text-[12.5px] font-medium leading-snug opacity-80">{label}</span>
+      <span className={cn('mt-2.5 block text-[12.5px] font-medium leading-snug opacity-80', slim && 'max-lg:mt-0 max-lg:flex-1')}>{label}</span>
       <span className={cn(
         'mt-1 block font-semibold leading-none tracking-[-0.02em] tabular-nums',
         compact ? 'truncate text-[17px] sm:text-[19px]' : 'text-[24px] sm:text-[28px]',
+        slim && 'max-lg:mt-0 max-lg:me-7 max-lg:shrink-0',
       )}>
         {value}
       </span>
-      {hint && <span className="mt-1.5 block text-[12px] font-medium leading-snug tabular-nums opacity-75">{hint}</span>}
+      {hint && <span className={cn('mt-1.5 block text-[12px] font-medium leading-snug tabular-nums opacity-75', compact && 'truncate', slim && 'max-lg:hidden')}>{hint}</span>}
       {spark && spark.length > 1 && <Sparkline points={spark} />}
     </>
   );
 
   const shape = cn(
-    'tile-depth block min-w-0 rounded-[20px] text-left',
+    'tile-depth relative block min-w-0 rounded-[20px] text-left',
     compact ? 'p-3.5' : 'p-4',
     `tile-${tone}`,
+    slim && 'max-lg:col-span-2 max-lg:flex max-lg:items-center max-lg:gap-2.5 max-lg:py-2.5',
   );
 
   if (!onClick) return <div className={shape}>{body}</div>;
@@ -115,7 +129,7 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
       className={cn(
         shape,
         'w-full transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40',
-        active && 'ring-2 ring-[var(--tile-chip)]',
+        active && 'outline outline-2 -outline-offset-2 outline-[var(--tile-chip)] saturate-[1.35]',
       )}
     >
       {body}
@@ -123,10 +137,10 @@ export const PremiumTile: React.FC<PremiumTileProps> = ({
   );
 };
 
-export const TileSkeleton: React.FC<{ count?: number; className?: string }> = ({ count = 4, className }) => (
+export const TileSkeleton: React.FC<{ count?: number; className?: string; compact?: boolean }> = ({ count = 4, className, compact }) => (
   <>
     {Array.from({ length: count }, (_, index) => (
-      <div key={index} className={cn('h-[176px] animate-pulse rounded-[20px] bg-black/[0.04]', className)} />
+      <div key={index} className={cn('animate-pulse rounded-[20px] bg-black/[0.04]', compact ? 'h-[128px]' : 'h-[176px]', className)} />
     ))}
   </>
 );

@@ -5,7 +5,8 @@ import { supabase } from './supabase';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type FineStatus = 'paid' | 'unpaid';
-export type FineSegment = 'all' | 'unpaid' | 'paid' | 'unassigned' | 'month';
+export const FINE_FILTERS = ['unpaid', 'paid', 'month', 'unassigned'] as const;
+export type FineSegment = 'all' | typeof FINE_FILTERS[number];
 
 export interface Fine {
   id: string;
@@ -133,7 +134,10 @@ export async function fetchBookingsOnCar(carId: number): Promise<BookingOnCar[]>
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
-const inMonth = (day: string | null, month: string) => Boolean(day && day.startsWith(month));
+/** When a fine happened: its violation date, or when notified if that's all there is. */
+const fineDay = (fine: Pick<Fine, 'violation_date' | 'notification_date'>) => fine.violation_date ?? fine.notification_date;
+
+const inMonth = (fine: Fine, month: string) => Boolean(fineDay(fine)?.startsWith(month));
 
 export const thisMonth = () => istanbulDate().slice(0, 7);
 
@@ -156,14 +160,15 @@ export function fineStats(fines: Fine[], month: string = thisMonth()) {
   const sum = (rows: Fine[]) => rows.reduce((total, fine) => total + Number(fine.amount || 0), 0);
   const unpaid = fines.filter((fine) => fine.status === 'unpaid');
   const paid = fines.filter((fine) => fine.status === 'paid');
-  const current = fines.filter((fine) => inMonth(fine.violation_date, month));
+  const current = fines.filter((fine) => inMonth(fine, month));
   const unassigned = fines.filter((fine) => !fine.customer_id);
   return {
+    all: { count: fines.length, amount: sum(fines) },
     unpaid: { count: unpaid.length, amount: sum(unpaid) },
     paid: { count: paid.length, amount: sum(paid) },
     month: { count: current.length, amount: sum(current) },
     linked: fines.length - unassigned.length,
-    unassigned: unassigned.length,
+    unassigned: { count: unassigned.length, amount: sum(unassigned) },
   };
 }
 
@@ -173,7 +178,7 @@ export function filterFines(fines: Fine[], segment: FineSegment, search: string,
     if (segment === 'unpaid' && fine.status !== 'unpaid') return false;
     if (segment === 'paid' && fine.status !== 'paid') return false;
     if (segment === 'unassigned' && fine.customer_id) return false;
-    if (segment === 'month' && !inMonth(fine.violation_date, month)) return false;
+    if (segment === 'month' && !inMonth(fine, month)) return false;
     if (!query) return true;
     return [fine.plate_number, fine.violation_number, fine.resolved_customer_name, fine.customer_name, fine.location]
       .some((field) => (field ?? '').toLowerCase().includes(query));

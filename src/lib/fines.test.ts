@@ -27,8 +27,19 @@ describe('fineStats', () => {
     expect(stats.unpaid).toEqual({ count: 2, amount: 1250 });
     expect(stats.paid).toEqual({ count: 1, amount: 500 });
     expect(stats.month).toEqual({ count: 2, amount: 1500 });
+    expect(stats.all).toEqual({ count: 3, amount: 1750 });
     expect(stats.linked).toBe(2);
-    expect(stats.unassigned).toBe(1);
+    expect(stats.unassigned).toEqual({ count: 1, amount: 500 });
+  });
+
+  it('dates a fine by the violation, then by the notification', () => {
+    const dated = [
+      fine({ id: 'a', violation_date: null, notification_date: '2026-11-03' }),
+      fine({ id: 'b', violation_date: '2026-10-30', notification_date: '2026-11-03' }),
+      fine({ id: 'c', violation_date: null, notification_date: null }),
+    ];
+    expect(fineStats(dated, '2026-11').month.count).toBe(1);
+    expect(filterFines(dated, 'month', '', '2026-11').map((row) => row.id)).toEqual(['a']);
   });
 
   it('adds amounts that arrive as text', () => {

@@ -35,7 +35,9 @@ describe('issueStats', () => {
   ];
 
   it('counts each tile', () => {
-    expect(issueStats(rows, '2026-11')).toEqual({ open: 1, resolvedThisMonth: 1, accidents: 1, averageDays: 7.5 });
+    expect(issueStats(rows, '2026-11', '2026-11-01')).toEqual({
+      all: 3, open: 1, overdue: 1, resolved: 2, resolvedThisMonth: 1, accidents: 1, openAccidents: 0, averageDays: 7.5,
+    });
   });
 
   it('has no average with nothing resolved', () => {
@@ -51,10 +53,21 @@ describe('filterIssues', () => {
   const rows = [issue({ id: 1 }), issue({ id: 2, type: 'sound', status: 'resolved', plate_number: '06XYZ9', customer_name: null, description: null })];
   const ids = (list: Issue[]) => list.map((item) => item.id);
 
-  it('filters by status and type', () => {
+  it('filters by tile and type', () => {
     expect(ids(filterIssues(rows, 'open', 'all', ''))).toEqual([1]);
+    expect(ids(filterIssues(rows, 'resolved', 'all', ''))).toEqual([2]);
     expect(ids(filterIssues(rows, 'all', 'sound', ''))).toEqual([2]);
     expect(ids(filterIssues(rows, 'open', 'sound', ''))).toEqual([]);
+  });
+
+  it('filters to what was resolved this month, and to accidents', () => {
+    const dated = [
+      issue({ id: 1, status: 'resolved', resolved_at: '2026-11-01' }),
+      issue({ id: 2, status: 'resolved', resolved_at: '2026-10-31' }),
+      issue({ id: 3, type: 'accident' }),
+    ];
+    expect(ids(filterIssues(dated, 'month', 'all', '', '2026-11'))).toEqual([1]);
+    expect(ids(filterIssues(dated, 'accidents', 'all', '', '2026-11'))).toEqual([3]);
   });
 
   it('searches plate, model, customer and description', () => {

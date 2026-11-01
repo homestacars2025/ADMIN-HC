@@ -4,10 +4,12 @@ import { Plus } from '../components/media/MediaIcons';
 import { MediaToaster, toast } from '../components/media/MediaToast';
 import { Button } from '../components/media/MediaUI';
 import { Lightbox, type LightboxItem } from '../components/shared/Lightbox';
-import { FilterChips, LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
+import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useUrlFilter } from '../hooks/useUrlFilter';
 import {
   FORM_TYPES,
+  ISSUE_FILTERS,
   deleteCarIssue,
   fetchIssues,
   filterIssues,
@@ -19,12 +21,12 @@ import {
 import { fetchFineCars, type FineCar } from '../lib/fines';
 import { cn } from '../lib/media/badgeColor';
 import type { ProfileOption } from '../lib/notifications';
-import { Segmented } from './bookings/ui';
+import { INPUT, Segmented } from './bookings/ui';
 import { EditIssueSheet, IssueDetailSheet, ResolveSheet } from './carIssues/IssueDetailSheet';
 import { IssueFormSheet } from './carIssues/IssueFormSheet';
 import { IssueCard, IssueRow, TYPE_CONFIG, TypeIcon } from './carIssues/ui';
-import { ClockIcon, ReceiptIcon } from './customers/ui';
-import { PremiumTile, TileSkeleton } from './customers/PremiumTile';
+import { ClockIcon, GridIcon, ReceiptIcon } from './customers/ui';
+import { FILTER_TILE_ROW, PremiumTile, TileSkeleton } from './customers/PremiumTile';
 
 type Layout = 'board' | 'list';
 type Sheet =
@@ -50,7 +52,7 @@ const CarIssuesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
 
-  const [status, setStatus] = useState<IssueStatus | 'all'>('all');
+  const { filter, toggle, clear } = useUrlFilter(ISSUE_FILTERS);
   const [type, setType] = useState<IssueType | 'all'>('all');
   const [search, setSearch] = useState('');
   const [layout, setLayout] = useState<Layout>('board');
@@ -81,7 +83,9 @@ const CarIssuesPage: React.FC = () => {
   }, [reload]);
 
   const stats = useMemo(() => issueStats(issues), [issues]);
-  const visible = useMemo(() => filterIssues(issues, status, type, search), [issues, status, type, search]);
+  const visible = useMemo(() => filterIssues(issues, filter, type, search), [issues, filter, type, search]);
+  const singleColumn = filter === 'open' || filter === 'resolved' || filter === 'month';
+  const columns = COLUMNS.filter((column) => !singleColumn || (filter === 'open') === (column.status === 'open'));
   const selected = sheet && sheet.type !== 'add' ? issues.find((issue) => issue.id === sheet.id) ?? null : null;
 
   const saved = useCallback((message: string, next: Sheet) => {
@@ -128,47 +132,42 @@ const CarIssuesPage: React.FC = () => {
 
       {error && <LoadError message={`Couldn't load the issues: ${error}`} onRetry={() => setReload((value) => value + 1)} />}
 
-      {loading ? <div className="grid grid-cols-2 gap-3 xl:grid-cols-4"><TileSkeleton count={4} /></div> : (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <PremiumTile tone="red" icon={<ClockIcon size={15} />} label="Open" value={stats.open} active={status === 'open'} onClick={() => setStatus((current) => (current === 'open' ? 'all' : 'open'))} />
-          <PremiumTile tone="green" icon={<ReceiptIcon size={15} />} label="Resolved this month" value={stats.resolvedThisMonth} />
-          <PremiumTile tone="amber" icon={<TypeIcon type="accident" />} label="Accidents" value={stats.accidents} active={type === 'accident'} onClick={() => setType((current) => (current === 'accident' ? 'all' : 'accident'))} />
-          <PremiumTile tone="blue" icon={<ClockIcon size={15} />} label="Average days to resolve" value={stats.averageDays ?? '—'} />
+      {loading ? <div className={FILTER_TILE_ROW}><TileSkeleton compact count={5} /></div> : (
+        <div role="group" aria-label="Filter issues" className={FILTER_TILE_ROW}>
+          <PremiumTile compact slim tone="neutral" icon={<GridIcon size={14} />} label="All issues" value={stats.all} active={filter === 'all'} onClick={clear} />
+          <PremiumTile compact tone="red" icon={<ClockIcon size={14} />} label="Open" value={stats.open} hint={`${stats.overdue} over 7 days`} active={filter === 'open'} onClick={() => toggle('open')} />
+          <PremiumTile compact tone="green" icon={<ReceiptIcon size={14} />} label="Resolved this month" value={stats.resolvedThisMonth} hint={`${stats.resolved} in total`} active={filter === 'month'} onClick={() => toggle('month')} />
+          <PremiumTile compact tone="amber" icon={<TypeIcon type="accident" size={14} />} label="Accidents" value={stats.accidents} hint={`${stats.openAccidents} open`} active={filter === 'accidents'} onClick={() => { setType('all'); toggle('accidents'); }} />
+          <PremiumTile
+            compact
+            tone="blue"
+            icon={<ClockIcon size={14} />}
+            label="Avg. days to resolve"
+            value={stats.averageDays ?? '—'}
+            hint={`${stats.resolved} resolved`}
+            active={filter === 'resolved'}
+            onClick={() => toggle('resolved')}
+          />
         </div>
       )}
 
-      <div className="mt-5 flex min-w-0 flex-col gap-2.5">
-        <div className="flex min-w-0 flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-          <FilterChips
-            ariaLabel="Filter by type"
-            value={type}
-            onChange={setType}
-            options={[
-              { value: 'all', label: 'All types' },
-              ...FORM_TYPES.map((item) => ({
-                value: item,
-                label: TYPE_CONFIG[item].label,
-                color: TYPE_CONFIG[item].color,
-                icon: <TypeIcon type={item} size={14} />,
-                count: issues.filter((issue) => issue.type === item).length,
-              })),
-            ]}
-          />
-          <SearchField value={search} onChange={setSearch} placeholder="Search plate, customer…" className="lg:w-[280px]" />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <FilterChips
-            ariaLabel="Filter by status"
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: 'all', label: 'All', count: issues.length },
-              { value: 'open', label: 'Open', count: stats.open },
-              { value: 'resolved', label: 'Resolved', count: issues.length - stats.open },
-            ]}
-          />
-          <Segmented ariaLabel="Layout" value={layout} options={LAYOUT_OPTIONS} onChange={setLayout} />
-        </div>
+      <div className="mt-4 flex max-w-[900px] flex-wrap items-center gap-2">
+        <SearchField value={search} onChange={setSearch} placeholder="Search plate, customer…" className="min-w-[200px] flex-1" />
+        <select
+          aria-label="Issue type"
+          value={type}
+          onChange={(event) => {
+            setType(event.target.value as IssueType | 'all');
+            if (filter === 'accidents') clear();
+          }}
+          className={cn(INPUT, '!w-auto max-w-full flex-none')}
+        >
+          <option value="all">All types</option>
+          {FORM_TYPES.map((item) => (
+            <option key={item} value={item}>{TYPE_CONFIG[item].label} ({issues.filter((issue) => issue.type === item).length})</option>
+          ))}
+        </select>
+        <Segmented ariaLabel="Layout" value={layout} options={LAYOUT_OPTIONS} onChange={setLayout} />
       </div>
 
       {loading ? (
@@ -184,7 +183,7 @@ const CarIssuesPage: React.FC = () => {
         </section>
       ) : (
         <div className="mt-3 grid items-start gap-4 lg:grid-cols-2">
-          {COLUMNS.filter((column) => status === 'all' || status === column.status).map((column) => {
+          {columns.map((column) => {
             const cards = visible.filter((issue) => issue.status === column.status);
             const accepts = column.status === 'resolved' && canDrag;
             return (
@@ -194,7 +193,7 @@ const CarIssuesPage: React.FC = () => {
                 onDragOver={accepts ? (event) => { event.preventDefault(); setDropReady(true); } : undefined}
                 onDragLeave={accepts ? () => setDropReady(false) : undefined}
                 onDrop={accepts ? onDropResolved : undefined}
-                className={cn('min-w-0 rounded-2xl bg-black/[0.025] p-2.5 transition-shadow', status !== 'all' && 'lg:col-span-2', accepts && dropReady && 'ring-2 ring-[#16A34A]/50')}
+                className={cn('min-w-0 rounded-2xl bg-black/[0.025] p-2.5 transition-shadow', singleColumn && 'lg:col-span-2', accepts && dropReady && 'ring-2 ring-[#16A34A]/50')}
               >
                 <h2 className="mb-2.5 flex items-center gap-2 px-1.5 pt-0.5 text-[13.5px] font-semibold text-foreground">
                   <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', column.dot)} />
@@ -204,7 +203,7 @@ const CarIssuesPage: React.FC = () => {
                 {cards.length === 0 ? (
                   <p className="px-2 py-8 text-center text-[13px] text-black/45">Nothing here.</p>
                 ) : (
-                  <div className={cn('grid grid-cols-1 gap-2.5 sm:grid-cols-2', status !== 'all' && 'lg:grid-cols-3 xl:grid-cols-4')}>
+                  <div className={cn('grid grid-cols-1 gap-2.5 sm:grid-cols-2', singleColumn && 'lg:grid-cols-3 xl:grid-cols-4')}>
                     {cards.map((issue) => (
                       <IssueCard
                         key={issue.id}

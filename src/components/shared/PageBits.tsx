@@ -18,46 +18,6 @@ export const PageHeader: React.FC<{
   </header>
 );
 
-export interface ChipOption<T extends string> {
-  value: T;
-  label: string;
-  count?: number;
-  icon?: React.ReactNode;
-  color?: string;
-}
-
-/** One line that scrolls sideways on a phone, rather than wrapping into a block. */
-export function FilterChips<T extends string>({ value, options, onChange, ariaLabel }: {
-  value: T;
-  options: ReadonlyArray<ChipOption<T>>;
-  onChange: (value: T) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <div role="group" aria-label={ariaLabel} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:px-0">
-      {options.map((option) => {
-        const active = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              'inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:h-9',
-              active ? 'border-[#6EA4E7] bg-[#6EA4E7]/[0.1] text-brand-strong' : 'border-subtle bg-surface text-black/60 hover:bg-black/[0.03]',
-            )}
-          >
-            {option.icon && <span style={{ color: option.color }} className="flex shrink-0">{option.icon}</span>}
-            {option.label}
-            {option.count !== undefined && <span className="tabular-nums opacity-60">{option.count}</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export const SearchField: React.FC<{ value: string; onChange: (value: string) => void; placeholder: string; className?: string }> = ({ value, onChange, placeholder, className }) => (
   <div className={cn('relative min-w-0', className)}>
     <Search size={14} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-black/35" />

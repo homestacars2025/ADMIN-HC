@@ -4,11 +4,13 @@ import { Plus } from '../components/media/MediaIcons';
 import { Button } from '../components/media/MediaUI';
 import { MediaToaster, toast } from '../components/media/MediaToast';
 import { Lightbox, type LightboxItem } from '../components/shared/Lightbox';
-import { FilterChips, LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
+import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
+import { useUrlFilter } from '../hooks/useUrlFilter';
 import { useCurrency } from '../lib/CurrencyContext';
 import { formatDate } from '../lib/customers';
 import {
+  FINE_FILTERS,
   deleteFine,
   fetchFineCars,
   fetchFines,
@@ -17,11 +19,10 @@ import {
   fineStats,
   type Fine,
   type FineCar,
-  type FineSegment,
 } from '../lib/fines';
 import { LicensePlate } from './bookings/ui';
-import { ClockIcon, ReceiptIcon, UsersIcon, WalletIcon } from './customers/ui';
-import { PremiumTile, TileSkeleton } from './customers/PremiumTile';
+import { ClockIcon, GridIcon, ReceiptIcon, UsersIcon, WalletIcon } from './customers/ui';
+import { FILTER_TILE_ROW, PremiumTile, TileSkeleton } from './customers/PremiumTile';
 import { FineDetailSheet, LinkCustomerSheet, PaymentSheet } from './fines/FineDetailSheet';
 import { FineFormSheet } from './fines/FineFormSheet';
 import { DocumentIcons, FineStatusPill, UnassignedChip } from './fines/ui';
@@ -109,7 +110,7 @@ const FinesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
-  const [segment, setSegment] = useState<FineSegment>('all');
+  const { filter: segment, toggle, clear } = useUrlFilter(FINE_FILTERS);
   const [search, setSearch] = useState('');
   const [sheet, setSheet] = useState<Sheet>(null);
   const [lightbox, setLightbox] = useState<{ items: LightboxItem[]; start: number } | null>(null);
@@ -160,8 +161,6 @@ const FinesPage: React.FC = () => {
     }
   };
 
-  const toggle = (next: FineSegment) => setSegment((current) => (current === next ? 'all' : next));
-
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
       <PageHeader
@@ -175,38 +174,26 @@ const FinesPage: React.FC = () => {
 
       {error && <LoadError message={`Couldn't load the fines: ${error}`} onRetry={() => setReload((value) => value + 1)} />}
 
-      {loading ? <div className="grid grid-cols-2 gap-3 xl:grid-cols-4"><TileSkeleton count={4} /></div> : (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <PremiumTile tone="red" icon={<WalletIcon size={15} />} label="Unpaid" value={stats.unpaid.count} hint={fmt(stats.unpaid.amount)} active={segment === 'unpaid'} onClick={() => toggle('unpaid')} />
-          <PremiumTile tone="green" icon={<ReceiptIcon size={15} />} label="Paid" value={stats.paid.count} hint={fmt(stats.paid.amount)} active={segment === 'paid'} onClick={() => toggle('paid')} />
-          <PremiumTile tone="blue" icon={<ClockIcon size={15} />} label="This month" value={stats.month.count} hint={fmt(stats.month.amount)} active={segment === 'month'} onClick={() => toggle('month')} />
+      {loading ? <div className={FILTER_TILE_ROW}><TileSkeleton compact count={5} /></div> : (
+        <div role="group" aria-label="Filter fines" className={FILTER_TILE_ROW}>
+          <PremiumTile compact slim tone="neutral" icon={<GridIcon size={14} />} label="All fines" value={stats.all.count} hint={fmt(stats.all.amount)} active={segment === 'all'} onClick={clear} />
+          <PremiumTile compact tone="red" icon={<WalletIcon size={14} />} label="Unpaid" value={stats.unpaid.count} hint={fmt(stats.unpaid.amount)} active={segment === 'unpaid'} onClick={() => toggle('unpaid')} />
+          <PremiumTile compact tone="green" icon={<ReceiptIcon size={14} />} label="Paid" value={stats.paid.count} hint={fmt(stats.paid.amount)} active={segment === 'paid'} onClick={() => toggle('paid')} />
+          <PremiumTile compact tone="blue" icon={<ClockIcon size={14} />} label="This month" value={stats.month.count} hint={fmt(stats.month.amount)} active={segment === 'month'} onClick={() => toggle('month')} />
           <PremiumTile
-            tone={stats.unassigned > 0 ? 'amber' : 'neutral'}
-            icon={<UsersIcon size={15} />}
-            label="Linked to a customer"
-            value={`${stats.linked} / ${fines.length}`}
-            hint={stats.unassigned > 0 ? `${stats.unassigned} not linked` : 'All linked'}
+            compact
+            tone={stats.unassigned.count > 0 ? 'amber' : 'neutral'}
+            icon={<UsersIcon size={14} />}
+            label="Unassigned"
+            value={stats.unassigned.count}
+            hint={stats.unassigned.count > 0 ? fmt(stats.unassigned.amount) : `All ${stats.linked} linked`}
             active={segment === 'unassigned'}
             onClick={() => toggle('unassigned')}
           />
         </div>
       )}
 
-      <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <FilterChips
-          ariaLabel="Filter fines"
-          value={segment}
-          onChange={setSegment}
-          options={[
-            { value: 'all', label: 'All', count: fines.length },
-            { value: 'unpaid', label: 'Unpaid', count: stats.unpaid.count },
-            { value: 'paid', label: 'Paid', count: stats.paid.count },
-            { value: 'unassigned', label: 'Unassigned', count: stats.unassigned },
-            { value: 'month', label: 'This month', count: stats.month.count },
-          ]}
-        />
-        <SearchField value={search} onChange={setSearch} placeholder="Search plate, violation, customer…" className="lg:w-[320px]" />
-      </div>
+      <SearchField value={search} onChange={setSearch} placeholder="Search plate, violation, customer…" className="mt-4 max-w-[900px]" />
 
       <section aria-label="Fines" className="surface-depth mt-3 overflow-hidden rounded-2xl border border-subtle bg-surface">
         {loading ? <SkeletonRows /> : visible.length === 0 ? (

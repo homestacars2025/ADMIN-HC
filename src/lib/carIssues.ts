@@ -7,6 +7,9 @@ export type IssueType = 'damage' | 'accident' | 'sound' | 'mechanical' | 'mainte
 export type IssueStatus = 'open' | 'resolved';
 export type DaysTone = 'neutral' | 'amber' | 'red';
 
+export const ISSUE_FILTERS = ['open', 'month', 'accidents', 'resolved'] as const;
+export type IssueFilter = 'all' | typeof ISSUE_FILTERS[number];
+
 export const MAX_PHOTOS = 10;
 const BUCKET = 'car-issues';
 
@@ -81,23 +84,36 @@ export function daysOpen(issue: Pick<Issue, 'discovered_at'>, today: string = is
 
 export const daysTone = (days: number): DaysTone => (days > 7 ? 'red' : days > 3 ? 'amber' : 'neutral');
 
-export function issueStats(issues: Issue[], month: string = istanbulDate().slice(0, 7)) {
+export function issueStats(issues: Issue[], month: string = istanbulDate().slice(0, 7), today: string = istanbulDate()) {
   const timed = issues.filter((issue) => issue.days_to_resolve !== null);
   const average = timed.length > 0
     ? Math.round((timed.reduce((total, issue) => total + (issue.days_to_resolve as number), 0) / timed.length) * 10) / 10
     : null;
   return {
+    all: issues.length,
     open: issues.filter((issue) => issue.status === 'open').length,
+    overdue: issues.filter((issue) => issue.status === 'open' && daysTone(daysOpen(issue, today)) === 'red').length,
+    resolved: issues.filter((issue) => issue.status === 'resolved').length,
     resolvedThisMonth: issues.filter((issue) => issue.resolved_at?.startsWith(month)).length,
     accidents: issues.filter((issue) => issue.type === 'accident').length,
+    openAccidents: issues.filter((issue) => issue.type === 'accident' && issue.status === 'open').length,
     averageDays: average,
   };
 }
 
-export function filterIssues(issues: Issue[], status: IssueStatus | 'all', type: IssueType | 'all', search: string): Issue[] {
+export function filterIssues(
+  issues: Issue[],
+  filter: IssueFilter,
+  type: IssueType | 'all',
+  search: string,
+  month: string = istanbulDate().slice(0, 7),
+): Issue[] {
   const query = search.trim().toLowerCase();
   return issues.filter((issue) => {
-    if (status !== 'all' && issue.status !== status) return false;
+    if (filter === 'open' && issue.status !== 'open') return false;
+    if (filter === 'resolved' && issue.status !== 'resolved') return false;
+    if (filter === 'month' && !issue.resolved_at?.startsWith(month)) return false;
+    if (filter === 'accidents' && issue.type !== 'accident') return false;
     if (type !== 'all' && issue.type !== type) return false;
     if (!query) return true;
     return [issue.plate_number, issue.model_name, issue.customer_name, issue.description]
