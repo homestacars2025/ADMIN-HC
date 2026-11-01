@@ -7,6 +7,7 @@ import { loadUserSettings } from '../../lib/userSettings';
 import { Search } from '../media/MediaIcons';
 import NotificationBell from '../NotificationBell';
 import { CommandPalette } from './CommandPalette';
+import { CurrencySwitcher } from './CurrencySwitcher';
 import { LiveToasts } from './LiveToasts';
 import { UserMenu } from './UserMenu';
 
@@ -89,6 +90,7 @@ export const TopBar: React.FC<TopBarProps> = ({ profile, isMobile, collapsed, be
         <Search size={19} />
       </button>
 
+      <CurrencySwitcher userId={userId} />
       <NotificationBell openRequest={bellRequest} />
       <UserMenu profile={profile} />
 

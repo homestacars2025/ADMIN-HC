@@ -6,6 +6,7 @@ import { ComplianceTriangle } from '../../components/shared/ComplianceBits';
 import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../../components/shared/FilterTile';
 import { LoadError, SkeletonRows } from '../../components/shared/PageBits';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
+import { useCurrency } from '../../lib/CurrencyContext';
 import { formatDate, istanbulDate } from '../../lib/customers';
 import {
   fetchCustodyMovements,
@@ -48,6 +49,7 @@ interface Loaded {
 
 export const FinanceOverviewTab: React.FC<{ onAddTransaction: () => void }> = ({ onAddTransaction }) => {
   const navigate = useNavigate();
+  const { fmt } = useCurrency();
   const { profile } = useCurrentProfile();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,9 +88,9 @@ export const FinanceOverviewTab: React.FC<{ onAddTransaction: () => void }> = ({
           <FilterTile tone="amber" icon={<ClockIcon size={15} />} label="Waiting approval" value={formatMoney(stats.pending.total)} sub={counted(stats.pending.count, 'expense')} active={false} onClick={go('/dashboard/accounting?tab=custody&filter=pending')} />
           <FilterTile tone="violet" icon={<Check size={15} strokeWidth={2.5} />} label="Unsigned by me" value={String(stats.unsigned.count)} sub={formatMoney(stats.unsigned.total)} active={false} onClick={go('/dashboard/accounting?tab=custody&filter=unsigned')} />
           <FilterTile tone="blue" icon={<WalletIcon size={15} />} label="Staff custody" value={formatMoney(data.custody)} sub="held by staff" active={false} onClick={go('/dashboard/accounting?tab=custody')} />
-          <FilterTile tone="red" icon={<UsersIcon size={15} />} label="Customers owing us" value={formatMoney(data.overview.customers.owing.total)} sub={counted(data.overview.customers.owing.count, 'customer')} active={false} onClick={go('/dashboard/accounting?tab=customers')} />
-          <FilterTile tone="green" icon={<UsersIcon size={15} />} label="Customers in credit" value={formatMoney(data.overview.customers.credit.total)} sub={counted(data.overview.customers.credit.count, 'customer')} active={false} onClick={go('/dashboard/accounting?tab=customers')} />
-          <FilterTile tone="red" bareIcon icon={<ComplianceTriangle tone="red" size={32} />} label="Unpaid fines" value={formatMoney(data.overview.fines.total)} sub={counted(data.overview.fines.count, 'fine')} active={false} onClick={go('/dashboard/fines?filter=unpaid')} />
+          <FilterTile tone="red" icon={<UsersIcon size={15} />} label="Customers owing us" value={fmt(data.overview.customers.owing.total)} sub={counted(data.overview.customers.owing.count, 'customer')} active={false} onClick={go('/dashboard/accounting?tab=customers')} />
+          <FilterTile tone="green" icon={<UsersIcon size={15} />} label="Customers in credit" value={fmt(data.overview.customers.credit.total)} sub={counted(data.overview.customers.credit.count, 'customer')} active={false} onClick={go('/dashboard/accounting?tab=customers')} />
+          <FilterTile tone="red" bareIcon icon={<ComplianceTriangle tone="red" size={32} />} label="Unpaid fines" value={fmt(data.overview.fines.total)} sub={counted(data.overview.fines.count, 'fine')} active={false} onClick={go('/dashboard/fines?filter=unpaid')} />
           <FilterTile
             tone="amber"
             icon={<WalletIcon size={15} />}
@@ -98,8 +100,8 @@ export const FinanceOverviewTab: React.FC<{ onAddTransaction: () => void }> = ({
             active={false}
             onClick={go('/dashboard/accounting?tab=suppliers&filter=owed')}
           />
-          <FilterTile tone="teal" icon={<CarIcon size={15} />} label="Car sheets this month" value={formatMoney(data.overview.carExpenses)} sub="expenses" active={false} onClick={go('/dashboard/accounting?tab=cars')} />
-          <FilterTile tone="neutral" icon={<FileIcon size={15} />} label="Company this month" value={formatMoney(data.overview.companyExpenses)} sub="expenses" active={false} onClick={go('/dashboard/accounting?tab=expenses')} />
+          <FilterTile tone="teal" icon={<CarIcon size={15} />} label="Car sheets this month" value={fmt(data.overview.carExpenses)} sub="expenses" active={false} onClick={go('/dashboard/accounting?tab=cars')} />
+          <FilterTile tone="neutral" icon={<FileIcon size={15} />} label="Company this month" value={fmt(data.overview.companyExpenses)} sub="expenses" active={false} onClick={go('/dashboard/accounting?tab=expenses')} />
         </FilterTileRow>
       )}
 
@@ -134,7 +136,7 @@ export const FinanceOverviewTab: React.FC<{ onAddTransaction: () => void }> = ({
                 <li key={row.customerId}>
                   <Link to={`/dashboard/customers/${row.customerId}`} className="flex min-h-[44px] items-center justify-between gap-3 border-b border-subtle px-4 py-2.5 transition-colors hover:bg-black/[0.02]">
                     <span className="min-w-0 truncate text-[13.5px] text-foreground">{row.name}</span>
-                    <span className="shrink-0 text-[14px] font-semibold tabular-nums text-[#B91C1C]">{formatMoney(row.balance)}</span>
+                    <span className="shrink-0 text-[14px] font-semibold tabular-nums text-[#B91C1C]">{fmt(row.balance)}</span>
                   </Link>
                 </li>
               ))}
