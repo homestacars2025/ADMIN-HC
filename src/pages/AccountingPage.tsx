@@ -13,6 +13,7 @@ import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, type PendingSummary } 
 import { CashAccountsTab } from './accounting/CashAccountsTab';
 import { FinanceOverviewTab } from './accounting/FinanceOverviewTab';
 import { StaffCustodyTab } from './accounting/StaffCustodyTab';
+import { SuggestedExpense, SuggestionBanner, SuggestionDialogs, useSuggestions } from './accounting/Suggestions';
 import { SupplierSheet } from './accounting/SupplierSheet';
 import { SuppliersTab } from './accounting/SuppliersTab';
 import { LicensePlate, Segmented } from './bookings/ui';
@@ -2260,7 +2261,7 @@ interface SheetCar {
 
 const validMonth = (value: string | null) => (value && /^\d{4}-\d{2}$/.test(value) ? value : null);
 
-const CarSheetsList: React.FC = () => {
+const CarSheetsList: React.FC<{ onExpensesChanged: () => void }> = ({ onExpensesChanged }) => {
   const { fmt } = useCurrency();
   const [params] = useSearchParams();
   const linkedCar = Number(params.get('car')) || null;
@@ -2275,10 +2276,28 @@ const CarSheetsList: React.FC = () => {
   const [search,    setSearch]    = useState('');
   const [open,      setOpen]      = useState<Set<number>>(() => new Set(linkedCar ? [linkedCar] : []));
   const [editing,   setEditing]   = useState<FinancialTransaction | null>(null);
+  const [fresh,     setFresh]     = useState<Set<number>>(new Set());
+  const shownMonth = useRef<string | null>(null);
+
+  const suggestions = useSuggestions('car', monthKey, useCallback((posting) => {
+    if (posting?.car_tx_id) setFresh(current => new Set(current).add(posting.car_tx_id as number));
+    setReload(value => value + 1);
+    onExpensesChanged();
+  }, [onExpensesChanged]));
+
+  // Every car with something waiting opens the first time it's seen.
+  const seenSuggestions = useRef(new Set<number>());
+  useEffect(() => {
+    const ids = suggestions.rows.flatMap(row => (row.car_id !== null && !seenSuggestions.current.has(row.car_id) ? [row.car_id] : []));
+    if (ids.length === 0) return;
+    ids.forEach(id => seenSuggestions.current.add(id));
+    setOpen(current => new Set([...Array.from(current), ...ids]));
+  }, [suggestions.rows]);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // A skeleton on a refresh would wipe the list while a posted row is arriving.
+    if (shownMonth.current !== monthKey) setLoading(true);
     setError(null);
     Promise.all([
       supabase.from('financial_transactions').select('*').eq('month_key', monthKey).eq('sheet_type', 'car').order('date', { ascending: false }),
@@ -2292,6 +2311,7 @@ const CarSheetsList: React.FC = () => {
       setCars((carRes.data ?? []) as unknown as SheetCar[]);
       const rows = (investorRes.data ?? []) as unknown as { id: string; company_name: string | null; profiles: { full_name: string | null } | null }[];
       setInvestors(Object.fromEntries(rows.map(r => [String(r.id), r.company_name || r.profiles?.full_name || '—'])));
+      shownMonth.current = monthKey;
       setLoading(false);
     });
     return () => { cancelled = true; };
@@ -2304,6 +2324,10 @@ const CarSheetsList: React.FC = () => {
     const groups = new Map<number, FinancialTransaction[]>();
     txs.forEach(t => {
       if (t.car_id !== null) groups.set(t.car_id, [...(groups.get(t.car_id) ?? []), t]);
+    });
+    // A car with only a suggestion this month still needs its row.
+    suggestions.rows.forEach(row => {
+      if (row.car_id !== null && !groups.has(row.car_id)) groups.set(row.car_id, []);
     });
     const q = search.trim().toLowerCase();
     return Array.from(groups, ([id, own]) => {
@@ -2324,7 +2348,7 @@ const CarSheetsList: React.FC = () => {
     })
       .filter(row => !q || [row.plate, row.model, row.investor].some(text => text?.toLowerCase().includes(q)))
       .sort((a, b) => (a.model ?? '').localeCompare(b.model ?? '') || a.plate.localeCompare(b.plate));
-  }, [txs, cars, investors, search]);
+  }, [txs, cars, investors, search, suggestions.rows]);
 
   const totalIn = rows.reduce((sum, row) => sum + row.income, 0);
   const totalOut = rows.reduce((sum, row) => sum + row.spent, 0);
@@ -2352,6 +2376,8 @@ const CarSheetsList: React.FC = () => {
         </p>
       </div>
 
+      <SuggestionBanner suggestions={suggestions} />
+
       <input
         type="search"
         aria-label="Search plate, model or investor"
@@ -2373,6 +2399,7 @@ const CarSheetsList: React.FC = () => {
         <ul className="overflow-hidden rounded-xl border border-subtle bg-surface">
           {rows.map(row => {
             const expanded = open.has(row.id);
+            const waiting = suggestions.rows.filter(suggestion => suggestion.car_id === row.id);
             return (
               <li key={row.id} className="border-b border-subtle last:border-b-0">
                 <button type="button" aria-expanded={expanded} onClick={() => toggle(row.id)} className="flex min-h-[44px] w-full flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 text-start transition-colors hover:bg-black/[0.02] sm:px-4">
@@ -2384,6 +2411,7 @@ const CarSheetsList: React.FC = () => {
                     </span>
                   </span>
                   <span className="flex items-center gap-4 text-[13px] tabular-nums sm:gap-6">
+                    {waiting.length > 0 && <span className="rounded-full bg-[#F59E0B]/[0.16] px-2 py-0.5 text-[12px] font-medium text-[#92400E]">{waiting.length} suggested</span>}
                     <span className="text-[#15803D]">{fmt(row.income)}</span>
                     <span className="text-[#B91C1C]">{fmt(row.spent)}</span>
                     <span className="min-w-[84px] text-end font-semibold text-foreground">{fmt(row.income - row.spent)}</span>
@@ -2392,7 +2420,12 @@ const CarSheetsList: React.FC = () => {
                     <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-                {expanded && (
+                {expanded && waiting.length > 0 && (
+                  <ul className="flex flex-col gap-2 border-t border-subtle p-2 sm:p-3">
+                    {waiting.map(suggestion => <SuggestedExpense key={suggestion.id} row={suggestion} suggestions={suggestions} />)}
+                  </ul>
+                )}
+                {expanded && row.own.length > 0 && (
                   <div className="overflow-x-auto border-t border-subtle">
                     <table className="w-full min-w-[620px] text-[13px]">
                       <thead>
@@ -2404,7 +2437,7 @@ const CarSheetsList: React.FC = () => {
                       </thead>
                       <tbody>
                         {row.own.map(t => (
-                          <tr key={t.id} id={`entry-${t.id}`} className="border-t border-subtle" style={{ background: t.id === linkedEntry ? HIGHLIGHT_ROW : undefined }}>
+                          <tr key={t.id} id={`entry-${t.id}`} className={fresh.has(t.id) ? 'sheet-row-new border-t border-subtle' : 'border-t border-subtle'} style={{ background: t.id === linkedEntry ? HIGHLIGHT_ROW : undefined }}>
                             <td className="whitespace-nowrap px-3 py-1.5 text-black/60">{fmtDate(t.date)}</td>
                             <td className="px-3 py-1.5 text-black/60">{t.category ?? '—'}</td>
                             <td className="max-w-[260px] px-3 py-1.5 text-black/60"><span className="block truncate" title={t.note ?? undefined}>{t.note ?? '—'}</span></td>
@@ -2436,6 +2469,7 @@ const CarSheetsList: React.FC = () => {
           onSaved={() => { setEditing(null); setReload(value => value + 1); }}
         />
       )}
+      <SuggestionDialogs suggestions={suggestions} />
     </div>
   );
 };
@@ -4718,7 +4752,7 @@ const EditCompanyExpenseModal: React.FC<{
   );
 };
 
-const CompanyExpensesTab: React.FC = () => {
+const CompanyExpensesTab: React.FC<{ onExpensesChanged: () => void }> = ({ onExpensesChanged }) => {
   const { fmt } = useCurrency();
   const [linkParams] = useSearchParams();
   const linkedMonth = linkParams.get('month');
@@ -4730,6 +4764,14 @@ const CompanyExpensesTab: React.FC = () => {
   const [ifMonthLoading, setIfMonthLoading] = useState(true);
   const [openCategory,   setOpenCategory]   = useState<{ value: string; label: string } | null>(null);
   const [editExpense,    setEditExpense]    = useState<CompanyExpenseRow | null>(null);
+  const [fresh,          setFresh]          = useState<Set<number>>(new Set());
+  const shownMonth = useRef<string | null>(null);
+
+  const suggestions = useSuggestions('company', monthKey, useCallback((posting) => {
+    if (posting?.company_expense_id) setFresh(current => new Set(current).add(posting.company_expense_id as number));
+    setRefreshKey(k => k + 1);
+    onExpensesChanged();
+  }, [onExpensesChanged]));
 
   const handleDeleteExpense = async (id: number) => {
     if (!window.confirm('Delete this expense? This cannot be undone.')) return;
@@ -4741,12 +4783,14 @@ const CompanyExpensesTab: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    setIfMonthLoading(true);
+    // A skeleton on a refresh would wipe the table while a posted row is arriving.
+    if (shownMonth.current !== monthKey) setIfMonthLoading(true);
     const { start, end } = monthDateRange(monthKey);
     supabase.from('company_expenses').select('*').gte('expense_date', start).lt('expense_date', end)
       .then(({ data }) => {
         if (cancelled) return;
         setIfMonthData((data ?? []) as CompanyExpenseRow[]);
+        shownMonth.current = monthKey;
         setIfMonthLoading(false);
       });
     return () => { cancelled = true; };
@@ -4766,6 +4810,8 @@ const CompanyExpensesTab: React.FC = () => {
           Add Transaction
         </Button>
       </div>
+
+      <SuggestionBanner suggestions={suggestions} />
 
       {/* ── Company Expenses: Section 1 — Hero summary card ────────────── */}
       {(() => {
@@ -4853,6 +4899,12 @@ const CompanyExpensesTab: React.FC = () => {
         </div>
       </div>
 
+      {suggestions.rows.length > 0 && (
+        <ul className="media-scope flex flex-col gap-2">
+          {suggestions.rows.map(row => <SuggestedExpense key={row.id} row={row} suggestions={suggestions} />)}
+        </ul>
+      )}
+
       {/* ── Company Expenses: Section 3 — Transactions table ────────────── */}
       {(() => {
         const rows = [...ifMonthData].sort((a, b) =>
@@ -4909,7 +4961,7 @@ const CompanyExpensesTab: React.FC = () => {
                         const isIn = r.direction?.toUpperCase() === 'IN';
                         const catLabel = COMPANY_EXPENSE_CATEGORIES.find(c => c.value === r.category)?.label ?? r.category;
                         return (
-                          <tr key={r.id} id={`entry-${r.id}`} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f7f7f7' : 'none', background: r.id === linkedEntry ? HIGHLIGHT_ROW : undefined }}>
+                          <tr key={r.id} id={`entry-${r.id}`} className={fresh.has(r.id) ? 'sheet-row-new' : undefined} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f7f7f7' : 'none', background: r.id === linkedEntry ? HIGHLIGHT_ROW : undefined }}>
                             <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(r.expense_date)}</td>
                             <td style={td}><DirBadge dir={r.direction} /></td>
                             <td style={{ ...td, whiteSpace: 'nowrap', color: catLabel ? '#374151' : '#d1d5db' }}>{catLabel || '—'}</td>
@@ -4962,6 +5014,8 @@ const CompanyExpensesTab: React.FC = () => {
           onSaved={() => { setShowAddTx(false); setRefreshKey(k => k + 1); }}
         />
       )}
+
+      <SuggestionDialogs suggestions={suggestions} />
 
       {editExpense && (
         <EditCompanyExpenseModal
@@ -5648,12 +5702,12 @@ const CAR_VIEWS = [
   { value: 'summary', label: 'Monthly summary' },
 ] as const;
 
-const CarSheetsTab: React.FC<{ view: string | null }> = ({ view }) => {
+const CarSheetsTab: React.FC<{ view: string | null; onExpensesChanged: () => void }> = ({ view, onExpensesChanged }) => {
   const current = CAR_VIEWS.some(option => option.value === view) ? view as string : 'cars';
   return (
     <>
       <ViewSwitch views={CAR_VIEWS} current={current} />
-      {current === 'cars' && <CarSheetsList />}
+      {current === 'cars' && <CarSheetsList onExpensesChanged={onExpensesChanged} />}
       {current === 'investors' && <InvestorSheetsTab />}
       {current === 'summary' && <MonthlySummary />}
     </>
@@ -5740,6 +5794,8 @@ const AccountingPage: React.FC = () => {
   const [pending,    setPending]    = useState<PendingSummary | null>(null);
   const [showAddTx,  setShowAddTx]  = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pendingCheck, setPendingCheck] = useState(0);
+  const recheckPending = useCallback(() => setPendingCheck(value => value + 1), []);
 
   useEffect(() => {
     if (requested && OLD_TABS[requested]) setParams(new URLSearchParams(OLD_TABS[requested]), { replace: true });
@@ -5757,7 +5813,7 @@ const AccountingPage: React.FC = () => {
       .then((summary) => { if (!cancelled) setPending(summary); })
       .catch(() => { /* Only the badge goes missing. The tab shows its own error. */ });
     return () => { cancelled = true; };
-  }, []);
+  }, [pendingCheck]);
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-11" style={{ minHeight: '100vh', background: 'var(--surface)' }}>
@@ -5812,8 +5868,8 @@ const AccountingPage: React.FC = () => {
 
       {/* Tab content */}
       {activeTab === 'overview'  && <FinanceOverviewTab key={refreshKey} onAddTransaction={() => setShowAddTx(true)} />}
-      {activeTab === 'cars'      && <CarSheetsTab key={refreshKey} view={params.get('view')} />}
-      {activeTab === 'expenses'  && <CompanyExpensesTab key={refreshKey} />}
+      {activeTab === 'cars'      && <CarSheetsTab key={refreshKey} view={params.get('view')} onExpensesChanged={recheckPending} />}
+      {activeTab === 'expenses'  && <CompanyExpensesTab key={refreshKey} onExpensesChanged={recheckPending} />}
       {activeTab === 'custody'   && <CustodyTab onPending={setPending} />}
       {activeTab === 'customers' && <CustomerWalletsTab key={refreshKey} view={params.get('view')} />}
       {activeTab === 'suppliers' && (supplierId ? <SupplierSheet key={supplierId} supplierId={supplierId} /> : <SuppliersTab />)}

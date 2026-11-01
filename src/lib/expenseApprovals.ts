@@ -117,6 +117,31 @@ export async function fetchPostedCars(txIds: number[]): Promise<Map<number, numb
   return new Map(((data ?? []) as Array<{ id: number; car_id: number | null }>).map((row) => [row.id, row.car_id]));
 }
 
+/** Waiting expenses dated in one month, the ones its sheet can suggest. */
+export async function fetchSuggestedExpenses(scope: 'car' | 'company', month: string): Promise<ReviewExpense[]> {
+  const [year, number] = month.split('-').map(Number);
+  const nextMonth = new Date(Date.UTC(year, number, 1)).toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('employee_wallets')
+    .select(COLUMNS)
+    .eq('direction', 'OUT')
+    .eq('review_status', 'pending')
+    .eq('expense_scope', scope)
+    .gte('transaction_date', `${month}-01`)
+    .lt('transaction_date', nextMonth)
+    .order('transaction_date', { ascending: false })
+    .order('id', { ascending: false });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as RawExpense[]).map(toReviewExpense);
+}
+
+/** Adding a suggestion posts it where it's already shown, under its own category. */
+export function suggestionChoice(row: Pick<ReviewExpense, 'car_id' | 'category'>, scope: 'car' | 'company'): ReconcileChoice {
+  return scope === 'car'
+    ? { target: 'car', carId: row.car_id, category: carCategoryFor(row.category), note: null }
+    : { target: 'company', carId: null, category: companyCategoryFor(row.category), note: null };
+}
+
 export interface WalletBalance {
   employee_id: string;
   full_name: string | null;

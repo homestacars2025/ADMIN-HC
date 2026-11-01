@@ -71,7 +71,7 @@ const StatusPill: React.FC<{ row: ReviewExpense }> = ({ row }) => {
   );
 };
 
-const Receipt: React.FC<{ row: ReviewExpense; onOpen: (url: string) => void }> = ({ row, onOpen }) => {
+export const Receipt: React.FC<{ row: ReviewExpense; onOpen: (url: string) => void }> = ({ row, onOpen }) => {
   const url = row.receipt_url;
   if (!url) {
     if (row.direction === 'IN') return <span className="text-black/25">—</span>;
@@ -96,7 +96,7 @@ const CarCell: React.FC<{ row: ReviewExpense }> = ({ row }) => {
 };
 
 /** A signed cell is that person in color with a check. Only your own cell can be pressed. */
-const SignatureCell: React.FC<{ signer: Signer; signedAt: string | undefined; mine: boolean; onToggle: () => void }> = ({ signer, signedAt, mine, onToggle }) => {
+export const SignatureCell: React.FC<{ signer: Signer; signedAt: string | undefined; mine: boolean; onToggle: () => void }> = ({ signer, signedAt, mine, onToggle }) => {
   const name = signer.full_name ?? 'Signer';
   const title = signedAt ? `${name} signed ${signalTime(signedAt)}` : `${name} hasn't signed`;
   const face = signedAt ? (

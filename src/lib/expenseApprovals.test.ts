@@ -14,6 +14,7 @@ import {
   setSignature,
   sheetLink,
   signatureMap,
+  suggestionChoice,
   toReviewExpense,
   wantsSignature,
   type ReviewExpense,
@@ -114,6 +115,18 @@ describe('prefilled categories', () => {
   it('uses the stored value the company tab groups by', () => {
     expect(companyCategoryFor('Branch')).toBe('branch');
     expect(companyCategoryFor('Wash')).toBe('other');
+  });
+});
+
+describe('suggestionChoice', () => {
+  it('posts a car suggestion to its own car, under the car sheet category', () => {
+    expect(suggestionChoice(expense({ car_id: 5, category: 'fuel' }), 'car'))
+      .toEqual({ target: 'car', carId: 5, category: 'Petrol', note: null });
+  });
+
+  it('posts a company suggestion under the value the tab groups by', () => {
+    expect(suggestionChoice(expense({ category: 'Branch' }), 'company'))
+      .toEqual({ target: 'company', carId: null, category: 'branch', note: null });
   });
 });
 
