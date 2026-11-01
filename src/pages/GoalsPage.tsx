@@ -63,7 +63,7 @@ const GoalsPage: React.FC = () => {
     Promise.all([
       fetchGoalSettings(),
       supabase.from('departments').select('key, label_en, label_ar, parent_key, sort_order, is_active'),
-      supabase.from('profiles').select('id, avatar_url, gender').eq('role', 'staff'),
+      supabase.from('profiles').select('id, avatar_url, avatar_bg, gender').eq('role', 'staff'),
     ])
       .then(([settings, departments, profiles]) => {
         if (cancelled) return;

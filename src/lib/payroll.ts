@@ -23,6 +23,7 @@ export interface PayrollStaff {
   full_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
   status: string | null;
   department: string | null;
@@ -118,7 +119,7 @@ function failIf(error: { message: string } | null) {
 
 export async function fetchPayroll(month: string): Promise<PayrollData> {
   const [profiles, team, settings, balances, entries] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, avatar_url, gender, status').eq('role', 'staff').order('full_name'),
+    supabase.from('profiles').select('id, full_name, email, avatar_url, avatar_bg, gender, status').eq('role', 'staff').order('full_name'),
     supabase.from('team_members').select('profile_id, departments(label_en)'),
     supabase.from('staff_salary_settings').select('profile_id, monthly_salary, is_active'),
     supabase.from('staff_wallet_balances').select('profile_id, balance'),

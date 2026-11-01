@@ -56,7 +56,7 @@ interface ComposerProps {
   template: TaskTemplate | null;
   staff: StaffOption[];
   departments: DepartmentOption[];
-  admin: { id: string; full_name: string | null; avatar_url: string | null; gender: string | null };
+  admin: { id: string; full_name: string | null; avatar_url: string | null; avatar_bg?: string | null; gender: string | null };
   onClose: () => void;
   onSaved: () => void;
 }

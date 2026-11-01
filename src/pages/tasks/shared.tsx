@@ -8,6 +8,7 @@ export interface StaffOption {
   full_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
   department_key: string | null;
 }

@@ -41,7 +41,7 @@ export async function fetchAccessData(): Promise<AccessData> {
     supabase.from('department_pages').select('department_key, page_key'),
     supabase
       .from('profiles')
-      .select('id, full_name, email, avatar_url, gender, status')
+      .select('id, full_name, email, avatar_url, avatar_bg, gender, status')
       .eq('role', 'staff')
       .order('full_name'),
     supabase.from('team_members').select('profile_id, department_key, is_department_head, is_active'),
@@ -63,6 +63,7 @@ export async function fetchAccessData(): Promise<AccessData> {
       full_name: profile.full_name,
       email: profile.email,
       avatar_url: profile.avatar_url,
+      avatar_bg: profile.avatar_bg,
       gender: profile.gender,
       status: profile.status,
       department_key: member?.department_key ?? null,

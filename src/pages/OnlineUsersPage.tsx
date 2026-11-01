@@ -14,6 +14,7 @@ interface ProfileRow {
   role:         string | null;
   last_seen_at: string | null;
   avatar_url:   string | null;
+  avatar_bg?:   string | null;
   gender:       string | null;
 }
 
@@ -201,7 +202,7 @@ const OnlineUsersPage: React.FC = () => {
       setLoadingProfiles(true);
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, last_seen_at, avatar_url, gender')
+        .select('id, full_name, email, role, last_seen_at, avatar_url, avatar_bg, gender')
         .order('last_seen_at', { ascending: false, nullsFirst: false });
       if (!cancelled) {
         setProfiles((data ?? []) as ProfileRow[]);

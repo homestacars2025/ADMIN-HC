@@ -17,7 +17,7 @@ export const PhonePreview: React.FC<{
   dueIso: string | null;
   recurring: boolean;
   requiresProof: boolean;
-  from: { full_name: string | null; avatar_url?: string | null; gender?: string | null } | null;
+  from: { id?: string | null; full_name: string | null; avatar_url?: string | null; avatar_bg?: string | null; gender?: string | null } | null;
 }> = ({ title, description, priority, dueIso, recurring, requiresProof, from }) => {
   const stripe = STRIPE[priority];
 

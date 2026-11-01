@@ -178,7 +178,7 @@ const MessageBubble: React.FC<{
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         ) : (
-          <StaffAvatar profile={msg.profile} alt={senderName} size={32} style={{ border: 'none' }} />
+          <StaffAvatar profile={msg.profile} alt={senderName} size={32} />
         )}
       </div>
 
@@ -275,7 +275,7 @@ function dedupeById<T extends { id: number | string }>(items: T[]): T[] {
 
 // ─── Profile enrichment ───────────────────────────────────────────────────────
 
-type ProfileLite = { id: string; full_name: string | null; avatar_url: string | null; gender: string | null };
+type ProfileLite = { id: string; full_name: string | null; avatar_url: string | null; avatar_bg?: string | null; gender: string | null };
 
 async function enrichWithProfiles<T extends { profile_id: string | null }>(
   rows: T[]
@@ -288,7 +288,7 @@ async function enrichWithProfiles<T extends { profile_id: string | null }>(
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, avatar_url, gender')
+    .select('id, full_name, avatar_url, avatar_bg, gender')
     .in('id', ids);
 
   if (error) {
@@ -714,7 +714,7 @@ const MarketingChatPage: React.FC = () => {
       is_read: true, is_pinned: null, metadata: null,
       user_id: profile.id,
       profile_id: profile.id,
-      profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, gender: profile.gender },
+      profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, avatar_bg: profile.avatar_bg, gender: profile.gender },
       created_at: new Date().toISOString(),
     };
     setMessages(prev => [...prev, tempMsg]);
@@ -737,7 +737,7 @@ const MarketingChatPage: React.FC = () => {
       // Restore profile data on the real message (insert doesn't join)
       const realWithProfile: SmChatMessage = {
         ...real,
-        profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, gender: profile.gender },
+        profile: { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, avatar_bg: profile.avatar_bg, gender: profile.gender },
       };
       setMessages(prev => dedupeById(prev.map(m => m.id === tempId ? realWithProfile : m)));
 

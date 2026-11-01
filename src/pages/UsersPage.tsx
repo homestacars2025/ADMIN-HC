@@ -5,8 +5,10 @@ import { createUser, deleteUser, updateUserPassword } from '../lib/adminUsers';
 import { StaffDetailDrawer } from '../components/staff/StaffDetailDrawer';
 import { StaffIndicatorCell, useStaffIndicators } from '../components/staff/StaffIndicators';
 import StaffAvatar from '../components/shared/StaffAvatar';
+import { AvatarBgSwatches } from '../components/shared/AvatarBgPicker';
 import { ProfileAvatar } from '../components/shared/PersonAvatar';
 import { COUNTRIES, parsePhone } from '../lib/phone';
+import { publishAvatarBg, useAvatarBg, type AvatarBg } from '../lib/staffAvatar';
 import { Button } from '../components/media/MediaUI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ interface UserProfile {
   identity_number: string | null;
   address: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
 }
 
@@ -45,6 +48,7 @@ interface EditForm {
   address: string;
   avatar_file: File | null;
   avatar_preview: string | null;
+  avatar_bg: AvatarBg;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -209,6 +213,7 @@ interface EditModalProps {
 
 const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => {
   const parsed = parsePhone(user.phone);
+  const savedBg = useAvatarBg(user);
 
   const [form, setForm] = useState<EditForm>({
     full_name:       user.full_name       ?? '',
@@ -225,6 +230,7 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
     address:         user.address         ?? '',
     avatar_file:     null,
     avatar_preview:  user.avatar_url,
+    avatar_bg:       savedBg,
   });
 
   const [saving,    setSaving]    = useState(false);
@@ -302,10 +308,12 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
           identity_number: form.identity_number.trim() || null,
           address:         form.address.trim()         || null,
           avatar_url,
+          avatar_bg:       form.avatar_bg,
         })
         .eq('id', user.id);
 
       if (profileErr) throw profileErr;
+      publishAvatarBg(user.id, form.avatar_bg);
 
       // 3. Update password through the admin-users Edge Function — this needs
       //    the service_role key, which stays on the server.
@@ -322,6 +330,7 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
   };
 
   const dialCountry = COUNTRIES.find(c => c.dial === form.phone_dial) ?? COUNTRIES[0];
+  const avatarProfile = { avatar_url: form.avatar_preview, gender: form.gender, avatar_bg: form.avatar_bg };
 
   return ReactDOM.createPortal(
     <div onClick={onClose} style={{
@@ -364,14 +373,14 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
 
           {/* ── Avatar section ── */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 18,
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 18,
             padding: '16px 18px', background: 'var(--surface)', borderRadius: 12,
             border: '1px solid var(--border-subtle)', marginBottom: 20,
           }}>
             {/* Circle preview */}
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <StaffAvatar
-                profile={{ avatar_url: form.avatar_preview, gender: form.gender }}
+                profile={avatarProfile}
                 alt={form.full_name || user.full_name || ''}
                 size={64}
               />
@@ -410,6 +419,15 @@ const EditUserModal: React.FC<EditModalProps> = ({ user, onClose, onSaved }) => 
                 onChange={handleAvatarChange}
               />
             </div>
+
+            {(form.role === 'staff' || form.role === 'admin') && (
+              <AvatarBgSwatches
+                profile={avatarProfile}
+                value={form.avatar_bg}
+                onChange={(bg) => set('avatar_bg', bg)}
+                className="w-full"
+              />
+            )}
           </div>
 
           {/* ── Form error ── */}
@@ -984,7 +1002,7 @@ const UsersPage: React.FC = () => {
     setError(null);
     const { data, error: err } = await supabase
       .from('profiles')
-      .select('id, created_at, full_name, email, phone, role, status, nationality, birth_date, identity_number, address, avatar_url, gender')
+      .select('id, created_at, full_name, email, phone, role, status, nationality, birth_date, identity_number, address, avatar_url, avatar_bg, gender')
       .order('created_at', { ascending: false });
 
     if (err) { setError(err.message); setLoading(false); return; }

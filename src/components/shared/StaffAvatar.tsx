@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
-import { defaultStaffAvatar, getStaffAvatar, type AvatarProfile } from '../../lib/staffAvatar';
+import {
+  avatarBgGradient,
+  avatarBgRing,
+  defaultStaffAvatar,
+  getStaffAvatar,
+  useAvatarBg,
+  type AvatarProfile,
+} from '../../lib/staffAvatar';
 
-/** One circular staff picture. A photo that fails to load falls back to the character. */
+/**
+ * One circular staff picture. A character is a bust on the person's color, with
+ * headroom above it and the shoulders cut by the circle. A photo keeps its own
+ * background, so the color is only a ring, and if it fails the character takes over.
+ */
 export const StaffAvatar: React.FC<{
   profile: AvatarProfile | null | undefined;
   alt?: string;
@@ -9,28 +20,52 @@ export const StaffAvatar: React.FC<{
   style?: React.CSSProperties;
 }> = ({ profile, alt = '', size = 32, style }) => {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const bg = useAvatarBg(profile);
   const src = getStaffAvatar(profile);
+  const character = defaultStaffAvatar(profile?.gender);
+  const shown = src === failedSrc ? character : src;
+  const isCharacter = shown === character;
 
   return (
-    <img
-      src={src === failedSrc ? defaultStaffAvatar(profile?.gender) : src}
-      alt={alt}
-      width={size}
-      height={size}
-      loading="lazy"
-      onError={() => setFailedSrc(src)}
+    <span
       style={{
+        position: 'relative',
         display: 'block',
+        boxSizing: 'border-box',
         width: size,
         height: size,
         flexShrink: 0,
+        overflow: 'hidden',
         borderRadius: '50%',
-        objectFit: 'cover',
-        objectPosition: 'top center',
-        border: '1px solid var(--border-subtle)',
+        ...(isCharacter
+          ? { background: avatarBgGradient(bg), border: '1px solid var(--border-subtle)' }
+          : { border: `2px solid ${avatarBgRing(bg)}` }),
         ...style,
       }}
-    />
+    >
+      <img
+        src={shown}
+        alt={alt}
+        loading="lazy"
+        onError={() => setFailedSrc(src)}
+        style={isCharacter ? {
+          position: 'absolute',
+          top: '7%',
+          left: 0,
+          width: '100%',
+          height: '115%',
+          maxWidth: 'none',
+          objectFit: 'cover',
+          objectPosition: 'center top',
+        } : {
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'top center',
+        }}
+      />
+    </span>
   );
 };
 

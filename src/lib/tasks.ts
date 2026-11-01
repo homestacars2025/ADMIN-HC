@@ -10,6 +10,7 @@ export interface TaskPerson {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
 }
 
@@ -89,7 +90,7 @@ const COLUMNS =
   'id, title, description, kind, status, priority, assigned_to, department_key, due_at, requires_proof, ' +
   'proof_url, completion_notes, completed_at, missed_at, cancel_reason, template_id, created_at, updated_at, ' +
   'due_soon_notified_at, overdue_notified_at, ' +
-  'assignee:profiles!tasks_assigned_to_fkey(id, full_name, avatar_url, gender), ' +
+  'assignee:profiles!tasks_assigned_to_fkey(id, full_name, avatar_url, avatar_bg, gender), ' +
   'creator:profiles!tasks_created_by_fkey(full_name)';
 
 export const WEEKDAYS = [

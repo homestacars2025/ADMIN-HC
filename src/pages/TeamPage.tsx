@@ -7,12 +7,14 @@ import StaffAvatar from '../components/shared/StaffAvatar';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ProfileRow {
+  id?:          string;
   full_name:    string | null;
   email:        string | null;
   phone:        string | null;
   role:         string | null;
   last_seen_at: string | null;
   avatar_url:   string | null;
+  avatar_bg?:   string | null;
   gender:       string | null;
 }
 
@@ -111,7 +113,7 @@ const TeamPage: React.FC = () => {
       setError(null);
       const { data, error } = await supabase
         .from('team_members')
-        .select('id, profile_id, position, is_active, can_view_accounting, created_at, profiles!team_members_profile_id_fkey(full_name, email, phone, role, last_seen_at, avatar_url, gender)')
+        .select('id, profile_id, position, is_active, can_view_accounting, created_at, profiles!team_members_profile_id_fkey(id, full_name, email, phone, role, last_seen_at, avatar_url, avatar_bg, gender)')
         .order('created_at', { ascending: true });
       if (cancelled) return;
       if (error) {

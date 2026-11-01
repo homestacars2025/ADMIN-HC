@@ -84,6 +84,7 @@ export interface ProfileOption {
   full_name: string | null;
   role: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
 }
 
@@ -242,12 +243,12 @@ export async function updateNotificationRule(
 /** Pictures for the people named on a list. A failure only costs the pictures. */
 export async function getAvatarProfiles(ids: string[]): Promise<Record<string, ProfileOption>> {
   if (ids.length === 0) return {};
-  const { data } = await supabase.from('profiles').select('id, full_name, role, avatar_url, gender').in('id', ids);
+  const { data } = await supabase.from('profiles').select('id, full_name, role, avatar_url, avatar_bg, gender').in('id', ids);
   return Object.fromEntries(((data ?? []) as ProfileOption[]).map((p) => [p.id, p]));
 }
 
 export async function searchProfiles(query: string): Promise<ProfileOption[]> {
-  let request = supabase.from('profiles').select('id, full_name, role, avatar_url, gender').order('full_name');
+  let request = supabase.from('profiles').select('id, full_name, role, avatar_url, avatar_bg, gender').order('full_name');
   const q = query.trim();
   if (q) request = request.ilike('full_name', `%${q}%`);
 

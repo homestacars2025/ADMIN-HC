@@ -39,7 +39,7 @@ const TasksPage: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      supabase.from('profiles').select('id, full_name, email, avatar_url, gender').eq('role', 'staff').eq('status', 'active').order('full_name'),
+      supabase.from('profiles').select('id, full_name, email, avatar_url, avatar_bg, gender').eq('role', 'staff').eq('status', 'active').order('full_name'),
       supabase.from('team_members').select('profile_id, department_key, is_active'),
       supabase.from('departments').select('key, label_en').eq('is_active', true).order('sort_order'),
     ])
@@ -128,6 +128,7 @@ const TasksPage: React.FC = () => {
             id: profile?.id ?? '',
             full_name: profile?.full_name ?? null,
             avatar_url: profile?.avatar_url ?? null,
+            avatar_bg: profile?.avatar_bg ?? null,
             gender: profile?.gender ?? null,
           }}
           onClose={() => setComposer(null)}

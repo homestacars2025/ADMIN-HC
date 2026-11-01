@@ -93,6 +93,7 @@ interface ProfileRow {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
 }
 
@@ -4606,7 +4607,7 @@ const CompanyExpensesTab: React.FC = () => {
     setWalletsLoading(true);
     Promise.all([
       supabase.from('employee_wallet_balances').select('employee_id, full_name, total_in, total_out, balance'),
-      supabase.from('profiles').select('id, full_name, avatar_url, gender').eq('role', 'staff'),
+      supabase.from('profiles').select('id, full_name, avatar_url, avatar_bg, gender').eq('role', 'staff'),
     ]).then(([{ data }, { data: staff }]) => {
       if (cancelled) return;
       setWallets((data ?? []) as EmployeeWalletBalance[]);
@@ -4886,6 +4887,7 @@ const CompanyExpensesTab: React.FC = () => {
             id: w.employee_id,
             full_name: w.full_name,
             avatar_url: walletAvatars[w.employee_id]?.avatar_url ?? null,
+            avatar_bg: walletAvatars[w.employee_id]?.avatar_bg ?? null,
             gender: walletAvatars[w.employee_id]?.gender ?? null,
           }))}
           onClose={() => setShowAddTx(false)}

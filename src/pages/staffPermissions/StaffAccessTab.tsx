@@ -27,6 +27,7 @@ import {
 } from '../../lib/staffAccessApi';
 import { useConfirm } from '../media/useConfirm';
 import StaffAvatar from '../../components/shared/StaffAvatar';
+import { AvatarBgPicker } from '../../components/shared/AvatarBgPicker';
 import { CARD_CLASS, SmallBadge, SourceTag, SWITCH_HIT_AREA, errorMessage } from './shared';
 
 const ALL_DEPARTMENTS = '__all__';
@@ -369,14 +370,17 @@ export const StaffAccessTab: React.FC<StaffAccessTabProps> = ({ data, adminId, s
         <>
           <section className="flex min-w-0 flex-col gap-3">
             <div className={cn(CARD_CLASS, 'p-4 sm:p-5')}>
-              <div className="flex items-center gap-3">
-                <StaffAvatar profile={selected} size={48} />
-                <div className="min-w-0">
-                  <h2 className="truncate text-[16px] font-medium tracking-[-0.014em] text-foreground">
-                    {displayName(selected)}
-                  </h2>
-                  <p className="truncate text-[13px] text-black/45">{selected.email ?? 'No email'}</p>
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <div className="flex min-w-0 max-w-full items-center gap-3">
+                  <StaffAvatar profile={selected} size={48} />
+                  <div className="min-w-0">
+                    <h2 className="truncate text-[16px] font-medium tracking-[-0.014em] text-foreground">
+                      {displayName(selected)}
+                    </h2>
+                    <p className="truncate text-[13px] text-black/45">{selected.email ?? 'No email'}</p>
+                  </div>
                 </div>
+                <AvatarBgPicker key={selected.id} profile={selected} />
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end">

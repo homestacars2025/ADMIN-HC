@@ -34,8 +34,10 @@ interface OperationPhotos {
 }
 
 interface HandlerProfile {
+  id?: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
 }
 
@@ -2077,7 +2079,7 @@ const OperationsPage: React.FC = () => {
         current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url, photos,
         checklist_license_present, checklist_tutanak_present, checklist_air_freshener, checklist_customer_card,
         cars!operations_car_id_fkey(plate_number),
-        handler:profiles!performed_by(full_name, avatar_url, gender),
+        handler:profiles!performed_by(id, full_name, avatar_url, avatar_bg, gender),
         customers(first_name, last_name)
       `)
       .gte('operation_date', toDateStr(getMonthStart(month)))

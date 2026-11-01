@@ -7,6 +7,7 @@ export interface CurrentProfile {
   email: string | null;
   phone: string | null;
   avatar_url: string | null;
+  avatar_bg?: string | null;
   gender: string | null;
   role: string | null;
   department_label: string | null;
@@ -36,7 +37,7 @@ export function useCurrentProfile() {
       const [{ data }, { data: membership }] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, full_name, email, phone, avatar_url, gender, role')
+          .select('id, full_name, email, phone, avatar_url, avatar_bg, gender, role')
           .eq('id', user.id)
           .single(),
         supabase
