@@ -14,7 +14,8 @@ import {
 } from '../../lib/carTracking';
 import { formatDate } from '../../lib/customers';
 import { cn } from '../../lib/media/badgeColor';
-import { DayBars } from './ui';
+import { LicensePlate } from '../bookings/ui';
+import { CarThumb, DayBars } from './ui';
 
 const DAYS = 30;
 
@@ -29,19 +30,18 @@ function downloadCsv(name: string, csv: string): void {
 
 /** Thirty days of one car. `live` is its row today, which isn't in the history until midnight. */
 export const CarHistorySheet: React.FC<{
-  car: Pick<DayRow, 'car_id' | 'plate' | 'model'>;
+  car: Pick<DayRow, 'car_id' | 'plate' | 'model' | 'image'>;
   live: DayRow | null;
   today: string;
   onClose: () => void;
 }> = ({ car, live, today, onClose }) => {
   const [history, setHistory] = useState<DailyKmRow[]>([]);
-  const [loading, setLoading] = useState(car.car_id !== null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const from = addDays(today, -(DAYS - 1));
 
   useEffect(() => {
-    if (car.car_id === null) return undefined;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -60,19 +60,20 @@ export const CarHistorySheet: React.FC<{
   return (
     <Sheet open onClose={onClose} ariaLabel={`Kilometre history for ${car.plate}`} maxWidthClass="sm:max-w-[560px]">
       <SheetHeader>
-        <SheetTitle><span className="font-mono">{car.plate}</span></SheetTitle>
-        <SheetDescription>{car.model ?? 'Not linked to a car'} · {km(total)} km in the last {DAYS} days</SheetDescription>
+        <div className="flex items-center gap-3 pe-8">
+          <CarThumb src={car.image} />
+          <div className="min-w-0">
+            <SheetTitle><LicensePlate plate={car.plate} /></SheetTitle>
+            <SheetDescription>{car.model ?? '—'} · {km(total)} km in the last {DAYS} days</SheetDescription>
+          </div>
+        </div>
       </SheetHeader>
       <SheetBody>
         {error && <LoadError message={`Couldn't load the history: ${error}`} onRetry={() => setReload((value) => value + 1)} />}
         {loading ? <SkeletonRows count={5} /> : (
           <>
             <DayBars days={days} />
-            {car.car_id === null ? (
-              <p className="rounded-lg bg-[#F59E0B]/[0.1] px-3 py-2 text-[13px] text-[#92400E]">
-                This tracker isn't linked to a car, so its days aren't being saved.
-              </p>
-            ) : recorded.length <= 1 && (
+            {recorded.length <= 1 && (
               <p className="rounded-lg bg-black/[0.03] px-3 py-2 text-[13px] text-black/55">
                 History starts on {HISTORY_START_LABEL}, and a new day is saved every midnight.
               </p>

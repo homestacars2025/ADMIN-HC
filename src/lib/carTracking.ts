@@ -1,3 +1,4 @@
+import type { SortDirection } from '../hooks/useUrlSort';
 import { istanbulDate } from './customers';
 import { supabase } from './supabase';
 
@@ -15,8 +16,6 @@ const LATE_SIGNAL_MS = 6 * HOUR;
 /** Trio keeps a car's last speed and ignition once it goes quiet, so older readings aren't "now". */
 const LIVE_SIGNAL_MS = 30 * MINUTE;
 
-const PLATE = /^\d{2}\s?[A-ZÇĞİÖŞÜ]{1,3}\s?\d{2,5}$/;
-
 export interface TrackingRow {
   id: number;
   car_id: number | null;
@@ -30,11 +29,16 @@ export interface TrackingRow {
   last_signal_at: string | null;
 }
 
+interface ModelGroup {
+  name: string;
+  image_url: string | null;
+}
+
 export interface CarInfo {
   id: number;
   plate_number: string;
   is_active: boolean | null;
-  model_group: { name: string } | { name: string }[] | null;
+  model_group: ModelGroup | ModelGroup[] | null;
 }
 
 export interface DailyKmRow {
@@ -49,9 +53,12 @@ export interface DailyKmRow {
 
 export interface TrackedCar {
   id: number;
-  car_id: number | null;
+  car_id: number;
+  /** False for an active car with no tracker row, which has a place in the lists but no readings. */
+  tracked: boolean;
   plate: string;
   model: string | null;
+  image: string | null;
   current_km: number | null;
   start_km: number | null;
   today_km: number;
@@ -61,25 +68,36 @@ export interface TrackedCar {
   last_signal_at: string | null;
 }
 
+export interface UnlinkedTracker {
+  id: number;
+  device: string;
+  current_km: number | null;
+  last_signal_at: string | null;
+}
+
 export interface Fleet {
+  /** Active cars with a tracker. */
   cars: TrackedCar[];
-  carInfo: Record<number, { plate: string; model: string | null; active: boolean }>;
-  /** Tracker rows that aren't a car: bare device serials and removed units. */
-  hiddenDevices: number;
-  hiddenInactive: number;
-  /** Active cars with no tracker row at all. */
-  noTracker: number;
+  /** Active cars without one. */
+  noGps: TrackedCar[];
+  /** Tracker rows with no car. Rows on an inactive car are dropped altogether. */
+  unlinked: UnlinkedTracker[];
+  carInfo: Record<number, { plate: string; model: string | null; image: string | null; active: boolean }>;
 }
 
 /** One car on one day, from the live row today and from the history before that. */
 export interface DayRow {
   key: string;
-  car_id: number | null;
+  car_id: number;
+  tracked: boolean;
   plate: string;
   model: string | null;
+  image: string | null;
   start_km: number | null;
   end_km: number | null;
   km: number;
+  /** Today's oil position, also on a past day: it's what to act on now. */
+  remaining: number | null;
   last_signal_at: string | null;
 }
 
@@ -148,38 +166,38 @@ export function signalAgo(at: string | null, now: number): string {
 
 // ─── Reading the fleet ────────────────────────────────────────────────────────
 
-const modelName = (car: CarInfo | undefined): string | null => {
+const modelOf = (car: CarInfo | undefined): ModelGroup | null => {
   const group = Array.isArray(car?.model_group) ? car?.model_group[0] : car?.model_group;
-  return group?.name ?? null;
+  return group ?? null;
 };
 
 /** Newest row first, so a second tracker on one car loses. */
 export function buildFleet(tracking: TrackingRow[], carRows: CarInfo[]): Fleet {
   const carInfo: Fleet['carInfo'] = {};
-  const byId = new Map(carRows.map((car) => [car.id, car]));
   for (const car of carRows) {
-    carInfo[car.id] = { plate: car.plate_number, model: modelName(car), active: car.is_active === true };
+    const group = modelOf(car);
+    carInfo[car.id] = { plate: car.plate_number, model: group?.name ?? null, image: group?.image_url ?? null, active: car.is_active === true };
   }
 
   const seen = new Set<number>();
   const cars: TrackedCar[] = [];
-  let hiddenDevices = 0;
-  let hiddenInactive = 0;
+  const unlinked: UnlinkedTracker[] = [];
 
   for (const row of tracking) {
-    const car = row.car_id === null ? undefined : byId.get(row.car_id);
-    const plate = (row.plate_number ?? car?.plate_number ?? '').trim();
-    if (!car && !PLATE.test(plate)) { hiddenDevices += 1; continue; }
-    if (car && car.is_active !== true) { hiddenInactive += 1; continue; }
-    if (car) {
-      if (seen.has(car.id)) continue;
-      seen.add(car.id);
+    if (row.car_id === null) {
+      unlinked.push({ id: row.id, device: row.plate_number ?? '—', current_km: row.current_km, last_signal_at: row.last_signal_at });
+      continue;
     }
+    const info = carInfo[row.car_id];
+    if (!info?.active || seen.has(row.car_id)) continue;
+    seen.add(row.car_id);
     cars.push({
       id: row.id,
-      car_id: car?.id ?? null,
-      plate,
-      model: modelName(car),
+      car_id: row.car_id,
+      tracked: true,
+      plate: info.plate,
+      model: info.model,
+      image: info.image,
       current_km: row.current_km,
       start_km: row.km_at_midnight,
       today_km: Math.max(0, row.daily_km ?? 0),
@@ -190,23 +208,26 @@ export function buildFleet(tracking: TrackingRow[], carRows: CarInfo[]): Fleet {
     });
   }
 
-  const noTracker = carRows.filter((car) => car.is_active === true && !tracking.some((row) => row.car_id === car.id)).length;
-  return { cars, carInfo, hiddenDevices, hiddenInactive, noTracker };
-}
+  const noGps = carRows
+    .filter((car) => car.is_active === true && !seen.has(car.id))
+    .sort((a, b) => a.plate_number.localeCompare(b.plate_number))
+    .map((car): TrackedCar => ({
+      id: -car.id,
+      car_id: car.id,
+      tracked: false,
+      plate: car.plate_number,
+      model: carInfo[car.id].model,
+      image: carInfo[car.id].image,
+      current_km: null,
+      start_km: null,
+      today_km: 0,
+      next_oil_change: null,
+      ignition: false,
+      speed: 0,
+      last_signal_at: null,
+    }));
 
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-
-/** What the page leaves out, so a count that differs from the tracker's own is explained. */
-export function hiddenNote(fleet: Fleet): string | null {
-  const hidden = [
-    fleet.hiddenDevices > 0 && plural(fleet.hiddenDevices, 'tracker device with no car', 'tracker devices with no car'),
-    fleet.hiddenInactive > 0 && plural(fleet.hiddenInactive, 'inactive car', 'inactive cars'),
-  ].filter(Boolean);
-  const notes = [
-    hidden.length > 0 && `Not shown: ${hidden.join(', ')}.`,
-    fleet.noTracker > 0 && `${plural(fleet.noTracker, 'active car has', 'active cars have')} no tracker.`,
-  ].filter(Boolean);
-  return notes.length > 0 ? notes.join(' ') : null;
+  return { cars, noGps, unlinked, carInfo };
 }
 
 export async function fetchFleet(): Promise<Fleet> {
@@ -215,7 +236,7 @@ export async function fetchFleet(): Promise<Fleet> {
       .from('car_tracking')
       .select('id, car_id, plate_number, current_km, km_at_midnight, daily_km, next_oil_change, ignition, speed, last_signal_at')
       .order('last_signal_at', { ascending: false, nullsFirst: false }),
-    supabase.from('cars').select('id, plate_number, is_active, model_group:model_group_id(name)'),
+    supabase.from('cars').select('id, plate_number, is_active, model_group:model_group_id(name, image_url)'),
   ]);
   if (tracking.error) throw new Error(tracking.error.message);
   if (carRows.error) throw new Error(carRows.error.message);
@@ -251,36 +272,49 @@ export function parseNextOil(text: string): { value: number | null } | null {
 
 // ─── Daily report ─────────────────────────────────────────────────────────────
 
-export const DAILY_FILTERS = ['moved', 'idle', 'no_signal', 'over_500'] as const;
+export const DAILY_FILTERS = ['moved', 'idle', 'no_signal', 'over_500', 'no_gps'] as const;
 export type DailyFilter = typeof DAILY_FILTERS[number];
 
-export function todayRows(fleet: Fleet): DayRow[] {
-  return fleet.cars.map((car) => ({
-    key: `t${car.id}`,
-    car_id: car.car_id,
-    plate: car.plate,
-    model: car.model,
-    start_km: car.start_km,
-    end_km: car.current_km,
-    km: car.today_km,
-    last_signal_at: car.last_signal_at,
-  }));
-}
+const rowOf = (car: TrackedCar): DayRow => ({
+  key: `t${car.car_id}`,
+  car_id: car.car_id,
+  tracked: car.tracked,
+  plate: car.plate,
+  model: car.model,
+  image: car.image,
+  start_km: car.start_km,
+  end_km: car.current_km,
+  km: car.today_km,
+  remaining: kmRemaining(car),
+  last_signal_at: car.last_signal_at,
+});
+
+export const todayRows = (fleet: Fleet): DayRow[] => fleet.cars.map(rowOf);
+
+export const noGpsRows = (fleet: Fleet): DayRow[] => fleet.noGps.map(rowOf);
 
 /** A car that has since left the fleet stays on the days it really drove. */
 export function pastRows(history: DailyKmRow[], day: string, fleet: Fleet): DayRow[] {
+  const current = new Map(fleet.cars.map((car) => [car.car_id, car]));
   return history
     .filter((row) => row.day === day && (fleet.carInfo[row.car_id]?.active || (row.km ?? 0) > 0))
-    .map((row) => ({
-      key: `d${row.car_id}`,
-      car_id: row.car_id,
-      plate: row.plate_number ?? fleet.carInfo[row.car_id]?.plate ?? '—',
-      model: fleet.carInfo[row.car_id]?.model ?? null,
-      start_km: row.start_km,
-      end_km: row.end_km,
-      km: Math.max(0, row.km ?? 0),
-      last_signal_at: row.last_signal_at,
-    }));
+    .map((row) => {
+      const info = fleet.carInfo[row.car_id];
+      const car = current.get(row.car_id);
+      return {
+        key: `d${row.car_id}`,
+        car_id: row.car_id,
+        tracked: true,
+        plate: row.plate_number ?? info?.plate ?? '—',
+        model: info?.model ?? null,
+        image: info?.image ?? null,
+        start_km: row.start_km,
+        end_km: row.end_km,
+        km: Math.max(0, row.km ?? 0),
+        remaining: car ? kmRemaining(car) : null,
+        last_signal_at: row.last_signal_at,
+      };
+    });
 }
 
 export function dayStats(rows: DayRow[], at: number) {
@@ -296,18 +330,18 @@ export function dayStats(rows: DayRow[], at: number) {
 
 const matches = (text: string, query: string) => text.toLowerCase().replace(/\s/g, '').includes(query);
 
-/** Most km first, then by plate so the order never jumps between refreshes. */
+/** A car without a tracker only appears when the No GPS tile asks for it. */
 export function visibleDayRows(rows: DayRow[], filter: DailyFilter | 'all', at: number, search: string): DayRow[] {
   const query = search.toLowerCase().replace(/\s/g, '');
-  return rows
-    .filter((row) => {
-      if (filter === 'moved' && row.km === 0) return false;
-      if (filter === 'idle' && row.km > 0) return false;
-      if (filter === 'no_signal' && !noSignal(row.last_signal_at, at)) return false;
-      if (filter === 'over_500' && row.km <= OVER_KM) return false;
-      return !query || matches(`${row.plate} ${row.model ?? ''}`, query);
-    })
-    .sort((a, b) => b.km - a.km || a.plate.localeCompare(b.plate));
+  return rows.filter((row) => {
+    if (filter === 'no_gps' && row.tracked) return false;
+    if (filter !== 'no_gps' && !row.tracked) return false;
+    if (filter === 'moved' && row.km === 0) return false;
+    if (filter === 'idle' && row.km > 0) return false;
+    if (filter === 'no_signal' && !noSignal(row.last_signal_at, at)) return false;
+    if (filter === 'over_500' && row.km <= OVER_KM) return false;
+    return !query || matches(`${row.plate} ${row.model ?? ''}`, query);
+  });
 }
 
 export interface SeriesDay {
@@ -319,7 +353,7 @@ export interface SeriesDay {
 }
 
 /** Every day from `from` to `to`, with today's live row standing in for the one not saved yet. */
-export function daySeries(history: DailyKmRow[], carId: number | null, from: string, to: string, live?: DayRow | null): SeriesDay[] {
+export function daySeries(history: DailyKmRow[], carId: number, from: string, to: string, live?: DayRow | null): SeriesDay[] {
   const saved = new Map(history.filter((row) => row.car_id === carId).map((row) => [row.day, row]));
   const days: SeriesDay[] = [];
   for (let day = from; day <= to; day = addDays(day, 1)) {
@@ -346,7 +380,7 @@ export function niceMax(value: number): number {
 
 // ─── Live fleet ───────────────────────────────────────────────────────────────
 
-export const LIVE_FILTERS = ['moving', 'ignition', 'oil_due', 'oil_over', 'no_signal'] as const;
+export const LIVE_FILTERS = ['moving', 'ignition', 'oil_due', 'oil_over', 'no_signal', 'no_gps'] as const;
 export type LiveFilter = typeof LIVE_FILTERS[number];
 
 export type OilState = 'ok' | 'due' | 'over' | 'unknown';
@@ -384,6 +418,8 @@ export function liveStats(cars: TrackedCar[], now: number) {
 export function visibleLiveCars(cars: TrackedCar[], filter: LiveFilter | 'all', now: number, search: string): TrackedCar[] {
   const query = search.toLowerCase().replace(/\s/g, '');
   return cars.filter((car) => {
+    if (filter === 'no_gps' && car.tracked) return false;
+    if (filter !== 'no_gps' && filter !== 'all' && !car.tracked) return false;
     if (filter === 'moving' && !isMoving(car, now)) return false;
     if (filter === 'ignition' && !isIgnitionOn(car, now)) return false;
     if (filter === 'oil_due' && oilState(kmRemaining(car)) !== 'due') return false;
@@ -403,6 +439,62 @@ export function trackingOutage(cars: TrackedCar[], now: number): { lastSignal: s
     return !latest || Date.parse(car.last_signal_at) > Date.parse(latest) ? car.last_signal_at : latest;
   }, null);
   return { lastSignal: newest };
+}
+
+export const silentCars = (cars: TrackedCar[], now: number): TrackedCar[] => cars.filter((car) => noSignal(car.last_signal_at, now));
+
+// ─── Sorting ──────────────────────────────────────────────────────────────────
+
+export const DAILY_SORTS = ['plate', 'model', 'end_km', 'km', 'remaining', 'signal'] as const;
+export type DailySort = typeof DAILY_SORTS[number];
+
+export const LIVE_SORTS = ['plate', 'model', 'current_km', 'today_km', 'speed', 'next_oil_change', 'remaining', 'signal'] as const;
+export type LiveSort = typeof LIVE_SORTS[number];
+
+/** Which way a column opens: A to Z, nearest service first, and the biggest number otherwise. */
+export const firstDirection = (key: string): SortDirection => (
+  ['plate', 'model', 'remaining', 'next_oil_change'].includes(key) ? 'asc' : 'desc'
+);
+
+const timeOf = (at: string | null) => (at ? Date.parse(at) : null);
+
+/** Empty cells stay last whichever way it runs, and the plate settles a tie. */
+function sortRows<T extends { plate: string }>(rows: T[], value: (row: T) => string | number | null, direction: SortDirection): T[] {
+  const sign = direction === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const first = value(a);
+    const second = value(b);
+    if (first === null || second === null) {
+      if (first !== second) return first === null ? 1 : -1;
+    } else if (first !== second) {
+      return typeof first === 'string' ? sign * first.localeCompare(String(second)) : sign * (first - Number(second));
+    }
+    return a.plate.localeCompare(b.plate);
+  });
+}
+
+export function sortDayRows(rows: DayRow[], key: DailySort, direction: SortDirection): DayRow[] {
+  return sortRows(rows, (row) => {
+    if (key === 'plate') return row.plate;
+    if (key === 'model') return row.model;
+    if (key === 'signal') return timeOf(row.last_signal_at);
+    if (key === 'remaining') return row.remaining;
+    if (key === 'end_km') return row.end_km;
+    return row.tracked ? row.km : null;
+  }, direction);
+}
+
+export function sortLiveCars(cars: TrackedCar[], key: LiveSort, direction: SortDirection): TrackedCar[] {
+  return sortRows(cars, (car) => {
+    if (key === 'plate') return car.plate;
+    if (key === 'model') return car.model;
+    if (key === 'remaining') return kmRemaining(car);
+    if (key === 'signal') return timeOf(car.last_signal_at);
+    if (key === 'next_oil_change') return car.next_oil_change;
+    if (key === 'current_km') return car.current_km;
+    if (!car.tracked) return null;
+    return key === 'today_km' ? car.today_km : car.speed;
+  }, direction);
 }
 
 export const todayInIstanbul = (now: number): string => istanbulDate(new Date(now));

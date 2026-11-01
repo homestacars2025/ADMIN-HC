@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MediaToaster } from '../components/media/MediaToast';
-import { FilterTileSkeleton } from '../components/shared/FilterTile';
 import { LoadError, PageHeader, SkeletonRows } from '../components/shared/PageBits';
-import { fetchFleet, hiddenNote, todayInIstanbul, trackingOutage, validDay, type Fleet } from '../lib/carTracking';
+import { fetchFleet, silentCars, todayInIstanbul, trackingOutage, validDay, type Fleet } from '../lib/carTracking';
 import { cn } from '../lib/media/badgeColor';
 import { DailyReport } from './carTracking/DailyReport';
 import { LiveFleet } from './carTracking/LiveFleet';
-import { DateNav, OutageBanner } from './carTracking/ui';
+import { DateNav, GpsWarning, OutageBanner, TileSkeleton, UnlinkedTrackers } from './carTracking/ui';
 
 const REFRESH_MS = 60_000;
 const TABS = [
@@ -51,6 +50,8 @@ const CarTrackingPage: React.FC = () => {
   const switchTab = (next: typeof TABS[number]['key']) => {
     const updated = new URLSearchParams(params);
     updated.delete('filter');
+    updated.delete('sort');
+    updated.delete('dir');
     if (next === 'live') updated.set('tab', 'live');
     else updated.delete('tab');
     setParams(updated);
@@ -71,12 +72,14 @@ const CarTrackingPage: React.FC = () => {
   }, []);
 
   const outage = useMemo(() => (fleet ? trackingOutage(fleet.cars, now) : null), [fleet, now]);
+  const silent = useMemo(() => (fleet ? silentCars(fleet.cars, now) : []), [fleet, now]);
 
   return (
     <div className="media-scope min-h-screen bg-surface px-4 py-6 sm:px-6 lg:px-10 lg:py-11">
       <PageHeader eyebrow="Fleet" title="Car Tracking" subtitle="Kilometres driven each day, and where the fleet stands now." />
 
       {outage && <OutageBanner outage={outage} />}
+      {fleet && <GpsWarning noGps={fleet.noGps} silent={silent} />}
 
       <div className="sticky top-0 z-20 -mx-4 bg-surface px-4 pb-2 sm:-mx-6 sm:px-6 md:static md:mx-0 md:px-0">
         <div role="tablist" aria-label="Car tracking views" className="flex max-w-[1100px] gap-1 border-b border-subtle">
@@ -103,15 +106,15 @@ const CarTrackingPage: React.FC = () => {
 
       {!fleet ? !error && (
         <div className="mt-2">
-          <FilterTileSkeleton />
+          <TileSkeleton count={tab === 'live' ? 7 : 6} />
           <div className={cn('mt-4 max-w-[1100px] rounded-xl border border-subtle bg-surface')}><SkeletonRows /></div>
         </div>
       ) : (
         <>
           {tab === 'daily'
             ? <DailyReport fleet={fleet} day={day} today={today} now={now} />
-            : <LiveFleet cars={fleet.cars} now={now} onOil={patchOil} />}
-          {hiddenNote(fleet) && <p className="mt-3 max-w-[1100px] text-[12px] text-black/40">{hiddenNote(fleet)}</p>}
+            : <LiveFleet cars={fleet.cars} noGps={fleet.noGps} now={now} onOil={patchOil} />}
+          <UnlinkedTrackers trackers={fleet.unlinked} now={now} />
         </>
       )}
 

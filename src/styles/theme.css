@@ -276,8 +276,6 @@ b, strong, th {
   color: #fff;
 }
 
-.filter-tile-icon.is-bare { width: 32px; height: 32px; background: none; }
-
 .filter-tile-label {
   min-width: 0;
   font-size: 13px;
@@ -327,11 +325,127 @@ b, strong, th {
 
 @container tile-room (min-width: 860px) {
   .filter-tiles { grid-template-columns: repeat(5, minmax(0, 220px)); }
-  .filter-tiles.is-six { grid-template-columns: repeat(3, minmax(0, 220px)); }
 }
 
-@container tile-room (min-width: 1000px) {
-  .filter-tiles.is-six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+/* Big stat tiles: Cars and Car Tracking. Every tile is the same size in a row. */
+.status-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1100px;
+}
+
+.status-tiles > .status-tile:first-child:nth-last-child(odd) { grid-column: 1 / -1; }
+
+.status-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 0 0 1px rgb(0 0 0 / 0.04);
+  font-family: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.status-tile:focus-visible { outline: 3px solid rgb(110 164 231 / 0.5); outline-offset: 2px; }
+
+.status-tile.is-active {
+  background: color-mix(in srgb, var(--tile-accent) 7%, var(--surface));
+  outline: 2px solid var(--tile-accent);
+  outline-offset: -1px;
+}
+
+.status-tile-bar {
+  display: block;
+  flex: none;
+  align-self: stretch;
+  height: 4px;
+  border-radius: 15px 15px 0 0;
+  background: var(--tile-accent);
+}
+
+/* A sticker over the tile's corner, which is why nothing here clips. */
+.status-tile-art {
+  position: absolute;
+  top: -8px;
+  inset-inline-start: -4px;
+  display: block;
+  width: 58px;
+  height: 58px;
+  pointer-events: none;
+}
+
+.status-tile-art img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+.status-tile-body {
+  container-type: inline-size;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-self: stretch;
+  padding: 12px 14px 14px;
+}
+
+.status-tile-top { display: flex; justify-content: flex-end; min-height: 34px; margin-bottom: 6px; }
+
+.status-tile-pct {
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* `100cqi` is the tile's inner width, so a long number stays on one line. */
+.status-tile-value {
+  display: block;
+  font-size: clamp(22px, calc(100cqi / (var(--chars) * 0.6)), 40px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #0f1117;
+}
+
+.status-tile-label { display: block; margin-top: 10px; font-size: 14px; font-weight: 600; line-height: 1.25; color: #0f1117; }
+.status-tile-sub { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.35; color: #9ca3af; }
+
+@media (hover: hover) {
+  .status-tile:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.04);
+  }
+}
+
+@media (min-width: 640px) {
+  .status-tile-art { top: -10px; inset-inline-start: -6px; width: 72px; height: 72px; }
+  .status-tile-body { padding: 14px 16px 18px; }
+  .status-tile-top { min-height: 42px; }
+  .status-tile-value { font-size: clamp(22px, calc(100cqi / (var(--chars) * 0.6)), 52px); }
+  .status-tile-label { margin-top: 12px; font-size: 15px; }
+  .status-tile-sub { font-size: 13px; }
+}
+
+@media (min-width: 768px) {
+  .status-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+}
+
+@media (min-width: 1280px) {
+  .status-tiles.six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .status-tiles.seven { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .status-tiles > .status-tile:first-child:nth-last-child(odd) { grid-column: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-tile { transition: none; }
+  .status-tile:hover { transform: none; }
 }
 
 .tile-blue { --tile-from: #EAF3FD; --tile-to: #D6E7FA; --tile-ink: #1F4E8C; --tile-chip: #6EA4E7; }

@@ -7,6 +7,7 @@ import AlertSection from '../components/AlertSection';
 import { Button } from '../components/media/MediaUI';
 import { ComplianceTriangle } from '../components/shared/ComplianceBits';
 import { StatusImage, type StatusArt } from '../components/shared/StatusImage';
+import { StatusTile } from '../components/shared/StatusTile';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import { buildCompliance, toneOf, type CarCompliance, type ComplianceDoc } from '../lib/carCompliance';
 import { publishCompliance, signInAlertActive } from '../lib/complianceStore';
@@ -125,111 +126,6 @@ const CARDS: StatCard[] = [
     art: 'replacement',
   },
 ];
-
-interface HoverCardProps {
-  card: StatCard;
-  count: number;
-  total: number;
-  active: boolean;
-  onClick: () => void;
-}
-
-const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total, active, onClick }) => {
-  const ref = useRef<HTMLButtonElement>(null);
-
-  const handleEnter = () => {
-    if (!ref.current) return;
-    ref.current.style.transform = 'translateY(-4px)';
-    ref.current.style.boxShadow = `0 16px 40px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)`;
-  };
-
-  const handleLeave = () => {
-    if (!ref.current) return;
-    ref.current.style.transform = 'translateY(0)';
-    ref.current.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)';
-  };
-
-  const pct = total > 0 && card.key !== 'all' ? Math.round((count / total) * 100) : null;
-
-  return (
-    <button
-      ref={ref}
-      type="button"
-      aria-pressed={active}
-      aria-label={`${card.label}: ${count}`}
-      onClick={onClick}
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-      className="focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40"
-      style={{
-        position: 'relative',
-        padding: 0,
-        textAlign: 'start',
-        fontFamily: 'inherit',
-        background: active ? `color-mix(in srgb, ${card.accentColor} 5%, var(--surface))` : 'var(--surface)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 16,
-        outline: active ? `2px solid ${card.accentColor}` : undefined,
-        outlineOffset: -1,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
-        transition: 'transform 200ms ease, box-shadow 200ms ease',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-      }}
-    >
-      {/* Colored top bar */}
-      <div style={{ height: 4, background: card.accentColor, flexShrink: 0, alignSelf: 'stretch', borderRadius: '15px 15px 0 0' }} />
-
-      {/* A sticker over the tile's top corner, which is why nothing here clips */}
-      <StatusImage status={card.art} size={72} style={{ position: 'absolute', top: -10, insetInlineStart: -6, pointerEvents: 'none' }} />
-
-      <div className="px-4 pb-5 pt-4 sm:px-5" style={{ flex: 1, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* Room beside the sticker, and the % badge */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', minHeight: 40 }}>
-          {pct !== null && (
-            <span style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: card.accentColor,
-              background: card.iconBg,
-              borderRadius: 20,
-              padding: '3px 9px',
-              letterSpacing: '0.2px',
-            }}>
-              {pct}%
-            </span>
-          )}
-        </div>
-
-        {/* Number */}
-        <div>
-          <div style={{
-            fontSize: 52,
-            fontWeight: 600,
-            letterSpacing: '-3px',
-            color: '#0f1117',
-            lineHeight: 1,
-            fontVariantNumeric: 'tabular-nums',
-          }}>
-            {count}
-          </div>
-        </div>
-
-        {/* Label + description */}
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 2 }}>
-            {card.label}
-          </div>
-          <div style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.4 }}>
-            {card.description}
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-};
 
 const SkeletonCard: React.FC = () => (
   <div style={{
@@ -1359,15 +1255,18 @@ const CarsPage: React.FC = () => {
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6" style={{ gap: 14, marginBottom: 36 }}>
+      <div className="status-tiles six" style={{ maxWidth: 'none', marginBottom: 36 }}>
         {loading
           ? CARDS.map(c => <SkeletonCard key={c.key} />)
           : CARDS.map(card => (
-              <StatCardComponent
+              <StatusTile
                 key={card.key}
-                card={card}
-                count={countFor(card.key)}
-                total={total}
+                accent={card.accentColor}
+                art={<StatusImage status={card.art} size={72} />}
+                label={card.label}
+                value={String(countFor(card.key))}
+                sub={card.description}
+                pct={total > 0 && card.key !== 'all' ? { value: Math.round((countFor(card.key) / total) * 100), tint: card.iconBg } : null}
                 active={statusFilter === card.key}
                 onClick={() => pickStatus(card.key)}
               />
