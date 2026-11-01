@@ -49,6 +49,11 @@ const en = {
     expiring_body: '{{model}} · Expires {{expiry}}',
     expiring_body_no_model: 'Expires {{expiry}}',
   },
+  custody: {
+    pending: {
+      title: 'Expense waiting for approval: {{amount}}',
+    },
+  },
   fines: {
     unpaid: {
       one: '{{count}} unpaid fine — {{total}}',

@@ -20,6 +20,9 @@ import InvestorsPage from './pages/InvestorsPage';
 import PricingPage from './pages/PricingPage';
 import AccountingPage, { InvestorReportPage, CarCustomerSheetPage } from './pages/AccountingPage';
 import CarTrackingPage from './pages/CarTrackingPage';
+import CashAccountsPage from './pages/CashAccountsPage';
+import SuppliersPage from './pages/SuppliersPage';
+import SupplierDetailPage from './pages/suppliers/SupplierDetailPage';
 import ActiveBookingsPage from './pages/ActiveBookingsPage';
 import PendingInvoicesPage from './pages/PendingInvoicesPage';
 import CustomersPage from './pages/customers/CustomersPage';
@@ -96,6 +99,9 @@ const App: React.FC = () => {
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="accounting/report" element={<InvestorReportPage />} />
           <Route path="accounting/customer-sheet/:carId" element={<CarCustomerSheetPage />} />
+          <Route path="suppliers" element={<SuppliersPage />} />
+          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+          <Route path="cash-accounts" element={<CashAccountsPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/:id" element={<CustomerProfilePage />} />
           <Route path="google-reviews" element={<GoogleReviewsPage />} />

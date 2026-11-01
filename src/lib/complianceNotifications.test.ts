@@ -1,4 +1,4 @@
-import { withComplianceMessage, withFineReminder } from './complianceNotifications';
+import { withComplianceMessage, withFineReminder, withCustodyMessage } from './complianceNotifications';
 import { resolveNotificationLink, type NotificationRow } from './notifications';
 
 jest.mock('./supabase', () => ({ supabase: {} }));
@@ -114,5 +114,33 @@ describe('notification links', () => {
   it('keeps the query on a stored link', () => {
     expect(resolveNotificationLink('/fines?filter=unpaid')).toBe('/dashboard/fines?filter=unpaid');
     expect(resolveNotificationLink('/cars/57')).toBe('/dashboard/cars');
+  });
+});
+
+describe('withCustodyMessage', () => {
+  const custody = (over: Partial<NotificationRow>): NotificationRow => ({
+    event_key: 'custody.expense.pending',
+    title: STORED_ARABIC,
+    body: STORED_ARABIC,
+    i18n_key: 'custody.expense.pending',
+    link: '/accounting?tab=custody',
+    vars: { name: 'Noor', amount: 450.5, description: 'Car wash' },
+    ...over,
+  } as NotificationRow);
+
+  it('replaces the stored Arabic with English from vars', () => {
+    const row = withCustodyMessage(custody({}));
+    expect(row.title).toBe('Expense waiting for approval: ₺450,50');
+    expect(row.body).toBe('Noor — Car wash');
+    expect(row.i18n_key).toBeNull();
+  });
+
+  it('opens the waiting list', () => {
+    expect(withCustodyMessage(custody({})).link).toBe('/dashboard/accounting?tab=custody&filter=pending');
+  });
+
+  it('leaves other notifications alone', () => {
+    const other = custody({ event_key: 'something.else' });
+    expect(withCustodyMessage(other)).toBe(other);
   });
 });

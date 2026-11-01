@@ -1,5 +1,6 @@
 import { formatDate } from './customers';
 import { t } from './i18n';
+import { formatMoney } from './money';
 import type { NotificationRow } from './notifications';
 
 const EVENT = /^compliance\.(insurance|inspection)\.expiring$/;
@@ -34,6 +35,22 @@ export function withComplianceMessage(row: NotificationRow): NotificationRow {
     body: expiry ? t(model ? 'compliance.expiring_body' : 'compliance.expiring_body_no_model', { model, expiry }) : model || null,
     link: row.entity_id ? `/dashboard/cars?car=${encodeURIComponent(row.entity_id)}` : '/dashboard/cars',
     compliance_tone: daysLeft <= 1 ? 'red' : 'amber',
+  };
+}
+
+/** Stored in Arabic with only a key, so the English comes from `vars`. */
+export function withCustodyMessage(row: NotificationRow): NotificationRow {
+  if (row.event_key !== 'custody.expense.pending') return row;
+  const vars = row.vars ?? {};
+  const name = typeof vars.name === 'string' ? vars.name : '';
+  const description = typeof vars.description === 'string' ? vars.description : '';
+  return {
+    ...row,
+    i18n_key: null,
+    body_i18n_key: null,
+    title: t('custody.pending.title', { amount: formatMoney(Number(vars.amount) || 0) }),
+    body: [name, description].filter(Boolean).join(' — ') || null,
+    link: '/dashboard/accounting?tab=custody&filter=pending',
   };
 }
 

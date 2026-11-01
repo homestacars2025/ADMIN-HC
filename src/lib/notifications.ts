@@ -1,5 +1,5 @@
 import type { ComplianceTone } from './carCompliance';
-import { withComplianceMessage, withFineReminder } from './complianceNotifications';
+import { withComplianceMessage, withFineReminder, withCustodyMessage } from './complianceNotifications';
 import { supabase } from './supabase';
 
 /**
@@ -126,7 +126,7 @@ export async function getNotifications(
     p_only_unread: onlyUnread,
   });
   if (error) throw new Error(friendlyError(error));
-  return ((data ?? []) as NotificationRow[]).map((row) => withFineReminder(withComplianceMessage(row)));
+  return ((data ?? []) as NotificationRow[]).map((row) => withCustodyMessage(withFineReminder(withComplianceMessage(row))));
 }
 
 export async function getUnreadCount(): Promise<number> {
@@ -265,11 +265,11 @@ export async function searchProfiles(query: string): Promise<ProfileOption[]> {
  * Only first segments that a notification could plausibly point at are listed.
  */
 const DASHBOARD_SECTIONS = new Set([
-  'accounting', 'bookings', 'calendar', 'car-issues', 'cars', 'customers', 'home',
+  'accounting', 'bookings', 'calendar', 'car-issues', 'cars', 'cash-accounts', 'customers', 'home',
   'fines', 'goals', 'google-reviews', 'inbox', 'investors', 'kabis', 'kgm', 'marketing',
   'media', 'model-groups', 'notifications', 'online-users', 'operations',
   'payroll', 'pending-invoices', 'pricing', 'reminder-rules', 'sourcing',
-  'staff-permissions', 'tasks', 'team', 'users',
+  'staff-permissions', 'suppliers', 'tasks', 'team', 'users',
 ]);
 
 /**

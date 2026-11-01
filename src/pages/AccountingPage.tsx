@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,18 @@ import { MonthNav } from '../components/shared/MonthNav';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { Button } from '../components/media/MediaUI';
+import { fetchPendingSummary, type PendingSummary } from '../lib/expenseApprovals';
+import { ExpenseApprovalsTab } from './accounting/ExpenseApprovalsTab';
+
+/** Scrolls the row a link pointed at into view. Pair it with `HIGHLIGHT_ROW` on that row. */
+function useScrollToRow(rowId: number | null, ready: boolean) {
+  useEffect(() => {
+    if (rowId === null || !ready) return;
+    document.getElementById(`entry-${rowId}`)?.scrollIntoView({ block: 'center' });
+  }, [rowId, ready]);
+}
+
+const HIGHLIGHT_ROW = 'rgba(245,158,11,0.14)';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1431,8 +1443,9 @@ const InvestorCarSheetView: React.FC<{
   investorId: string;
   car: CarOption;
   monthKey: string;
+  highlight?: number | null;
   onBack: () => void;
-}> = ({ investorId, car, monthKey, onBack }) => {
+}> = ({ investorId, car, monthKey, highlight = null, onBack }) => {
   const { fmt, symbol } = useCurrency();
   const [txs,       setTxs]       = useState<FinancialTransaction[]>([]);
   const [loading,   setLoading]   = useState(true);
@@ -1453,6 +1466,7 @@ const InvestorCarSheetView: React.FC<{
   };
 
   useEffect(() => { fetchTxs(); }, [investorId, car.id, monthKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useScrollToRow(highlight, !loading);
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Delete this transaction? This cannot be undone.')) return;
@@ -1502,7 +1516,7 @@ const InvestorCarSheetView: React.FC<{
               </thead>
               <tbody>
                 {txs.map((t, i) => (
-                  <tr key={t.id} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7' }}>
+                  <tr key={t.id} id={`entry-${t.id}`} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7', background: t.id === highlight ? HIGHLIGHT_ROW : undefined }}>
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
                     <td style={td}>{t.direction?.toUpperCase() === 'IN' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#16a34a', background: 'rgba(34,197,94,0.1)' }}>↓ IN</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#dc2626', background: 'rgba(239,68,68,0.1)' }}>↑ OUT</span>}</td>
                     <td style={{ ...td, color: '#6b7280' }}>{t.category ?? '—'}</td>
@@ -1555,8 +1569,9 @@ const InvestorCarListView: React.FC<{
   investorId: string;
   monthKey: string;
   txs: FinancialTransaction[];
+  entry?: { carId: number; id: number } | null;
   onBack: () => void;
-}> = ({ investorId, monthKey, txs, onBack }) => {
+}> = ({ investorId, monthKey, txs, entry, onBack }) => {
   const { fmt } = useCurrency();
   const [cars,        setCars]        = useState<CarOption[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
@@ -1571,15 +1586,17 @@ const InvestorCarListView: React.FC<{
       .eq('is_active', true)
       .then(({ data }) => {
         const raw = (data ?? []) as unknown as { id: number; plate_number: string; model_group: { name: string } | null }[];
-        setCars(raw
+        const options = raw
           .map(c => ({ id: c.id, plate_number: c.plate_number, model_name: c.model_group?.name ?? '—' }))
-          .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number)));
+          .sort((a, b) => a.model_name.localeCompare(b.model_name) || a.plate_number.localeCompare(b.plate_number));
+        setCars(options);
+        setSelectedCar(options.find(c => c.id === entry?.carId) ?? null);
         setCarsLoading(false);
       });
-  }, [investorId]);
+  }, [investorId, entry?.carId]);
 
   if (selectedCar) {
-    return <InvestorCarSheetView investorId={investorId} car={selectedCar} monthKey={monthKey} onBack={() => setSelectedCar(null)} />;
+    return <InvestorCarSheetView investorId={investorId} car={selectedCar} monthKey={monthKey} highlight={selectedCar.id === entry?.carId ? entry.id : null} onBack={() => setSelectedCar(null)} />;
   }
 
   const carTxs = txs.filter(t => t.sheet_type === 'car');
@@ -1735,13 +1752,15 @@ const InvestorSummaryView: React.FC<{
   investorId: string;
   onBack: () => void;
   hideBackButton?: boolean;
-}> = ({ investorId, onBack, hideBackButton = false }) => {
+  /** From a "Posted" link: opens this car's sheet in this month, on this row. */
+  entry?: { month: string; carId: number; id: number } | null;
+}> = ({ investorId, onBack, hideBackButton = false, entry = null }) => {
   const { fmt } = useCurrency();
-  const [monthKey,        setMonthKey]        = useState(currentMonthKey());
+  const [monthKey,        setMonthKey]        = useState(entry?.month ?? currentMonthKey());
   const [txs,             setTxs]             = useState<FinancialTransaction[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [sheetView,       setSheetView]       = useState<{ type: string; label: string } | null>(null);
-  const [showCarsList,    setShowCarsList]    = useState(false);
+  const [showCarsList,    setShowCarsList]    = useState(entry !== null);
   const [carCount,        setCarCount]        = useState<number | null>(null);
   const [commissionRate,  setCommissionRate]  = useState<number | null>(null);
 
@@ -1795,6 +1814,7 @@ const InvestorSummaryView: React.FC<{
         investorId={investorId}
         monthKey={monthKey}
         txs={txs}
+        entry={entry}
         onBack={() => setShowCarsList(false)}
       />
     );
@@ -2980,11 +3000,19 @@ export const InvestorReportPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
   const investorId     = String(searchParams.get('investor_id') ?? '');
+  const month          = searchParams.get('month');
+  const carId          = Number(searchParams.get('car'));
+  const entryId        = Number(searchParams.get('entry'));
+  const entry          = useMemo(
+    () => (month && /^\d{4}-\d{2}$/.test(month) && carId > 0 && entryId > 0 ? { month, carId, id: entryId } : null),
+    [month, carId, entryId],
+  );
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <InvestorSummaryView
         investorId={investorId}
+        entry={entry}
         onBack={() => navigate('/dashboard/accounting')}
       />
       <style>{`
@@ -3997,6 +4025,8 @@ const AddInternalFinanceTxModal: React.FC<{
           amount:           amountTRY,
           description:      form.note || null,
           receipt_url:      receiptUrl,
+          // An admin's own entry, not a staff claim. It must not wait for approval, or post anywhere.
+          review_status:    'approved',
         })
       : await supabase.from('company_expenses').insert({
           expense_date: form.date,
@@ -4583,7 +4613,10 @@ const EditCompanyExpenseModal: React.FC<{
 
 const CompanyExpensesTab: React.FC = () => {
   const { fmt } = useCurrency();
-  const [monthKey,       setMonthKey]       = useState(currentMonthKey());
+  const [linkParams] = useSearchParams();
+  const linkedMonth = linkParams.get('month');
+  const linkedEntry = Number(linkParams.get('entry')) || null;
+  const [monthKey,       setMonthKey]       = useState(linkedMonth && /^\d{4}-\d{2}$/.test(linkedMonth) ? linkedMonth : currentMonthKey());
   const [refreshKey,     setRefreshKey]     = useState(0);
   const [showAddTx,      setShowAddTx]      = useState(false);
   const [ifMonthData,    setIfMonthData]    = useState<CompanyExpenseRow[]>([]);
@@ -4600,6 +4633,8 @@ const CompanyExpensesTab: React.FC = () => {
     await supabase.from('company_expenses').delete().eq('id', id);
     setRefreshKey(k => k + 1);
   };
+
+  useScrollToRow(linkedEntry, !ifMonthLoading);
 
   // employee_wallet_balances is already scoped to role='staff' — one card per row.
   useEffect(() => {
@@ -4787,7 +4822,7 @@ const CompanyExpensesTab: React.FC = () => {
                         const isIn = r.direction?.toUpperCase() === 'IN';
                         const catLabel = COMPANY_EXPENSE_CATEGORIES.find(c => c.value === r.category)?.label ?? r.category;
                         return (
-                          <tr key={r.id} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f7f7f7' : 'none' }}>
+                          <tr key={r.id} id={`entry-${r.id}`} style={{ borderBottom: i < rows.length - 1 ? '1px solid #f7f7f7' : 'none', background: r.id === linkedEntry ? HIGHLIGHT_ROW : undefined }}>
                             <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtDate(r.expense_date)}</td>
                             <td style={td}><DirBadge dir={r.direction} /></td>
                             <td style={{ ...td, whiteSpace: 'nowrap', color: catLabel ? '#374151' : '#d1d5db' }}>{catLabel || '—'}</td>
@@ -5562,17 +5597,31 @@ const BookingAccountsTab: React.FC = () => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type AccountingTab = 'overview' | 'investor' | 'customer' | 'expenses' | 'bookings';
+type AccountingTab = 'custody' | 'overview' | 'investor' | 'customer' | 'expenses' | 'bookings';
+
+const ACCOUNTING_TABS: readonly AccountingTab[] = ['custody', 'overview', 'investor', 'customer', 'expenses', 'bookings'];
 
 const AccountingPage: React.FC = () => {
-  const [tabParam] = useSearchParams();
-  const [activeTab,        setActiveTab]        = useState<AccountingTab>(
-    () => (tabParam.get('tab') === 'expenses' ? 'expenses' : 'overview'),
-  );
+  const [tabParam, setTabParam] = useSearchParams();
+  const requestedTab = tabParam.get('tab') as AccountingTab | null;
+  const activeTab: AccountingTab = requestedTab && ACCOUNTING_TABS.includes(requestedTab) ? requestedTab : 'overview';
+  // Each tab keeps its own filters in the URL, so they don't carry over.
+  const setActiveTab = useCallback((tab: AccountingTab) => {
+    setTabParam(tab === 'overview' ? {} : { tab });
+  }, [setTabParam]);
+  const [pending,          setPending]          = useState<PendingSummary | null>(null);
   const [view,             setView]             = useState<'tabs' | 'investor-report'>('tabs');
   const [activeInvestorId, setActiveInvestorId] = useState<string | null>(null);
   const [showAddTx,        setShowAddTx]        = useState(false);
   const [refreshKey,       setRefreshKey]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPendingSummary()
+      .then((summary) => { if (!cancelled) setPending(summary); })
+      .catch(() => { /* Only the badge goes missing. The tab shows its own error. */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleViewReport = (id: string) => {
     setActiveInvestorId(id);
@@ -5597,7 +5646,7 @@ const AccountingPage: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-11" style={{ minHeight: '100vh', background: 'var(--surface)' }}>
       {/* Page header */}
       <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>
@@ -5620,8 +5669,9 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 28, background: '#f3f4f6', padding: 4, borderRadius: 12, width: 'fit-content' }}>
+      <div role="tablist" aria-label="Accounting views" style={{ display: 'flex', gap: 4, marginBottom: 28, background: '#f3f4f6', padding: 4, borderRadius: 12, width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
         {([
+          { key: 'custody',   label: 'Expense approvals' },
           { key: 'overview',  label: 'Overview'          },
           { key: 'investor',  label: 'Investor Sheets'   },
           { key: 'customer',  label: 'Customer Sheets'   },
@@ -5630,9 +5680,12 @@ const AccountingPage: React.FC = () => {
         ] as { key: AccountingTab; label: string }[]).map(tab => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              padding: '8px 20px', minHeight: 40, flexShrink: 0, whiteSpace: 'nowrap',
+              borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 500,
               color: activeTab === tab.key ? '#0f1117' : '#6b7280',
               background: activeTab === tab.key ? '#fff' : 'transparent',
@@ -5641,11 +5694,17 @@ const AccountingPage: React.FC = () => {
             }}
           >
             {tab.label}
+            {tab.key === 'custody' && !!pending?.count && (
+              <span aria-label={`${pending.count} waiting`} style={{ marginInlineStart: 6, minWidth: 18, height: 18, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, background: '#F59E0B', color: '#fff', fontSize: 11, fontWeight: 700 }}>
+                {pending.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
+      {activeTab === 'custody'   && <ExpenseApprovalsTab  onPending={setPending} />}
       {activeTab === 'overview'  && <OverviewTab          key={refreshKey} />}
       {activeTab === 'investor'  && <InvestorSheetsTab   key={refreshKey} onViewReport={handleViewReport} />}
       {activeTab === 'customer'  && <CustomerSheetsTab   key={refreshKey} />}

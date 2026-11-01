@@ -210,6 +210,26 @@ const financeItems: NavItem[] = [
         ),
       },
       {
+        label: 'Suppliers',
+        path: '/dashboard/suppliers',
+        icon: (
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 21V9l9-6 9 6v12" />
+            <path d="M9 21v-7h6v7" />
+          </svg>
+        ),
+      },
+      {
+        label: 'Cash accounts',
+        path: '/dashboard/cash-accounts',
+        icon: (
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18v12H3z" />
+            <circle cx="12" cy="12" r="2.5" />
+          </svg>
+        ),
+      },
+      {
         label: 'Pending Invoices',
         path: '/dashboard/pending-invoices',
         icon: (

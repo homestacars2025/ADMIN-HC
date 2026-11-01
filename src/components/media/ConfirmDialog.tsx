@@ -17,6 +17,8 @@ export interface ConfirmState {
   /** Extra line for the cases where deleting one row quietly changes another. */
   consequence?: string;
   confirmLabel: string;
+  /** Shown while it runs, for anything that isn't a delete. */
+  pendingLabel?: string;
   onConfirm: () => Promise<void>;
 }
 
@@ -72,7 +74,7 @@ export const ConfirmDialog: React.FC<{
           </Button>
           <Button variant="danger" size="lg" onClick={onConfirm} disabled={pending}>
             {pending && <Spinner size={13} />}
-            {pending ? 'Deleting…' : state.confirmLabel}
+            {pending ? (state.pendingLabel ?? 'Deleting…') : state.confirmLabel}
           </Button>
         </div>
       </div>
