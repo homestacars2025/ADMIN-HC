@@ -77,12 +77,12 @@ function sameRange(a: DateRange, b: DateRange): boolean {
 
 // ── Labels ────────────────────────────────────────────────────────────────────
 
-const LOCALE = 'tr-TR';
+const LOCALE = 'en-GB';
 const DAY_MONTH = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: 'short' });
 const DAY_MONTH_YEAR = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: 'short', year: 'numeric' });
 const MONTH_YEAR = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric' });
 
-/** "07 Eyl – 16 Eyl 2026", with the year written once when both ends share it. */
+/** "07 Nov – 16 Nov 2026", with the year written once when both ends share it. */
 export function formatRangeLabel(range: DateRange): string {
   const from = fromIso(range.from);
   const to = fromIso(range.to);
@@ -206,7 +206,8 @@ const DateRangePicker: React.FC<{
   value: DateRange;
   onApply: (range: DateRange) => void;
   className?: string;
-}> = ({ value, onApply, className }) => {
+  triggerClassName?: string;
+}> = ({ value, onApply, className, triggerClassName }) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DateRange>(value);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -332,6 +333,7 @@ const DateRangePicker: React.FC<{
           isFiltered
             ? 'border-primary/35 bg-primary/[0.06] font-medium text-primary'
             : 'border-input bg-background text-black/65 hover:bg-black/[0.03]',
+          triggerClassName,
         )}
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"

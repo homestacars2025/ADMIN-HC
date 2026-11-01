@@ -8,7 +8,9 @@ import {
   inEnvelopeFilter,
   inMovementFilter,
   isOverdue,
+  movementType,
   posPending,
+  reversalsOf,
   totalsByCurrency,
   waitingForAdmin,
   withStaff,
@@ -29,7 +31,7 @@ const movement = (over: Partial<Movement>): Movement => ({
   expected_at: null, note: null, reverses_id: null, created_by: null, created_at: ago(2), ...over,
 });
 const day = (at: string) => at.slice(0, 10);
-const NO_FILTERS = { accountId: null, kind: null, from: null, to: null };
+const NO_FILTERS = { accountId: null, type: null, from: null, to: null, banks: new Set([2]), showInternal: false };
 
 describe('totalsByCurrency', () => {
   it('keeps currencies apart and leaves out zero', () => {
@@ -110,14 +112,55 @@ describe('tile filters', () => {
     expect(inEnvelopeFilter(envelope({}), 'all')).toBe(true);
   });
 
-  it('narrows movements by tile, account, kind and date', () => {
+  it('narrows movements by tile, account, type and date', () => {
     const row = movement({ created_at: '2026-11-02T10:00:00Z' });
     expect(inMovementFilter(row, 'account-1', NO_FILTERS, day)).toBe(true);
     expect(inMovementFilter(row, 'account-9', NO_FILTERS, day)).toBe(false);
     expect(inMovementFilter(row, 'pos', NO_FILTERS, day)).toBe(false);
-    expect(inMovementFilter(row, 'all', { ...NO_FILTERS, kind: 'refund' }, day)).toBe(false);
+    expect(inMovementFilter(row, 'all', { ...NO_FILTERS, type: 'admin_receipt' }, day)).toBe(false);
+    expect(inMovementFilter(row, 'all', { ...NO_FILTERS, type: 'bank_deposit' }, day)).toBe(true);
     expect(inMovementFilter(row, 'all', { ...NO_FILTERS, from: '2026-11-03' }, day)).toBe(false);
     expect(inMovementFilter(row, 'all', { ...NO_FILTERS, to: '2026-11-02' }, day)).toBe(true);
+  });
+});
+
+describe('movement types', () => {
+  const banks = new Set([2]);
+
+  it('folds the stored kinds into three types', () => {
+    expect(movementType(movement({ kind: 'customer_payment' }), banks)).toBe('customer_payment');
+    expect(movementType(movement({ kind: 'bank_deposit' }), banks)).toBe('bank_deposit');
+    expect(movementType(movement({ kind: 'pos_settlement' }), banks)).toBe('bank_deposit');
+    expect(movementType(movement({ kind: 'admin_receipt' }), banks)).toBe('admin_receipt');
+    expect(movementType(movement({ kind: 'envelope_handover' }), banks)).toBe('admin_receipt');
+  });
+
+  it('calls a transfer a bank deposit only when it reaches a bank', () => {
+    expect(movementType(movement({ kind: 'transfer', to_account_id: 2 }), banks)).toBe('bank_deposit');
+    expect(movementType(movement({ kind: 'transfer', to_account_id: 3 }), banks)).toBeNull();
+    expect(movementType(movement({ kind: 'transfer', to_account_id: null }), banks)).toBeNull();
+  });
+
+  it('leaves the rest out, even with internal transfers showing', () => {
+    (['custody_out', 'refund', 'adjustment', 'reversal'] as const).forEach((kind) => {
+      expect(movementType(movement({ kind }), banks)).toBeNull();
+      expect(inMovementFilter(movement({ kind }), 'all', { ...NO_FILTERS, showInternal: true }, day)).toBe(false);
+    });
+  });
+
+  it('shows internal transfers only under the toggle, and never under a type', () => {
+    const row = movement({ kind: 'transfer', to_account_id: 3 });
+    expect(inMovementFilter(row, 'all', NO_FILTERS, day)).toBe(false);
+    expect(inMovementFilter(row, 'all', { ...NO_FILTERS, showInternal: true }, day)).toBe(true);
+    expect(inMovementFilter(row, 'all', { ...NO_FILTERS, showInternal: true, type: 'bank_deposit' }, day)).toBe(false);
+  });
+
+  it('finds what was reversed', () => {
+    const first = movement({ id: 1 });
+    const reversal = movement({ id: 2, kind: 'reversal', reverses_id: 1 });
+    const reversals = reversalsOf([first, reversal]);
+    expect(reversals.get(1)).toBe(reversal);
+    expect(reversals.has(2)).toBe(false);
   });
 });
 

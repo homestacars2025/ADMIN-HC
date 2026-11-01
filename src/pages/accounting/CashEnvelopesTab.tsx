@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check } from '../../components/media/MediaIcons';
 import { MediaToaster, toast } from '../../components/media/MediaToast';
-import { Button, Select, Spinner } from '../../components/media/MediaUI';
+import DateRangePicker, { ALL_DATES, type DateRange } from '../../components/DateRangePicker';
+import { Button, DropdownMenu, Select, Spinner, Switch } from '../../components/media/MediaUI';
 import { ComplianceTriangle } from '../../components/shared/ComplianceBits';
 import { FilterTile, FilterTileRow, FilterTileSkeleton, type FilterTileTone } from '../../components/shared/FilterTile';
 import { LoadError, SkeletonRows } from '../../components/shared/PageBits';
 import { ReasonSheet } from '../../components/shared/ReasonSheet';
 import StaffAvatar from '../../components/shared/StaffAvatar';
+import { useCurrentProfile } from '../../hooks/useCurrentProfile';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useUrlFilter } from '../../hooks/useUrlFilter';
-import { fetchCashAccounts, KIND_LABELS as ACCOUNT_KIND_LABELS, type AccountKind, type CashAccount } from '../../lib/cashAccounts';
+import { fetchCashAccounts, KIND_LABELS, type AccountKind, type CashAccount } from '../../lib/cashAccounts';
 import {
   accountFilter,
   adminReceiveEnvelopes,
@@ -25,8 +27,10 @@ import {
   inEnvelopeFilter,
   inMovementFilter,
   isOverdue,
-  KIND_LABELS,
+  MOVEMENT_TYPES,
+  movementType,
   posPending,
+  reversalsOf,
   reverseMovement,
   withStaff,
   type AccountBalance,
@@ -34,14 +38,14 @@ import {
   type Envelope,
   type EnvelopeStatus,
   type Movement,
-  type MovementKind,
+  type MovementType,
 } from '../../lib/cashEnvelopes';
 import { formatDate, istanbulDate } from '../../lib/customers';
 import { cn } from '../../lib/media/badgeColor';
 import { formatMoney } from '../../lib/money';
 import { getAvatarProfiles, type ProfileOption } from '../../lib/notifications';
 import { LicensePlate } from '../bookings/ui';
-import { WalletIcon } from '../customers/ui';
+import { MoreIcon, WalletIcon } from '../customers/ui';
 import { AccountsSection } from './AccountsSection';
 import { ReceiveEnvelopeSheet, TransferSheet } from './EnvelopeSheets';
 
@@ -64,11 +68,18 @@ function tileFigures(totals: CurrencyTotal[], fallback: string) {
   };
 }
 
-const AccountChip: React.FC<{ id: number | null; names: Map<number, string>; empty: string }> = ({ id, names, empty }) => (
-  <span className="inline-block max-w-[120px] truncate rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[12px] text-black/60" title={id ? names.get(id) : empty}>
+const AccountChip: React.FC<{ id: number | null; names: Map<number, string>; empty: string; struck: boolean }> = ({ id, names, empty, struck }) => (
+  <span className={cn('inline-block max-w-[120px] truncate rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[12px] text-black/60', struck && 'line-through')} title={id ? names.get(id) : empty}>
     {id ? names.get(id) ?? '—' : empty}
   </span>
 );
+
+/** Internal transfers only ever show under the admin's toggle, so they get plain text and no chip. */
+const TypeChip: React.FC<{ type: MovementType | null }> = ({ type }) => (type ? (
+  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">{MOVEMENT_TYPES[type]}</span>
+) : (
+  <span className="text-[12px] text-black/45">Internal transfer</span>
+));
 
 const Amount: React.FC<{ row: Movement }> = ({ row }) => (
   <span className="whitespace-nowrap text-end">
@@ -99,6 +110,8 @@ const Empty: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 export const CashEnvelopesTab: React.FC = () => {
   const wide = useMediaQuery('(min-width: 1280px)');
+  const { profile } = useCurrentProfile();
+  const isAdmin = profile?.role === 'admin';
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [balances, setBalances] = useState<AccountBalance[]>([]);
   const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
@@ -114,9 +127,9 @@ export const CashEnvelopesTab: React.FC = () => {
   const [reversing, setReversing] = useState<Movement | null>(null);
   const [busy, setBusy] = useState(false);
   const [accountPick, setAccountPick] = useState(ALL);
-  const [kindPick, setKindPick] = useState(ALL);
-  const [fromDay, setFromDay] = useState('');
-  const [toDay, setToDay] = useState('');
+  const [typePick, setTypePick] = useState(ALL);
+  const [dates, setDates] = useState<DateRange>(ALL_DATES);
+  const [showInternal, setShowInternal] = useState(false);
 
   const filters = useMemo(() => ['staff', 'pos', ...accounts.map((account) => accountFilter(account.id))], [accounts]);
   const { filter, toggle, clear } = useUrlFilter(filters);
@@ -145,15 +158,19 @@ export const CashEnvelopesTab: React.FC = () => {
   const names = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
   const staff = useMemo(() => withStaff(envelopes, now), [envelopes, now]);
   const pending = useMemo(() => posPending(movements), [movements]);
+  const banks = useMemo(() => new Set(accounts.filter((account) => account.kind === 'bank').map((account) => account.id)), [accounts]);
+  const reversals = useMemo(() => reversalsOf(movements), [movements]);
 
   const shownAccounts = useMemo(() => [...accounts].filter((account) => account.is_active).sort((a, b) => Number(a.is_final) - Number(b.is_final)), [accounts]);
   const visibleEnvelopes = useMemo(() => envelopes.filter((envelope) => inEnvelopeFilter(envelope, filter)), [envelopes, filter]);
   const visibleMovements = useMemo(() => movements.filter((row) => inMovementFilter(row, filter, {
     accountId: accountPick === ALL ? null : Number(accountPick),
-    kind: kindPick === ALL ? null : kindPick as MovementKind,
-    from: fromDay || null,
-    to: toDay || null,
-  }, istanbulDate)), [movements, filter, accountPick, kindPick, fromDay, toDay]);
+    type: typePick === ALL ? null : typePick as MovementType,
+    from: dates.from || null,
+    to: dates.to || null,
+    banks,
+    showInternal: isAdmin && showInternal,
+  }, istanbulDate)), [movements, filter, accountPick, typePick, dates, banks, isAdmin, showInternal]);
 
   const pickedIds = Array.from(picked).filter((id) => envelopes.some((envelope) => envelope.id === id && envelope.status === 'in_safe'));
 
@@ -190,10 +207,24 @@ export const CashEnvelopesTab: React.FC = () => {
 
   const movementActions = (row: Movement) => (
     <span className="flex items-center justify-end gap-2 whitespace-nowrap">
+      {reversals.has(row.id) && <span title={reversals.get(row.id)?.note ?? undefined} className="rounded-full bg-black/[0.06] px-2 py-0.5 text-[12px] font-medium text-black/50">Reversed</span>}
       {canComplete(row) && <Button variant="outline" size="lg" className="!h-11 px-2.5 xl:!h-8" onClick={() => arrive(row)}>Arrived at bank</Button>}
-      {canReverse(row, movements) && <button type="button" onClick={() => setReversing(row)} className="min-h-[44px] text-[12.5px] font-medium text-[#B91C1C] hover:underline xl:min-h-[32px]">Reverse</button>}
+      {isAdmin && canReverse(row, movements) && (
+        <DropdownMenu
+          ariaLabel={`More actions for ${row.ref}`}
+          align="end"
+          minWidth={130}
+          triggerClassName="grid h-11 w-11 place-items-center rounded-lg text-black/50 hover:bg-black/[0.05] xl:h-8 xl:w-8"
+          items={[{ key: 'reverse', label: 'Reverse', onSelect: () => setReversing(row) }]}
+        >
+          {() => <MoreIcon />}
+        </DropdownMenu>
+      )}
     </span>
   );
+
+  const struck = (row: Movement) => reversals.has(row.id);
+  const strike = (row: Movement) => (struck(row) ? 'line-through opacity-60' : undefined);
 
   const pickBox = (envelope: Envelope) => (envelope.status === 'in_safe' ? (
     <label className="-m-1.5 grid h-11 w-11 cursor-pointer place-items-center xl:h-8 xl:w-8">
@@ -213,7 +244,7 @@ export const CashEnvelopesTab: React.FC = () => {
           <FilterTile tone="blue" icon={<WalletIcon size={15} />} label="All" value={String(envelopes.length)} sub={envelopes.length === 1 ? 'envelope' : 'envelopes'} active={filter === 'all'} onClick={clear} />
           {shownAccounts.map((account) => {
             const held = balancesOf(balances, account.id);
-            const figures = tileFigures(held, account.is_final ? 'final account' : held.length === 0 ? 'empty' : ACCOUNT_KIND_LABELS[account.kind]);
+            const figures = tileFigures(held, account.is_final ? 'final account' : held.length === 0 ? 'empty' : KIND_LABELS[account.kind]);
             return (
               <FilterTile
                 key={account.id}
@@ -243,7 +274,7 @@ export const CashEnvelopesTab: React.FC = () => {
 
       <div className="mt-4 flex max-w-[1100px] flex-wrap items-center gap-2">
         <Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setReceiving(true)}>Receive envelope</Button>
-        <Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setTransferring(true)}>Transfer</Button>
+        {isAdmin && <Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setTransferring(true)}>Transfer</Button>}
         <a href="#cash-accounts" onClick={(event) => { event.preventDefault(); document.getElementById('cash-accounts')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex min-h-[44px] items-center px-2 text-[13px] font-medium text-primary hover:underline md:min-h-[40px]">Manage accounts</a>
       </div>
 
@@ -321,13 +352,18 @@ export const CashEnvelopesTab: React.FC = () => {
       <Section title="Movements">
         <div className="mb-3 flex flex-wrap items-end gap-2">
           <div className="w-full sm:w-[190px]">
-            <Select value={accountPick} options={[{ value: ALL, label: 'All accounts' }, ...accounts.map((account) => ({ value: String(account.id), label: account.name }))]} size="lg" ariaLabel="Filter by account" onChange={setAccountPick} />
+            <Select value={accountPick} options={[{ value: ALL, label: 'All accounts' }, ...accounts.map((account) => ({ value: String(account.id), label: account.name }))]} size="lg" className="!h-11 sm:!h-9" ariaLabel="Filter by account" onChange={setAccountPick} />
           </div>
           <div className="w-full sm:w-[190px]">
-            <Select value={kindPick} options={[{ value: ALL, label: 'All kinds' }, ...(Object.keys(KIND_LABELS) as MovementKind[]).map((kind) => ({ value: kind, label: KIND_LABELS[kind] }))]} size="lg" ariaLabel="Filter by kind" onChange={setKindPick} />
+            <Select value={typePick} options={[{ value: ALL, label: 'All types' }, ...(Object.keys(MOVEMENT_TYPES) as MovementType[]).map((type) => ({ value: type, label: MOVEMENT_TYPES[type] }))]} size="lg" className="!h-11 sm:!h-9" ariaLabel="Filter by type" onChange={setTypePick} />
           </div>
-          <input type="date" aria-label="From date" value={fromDay} onChange={(event) => setFromDay(event.target.value)} className="h-11 min-w-0 flex-1 rounded-[10px] border border-[#E5E7EB] bg-white px-2 text-[13.5px] sm:w-[150px] sm:flex-none md:h-10" />
-          <input type="date" aria-label="To date" value={toDay} onChange={(event) => setToDay(event.target.value)} className="h-11 min-w-0 flex-1 rounded-[10px] border border-[#E5E7EB] bg-white px-2 text-[13.5px] sm:w-[150px] sm:flex-none md:h-10" />
+          <DateRangePicker value={dates} onApply={setDates} className="w-full sm:w-auto" triggerClassName="w-full !h-11 rounded-[10px] text-[13.5px] sm:!h-9" />
+          {isAdmin && (
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-[12.5px] text-black/55 sm:ms-auto md:min-h-[40px]">
+              <Switch checked={showInternal} onChange={setShowInternal} ariaLabel="Show internal transfers" activeClass="bg-primary" />
+              Show internal transfers
+            </label>
+          )}
         </div>
 
         {loading ? <div className="rounded-xl border border-subtle bg-surface"><SkeletonRows count={3} /></div>
@@ -337,7 +373,7 @@ export const CashEnvelopesTab: React.FC = () => {
                 <table className="w-full min-w-[980px] text-[13px]">
                   <thead>
                     <tr className="border-b border-subtle text-[11.5px] text-black/45">
-                      {['Ref', 'Date', 'Kind', 'From → to'].map((label) => <th key={label} scope="col" className="px-2 py-1.5 text-start font-medium">{label}</th>)}
+                      {['Ref', 'Date', 'Type', 'From → to'].map((label) => <th key={label} scope="col" className="px-2 py-1.5 text-start font-medium">{label}</th>)}
                       <th scope="col" className="px-2 py-1.5 text-end font-medium">Amount</th>
                       <th scope="col" className="px-2 py-1.5 text-start font-medium">By</th>
                       <th scope="col" className="px-2 py-1.5 text-start font-medium">Note</th>
@@ -347,16 +383,16 @@ export const CashEnvelopesTab: React.FC = () => {
                   <tbody>
                     {visibleMovements.map((row) => (
                       <tr key={row.id} className="border-b border-subtle last:border-b-0">
-                        <td className="whitespace-nowrap px-2 py-2 font-mono text-[12px] text-black/60">{row.ref}</td>
-                        <td className="whitespace-nowrap px-2 py-2 tabular-nums text-black/60">
+                        <td className={cn('whitespace-nowrap px-2 py-2 font-mono text-[12px] text-black/60', strike(row))}>{row.ref}</td>
+                        <td className={cn('whitespace-nowrap px-2 py-2 tabular-nums text-black/60', strike(row))}>
                           {formatDate(istanbulDate(row.created_at))}
                           {row.status === 'pending' && row.expected_at && <span className="block text-[11.5px] text-[#92400E]">Due {formatDate(row.expected_at)}</span>}
                         </td>
-                        <td className="whitespace-nowrap px-2 py-2"><span className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">{KIND_LABELS[row.kind]}</span></td>
-                        <td className="px-2 py-2"><span className="flex items-center gap-1"><AccountChip id={row.from_account_id} names={names} empty="Customer" /><span className="text-black/30">→</span><AccountChip id={row.to_account_id} names={names} empty="Envelope" /></span></td>
-                        <td className="px-2 py-2 text-end"><Amount row={row} /></td>
+                        <td className={cn('whitespace-nowrap px-2 py-2', strike(row))}><TypeChip type={movementType(row, banks)} /></td>
+                        <td className={cn('px-2 py-2', strike(row))}><span className="flex items-center gap-1"><AccountChip id={row.from_account_id} names={names} empty="Customer" struck={struck(row)} /><span className="text-black/30">→</span><AccountChip id={row.to_account_id} names={names} empty="Envelope" struck={struck(row)} /></span></td>
+                        <td className={cn('px-2 py-2 text-end', strike(row))}><Amount row={row} /></td>
                         <td className="px-2 py-2" title={row.created_by ? people[row.created_by]?.full_name ?? undefined : undefined}><StaffAvatar profile={row.created_by ? people[row.created_by] : null} size={26} /></td>
-                        <td className="max-w-[160px] truncate px-2 py-2 text-black/55" title={row.note ?? undefined}>{row.note ?? '—'}</td>
+                        <td className={cn('max-w-[160px] truncate px-2 py-2 text-black/55', strike(row))} title={row.note ?? undefined}>{row.note ?? '—'}</td>
                         <td className="px-2 py-1">{movementActions(row)}</td>
                       </tr>
                     ))}
@@ -367,15 +403,15 @@ export const CashEnvelopesTab: React.FC = () => {
               <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {visibleMovements.map((row) => (
                   <li key={row.id} className="min-w-0 rounded-xl border border-subtle bg-surface p-3.5 text-[13px]">
-                    <div className="flex items-start justify-between gap-2">
+                    <div className={cn('flex items-start justify-between gap-2', strike(row))}>
                       <span className="min-w-0">
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">{KIND_LABELS[row.kind]}</span>
+                        <TypeChip type={movementType(row, banks)} />
                         <span className="mt-1 block truncate font-mono text-[12px] text-black/50">{row.ref} · {formatDate(istanbulDate(row.created_at))}</span>
                       </span>
                       <span className="shrink-0 text-[15px]"><Amount row={row} /></span>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-1"><AccountChip id={row.from_account_id} names={names} empty="Customer" /><span className="text-black/30">→</span><AccountChip id={row.to_account_id} names={names} empty="Envelope" /></div>
-                    {row.note && <p className="mt-1.5 break-words text-[12.5px] text-black/55">{row.note}</p>}
+                    <div className={cn('mt-2 flex flex-wrap items-center gap-1', strike(row))}><AccountChip id={row.from_account_id} names={names} empty="Customer" struck={struck(row)} /><span className="text-black/30">→</span><AccountChip id={row.to_account_id} names={names} empty="Envelope" struck={struck(row)} /></div>
+                    {row.note && <p className={cn('mt-1.5 break-words text-[12.5px] text-black/55', strike(row))}>{row.note}</p>}
                     <div className="mt-1 flex items-center justify-between gap-2">
                       <StaffAvatar profile={row.created_by ? people[row.created_by] : null} size={24} />
                       {movementActions(row)}

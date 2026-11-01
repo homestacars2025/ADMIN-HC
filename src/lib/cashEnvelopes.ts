@@ -12,17 +12,21 @@ export const ENVELOPE_LABELS: Record<EnvelopeStatus, string> = {
 
 export type MovementKind = 'customer_payment' | 'envelope_handover' | 'transfer' | 'bank_deposit' | 'pos_settlement' | 'admin_receipt' | 'custody_out' | 'refund' | 'adjustment' | 'reversal';
 
-export const KIND_LABELS: Record<MovementKind, string> = {
+/** All Cash & Envelopes ever calls a movement. The stored kinds stay as they are. */
+export type MovementType = 'customer_payment' | 'bank_deposit' | 'admin_receipt';
+
+export const MOVEMENT_TYPES: Record<MovementType, string> = {
   customer_payment: 'Customer payment',
-  envelope_handover: 'Envelope handover',
-  transfer: 'Transfer',
   bank_deposit: 'Bank deposit',
-  pos_settlement: 'POS settlement',
   admin_receipt: 'Admin receipt',
-  custody_out: 'Custody out',
-  refund: 'Refund',
-  adjustment: 'Adjustment',
-  reversal: 'Reversal',
+};
+
+const TYPE_OF_KIND: Partial<Record<MovementKind, MovementType>> = {
+  customer_payment: 'customer_payment',
+  bank_deposit: 'bank_deposit',
+  pos_settlement: 'bank_deposit',
+  admin_receipt: 'admin_receipt',
+  envelope_handover: 'admin_receipt',
 };
 
 type Joined<T> = T | T[] | null;
@@ -193,6 +197,20 @@ export function canReverse(row: Movement, all: Movement[]): boolean {
 
 export const canComplete = (row: Pick<Movement, 'status'>): boolean => row.status === 'pending';
 
+/** Each reversed movement's id, with the reversal that cancelled it. */
+export function reversalsOf(movements: Movement[]): Map<number, Movement> {
+  return new Map(movements.flatMap((row) => (row.reverses_id === null ? [] : [[row.reverses_id, row] as const])));
+}
+
+/**
+ * Null for what the page leaves out: custody payouts, refunds, adjustments, reversals
+ * and transfers that don't reach a bank.
+ */
+export function movementType(row: Pick<Movement, 'kind' | 'to_account_id'>, banks: ReadonlySet<number>): MovementType | null {
+  if (row.kind === 'transfer') return row.to_account_id !== null && banks.has(row.to_account_id) ? 'bank_deposit' : null;
+  return TYPE_OF_KIND[row.kind] ?? null;
+}
+
 export type VaultFilter = 'staff' | 'pos' | `account-${number}`;
 
 export const accountFilter = (id: number): VaultFilter => `account-${id}`;
@@ -211,19 +229,23 @@ export function inEnvelopeFilter(envelope: Envelope, filter: string): boolean {
 
 export interface MovementFilters {
   accountId: number | null;
-  kind: MovementKind | null;
+  type: MovementType | null;
   from: string | null;
   to: string | null;
+  banks: ReadonlySet<number>;
+  showInternal: boolean;
 }
 
 export function inMovementFilter(row: Movement, tile: string, filters: MovementFilters, day: (at: string) => string): boolean {
+  const type = movementType(row, filters.banks);
+  if (type === null && !(filters.showInternal && row.kind === 'transfer')) return false;
   if (tile === 'pos' && !(row.kind === 'pos_settlement' && row.status === 'pending')) return false;
   if (tile === 'staff') return false;
   const tileAccount = filteredAccountId(tile);
   const touches = (id: number) => row.from_account_id === id || row.to_account_id === id;
   if (tileAccount !== null && !touches(tileAccount)) return false;
   if (filters.accountId !== null && !touches(filters.accountId)) return false;
-  if (filters.kind && row.kind !== filters.kind) return false;
+  if (filters.type && type !== filters.type) return false;
   const date = day(row.created_at);
   if (filters.from && date < filters.from) return false;
   if (filters.to && date > filters.to) return false;
