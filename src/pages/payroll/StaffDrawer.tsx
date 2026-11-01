@@ -246,7 +246,7 @@ export const StaffDrawer: React.FC<{
   };
 
   return (
-    <Sheet open onClose={onClose} ariaLabel={`Payroll for ${displayName(staff)}`} maxWidthClass="sm:max-w-[560px]">
+    <Sheet open onClose={onClose} ariaLabel={`Wallet for ${displayName(staff)}`} maxWidthClass="sm:max-w-[560px]">
       <SheetHeader>
         <div className="flex items-center gap-3 pr-8">
           <StaffAvatar profile={staff} size={44} />

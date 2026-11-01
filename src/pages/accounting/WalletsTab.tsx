@@ -175,7 +175,7 @@ export const WalletsTab: React.FC = () => {
       {error ? (
         <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-[13px] text-red-700">
           <AlertTriangle size={15} className="shrink-0" />
-          <span className="min-w-0 flex-1">Couldn't load payroll: {error}</span>
+          <span className="min-w-0 flex-1">Couldn't load wallets: {error}</span>
           <Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" onClick={load}>Try again</Button>
         </div>
       ) : !data ? (
