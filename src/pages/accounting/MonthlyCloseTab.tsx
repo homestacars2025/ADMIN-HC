@@ -19,7 +19,6 @@ import {
   checkEvent,
   CLOSE_FILTERS,
   CLOSE_SORTS,
-  CLOSE_STARTS,
   closedOnLabel,
   closeMonth,
   closeSortFirstDirection,
@@ -39,6 +38,7 @@ import {
   rowPlace,
   sortCloseRows,
   stampLabel,
+  TRACKED_FROM,
   type CloseSort,
   type EventPayment,
   type MoneyPlace,
@@ -47,7 +47,7 @@ import {
 } from '../../lib/monthClose';
 import { getAvatarProfiles, type ProfileOption } from '../../lib/notifications';
 import { currentMonth, monthLabel, shiftMonth } from '../../lib/payroll';
-import { LicensePlate, Notice } from '../bookings/ui';
+import { LicensePlate } from '../bookings/ui';
 import { SortHeader } from '../carTracking/ui';
 import { WalletIcon } from '../customers/ui';
 
@@ -71,11 +71,15 @@ const Remaining: React.FC<{ amount: number }> = ({ amount }) => {
   return <span title="Paid more than this row's rental, usually a balance from earlier in the booking" className="text-black/55">{formatMoney(amount)}</span>;
 };
 
-const FirstPlace: React.FC<{ payment: EventPayment }> = ({ payment }) => (
+const LegacyChip: React.FC = () => (
+  <span title="Recorded before destinations were tracked" className="inline-block rounded-md bg-black/[0.06] px-1.5 py-0.5 text-[11.5px] font-medium text-black/50">Legacy</span>
+);
+
+const FirstPlace: React.FC<{ payment: EventPayment }> = ({ payment }) => (payment.legacy ? <LegacyChip /> : (
   <span className="inline-block max-w-[116px] truncate rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[12px] text-black/60" title={firstPlaceLabel(payment)}>
     {methodIcon(payment.method)} {payment.first_account ?? 'Unknown'}
   </span>
-);
+));
 
 const PaymentRow: React.FC<{ payment: EventPayment }> = ({ payment }) => (
   <li className="grid grid-cols-[150px_150px_minmax(0,1fr)_auto] items-center gap-x-3 py-1.5 text-[12.5px]">
@@ -83,8 +87,11 @@ const PaymentRow: React.FC<{ payment: EventPayment }> = ({ payment }) => (
       {formatMoney(payment.amount, payment.currency)}
       {payment.currency !== 'TRY' && <span className="ms-1 font-normal text-black/45">{formatMoney(payment.amount_try)}</span>}
     </span>
-    <span className="text-black/55"><span className="capitalize">{payment.type}</span> · {methodLabel(payment.method)}</span>
-    <span className="truncate text-black/60" title={firstPlaceLabel(payment)}>{methodIcon(payment.method)} {firstPlaceLabel(payment)}</span>
+    <span className="text-black/55"><span className="capitalize">{payment.type}</span>{payment.method && ` · ${methodLabel(payment.method)}`}</span>
+    <span className="flex min-w-0 items-center gap-1.5 text-black/60" title={firstPlaceLabel(payment)}>
+      {payment.legacy && <LegacyChip />}
+      <span className="truncate">{methodIcon(payment.method)} {firstPlaceLabel(payment)}</span>
+    </span>
     <span className="flex items-center gap-1.5"><span aria-hidden="true" className="text-black/30">→</span><PlacePill place={payment.now} title={nowLabel(payment)} /></span>
   </li>
 );
@@ -123,7 +130,7 @@ export const MonthlyCloseTab: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const requested = params.get('month');
   const month = requested && /^\d{4}-\d{2}$/.test(requested) ? requested : currentMonth().slice(0, 7);
-  const tooOld = month < CLOSE_STARTS;
+  const oldMonth = month < TRACKED_FROM;
 
   const [rows, setRows] = useState<MonthEvent[]>([]);
   const [closing, setClosing] = useState<MonthClosing | null>(null);
@@ -147,10 +154,10 @@ export const MonthlyCloseTab: React.FC = () => {
     setOpen(new Set());
     setRows([]);
     setClosing(null);
-    if (tooOld) { setLoading(false); return undefined; }
     setLoading(true);
     Promise.all([fetchMonthEvents(month), fetchMonthClosing(month)])
-      .then(async ([events, closed]) => {
+      .then(async ([live, closed]) => {
+        const events = closed?.rows ?? live;
         const ids = [...events.map((row) => row.checked_by), closed?.closed_by];
         const profiles = await getAvatarProfiles(Array.from(new Set(ids.filter((id): id is string => Boolean(id)))));
         if (cancelled) return;
@@ -161,7 +168,7 @@ export const MonthlyCloseTab: React.FC = () => {
       .catch((failure: unknown) => { if (!cancelled) setError(failure instanceof Error ? failure.message : 'Try again.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [month, tooOld, reload]);
+  }, [month, reload]);
 
   const refresh = useCallback(() => setReload((value) => value + 1), []);
 
@@ -252,7 +259,7 @@ export const MonthlyCloseTab: React.FC = () => {
     }
   };
 
-  const showFigures = !tooOld && !error;
+  const showFigures = !error;
 
   return (
     <div className="media-scope">
@@ -280,7 +287,7 @@ export const MonthlyCloseTab: React.FC = () => {
       </div>
 
       {closing?.note && <p className="mb-3 max-w-[1100px] break-words text-[13px] text-black/55">Note: {closing.note}</p>}
-      {tooOld && <Notice tone="blue">Monthly close starts from 1 Nov 2026 — older months are reviewed manually</Notice>}
+      {oldMonth && !error && <p className="mb-3 max-w-[1100px] text-[13px] text-black/55">Old month — payments with unknown destination are counted as received by the admin. Review remaining amounts before closing.</p>}
       {error && <LoadError message={`Couldn't load the monthly close: ${error}`} onRetry={refresh} />}
 
       {showFigures && (loading ? <FilterTileSkeleton count={7} columns={7} /> : (
@@ -348,7 +355,11 @@ export const MonthlyCloseTab: React.FC = () => {
                               <Money value={row.rental_amount} className="font-medium text-foreground" />
                               <Money value={row.paid} className="text-black/70" />
                               <Money value={row.deposit} className="text-black/70" />
-                              <td className="whitespace-nowrap px-2 py-2 text-end tabular-nums"><Remaining amount={row.remaining} /></td>
+                              <td className="whitespace-nowrap px-2 py-2 text-end tabular-nums">
+                                {row.rental_amount === 0 && row.remaining === 0
+                                  ? <span title="This booking has no rental line in the ledger" className="text-[12px] text-black/40">No rental</span>
+                                  : <Remaining amount={row.remaining} />}
+                              </td>
                               <td className="px-2 py-2">
                                 {first ? (
                                   <span className="flex items-center gap-1">

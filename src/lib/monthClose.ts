@@ -2,8 +2,8 @@ import { csvCell, formatMoney, type Currency } from './money';
 import { PAY_METHODS, type PayMethod } from './payments';
 import { supabase } from './supabase';
 
-/** Rows only exist from here on. Older months are reviewed by hand. */
-export const CLOSE_STARTS = '2026-11';
+/** Payments have a recorded destination from here on. Before it they come through as legacy. */
+export const TRACKED_FROM = '2026-11';
 
 export type MoneyPlace = 'in_safe' | 'with_employee' | 'with_admin' | 'pending_bank' | 'in_account' | 'cancelled' | 'unknown';
 
@@ -28,6 +28,7 @@ export interface EventPayment {
   first_account: string | null;
   now: MoneyPlace;
   now_account: string | null;
+  legacy: boolean;
 }
 
 export interface MonthEvent {
@@ -57,6 +58,8 @@ export interface MonthClosing {
   closed_by: string | null;
   closed_at: string;
   note: string | null;
+  /** The month as it stood when it closed, which is what a closed month shows. */
+  rows: MonthEvent[] | null;
 }
 
 const PLACES = Object.keys(PLACE_LABELS) as MoneyPlace[];
@@ -69,27 +72,32 @@ function toPayment(raw: Raw<EventPayment>): EventPayment {
     amount: Number(raw.amount),
     amount_try: Number(raw.amount_try),
     now: PLACES.includes(raw.now as MoneyPlace) ? raw.now as MoneyPlace : 'unknown',
+    legacy: raw.legacy === true,
   };
 }
+
+const toEvent = (row: Raw<MonthEvent>): MonthEvent => ({
+  ...row as MonthEvent,
+  days: row.days === null ? null : Number(row.days),
+  rental_amount: Number(row.rental_amount),
+  paid: Number(row.paid),
+  deposit: Number(row.deposit),
+  remaining: Number(row.remaining),
+  payments: ((row.payments ?? []) as Array<Raw<EventPayment>>).map(toPayment),
+});
 
 export async function fetchMonthEvents(month: string): Promise<MonthEvent[]> {
   const { data, error } = await supabase.rpc('admin_month_close', { p_month: `${month}-01` });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Array<Raw<MonthEvent>>).map((row) => ({
-    ...row as MonthEvent,
-    days: row.days === null ? null : Number(row.days),
-    rental_amount: Number(row.rental_amount),
-    paid: Number(row.paid),
-    deposit: Number(row.deposit),
-    remaining: Number(row.remaining),
-    payments: ((row.payments ?? []) as Array<Raw<EventPayment>>).map(toPayment),
-  }));
+  return ((data ?? []) as Array<Raw<MonthEvent>>).map(toEvent);
 }
 
 export async function fetchMonthClosing(month: string): Promise<MonthClosing | null> {
-  const { data, error } = await supabase.from('month_closings').select('closed_by, closed_at, note').eq('month', `${month}-01`).maybeSingle();
+  const { data, error } = await supabase.from('month_closings').select('closed_by, closed_at, note, snapshot').eq('month', `${month}-01`).maybeSingle();
   if (error) throw new Error(error.message);
-  return data as MonthClosing | null;
+  if (!data) return null;
+  const { snapshot, ...closing } = data as Omit<MonthClosing, 'rows'> & { snapshot: { rows?: Array<Raw<MonthEvent>> } | null };
+  return { ...closing, rows: snapshot?.rows?.map(toEvent) ?? null };
 }
 
 export async function checkEvent(id: number, checked: boolean): Promise<void> {

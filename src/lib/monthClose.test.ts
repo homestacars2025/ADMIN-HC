@@ -16,7 +16,7 @@ jest.mock('./supabase', () => ({ supabase: {} }));
 
 const payment = (over: Partial<EventPayment>): EventPayment => ({
   type: 'payment', method: 'cash', amount: 100, currency: 'TRY', amount_try: 100, date: '2026-11-02T10:00:00Z', ref: 'ENV-2611-0001',
-  first_account: 'Sisli - 01', now: 'in_safe', now_account: 'Sisli - 01', ...over,
+  first_account: 'Sisli - 01', now: 'in_safe', now_account: 'Sisli - 01', legacy: false, ...over,
 });
 const event = (over: Partial<MonthEvent>): MonthEvent => ({
   event_id: 1, booking_id: 1, booking_number: 'HOM-11-26-001', event_no: 0, kind: 'new', created_at: '2026-11-02T10:00:00Z',
@@ -35,6 +35,20 @@ describe('where the money is', () => {
     expect(rowPlace({ payments: [] })).toBeNull();
     expect(rowPlace({ payments: [payment({ now: 'with_admin' }), payment({ now: 'pending_bank' })] })).toBe('pending_bank');
     expect(rowPlace({ payments: [payment({ now: 'with_admin' })] })).toBe('with_admin');
+  });
+});
+
+describe('legacy payments', () => {
+  const legacy = payment({ legacy: true, method: null, ref: null, first_account: 'Unknown (legacy)', now: 'with_admin', now_account: 'Admin — Rajab', amount_try: 500 });
+
+  it('counts as with the admin, so old months owe nothing there', () => {
+    expect(rowPlace({ payments: [legacy] })).toBe('with_admin');
+    expect(allWithAdmin({ payments: [legacy, legacy] })).toBe(true);
+    expect(monthSummary([event({ payments: [legacy] })]).notWithAdmin).toBe(0);
+  });
+
+  it('exports with its destination spelled out', () => {
+    expect(monthCloseCsv([event({ payments: [legacy] })], () => '')).toContain('Unknown (legacy)');
   });
 });
 
