@@ -29,9 +29,10 @@ const Month: React.FC<{
   start: string;
   end: string;
   min?: string;
+  max?: string;
   today: string;
   onPick: (day: string) => void;
-}> = ({ year, month, start, end, min, today, onPick }) => (
+}> = ({ year, month, start, end, min, max, today, onPick }) => (
   <div className="min-w-0">
     <div className="grid grid-cols-7 text-center text-[11px] font-medium text-black/40">
       {WEEKDAYS.map((day) => <span key={day} className="py-1">{day}</span>)}
@@ -41,7 +42,7 @@ const Month: React.FC<{
         if (!day) return <span key={`blank-${index}`} />;
         const isEdge = day === start || day === end;
         const inside = Boolean(start && end) && day > start && day < end;
-        const disabled = Boolean(min) && day < (min as string);
+        const disabled = (Boolean(min) && day < (min as string)) || (Boolean(max) && day > (max as string));
         return (
           <button
             key={day}
@@ -72,15 +73,16 @@ function initialMonth(day: string): { year: number; month: number } {
   return { year: Number(base.slice(0, 4)), month: Number(base.slice(5, 7)) - 1 };
 }
 
-const Calendar: React.FC<{
+export const Calendar: React.FC<{
   start: string;
   end: string;
   min?: string;
+  max?: string;
   focusDay: string;
   onPick: (day: string) => void;
   /** For a field that only has half the row to open into. */
   oneMonth?: boolean;
-}> = ({ start, end, min, focusDay, onPick, oneMonth }) => {
+}> = ({ start, end, min, max, focusDay, onPick, oneMonth }) => {
   const wide = useMediaQuery('(min-width: 640px)');
   const twoMonths = wide && !oneMonth;
   const [view, setView] = useState(() => initialMonth(focusDay));
@@ -111,7 +113,7 @@ const Calendar: React.FC<{
       </div>
       <div className={cn('grid gap-4', twoMonths && 'grid-cols-2')}>
         {months.map((month) => (
-          <Month key={month.label} year={month.year} month={month.month} start={start} end={end} min={min} today={today} onPick={onPick} />
+          <Month key={month.label} year={month.year} month={month.month} start={start} end={end} min={min} max={max} today={today} onPick={onPick} />
         ))}
       </div>
     </div>

@@ -276,6 +276,8 @@ b, strong, th {
   color: #fff;
 }
 
+.filter-tile-icon.is-bare { width: 32px; height: 32px; background: none; }
+
 .filter-tile-label {
   min-width: 0;
   font-size: 13px;
@@ -325,6 +327,11 @@ b, strong, th {
 
 @container tile-room (min-width: 860px) {
   .filter-tiles { grid-template-columns: repeat(5, minmax(0, 220px)); }
+  .filter-tiles.is-six { grid-template-columns: repeat(3, minmax(0, 220px)); }
+}
+
+@container tile-room (min-width: 1000px) {
+  .filter-tiles.is-six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 
 .tile-blue { --tile-from: #EAF3FD; --tile-to: #D6E7FA; --tile-ink: #1F4E8C; --tile-chip: #6EA4E7; }
