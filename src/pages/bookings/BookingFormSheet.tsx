@@ -47,7 +47,7 @@ import type { Booking, BookingStatus } from '../../types';
 import { DialCodePicker } from '../customers/CustomerEditSheet';
 import { CustomerPicker } from '../customers/CustomerPicker';
 import { BanAlert, CarIcon, FileIcon, UsersIcon, WalletIcon } from '../customers/ui';
-import { CarPicker, useBusyCars } from './CarPicker';
+import { CarPicker, useBusyCars, useCarCompliance } from './CarPicker';
 import { CoverSection } from './CoverSection';
 import { DateRangeField } from './DateRangeField';
 import { DocUploadField } from './DocUploadField';
@@ -160,6 +160,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
   const [carError, setCarError] = useState<string | null>(null);
   const [datesError, setDatesError] = useState<string | null>(null);
   const [cars, setCars] = useState<CarChoice[]>([]);
+  const compliance = useCarCompliance();
   const [bookingNumLoading, setBookingNumLoading] = useState(mode === 'add');
 
   const [step, setStep] = useState(0);
@@ -960,6 +961,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
         cars={cars}
         value={form.car_id}
         busy={busyCars}
+        compliance={compliance}
         changed={isChanged('car_id')}
         error={carError}
         hint={busyCars ? undefined : 'Pick the dates to see which cars are free.'}

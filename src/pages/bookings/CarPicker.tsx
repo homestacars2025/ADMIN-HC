@@ -1,9 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search } from '../../components/media/MediaIcons';
+import { ComplianceTriangle } from '../../components/shared/ComplianceBits';
 import { busyCarIds, groupCars, readRecentCars, type CalendarBlock, type CarChoice } from '../../lib/bookingForm';
+import {
+  carIssues,
+  fetchRegistrationDates,
+  issueLabel,
+  type ComplianceIssue,
+  type RegistrationDates,
+} from '../../lib/carCompliance';
+import { istanbulDate } from '../../lib/customers';
 import { cn } from '../../lib/media/badgeColor';
 import { supabase } from '../../lib/supabase';
-import { Field, INPUT, LicensePlate } from './ui';
+import { ComplianceConfirm } from './ComplianceConfirm';
+import { Field, INPUT, LicensePlate, Notice } from './ui';
 
 /**
  * Cars with something on the calendar for these dates. Null until both dates are
@@ -31,6 +41,33 @@ export function useBusyCars(start: string, end: string, excludeBookingId?: numbe
   return busy;
 }
 
+export interface CarComplianceCheck {
+  issuesFor: (carId: number) => ComplianceIssue[];
+  failed: boolean;
+}
+
+/** Insurance and inspection for every car, read once when a booking form opens. */
+export function useCarCompliance(): CarComplianceCheck {
+  const [registrations, setRegistrations] = useState<Map<number, RegistrationDates> | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRegistrationDates()
+      .then((rows) => { if (!cancelled) setRegistrations(new Map(rows.map((row) => [row.car_id, row]))); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return useMemo(() => {
+    const today = istanbulDate();
+    return {
+      failed,
+      issuesFor: (carId: number) => (registrations ? carIssues(registrations.get(carId), today) : []),
+    };
+  }, [failed, registrations]);
+}
+
 const Availability: React.FC<{ busy: boolean }> = ({ busy }) => (
   <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-black/50">
     {busy && 'Booked'}
@@ -50,14 +87,19 @@ export const CarPicker: React.FC<{
   error?: string | null;
   hint?: React.ReactNode;
   pinRecent?: boolean;
-}> = ({ label, cars, value, onChange, busy, required, changed, error, hint, pinRecent }) => {
+  /** Leave out for a car that's already out with a customer, like the original car. */
+  compliance?: CarComplianceCheck;
+}> = ({ label, cars, value, onChange, busy, required, changed, error, hint, pinRecent, compliance }) => {
   const [open, setOpen] = useState(false);
+  const [unconfirmed, setUnconfirmed] = useState<CarChoice | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const selected = cars.find((car) => String(car.id) === value) ?? null;
+  const selectedIssues = selected && compliance ? compliance.issuesFor(selected.id) : [];
   const groups = useMemo(() => groupCars(cars, pinRecent ? readRecentCars() : [], query), [cars, pinRecent, query]);
 
   const isBusy = (car: CarChoice) => Boolean(busy?.has(car.id)) && String(car.id) !== value;
@@ -79,10 +121,19 @@ export const CarPicker: React.FC<{
   }, [active]);
 
   const choose = (car: CarChoice) => {
-    onChange(String(car.id));
     setOpen(false);
     setQuery('');
+    if (compliance && String(car.id) !== value && compliance.issuesFor(car.id).length > 0) {
+      setUnconfirmed(car);
+      return;
+    }
+    onChange(String(car.id));
   };
+
+  const closeConfirm = useCallback(() => {
+    setUnconfirmed(null);
+    triggerRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Escape') {
@@ -101,9 +152,11 @@ export const CarPicker: React.FC<{
   };
 
   return (
+    <>
     <Field label={label} required={required} changed={changed} span error={error} hint={hint}>
       <div ref={rootRef}>
         <button
+          ref={triggerRef}
           type="button"
           aria-label={label}
           aria-expanded={open}
@@ -118,6 +171,7 @@ export const CarPicker: React.FC<{
             <>
               <LicensePlate plate={selected.plate_number} />
               <span className="min-w-0 flex-1 truncate text-foreground">{selected.model}</span>
+              {selectedIssues.length > 0 && <ComplianceTriangle tone="red" size={18} alt="Insurance or inspection not valid" />}
             </>
           ) : (
             <span className="min-w-0 flex-1 truncate text-black/40">{value ? `Car #${value}` : 'Select car…'}</span>
@@ -150,6 +204,7 @@ export const CarPicker: React.FC<{
                   {group.cars.map((car) => {
                     const disabled = isBusy(car);
                     const isActive = !disabled && pickable[active]?.id === car.id;
+                    const invalid = Boolean(compliance && compliance.issuesFor(car.id).length > 0);
                     return (
                       <button
                         key={`${group.label}-${car.id}`}
@@ -162,14 +217,19 @@ export const CarPicker: React.FC<{
                         onMouseEnter={() => { if (!disabled) setActive(pickable.indexOf(car)); }}
                         onClick={() => choose(car)}
                         className={cn(
-                          'flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-2 text-left text-[13px]',
+                          'flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-2 py-1 text-left text-[13px]',
                           isActive && 'bg-[#6EA4E7]/[0.1]',
                           disabled && 'cursor-not-allowed opacity-55',
                         )}
                       >
                         <LicensePlate plate={car.plate_number} />
-                        <span className="min-w-0 flex-1 truncate text-foreground">
-                          {car.model}{car.inactive ? ' · inactive' : ''}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-foreground">{car.model}{car.inactive ? ' · inactive' : ''}</span>
+                          {invalid && (
+                            <span className="mt-0.5 inline-block rounded bg-[#DC2626] px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-white">
+                              Insurance/inspection invalid
+                            </span>
+                          )}
                         </span>
                         {busy && <Availability busy={Boolean(busy.has(car.id)) && String(car.id) !== value} />}
                       </button>
@@ -182,5 +242,22 @@ export const CarPicker: React.FC<{
         )}
       </div>
     </Field>
+    {selectedIssues.length > 0 && (
+      <Notice tone="red" span>
+        {selectedIssues.map(issueLabel).join(' · ')}. This car must not be rented until this is fixed.
+      </Notice>
+    )}
+    {compliance?.failed && value && (
+      <Notice tone="amber" span>Couldn't check this car's insurance and inspection. Check it on the Cars page.</Notice>
+    )}
+    {unconfirmed && compliance && (
+      <ComplianceConfirm
+        car={unconfirmed}
+        issues={compliance.issuesFor(unconfirmed.id)}
+        onCancel={closeConfirm}
+        onConfirm={() => { onChange(String(unconfirmed.id)); closeConfirm(); }}
+      />
+    )}
+    </>
   );
 };

@@ -1,10 +1,20 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
 import { Button } from '../components/media/MediaUI';
+import { ComplianceTriangle } from '../components/shared/ComplianceBits';
+import { buildCompliance, toneOf, type CarCompliance, type ComplianceDoc } from '../lib/carCompliance';
+import { cn } from '../lib/media/badgeColor';
+import {
+  ComplianceAlertCard,
+  ComplianceBanner,
+  ComplianceErrorBanner,
+  ComplianceModal,
+  ExpiryCell,
+} from './cars/ComplianceAlert';
 
 // ─── Car Table Types ──────────────────────────────────────────────────────────
 
@@ -20,6 +30,8 @@ interface CarTableRow {
   insurance_url: string | null;
   ruhsat_url:    string | null;
   kasko_url:     string | null;
+  insurance_expiry:  string | null;
+  inspection_expiry: string | null;
 }
 
 type CarTableStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
@@ -604,7 +616,14 @@ const Toast: React.FC<ToastState> = ({ message, type }) =>
 
 // ─── Edit Car Modal ───────────────────────────────────────────────────────────
 
-const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () => void; showToast: (message: string, type: 'success' | 'error') => void }> = ({ carId, onClose, onSaved, showToast }) => {
+const EditCarModal: React.FC<{
+  carId: number;
+  /** Dates to go straight to, when the form was opened to fix them. */
+  focusDocs?: ComplianceDoc[];
+  onClose: () => void;
+  onSaved: () => void;
+  showToast: (message: string, type: 'success' | 'error') => void;
+}> = ({ carId, focusDocs = [], onClose, onSaved, showToast }) => {
   const [loadingData, setLoadingData] = useState(true);
   const [saving,      setSaving]      = useState(false);
   const [formError,   setFormError]   = useState<string | null>(null);
@@ -642,6 +661,16 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
   const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [photoErrors,       setPhotoErrors]       = useState<string[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const insuranceDateRef  = useRef<HTMLInputElement>(null);
+  const inspectionDateRef = useRef<HTMLInputElement>(null);
+  const firstFocusDoc = focusDocs[0];
+
+  useEffect(() => {
+    if (loadingData || !firstFocusDoc) return;
+    const input = firstFocusDoc === 'insurance' ? insuranceDateRef.current : inspectionDateRef.current;
+    input?.scrollIntoView({ block: 'center' });
+    input?.focus({ preventScroll: true });
+  }, [loadingData, firstFocusDoc]);
 
   useEffect(() => {
     let cancelled = false;
@@ -841,7 +870,10 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
     color: '#0f1117', background: '#fff', boxSizing: 'border-box', fontFamily: 'inherit',
   };
   const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer', appearance: 'none' };
-  const rowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 };
+  const rowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 };
+  const dateStyle = (doc: ComplianceDoc): React.CSSProperties => (
+    focusDocs.includes(doc) ? { ...inputStyle, borderColor: '#F59E0B', background: 'rgba(245,158,11,0.06)' } : inputStyle
+  );
 
   return ReactDOM.createPortal(
     <div
@@ -850,7 +882,7 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20, animation: 'fadeIn 160ms ease',
+        padding: 12, animation: 'fadeIn 160ms ease',
       }}
     >
       <div style={{
@@ -936,11 +968,11 @@ const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () =
                   <div style={rowStyle}>
                     <div>
                       <label style={labelStyle}>Insurance Expiry</label>
-                      <input type="date" value={insuranceExpiry} onChange={e => setInsuranceExpiry(e.target.value)} style={inputStyle} />
+                      <input ref={insuranceDateRef} type="date" aria-label="Insurance Expiry" value={insuranceExpiry} onChange={e => setInsuranceExpiry(e.target.value)} style={dateStyle('insurance')} />
                     </div>
                     <div>
                       <label style={labelStyle}>Inspection Expiry</label>
-                      <input type="date" value={inspectionExpiry} onChange={e => setInspectionExpiry(e.target.value)} style={inputStyle} />
+                      <input ref={inspectionDateRef} type="date" aria-label="Inspection Expiry" value={inspectionExpiry} onChange={e => setInspectionExpiry(e.target.value)} style={dateStyle('inspection')} />
                     </div>
                   </div>
                   <div>
@@ -1100,6 +1132,12 @@ const CarsPage: React.FC = () => {
   }, [searchParams]);
 
   const [editingCarId, setEditingCarId] = useState<number | null>(null);
+  const [editFocusDocs, setEditFocusDocs] = useState<ComplianceDoc[]>([]);
+  const [compliance, setCompliance] = useState<CarCompliance[]>([]);
+  const [complianceError, setComplianceError] = useState<string | null>(null);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [onlyIssues, setOnlyIssues] = useState(false);
+  const alertShown = useRef(false);
   const [sortCol,  setSortCol]  = useState<'plate_number' | 'model' | 'year' | 'current_km' | 'status' | null>(null);
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('asc');
   const [totalCars, setTotalCars] = useState(0);
@@ -1164,7 +1202,7 @@ const CarsPage: React.FC = () => {
       const [carsRes, trackingRes, registrationsRes, availabilityRes, modelGroupsRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true).order('id', { ascending: false }),
         supabase.from('car_tracking').select('car_id, current_km, updated_at').order('updated_at', { ascending: false }),
-        supabase.from('cars_registration').select('car_id, manufacture_year, purchase_contract_url, purchase_invoice_url, insurance_file_url, ruhsat_url, kasko'),
+        supabase.from('cars_registration').select('car_id, manufacture_year, purchase_contract_url, purchase_invoice_url, insurance_file_url, ruhsat_url, kasko, insurance_expiry, inspection_expiry'),
         supabase.from('car_availability').select('id, status'),
         supabase.from('model_group').select('id, name'),
       ]);
@@ -1172,7 +1210,7 @@ const CarsPage: React.FC = () => {
 
       const rawCars        = (carsRes.data         ?? []) as { id: number; plate_number: string; model_group_id: number | null }[];
       const rawTracking    = (trackingRes.data      ?? []) as { car_id: number; current_km: number; updated_at: string }[];
-      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; purchase_contract_url: string | null; purchase_invoice_url: string | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null }[];
+      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; purchase_contract_url: string | null; purchase_invoice_url: string | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null; insurance_expiry: string | null; inspection_expiry: string | null }[];
       const rawAvailability= (availabilityRes.data  ?? []) as { id: number; status: string }[];
       const rawModels      = (modelGroupsRes.data   ?? []) as { id: number; name: string }[];
 
@@ -1198,14 +1236,38 @@ const CarsPage: React.FC = () => {
           insurance_url: reg?.insurance_file_url ?? null,
           ruhsat_url:    reg?.ruhsat_url ?? null,
           kasko_url:     reg?.kasko ?? null,
+          insurance_expiry:  reg?.insurance_expiry ?? null,
+          inspection_expiry: reg?.inspection_expiry ?? null,
         };
       });
 
       setCars(combined);
+      const readError = carsRes.error ?? registrationsRes.error;
+      setComplianceError(readError ? readError.message : null);
+      setCompliance(readError ? [] : buildCompliance(combined, rawRegs));
       setCarsLoading(false);
     })();
     return () => { cancelled = true; };
   }, [refreshKey]);
+
+  // Once per visit. After "Got it" it stays closed until the page is opened again.
+  useEffect(() => {
+    if (carsLoading || alertShown.current || compliance.length === 0) return;
+    alertShown.current = true;
+    setAlertOpen(true);
+  }, [carsLoading, compliance]);
+
+  const issuesByCar = useMemo(() => new Map(compliance.map(car => [car.id, car])), [compliance]);
+
+  const fixCar = (car: CarCompliance) => {
+    setEditFocusDocs(car.issues.map(issue => issue.doc));
+    setEditingCarId(car.id);
+  };
+
+  const closeEdit = () => {
+    setEditingCarId(null);
+    setEditFocusDocs([]);
+  };
 
   const total = totalCars;
 
@@ -1216,13 +1278,12 @@ const CarsPage: React.FC = () => {
   };
 
   return (
-    <div style={{
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-11" style={{
       minHeight: '100vh',
       background: 'var(--surface)',
-      padding: '44px 40px',
     }}>
       {/* Page header */}
-      <div style={{ marginBottom: 36, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{
@@ -1260,6 +1321,9 @@ const CarsPage: React.FC = () => {
         </Button>
       </div>
 
+      {compliance.length > 0 && <ComplianceBanner cars={compliance} onView={() => setAlertOpen(true)} />}
+      {complianceError && <ComplianceErrorBanner message={complianceError} />}
+
       {/* Error state */}
       {error && (
         <div style={{
@@ -1286,12 +1350,7 @@ const CarsPage: React.FC = () => {
       )}
 
       {/* Stat cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(6, 1fr)',
-        gap: 14,
-        marginBottom: 36,
-      }}>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6" style={{ gap: 14, marginBottom: 36 }}>
         {loading
           ? CARDS.map(c => <SkeletonCard key={c.key} />)
           : CARDS.map(card => (
@@ -1313,11 +1372,8 @@ const CarsPage: React.FC = () => {
             Alerts
           </span>
         </div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 14,
-        }}>
+        <div className={cn('grid grid-cols-1', compliance.length > 0 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3')} style={{ gap: 14 }}>
+          {compliance.length > 0 && <ComplianceAlertCard cars={compliance} onView={() => setAlertOpen(true)} />}
           <AlertSection
             viewName="upcoming_returns"
             title="Upcoming Returns"
@@ -1356,15 +1412,30 @@ const CarsPage: React.FC = () => {
       {/* Fleet Table */}
       <div style={{ marginTop: 32 }}>
         {/* Section header + search */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               All Vehicles
             </span>
           </div>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {compliance.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={onlyIssues}
+              onClick={() => setOnlyIssues(value => !value)}
+              className={cn(
+                'inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[9px] border px-3 text-[13px] font-semibold transition-colors md:h-9',
+                onlyIssues ? 'border-[#DC2626] bg-[#DC2626] text-white' : 'border-[#DC2626]/30 bg-[#DC2626]/[0.06] text-[#B91C1C]',
+              )}
+            >
+              Missing or expired
+              <span className="tabular-nums">{compliance.length}</span>
+            </button>
+          )}
           {/* Search */}
-          <div style={{ position: 'relative' }}>
+          <div className="relative min-w-0 flex-1 sm:w-[220px] sm:flex-none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
               <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -1378,16 +1449,17 @@ const CarsPage: React.FC = () => {
                 paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
                 fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9,
                 outline: 'none', color: '#0f1117', background: '#fff',
-                width: 220, fontFamily: 'inherit',
+                width: '100%', fontFamily: 'inherit',
               }}
             />
+          </div>
           </div>
         </div>
 
         {/* Table card */}
         <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1120 }}>
               <thead>
                 <tr>
                   {([
@@ -1432,6 +1504,17 @@ const CarsPage: React.FC = () => {
                       </th>
                     );
                   })}
+                  {['Insurance until', 'Inspection until'].map(label => (
+                    <th key={label} style={{
+                      padding: '9px 14px', fontSize: 11, fontWeight: 600,
+                      color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
+                      textAlign: 'left', background: '#fff',
+                      borderBottom: '1.5px solid #f0f0f0',
+                      whiteSpace: 'nowrap', userSelect: 'none',
+                    }}>
+                      {label}
+                    </th>
+                  ))}
                   {([
                     { key: 'contract_url',  label: 'Contract'  },
                     { key: 'invoice_url',   label: 'Invoice'   },
@@ -1473,9 +1556,9 @@ const CarsPage: React.FC = () => {
                 {carsLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 11 }).map((__, j) => (
+                      {Array.from({ length: 13 }).map((__, j) => (
                         <td key={j} style={{ padding: '12px 14px' }}>
-                          <div style={{ height: 14, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: j === 0 ? '80px' : j >= 5 ? '20px' : '60%', margin: j >= 5 ? '0 auto' : undefined }} />
+                          <div style={{ height: 14, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: j === 0 ? '80px' : j >= 7 ? '20px' : '60%', margin: j >= 7 ? '0 auto' : undefined }} />
                         </td>
                       ))}
                     </tr>
@@ -1483,6 +1566,7 @@ const CarsPage: React.FC = () => {
                 ) : (() => {
                   const q = tableSearch.trim().toLowerCase();
                   const filtered = cars.filter(car => {
+                    if (onlyIssues && !issuesByCar.has(car.id)) return false;
                     if (!q) return true;
                     return car.plate_number.toLowerCase().includes(q) || car.model.toLowerCase().includes(q);
                   });
@@ -1507,18 +1591,24 @@ const CarsPage: React.FC = () => {
                   if (filtered.length === 0) {
                     return (
                       <tr>
-                        <td colSpan={11} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
+                        <td colSpan={13} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
                           {tableSearch ? 'No cars match your search.' : 'No cars found.'}
                         </td>
                       </tr>
                     );
                   }
 
-                  return filtered.map((car, idx) => (
+                  return filtered.map((car, idx) => {
+                    const affected = issuesByCar.get(car.id);
+                    const stripe = affected ? (affected.severity === 'expired' ? '#DC2626' : '#F59E0B') : null;
+                    return (
                     <tr key={car.plate_number + idx} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
-                      <td style={{ padding: '12px 14px' }}>
-                        <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.3px' }}>
-                          {car.plate_number}
+                      <td style={{ padding: '12px 14px', boxShadow: stripe ? `inset 3px 0 0 ${stripe}` : undefined }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.3px' }}>
+                            {car.plate_number}
+                          </span>
+                          {affected && <ComplianceTriangle tone={toneOf(affected.severity)} size={18} alt={affected.severity === 'expired' ? 'Expired' : 'Date not recorded'} />}
                         </span>
                       </td>
                       <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151' }}>
@@ -1532,6 +1622,12 @@ const CarsPage: React.FC = () => {
                       </td>
                       <td style={{ padding: '12px 14px' }}>
                         {car.status && car.status !== '—' ? <CarStatusBadge status={car.status} /> : <span style={{ fontSize: 12, color: '#9ca3af' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <ExpiryCell date={car.insurance_expiry} car={affected} doc="insurance" checked={!complianceError} />
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <ExpiryCell date={car.inspection_expiry} car={affected} doc="inspection" checked={!complianceError} />
                       </td>
                       {([car.contract_url, car.invoice_url, car.insurance_url, car.ruhsat_url, car.kasko_url] as (string | null)[]).map((url, di) => (
                         <td key={di} style={{ padding: '12px 14px', textAlign: 'center' }}>
@@ -1576,7 +1672,8 @@ const CarsPage: React.FC = () => {
                         </button>
                       </td>
                     </tr>
-                  ));
+                    );
+                  });
                 })()}
               </tbody>
             </table>
@@ -1612,9 +1709,18 @@ const CarsPage: React.FC = () => {
       {editingCarId !== null && (
         <EditCarModal
           carId={editingCarId}
-          onClose={() => setEditingCarId(null)}
-          onSaved={() => { setEditingCarId(null); setRefreshKey(k => k + 1); }}
+          focusDocs={editFocusDocs}
+          onClose={closeEdit}
+          onSaved={() => { closeEdit(); setRefreshKey(k => k + 1); }}
           showToast={showToast}
+        />
+      )}
+      {alertOpen && compliance.length > 0 && (
+        <ComplianceModal
+          cars={compliance}
+          paused={editingCarId !== null}
+          onFix={fixCar}
+          onClose={() => setAlertOpen(false)}
         />
       )}
       {toast && <Toast message={toast.message} type={toast.type} />}

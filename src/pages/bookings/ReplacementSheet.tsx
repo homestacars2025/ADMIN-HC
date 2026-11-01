@@ -10,7 +10,7 @@ import { cn } from '../../lib/media/badgeColor';
 import { printReplacementSheet, type ReplacementSheet as PrintableSheet } from '../../lib/printReplacementSheet';
 import { supabase } from '../../lib/supabase';
 import { BanAlert, CarIcon } from '../customers/ui';
-import { CarPicker, useBusyCars } from './CarPicker';
+import { CarPicker, useBusyCars, useCarCompliance } from './CarPicker';
 import { DateRangeField } from './DateRangeField';
 import { BookingSheet, FOOTER_BUTTON, Field, FormCard, INPUT, LicensePlate, Notice, PrimaryButton, SelectedRow, SummaryBar } from './ui';
 
@@ -51,6 +51,7 @@ export const ReplacementSheet: React.FC<{
   const [banMatch, setBanMatch] = useState<BanMatch | null>(null);
 
   const [cars, setCars] = useState<CarChoice[]>([]);
+  const compliance = useCarCompliance();
 
   // Step 1 — the original car. Step 2 — a booking on that car, loaded once it's picked.
   const [originalCarId, setOriginalCarId] = useState('');
@@ -383,6 +384,7 @@ export const ReplacementSheet: React.FC<{
               cars={replacementCars}
               value={replacementCarId}
               busy={busyCars}
+              compliance={compliance}
               hint={busyCars ? undefined : 'Pick the dates to see which cars are free.'}
               onChange={setReplacementCarId}
             />
