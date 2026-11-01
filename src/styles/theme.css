@@ -377,8 +377,8 @@ b, strong, th {
   top: -8px;
   inset-inline-start: -4px;
   display: block;
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   pointer-events: none;
 }
 
