@@ -422,7 +422,7 @@ const SIMPLE_FIELDS: Array<keyof BookingFormData> = [
   'cust_birth_date', 'cust_license_issue_date', 'cust_notes',
 ];
 
-const MONEY_FIELDS = ['fin_rental_amount', 'fin_deposit_amount', 'fin_paid_amount'] as const;
+const PAID_FIELDS = ['fin_deposit_amount', 'fin_paid_amount'] as const;
 
 const sameText = (a: unknown, b: unknown) => String(a ?? '').trim() === String(b ?? '').trim();
 
@@ -431,10 +431,12 @@ export function changedFields(baseline: BookingFormData, form: BookingFormData, 
   const changed: string[] = SIMPLE_FIELDS.filter((field) => !sameText(baseline[field], form[field]));
   if (insuranceValue(baseline) !== insuranceValue(form)) changed.push('insurance');
   if (additionalServicesValue(baseline) !== additionalServicesValue(form)) changed.push('extras');
-  MONEY_FIELDS.forEach((field) => {
-    const before = toTry(parseAmount(baseline[field]), baseline.fin_currency, usdRate);
-    const after = toTry(parseAmount(form[field]), form.fin_currency, usdRate);
-    if (Math.abs(before - after) >= 0.005) changed.push(field);
+  const rentalBefore = toTry(parseAmount(baseline.fin_rental_amount), baseline.fin_currency, usdRate);
+  const rentalAfter = toTry(parseAmount(form.fin_rental_amount), form.fin_currency, usdRate);
+  if (Math.abs(rentalBefore - rentalAfter) >= 0.005) changed.push('fin_rental_amount');
+  // Money received has its own currency, so it's compared as typed.
+  PAID_FIELDS.forEach((field) => {
+    if (Math.abs(parseAmount(baseline[field]) - parseAmount(form[field])) >= 0.005) changed.push(field);
   });
   return changed;
 }

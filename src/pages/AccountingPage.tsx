@@ -11,12 +11,15 @@ import { Button } from '../components/media/MediaUI';
 import { CarThumb } from '../components/shared/CarThumb';
 import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, type PendingSummary } from '../lib/expenseApprovals';
 import { CashAccountsTab } from './accounting/CashAccountsTab';
+import { CashEnvelopesTab } from './accounting/CashEnvelopesTab';
 import { FinanceOverviewTab } from './accounting/FinanceOverviewTab';
 import { StaffCustodyTab } from './accounting/StaffCustodyTab';
 import { SuggestedExpense, SuggestionBanner, SuggestionDialogs, useSuggestions } from './accounting/Suggestions';
 import { SupplierSheet } from './accounting/SupplierSheet';
 import { SuppliersTab } from './accounting/SuppliersTab';
 import { LicensePlate, Segmented } from './bookings/ui';
+import { CurrencyField, PaymentMethod, usePaymentAccounts } from './bookings/PaymentFields';
+import { envelopeReceipt, equivalentLabel, isRecordedPayment, NEW_PAYMENT, paymentProblem, recordCustomerPayment, showEnvelopes, type PaymentChoice } from '../lib/payments';
 
 /** Scrolls the row a link pointed at into view. Pair it with `HIGHLIGHT_ROW` on that row. */
 function useScrollToRow(rowId: number | null, ready: boolean) {
@@ -57,6 +60,7 @@ interface CustomerLedgerEntry {
   created_at: string;
   created_by: string | null;
   transaction_type: string | null;
+  pay_method?: string | null;
   // joined via FK
   customers: {
     id: string;
@@ -2621,6 +2625,11 @@ const AddCustomerTxModal: React.FC<{
   const [form,   setForm]   = useState<AddCustomerTxForm>(EMPTY_CUST_TX_FORM);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
+  const [payment, setPayment] = useState<PaymentChoice>(NEW_PAYMENT);
+  const accounts = usePaymentAccounts();
+  const { rates } = useCurrency();
+  // Money coming in has its own form. Charges and refunds stay as they were.
+  const paymentType = form.typePreset === 'payment' || form.typePreset === 'deposit' ? form.typePreset : null;
 
   const set = (k: keyof AddCustomerTxForm, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
@@ -2637,6 +2646,22 @@ const AddCustomerTxModal: React.FC<{
     const typeValue = form.typePreset === 'other' ? (form.typeCustom.trim() || null) : (form.typePreset || null);
     if (!form.date || isNaN(amount) || amount <= 0) {
       setError('Date and a valid amount are required.');
+      return;
+    }
+    if (paymentType) {
+      const problem = paymentProblem(payment, accounts, rates);
+      if (problem) { setError(problem); return; }
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await recordCustomerPayment({ bookingId, type: paymentType, amount, choice: payment, note: form.description });
+        showEnvelopes(envelopeReceipt(result, amount, payment.currency, carPlate ?? null, customerName));
+        onSaved();
+        onClose();
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : 'The payment was not saved.');
+        setSaving(false);
+      }
       return;
     }
     setSaving(true);
@@ -2674,7 +2699,7 @@ const AddCustomerTxModal: React.FC<{
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 160ms ease' }}
     >
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 200ms ease', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
@@ -2698,7 +2723,7 @@ const AddCustomerTxModal: React.FC<{
           </div>
 
           {/* Date + Direction row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: paymentType ? 'none' : 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</div>
               <input type="date" value={form.date} onChange={e => set('date', e.target.value)} style={inputStyle}
@@ -2758,6 +2783,16 @@ const AddCustomerTxModal: React.FC<{
               onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
               onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }} />
           </div>
+
+          {paymentType && (
+            <div className="media-scope grid grid-cols-1 gap-3">
+              <CurrencyField value={payment.currency} onChange={(currency) => setPayment({ ...payment, currency })} />
+              {equivalentLabel(parseFloat(form.amount) || 0, payment.currency, rates) && (
+                <p className="text-[12.5px] tabular-nums text-black/55">{equivalentLabel(parseFloat(form.amount) || 0, payment.currency, rates)}</p>
+              )}
+              <PaymentMethod choice={payment} accounts={accounts} onChange={setPayment} />
+            </div>
+          )}
 
           {/* Description */}
           <div>
@@ -3665,6 +3700,9 @@ export const CarCustomerSheetPage: React.FC = () => {
                                         </button>
                                       </div>
                                     ) : (
+                                      isRecordedPayment(e) ? (
+                                        <span title="Recorded with an envelope or account. Reverse it in Cash & Envelopes." style={{ fontSize: 11.5, color: '#9ca3af', whiteSpace: 'nowrap' }}>Recorded</span>
+                                      ) : (
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                         <button onClick={() => setEditModal(e)} title="Edit" style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', transition: 'all 140ms ease' }}
                                           onMouseEnter={e2 => { (e2.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e2.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; (e2.currentTarget as HTMLButtonElement).style.background = 'rgba(75,166,234,0.06)'; }}
@@ -3677,6 +3715,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                                         </button>
                                       </div>
+                                      )
                                     )}
                                   </td>
                                 </tr>
@@ -5763,13 +5802,14 @@ const CustodyTab: React.FC<{ onPending: (summary: PendingSummary) => void }> = (
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type AccountingTab = 'overview' | 'cars' | 'expenses' | 'custody' | 'customers' | 'suppliers' | 'cash';
+type AccountingTab = 'overview' | 'cars' | 'expenses' | 'custody' | 'vault' | 'customers' | 'suppliers' | 'cash';
 
 const TABS: ReadonlyArray<{ key: AccountingTab; label: string }> = [
   { key: 'overview',  label: 'Overview'         },
   { key: 'cars',      label: 'Car sheets'       },
   { key: 'expenses',  label: 'Company expenses' },
   { key: 'custody',   label: 'Staff custody'    },
+  { key: 'vault',     label: 'Cash & Envelopes' },
   { key: 'customers', label: 'Customer wallets' },
   { key: 'suppliers', label: 'Suppliers'        },
   { key: 'cash',      label: 'Cash accounts'    },
@@ -5847,7 +5887,7 @@ const AccountingPage: React.FC = () => {
             aria-selected={activeTab === tab.key}
             onClick={() => openTab(tab.key)}
             style={{
-              padding: '8px 16px', minHeight: 40, flexShrink: 0, whiteSpace: 'nowrap',
+              padding: '8px 13px', minHeight: 40, flexShrink: 0, whiteSpace: 'nowrap',
               borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 500,
               color: activeTab === tab.key ? '#0f1117' : '#6b7280',
@@ -5871,6 +5911,7 @@ const AccountingPage: React.FC = () => {
       {activeTab === 'cars'      && <CarSheetsTab key={refreshKey} view={params.get('view')} onExpensesChanged={recheckPending} />}
       {activeTab === 'expenses'  && <CompanyExpensesTab key={refreshKey} onExpensesChanged={recheckPending} />}
       {activeTab === 'custody'   && <CustodyTab onPending={setPending} />}
+      {activeTab === 'vault'     && <CashEnvelopesTab key={refreshKey} />}
       {activeTab === 'customers' && <CustomerWalletsTab key={refreshKey} view={params.get('view')} />}
       {activeTab === 'suppliers' && (supplierId ? <SupplierSheet key={supplierId} supplierId={supplierId} /> : <SuppliersTab />)}
       {activeTab === 'cash'      && <CashAccountsTab />}

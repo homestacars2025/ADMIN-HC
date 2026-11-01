@@ -15,16 +15,17 @@ import { CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../../lib/money';
 import { BookingSheet, Field, FOOTER_BUTTON, FormCard, INPUT, Notice, PrimaryButton } from '../bookings/ui';
 import { WalletIcon } from '../customers/ui';
 
-type Errors = Partial<Record<'code' | 'name' | 'currencies' | 'iban', string>>;
+type Errors = Partial<Record<'code' | 'name' | 'currencies' | 'iban' | 'days', string>>;
 
 const KIND_OPTIONS = ACCOUNT_KINDS.map((value) => ({ value, label: KIND_LABELS[value] }));
 const NOBODY = 'none';
 
 export const AccountFormSheet: React.FC<{
   account: CashAccount | null;
+  accounts: CashAccount[];
   onClose: () => void;
   onSaved: (saved: CashAccount) => void;
-}> = ({ account, onClose, onSaved }) => {
+}> = ({ account, accounts, onClose, onSaved }) => {
   const [code, setCode] = useState(account?.code ?? '');
   const [name, setName] = useState(account?.name ?? '');
   const [kind, setKind] = useState<AccountKind>(account?.kind ?? 'safe');
@@ -35,6 +36,8 @@ export const AccountFormSheet: React.FC<{
   const [holder, setHolder] = useState(account?.holder_profile_id ?? NOBODY);
   const [active, setActive] = useState(account?.is_active ?? true);
   const [notes, setNotes] = useState(account?.notes ?? '');
+  const [settleDays, setSettleDays] = useState(account?.settlement_days ? String(account.settlement_days) : '');
+  const [settlesTo, setSettlesTo] = useState(account?.settles_to_account_id ? String(account.settles_to_account_id) : NOBODY);
   const [staff, setStaff] = useState<Array<{ id: string; full_name: string }>>([]);
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -43,6 +46,8 @@ export const AccountFormSheet: React.FC<{
   const savingRef = useRef(false);
 
   const showsBank = kind === 'bank' || kind === 'pos' || kind === 'gateway';
+  const settles = kind === 'pos' || kind === 'gateway';
+  const banks = accounts.filter((option) => option.kind === 'bank' && option.id !== account?.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +74,7 @@ export const AccountFormSheet: React.FC<{
     if (!name.trim()) next.name = 'Enter a name.';
     if (currencies.length === 0) next.currencies = 'Choose at least one currency.';
     if (showsBank && !validIban(cleaned)) next.iban = "This doesn't look like an IBAN.";
+    if (settles && settleDays.trim() && !/^\d+$/.test(settleDays.trim())) next.days = 'Enter whole days.';
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -87,6 +93,8 @@ export const AccountFormSheet: React.FC<{
         holder_profile_id: kind === 'custody' && holder !== NOBODY ? holder : null,
         is_active: active,
         notes: notes.trim() || null,
+        settlement_days: settles && settleDays.trim() ? Number(settleDays) : null,
+        settles_to_account_id: settles && settlesTo !== NOBODY ? Number(settlesTo) : null,
       }));
     } catch (failure) {
       setFormError(failure instanceof Error ? failure.message : "The account wasn't saved. Try again.");
@@ -159,7 +167,24 @@ export const AccountFormSheet: React.FC<{
         </FormCard>
       )}
 
-      {kind === 'custody' && (
+      {settles && (
+        <FormCard icon={<WalletIcon size={15} />} title="Settlement">
+          <Field label="Pays out to" span hint={banks.length === 0 ? 'Add a bank account first. Until this is set, nothing shows as pending settlement.' : undefined}>
+            <Select
+              value={settlesTo}
+              options={[{ value: NOBODY, label: 'No bank linked' }, ...banks.map((bank) => ({ value: String(bank.id), label: bank.name }))]}
+              size="lg"
+              ariaLabel="Pays out to"
+              onChange={(value) => { setSettlesTo(value); touch(); }}
+            />
+          </Field>
+          <Field label="Settlement days" span error={errors.days}>
+            <input className={INPUT} inputMode="numeric" value={settleDays} onChange={(event) => { setSettleDays(event.target.value); touch(); }} />
+          </Field>
+        </FormCard>
+      )}
+
+      {kind === 'custody' && !account?.is_final && (
         <FormCard icon={<WalletIcon size={15} />} title="Holder">
           <Field label="Staff member" span>
             <Select

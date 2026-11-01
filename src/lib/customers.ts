@@ -714,32 +714,6 @@ export async function uploadCustomerDocument(customerId: string, slot: DocumentK
 
 export type PaymentType = 'payment' | 'deposit';
 
-/** `booking_id` and `car_id` are NOT NULL here, so a payment always belongs to a booking. */
-export async function addCustomerPayment(input: {
-  customerId: string;
-  bookingId: number;
-  carId: number;
-  type: PaymentType;
-  amount: number;
-  date: string;
-  description: string;
-}): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase.from('customer_accounting_ledger').insert({
-    booking_id: input.bookingId,
-    customer_id: input.customerId,
-    car_id: input.carId,
-    type: input.type,
-    amount: input.amount,
-    direction: 'IN',
-    description: input.description || null,
-    // A date alone would sort before anything else entered today.
-    created_at: input.date === istanbulDate() ? new Date().toISOString() : input.date,
-    created_by: user?.id ?? null,
-  });
-  if (error) throw new Error(error.message);
-}
-
 /**
  * Same rule as the Google Reviews page: 5★ is worth asking for a review, anything
  * less isn't. A request that already went out stays sent, so re-rating never

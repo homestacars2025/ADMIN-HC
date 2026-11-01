@@ -13,7 +13,6 @@ import {
   Spinner,
 } from '../../components/media/MediaUI';
 import {
-  addCustomerPayment,
   bookingCar,
   customerName,
   focusBooking,
@@ -23,6 +22,10 @@ import {
   type PaymentType,
   type ProfileBooking,
 } from '../../lib/customers';
+import { parseAmount } from '../../lib/bookingForm';
+import { useCurrency } from '../../lib/CurrencyContext';
+import { envelopeReceipt, NEW_PAYMENT, paymentProblem, recordCustomerPayment, showEnvelopes, type PaymentChoice } from '../../lib/payments';
+import { CurrencyField, PaymentAmount, PaymentMethod, usePaymentAccounts } from '../bookings/PaymentFields';
 
 const TYPES: Array<{ value: PaymentType; label: string }> = [
   { value: 'payment', label: 'Payment' },
@@ -43,8 +46,10 @@ export const AddPaymentSheet: React.FC<{
   const [bookingId, setBookingId] = useState(() => String((focusBooking(bookings, today) ?? bookings[0])?.id ?? ''));
   const [type, setType] = useState<PaymentType>('payment');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(today);
+  const [choice, setChoice] = useState<PaymentChoice>(NEW_PAYMENT);
   const [description, setDescription] = useState('');
+  const accounts = usePaymentAccounts();
+  const { rates } = useCurrency();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -59,23 +64,17 @@ export const AddPaymentSheet: React.FC<{
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const booking = bookings.find((item) => String(item.id) === bookingId);
-    const value = Number(amount.replace(',', '.'));
+    const value = parseAmount(amount);
     if (!booking) { setError('Choose the booking this payment belongs to.'); return; }
-    if (!Number.isFinite(value) || value <= 0) { setError('Enter an amount above zero.'); return; }
-    if (!date || date > today) { setError("The date can't be in the future."); return; }
+    if (value <= 0) { setError('Enter an amount above zero.'); return; }
+    const problem = paymentProblem(choice, accounts, rates);
+    if (problem) { setError(problem); return; }
 
     setSaving(true);
     setError(null);
     try {
-      await addCustomerPayment({
-        customerId: customer.id,
-        bookingId: booking.id,
-        carId: booking.car_id,
-        type,
-        amount: value,
-        date,
-        description: description.trim(),
-      });
+      const result = await recordCustomerPayment({ bookingId: booking.id, type, amount: value, choice, note: description.trim() });
+      showEnvelopes(envelopeReceipt(result, value, choice.currency, bookingCar(booking).plate ?? null, customerName(customer)));
       onSaved();
       onClose();
     } catch (failure) {
@@ -106,22 +105,14 @@ export const AddPaymentSheet: React.FC<{
                 <Field label="Type">
                   <Select value={type} options={TYPES} onChange={(value) => setType(value as PaymentType)} ariaLabel="Type" className={SELECT_FIELD} />
                 </Field>
-                <Field label="Amount (₺)">
-                  <Input
-                    autoFocus
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value.replace(/[^\d.,]/g, ''))}
-                    placeholder="0"
-                    className={`${FIELD} tabular-nums`}
-                  />
-                </Field>
-                <Field label="Date">
-                  <Input type="date" value={date} max={today} onChange={(event) => setDate(event.target.value)} className={FIELD} />
-                </Field>
                 <Field label="Note">
                   <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Optional" className={FIELD} />
                 </Field>
+                <PaymentAmount label="Amount" required value={amount} currency={choice.currency} onChange={setAmount} />
+                <Field label="Currency">
+                  <CurrencyField value={choice.currency} onChange={(currency) => setChoice({ ...choice, currency })} />
+                </Field>
+                <PaymentMethod choice={choice} accounts={accounts} onChange={setChoice} />
               </div>
             </>
           )}

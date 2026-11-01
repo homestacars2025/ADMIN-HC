@@ -16,7 +16,8 @@ import {
   type CashAccount,
 } from '../../lib/cashAccounts';
 import { cn } from '../../lib/media/badgeColor';
-import { CURRENCY_SYMBOLS } from '../../lib/money';
+import { balancesOf, fetchAccountBalances, type AccountBalance, type CurrencyTotal } from '../../lib/cashEnvelopes';
+import { CURRENCY_SYMBOLS, formatMoney } from '../../lib/money';
 import { AccountFormSheet } from '../cashAccounts/AccountFormSheet';
 import { WalletIcon } from '../customers/ui';
 
@@ -37,8 +38,8 @@ const KindIcon: React.FC<{ kind: AccountKind; size?: number }> = ({ kind, size =
 
 const accountWord = (count: number) => (count === 1 ? 'account' : 'accounts');
 
-const AccountRow: React.FC<{ account: CashAccount; onEdit: () => void; onActive: (on: boolean) => void }> = ({ account, onEdit, onActive }) => (
-  <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-subtle px-4 py-3 last:border-b-0 xl:grid-cols-[minmax(0,1.3fr)_120px_130px_minmax(0,1.2fr)_90px_92px]">
+const AccountRow: React.FC<{ account: CashAccount; balances: CurrencyTotal[]; onEdit: () => void; onActive: (on: boolean) => void }> = ({ account, balances, onEdit, onActive }) => (
+  <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-subtle px-4 py-3 last:border-b-0 xl:grid-cols-[minmax(0,1.3fr)_120px_130px_minmax(0,1.2fr)_120px_92px]">
     <div className="flex min-w-0 items-center gap-3">
       <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', account.is_active ? 'bg-primary/10 text-primary' : 'bg-black/[0.05] text-black/40')}><KindIcon kind={account.kind} /></span>
       <span className="min-w-0">
@@ -55,7 +56,9 @@ const AccountRow: React.FC<{ account: CashAccount; onEdit: () => void; onActive:
         {account.currencies.map((currency) => <span key={currency} className="grid h-6 w-6 place-items-center rounded-full bg-black/[0.05] text-[12px] font-medium text-black/60" title={currency}>{CURRENCY_SYMBOLS[currency]}</span>)}
       </span>
       <span className="min-w-0 break-all font-mono text-[12px] text-black/55">{account.iban ? formatIban(account.iban) : ''}</span>
-      <span title="Balances come in phase 2" className="tabular-nums text-black/35 xl:text-end">—</span>
+      <span className="tabular-nums text-foreground xl:text-end">
+        {balances.length === 0 ? <span className="text-black/35">—</span> : balances.map((row) => <span key={row.currency} className="block">{formatMoney(row.total, row.currency)}</span>)}
+      </span>
     </span>
     <span className="col-span-2 flex items-center justify-end gap-3 xl:col-span-1">
       <span className="hidden xl:inline-flex"><Switch checked={account.is_active} onChange={onActive} ariaLabel={`${account.name} active`} activeClass="bg-primary" /></span>
@@ -67,6 +70,7 @@ const AccountRow: React.FC<{ account: CashAccount; onEdit: () => void; onActive:
 export const CashAccountsTab: React.FC = () => {
   const { filter, toggle, clear } = useUrlFilter(ACCOUNT_FILTERS);
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
+  const [balances, setBalances] = useState<AccountBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -76,8 +80,12 @@ export const CashAccountsTab: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    fetchCashAccounts()
-      .then((rows) => { if (!cancelled) setAccounts(rows); })
+    Promise.all([fetchCashAccounts(), fetchAccountBalances()])
+      .then(([rows, balanceRows]) => {
+        if (cancelled) return;
+        setAccounts(rows);
+        setBalances(balanceRows);
+      })
       .catch((failure: unknown) => { if (!cancelled) setError(failure instanceof Error ? failure.message : 'Try again.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -132,7 +140,7 @@ export const CashAccountsTab: React.FC = () => {
           <p className="px-4 py-10 text-center text-[13.5px] text-black/45">{accounts.length === 0 ? 'No accounts yet.' : 'No accounts match this view.'}</p>
         ) : (
           <>
-            <div aria-hidden="true" className="hidden grid-cols-[minmax(0,1.3fr)_120px_130px_minmax(0,1.2fr)_90px_92px] gap-x-3 border-b border-subtle px-4 py-2 text-[11.5px] font-medium text-black/45 xl:grid">
+            <div aria-hidden="true" className="hidden grid-cols-[minmax(0,1.3fr)_120px_130px_minmax(0,1.2fr)_120px_92px] gap-x-3 border-b border-subtle px-4 py-2 text-[11.5px] font-medium text-black/45 xl:grid">
               <span>Account</span><span>Kind</span><span>Currencies</span><span>IBAN</span><span className="text-end">Balance</span><span className="text-end">Active</span>
             </div>
             <ul>
@@ -140,6 +148,7 @@ export const CashAccountsTab: React.FC = () => {
                 <AccountRow
                   key={account.id}
                   account={account}
+                  balances={balancesOf(balances, account.id)}
                   onEdit={() => setSheet({ account })}
                   onActive={(on) => setActive(account, on)}
                 />
@@ -149,7 +158,7 @@ export const CashAccountsTab: React.FC = () => {
         )}
       </div>
 
-      {sheet && <AccountFormSheet account={sheet.account} onClose={() => setSheet(null)} onSaved={saved} />}
+      {sheet && <AccountFormSheet account={sheet.account} accounts={accounts} onClose={() => setSheet(null)} onSaved={saved} />}
       <MediaToaster />
     </div>
   );

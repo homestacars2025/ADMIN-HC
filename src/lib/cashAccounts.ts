@@ -29,11 +29,16 @@ export interface CashAccount {
   is_active: boolean;
   sort_order: number;
   notes: string | null;
+  /** The admin's own account, the end of the road for cash. */
+  is_final: boolean;
+  /** How long a POS takes to pay out, and into which bank. */
+  settlement_days: number | null;
+  settles_to_account_id: number | null;
 }
 
-export type CashAccountDraft = Omit<CashAccount, 'id' | 'sort_order'>;
+export type CashAccountDraft = Omit<CashAccount, 'id' | 'sort_order' | 'is_final'>;
 
-const COLUMNS = 'id, code, name, kind, branch, currencies, bank_name, iban, holder_profile_id, is_active, sort_order, notes';
+const COLUMNS = 'id, code, name, kind, branch, currencies, bank_name, iban, holder_profile_id, is_active, sort_order, notes, is_final, settlement_days, settles_to_account_id';
 
 export async function fetchCashAccounts(): Promise<CashAccount[]> {
   const { data, error } = await supabase.from('cash_accounts').select(COLUMNS).order('sort_order').order('name');

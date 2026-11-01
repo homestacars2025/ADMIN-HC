@@ -4,6 +4,17 @@ import { Button } from '../../components/media/MediaUI';
 import { FuelRangeInput } from '../../components/shared/FuelRangeInput';
 import { useCurrency } from '../../lib/CurrencyContext';
 import {
+  envelopeReceipt,
+  inLira,
+  isRecordedPayment,
+  NEW_PAYMENT,
+  paymentProblem,
+  recordCustomerPayment,
+  showEnvelopes,
+  type EnvelopeReceipt,
+  type PaymentChoice,
+} from '../../lib/payments';
+import {
   EMPTY_FORM,
   LOCATION_PRESETS,
   OTHER_PRESET,
@@ -53,7 +64,6 @@ import { DateRangeField } from './DateRangeField';
 import { DocUploadField } from './DocUploadField';
 import {
   BookingSheet,
-  CurrencySwitch,
   FOOTER_BUTTON,
   Field,
   FooterTotal,
@@ -68,6 +78,7 @@ import {
   Stepper,
   SummaryBar,
 } from './ui';
+import { CurrencyField, PaymentAmount, PaymentMethod, usePaymentAccounts } from './PaymentFields';
 
 const STEPS = [
   { key: 'customer', label: 'Customer' },
@@ -98,7 +109,9 @@ type CustomerFieldErrors = Partial<Record<
   string
 >>;
 
-interface LedgerRow { id: number; amount: number }
+const RECORDED_HINT = 'Already recorded. To change it, reverse it in Cash & Envelopes.';
+
+interface LedgerRow { id: number; amount: number; pay_method?: string | null }
 
 interface CustomerRow {
   id: string;
@@ -193,6 +206,8 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
   // An extension adds its own rental and payment rows. The form edits only the first
   // of each, as it always has, so the summary adds the rest to stay truthful.
   const [otherLedger, setOtherLedger] = useState({ rental: 0, paid: 0 });
+  const [payment, setPayment] = useState<PaymentChoice>(NEW_PAYMENT);
+  const paymentAccounts = usePaymentAccounts();
 
   const busyCars = useBusyCars(form.start_date, form.end_date, editId);
   const selectedCar = cars.find((car) => String(car.id) === form.car_id) ?? null;
@@ -294,7 +309,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     let active = true;
     supabase
       .from('customer_accounting_ledger')
-      .select('id, type, amount')
+      .select('id, type, amount, pay_method')
       .eq('booking_id', editId)
       .in('type', ['rental', 'deposit', 'payment'])
       .then(({ data }) => {
@@ -309,10 +324,11 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
         setOtherLedger({ rental: sumOthers('rental', rental), paid: sumOthers('payment', payment) });
         setExistingLedger({
           rental: rental && { id: rental.id, amount: rental.amount },
-          deposit: deposit && { id: deposit.id, amount: deposit.amount },
-          payment: payment && { id: payment.id, amount: payment.amount },
+          deposit: deposit && { id: deposit.id, amount: deposit.amount, pay_method: deposit.pay_method },
+          payment: payment && { id: payment.id, amount: payment.amount, pay_method: payment.pay_method },
         });
-        // Amounts are stored in TRY, and fin_currency starts on TRY.
+        // Amounts are stored in TRY. Rental's fin_currency starts on TRY, and rows
+        // that already exist always show in lira.
         applyLoaded({
           fin_rental_amount: rental ? String(rental.amount) : '',
           fin_deposit_amount: deposit ? String(deposit.amount) : '',
@@ -336,8 +352,6 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
       ...current,
       fin_currency: next,
       fin_rental_amount: convert(current.fin_rental_amount),
-      fin_deposit_amount: convert(current.fin_deposit_amount),
-      fin_paid_amount: convert(current.fin_paid_amount),
     }));
   };
 
@@ -584,27 +598,39 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
     // Step 4: insert ledger rows (skip if amount is 0 or empty)
     const bookingId = (bookingData as { id: number }).id;
-    const convert = (amount: number) => toTry(amount, form.fin_currency, usdRate);
-    const row = (type: string, amount: number, direction: 'IN' | 'OUT', description: string) => (
-      { booking_id: bookingId, customer_id: customerId, car_id: carId, type, amount: convert(amount), direction, description }
-    );
     const rental = parseFloat(form.fin_rental_amount);
-    const deposit = parseFloat(form.fin_deposit_amount);
-    const paid = parseFloat(form.fin_paid_amount);
-    const ledgerRows = [
-      ...(rental > 0 ? [row('rental', rental, 'OUT', 'Rental fee')] : []),
-      ...(deposit > 0 ? [row('deposit', deposit, 'IN', 'Deposit')] : []),
-      ...(paid > 0 ? [row('payment', paid, 'IN', 'Customer payment')] : []),
-    ];
-
-    if (ledgerRows.length > 0) {
-      const { error: ledgerError } = await supabase.from('customer_accounting_ledger').insert(ledgerRows);
-      if (ledgerError) showToast('Booking saved, but ledger entries failed', 'error');
+    if (rental > 0) {
+      const { error: ledgerError } = await supabase.from('customer_accounting_ledger').insert({
+        booking_id: bookingId, customer_id: customerId, car_id: carId, type: 'rental',
+        amount: toTry(rental, form.fin_currency, usdRate), direction: 'OUT', description: 'Rental fee',
+      });
+      if (ledgerError) showToast('Booking saved, but the rental charge failed', 'error');
     }
+    await takePayments(bookingId, newPayments());
 
     rememberCar(carId);
     finishSaving();
     return true;
+  };
+
+  /** New money only: a row that already exists is edited, or locked if it's recorded. */
+  const newPayments = () => [
+    ...(!existingLedger.deposit && parseAmount(form.fin_deposit_amount) > 0 ? [{ type: 'deposit' as const, amount: parseAmount(form.fin_deposit_amount) }] : []),
+    ...(!existingLedger.payment && parseAmount(form.fin_paid_amount) > 0 ? [{ type: 'payment' as const, amount: parseAmount(form.fin_paid_amount) }] : []),
+  ];
+
+  /** One at a time. A failure doesn't undo the booking, which is already saved. */
+  const takePayments = async (bookingId: number, items: Array<{ type: 'deposit' | 'payment'; amount: number }>) => {
+    const receipts: EnvelopeReceipt[] = [];
+    for (const item of items) {
+      try {
+        const result = await recordCustomerPayment({ bookingId, type: item.type, amount: item.amount, choice: payment });
+        receipts.push(...envelopeReceipt(result, item.amount, payment.currency, selectedCar?.plate_number ?? null, customerName));
+      } catch (failure) {
+        showToast(`Booking saved, but the ${item.type} wasn't recorded: ${failure instanceof Error ? failure.message : 'try again'}`, 'error');
+      }
+    }
+    showEnvelopes(receipts);
   };
 
   const updateBooking = async () => {
@@ -674,42 +700,37 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
     if (custError) showToast(`Booking saved, but the customer wasn't: ${friendlyCustomerError(custError.message).text}`, 'error');
 
-    const convert = (amount: number) => toTry(amount, form.fin_currency, usdRate);
     const ledgerOps: Array<PromiseLike<{ error: unknown }>> = [];
-    const processLedgerRow = (
-      type: string,
-      fieldValue: string,
-      existing: LedgerRow | null,
-      direction: 'IN' | 'OUT',
-      description: string,
-    ) => {
+    const processLedgerRow = (type: string, fieldValue: string, existing: LedgerRow | null, currency: BookingCurrency) => {
       const amount = parseFloat(fieldValue);
       const hasAmount = !Number.isNaN(amount) && amount > 0;
       if (existing) {
         ledgerOps.push(hasAmount
-          ? supabase.from('customer_accounting_ledger').update({ amount: convert(amount) }).eq('id', existing.id)
+          ? supabase.from('customer_accounting_ledger').update({ amount: toTry(amount, currency, usdRate) }).eq('id', existing.id)
           : supabase.from('customer_accounting_ledger').delete().eq('id', existing.id));
-      } else if (hasAmount) {
+      } else if (hasAmount && type === 'rental') {
         ledgerOps.push(supabase.from('customer_accounting_ledger').insert({
           booking_id: editId,
           customer_id: customerId,
           car_id: Number(form.car_id),
           type,
-          amount: convert(amount),
-          direction,
-          description,
+          amount: toTry(amount, currency, usdRate),
+          direction: 'OUT',
+          description: 'Rental fee',
         }));
       }
     };
 
-    processLedgerRow('rental', form.fin_rental_amount, existingLedger.rental, 'OUT', 'Rental fee');
-    processLedgerRow('deposit', form.fin_deposit_amount, existingLedger.deposit, 'IN', 'Deposit');
-    processLedgerRow('payment', form.fin_paid_amount, existingLedger.payment, 'IN', 'Customer payment');
+    processLedgerRow('rental', form.fin_rental_amount, existingLedger.rental, form.fin_currency);
+    // Older rows can still be corrected here. New money goes through takePayments.
+    if (!isRecordedPayment(existingLedger.deposit ?? {})) processLedgerRow('deposit', form.fin_deposit_amount, existingLedger.deposit, 'TRY');
+    if (!isRecordedPayment(existingLedger.payment ?? {})) processLedgerRow('payment', form.fin_paid_amount, existingLedger.payment, 'TRY');
 
     if (ledgerOps.length > 0) {
       const results = await Promise.all(ledgerOps);
       if (results.some((result) => result.error)) showToast('Ledger update failed', 'error');
     }
+    await takePayments(editId as number, newPayments());
 
     finishSaving();
     return true;
@@ -724,11 +745,12 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
     if (!validateCustomer()) { if (mode === 'add') setStep(0); return; }
     if (!validateCarAndDates()) { if (mode === 'add') setStep(1); return; }
-    const hasAmounts = [form.fin_rental_amount, form.fin_deposit_amount, form.fin_paid_amount].some((value) => parseAmount(value) > 0);
-    if (form.fin_currency === 'USD' && !usdRate && hasAmounts) {
+    if (form.fin_currency === 'USD' && !usdRate && parseAmount(form.fin_rental_amount) > 0) {
       setFormError("Today's USD rate hasn't loaded. Reload, or enter the amounts in TRY.");
       return;
     }
+    const problem = newPayments().length > 0 ? paymentProblem(payment, paymentAccounts, rates) : null;
+    if (problem) { setFormError(problem); return; }
 
     savingRef.current = true;
     setSaving(true);
@@ -747,7 +769,8 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
   const days = rangeDays(form.start_date, form.end_date);
   const total = toTry(parseAmount(form.fin_rental_amount), form.fin_currency, usdRate) + otherLedger.rental;
-  const paid = toTry(parseAmount(form.fin_paid_amount), form.fin_currency, usdRate) + otherLedger.paid;
+  const paidField = parseAmount(form.fin_paid_amount);
+  const paid = (existingLedger.payment ? paidField : inLira(paidField, payment.currency, rates)) + otherLedger.paid;
   const insuranceLabel = PRESET_LABELS[form.insurance_type_select] && form.insurance_type_select !== OTHER_PRESET
     ? PRESET_LABELS[form.insurance_type_select]
     : insuranceValue(form);
@@ -1013,15 +1036,37 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     </FormCard>
   );
 
+  const takesMoney = (!existingLedger.deposit && parseAmount(form.fin_deposit_amount) > 0)
+    || (!existingLedger.payment && parseAmount(form.fin_paid_amount) > 0);
+
   const paymentSection = (
     <FormCard
       icon={<WalletIcon size={15} />}
       title="Payment"
-      action={<CurrencySwitch value={form.fin_currency} rate={usdRate} onChange={handleFinCurrencyChange} />}
     >
-      <MoneyField label="Rental amount" value={form.fin_rental_amount} currency={form.fin_currency} rate={usdRate} changed={isChanged('fin_rental_amount')} onChange={(value) => set('fin_rental_amount', value)} />
-      <MoneyField label="Deposit" value={form.fin_deposit_amount} currency={form.fin_currency} rate={usdRate} changed={isChanged('fin_deposit_amount')} onChange={(value) => set('fin_deposit_amount', value)} />
-      <MoneyField label="Paid amount" value={form.fin_paid_amount} currency={form.fin_currency} rate={usdRate} changed={isChanged('fin_paid_amount')} onChange={(value) => set('fin_paid_amount', value)} />
+      <MoneyField label="Rental amount" span value={form.fin_rental_amount} currency={form.fin_currency} rate={usdRate} changed={isChanged('fin_rental_amount')} onChange={(value) => set('fin_rental_amount', value)} onCurrency={handleFinCurrencyChange} />
+      <PaymentAmount
+        label="Deposit"
+        value={form.fin_deposit_amount}
+        currency={existingLedger.deposit ? 'TRY' : payment.currency}
+        disabled={isRecordedPayment(existingLedger.deposit ?? {})}
+        hint={isRecordedPayment(existingLedger.deposit ?? {}) ? RECORDED_HINT : undefined}
+        onChange={(value) => set('fin_deposit_amount', value)}
+      />
+      <PaymentAmount
+        label="Paid amount"
+        value={form.fin_paid_amount}
+        currency={existingLedger.payment ? 'TRY' : payment.currency}
+        disabled={isRecordedPayment(existingLedger.payment ?? {})}
+        hint={isRecordedPayment(existingLedger.payment ?? {}) ? RECORDED_HINT : undefined}
+        onChange={(value) => set('fin_paid_amount', value)}
+      />
+      {(!existingLedger.deposit || !existingLedger.payment) && (
+        <Field label="Received in" span>
+          <CurrencyField value={payment.currency} onChange={(currency) => setPayment({ ...payment, currency })} />
+        </Field>
+      )}
+      {takesMoney && <PaymentMethod choice={payment} accounts={paymentAccounts} onChange={setPayment} />}
       {(otherLedger.rental > 0 || otherLedger.paid > 0) && (
         <Notice tone="blue" span>
           This booking also has {formatLira(otherLedger.rental)} in other rental charges and {formatLira(otherLedger.paid)} in other payments, from extensions. The summary includes them. Change those in Accounting.

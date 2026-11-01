@@ -27,7 +27,9 @@ import {
 import { StatusImage, type StatusArt } from '../components/shared/StatusImage';
 import { ComplianceHomeCard } from './cars/ComplianceAlert';
 import { fetchPendingSummary, type PendingSummary } from '../lib/expenseApprovals';
+import { fetchWaitingForAdmin, type WaitingForAdmin } from '../lib/cashEnvelopes';
 import { PendingExpensesHomeCard } from './accounting/PendingExpensesHomeCard';
+import { WaitingForMeCard } from './accounting/WaitingForMeCard';
 import { UnpaidFinesHomeCard } from './fines/UnpaidAlert';
 
 const CARD = 'rounded-2xl border border-subtle bg-surface';
@@ -159,6 +161,7 @@ const HomePage: React.FC = () => {
   const compliance = useComplianceCars();
   const unpaidFines = useUnpaidFines();
   const [pendingExpenses, setPendingExpenses] = useState<PendingSummary | null>(null);
+  const [waiting, setWaiting] = useState<WaitingForAdmin | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,6 +169,9 @@ const HomePage: React.FC = () => {
     fetchPendingSummary()
       .then((summary) => { if (!cancelled) setPendingExpenses(summary); })
       .catch(() => { if (!cancelled) setPendingExpenses(null); });
+    fetchWaitingForAdmin()
+      .then((summary) => { if (!cancelled) setWaiting(summary); })
+      .catch(() => { if (!cancelled) setWaiting(null); });
     return () => { cancelled = true; };
   }, [reloadCount]);
 
@@ -273,6 +279,7 @@ const HomePage: React.FC = () => {
       {compliance && compliance.length > 0 && <ComplianceHomeCard cars={compliance} />}
       {unpaidFines && unpaidFines.length > 0 && <UnpaidFinesHomeCard fines={unpaidFines} />}
       {pendingExpenses && pendingExpenses.count > 0 && <PendingExpensesHomeCard summary={pendingExpenses} />}
+      {waiting && (waiting.envelopes.count > 0 || waiting.accounts.length > 0) && <WaitingForMeCard waiting={waiting} />}
 
       {error ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 text-[13px] text-red-700">

@@ -3,6 +3,15 @@ import { CalendarDays } from '../../components/media/MediaIcons';
 import { Button } from '../../components/media/MediaUI';
 import { useCurrency } from '../../lib/CurrencyContext';
 import {
+  envelopeReceipt,
+  inLira,
+  NEW_PAYMENT,
+  paymentProblem,
+  recordCustomerPayment,
+  showEnvelopes,
+  type PaymentChoice,
+} from '../../lib/payments';
+import {
   formatDays,
   friendlyBookingError,
   parseAmount,
@@ -24,7 +33,8 @@ import type { Booking } from '../../types';
 import { BanAlert, BalancePill, UsersIcon, WalletIcon } from '../customers/ui';
 import { useBusyCars } from './CarPicker';
 import { EndDateField } from './DateRangeField';
-import { BookingSheet, FOOTER_BUTTON, FormCard, LicensePlate, MoneyField, Notice, PrimaryButton } from './ui';
+import { CurrencyField, PaymentAmount, PaymentMethod, usePaymentAccounts } from './PaymentFields';
+import { BookingSheet, Field, FOOTER_BUTTON, FormCard, LicensePlate, MoneyField, Notice, PrimaryButton } from './ui';
 
 interface ExtendResult {
   new_end_date: string;
@@ -63,9 +73,9 @@ const SummaryLine: React.FC<{ label: string; children: React.ReactNode; strong?:
 );
 
 /**
- * Extends a booking on the same car. The end date and both ledger rows are
- * written together by the `extend_booking` RPC. A USD note is added afterwards
- * because the RPC builds its own descriptions.
+ * Extends a booking on the same car. `extend_booking` moves the end date and writes
+ * the rental row. Money goes through `record_customer_payment` straight after, so it
+ * gets an envelope like any other, which is why the RPC is told nothing was paid.
  */
 export const ExtendSheet: React.FC<{
   booking: Booking;
@@ -74,13 +84,14 @@ export const ExtendSheet: React.FC<{
   showToast: (message: string, type: 'success' | 'error') => void;
 }> = ({ booking, onClose, onSaved, showToast }) => {
   const { rates } = useCurrency();
+  const accounts = usePaymentAccounts();
   const usdRate = rates.find((rate) => rate.currency === 'USD')?.rate_to_try ?? null;
 
   const [newEndDate, setNewEndDate] = useState('');
   const [rentalAmount, setRentalAmount] = useState('');
   const [rentalCurrency, setRentalCurrency] = useState<BookingCurrency>('TRY');
   const [paidAmount, setPaidAmount] = useState('');
-  const [paidCurrency, setPaidCurrency] = useState<BookingCurrency>('TRY');
+  const [payment, setPayment] = useState<PaymentChoice>(NEW_PAYMENT);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -104,10 +115,10 @@ export const ExtendSheet: React.FC<{
   }, [customerId]);
 
   const rental = toTry(parseAmount(rentalAmount), rentalCurrency, usdRate);
-  const paid = toTry(parseAmount(paidAmount), paidCurrency, usdRate);
+  const paid = inLira(parseAmount(paidAmount), payment.currency, rates);
   const newBalance = oldBalance === null ? null : oldBalance + rental - paid;
 
-  const needsRate = (rentalCurrency === 'USD' && parseAmount(rentalAmount) > 0) || (paidCurrency === 'USD' && parseAmount(paidAmount) > 0);
+  const needsRate = rentalCurrency === 'USD' && parseAmount(rentalAmount) > 0;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -121,6 +132,8 @@ export const ExtendSheet: React.FC<{
     if (newEndDate <= booking.end_date) { setFormError(`New end date must be after ${formatDate(booking.end_date)}`); return; }
     if (!rentalAmount.trim() || Number.isNaN(rentalNumber) || rentalNumber <= 0) { setFormError('Rental amount must be greater than 0'); return; }
     if (Number.isNaN(paidNumber) || paidNumber < 0) { setFormError('Paid amount cannot be negative'); return; }
+    const problem = paidNumber > 0 ? paymentProblem(payment, accounts, rates) : null;
+    if (problem) { setFormError(problem); return; }
     if (needsRate && !usdRate) { setFormError("Today's USD rate hasn't loaded. Reload, or enter the amounts in TRY."); return; }
 
     savingRef.current = true;
@@ -142,13 +155,12 @@ export const ExtendSheet: React.FC<{
     // extension, so a missing user id is passed through as null.
     const { data: { user } } = await supabase.auth.getUser();
     const rentalTry = toTry(rentalNumber, rentalCurrency, usdRate);
-    const paidTry = toTry(paidNumber, paidCurrency, usdRate);
 
     const { data, error } = await supabase.rpc('extend_booking', {
       p_booking_id: booking.id,
       p_new_end_date: newEndDate,
       p_rental_amount: rentalTry,
-      p_paid_amount: paidTry,
+      p_paid_amount: 0,
       p_created_by: user?.id ?? null,
     });
 
@@ -160,17 +172,32 @@ export const ExtendSheet: React.FC<{
       return;
     }
 
-    const notes = [
-      ...(rentalCurrency === 'USD' ? [appendLedgerNote(booking.id, 'rental', rentalTry, usdLedgerNote(rentalNumber, usdRate as number))] : []),
-      ...(paidCurrency === 'USD' && paidNumber > 0 ? [appendLedgerNote(booking.id, 'payment', paidTry, usdLedgerNote(paidNumber, usdRate as number))] : []),
-    ];
+    const notes = rentalCurrency === 'USD' ? [appendLedgerNote(booking.id, 'rental', rentalTry, usdLedgerNote(rentalNumber, usdRate as number))] : [];
     const noted = await Promise.allSettled(notes);
+
+    let paymentFailed: string | null = null;
+    if (paidNumber > 0) {
+      try {
+        const result = await recordCustomerPayment({
+          bookingId: booking.id,
+          type: 'payment',
+          amount: paidNumber,
+          choice: payment,
+          note: `Extension to ${formatDate(newEndDate)}`,
+        });
+        showEnvelopes(envelopeReceipt(result, paidNumber, payment.currency, booking.plate_number ?? null, booking.customer_name ?? null));
+      } catch (failure) {
+        paymentFailed = failure instanceof Error ? failure.message : 'try again';
+      }
+    }
     stop();
 
     // The function returns TABLE(...), so supabase-js hands back an array.
     const result = (Array.isArray(data) ? data[0] : data) as ExtendResult | undefined;
     const endLabel = formatDate(result?.new_end_date ?? newEndDate);
-    if (noted.some((outcome) => outcome.status === 'rejected')) {
+    if (paymentFailed) {
+      showToast(`Extended to ${endLabel}, but the payment wasn't recorded: ${paymentFailed}`, 'error');
+    } else if (noted.some((outcome) => outcome.status === 'rejected')) {
       showToast(`Extended to ${endLabel}, but the USD note wasn't added to the ledger`, 'error');
     } else {
       showToast(`Extended to ${endLabel}`, 'success');
@@ -231,7 +258,11 @@ export const ExtendSheet: React.FC<{
 
       <FormCard icon={<WalletIcon size={15} />} title="Amount">
         <MoneyField label="Rental amount" required span value={rentalAmount} currency={rentalCurrency} rate={usdRate} onChange={setRentalAmount} onCurrency={setRentalCurrency} />
-        <MoneyField label="Paid amount" span value={paidAmount} currency={paidCurrency} rate={usdRate} onChange={setPaidAmount} onCurrency={setPaidCurrency} />
+        <PaymentAmount label="Paid amount" value={paidAmount} currency={payment.currency} onChange={setPaidAmount} />
+        <Field label="Received in">
+          <CurrencyField value={payment.currency} onChange={(currency) => setPayment({ ...payment, currency })} />
+        </Field>
+        {parseAmount(paidAmount) > 0 && <PaymentMethod choice={payment} accounts={accounts} onChange={setPayment} />}
       </FormCard>
 
       <FormCard icon={<WalletIcon size={15} />} title="Summary">

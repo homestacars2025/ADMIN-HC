@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { EnvelopeReceiptSheet } from './shell/EnvelopeReceiptSheet';
 import { TopBar } from './shell/TopBar';
 import type { ShellContext } from './shell/shellContext';
 import { useCurrentProfile } from '../hooks/useCurrentProfile';
@@ -145,6 +146,7 @@ const Layout: React.FC = () => {
       </div>
 
       <ComplianceSignInAlert />
+      <EnvelopeReceiptSheet />
       {showWarning && <InactivityWarning onStay={stayLoggedIn} />}
     </div>
   );
