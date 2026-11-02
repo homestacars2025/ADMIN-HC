@@ -110,15 +110,18 @@ export async function fetchExtensions(month: string): Promise<BookingExtension[]
 
 export const inExtensionFilter = (row: BookingExtension, filter: ExtensionFilter | 'all'): boolean => filter !== 'zero' || row.rental_amount === 0;
 
-/** Some old extensions have no dates, so they can't count towards the average. */
+/** A month counts the extensions that start in it. Old rows with no dates are shown, but not counted. */
+export const hasPeriod = (row: Pick<BookingExtension, 'period_start'>): boolean => row.period_start !== null;
+
 export function extensionSummary(rows: BookingExtension[]) {
-  const dated = rows.filter((row) => row.days !== null);
+  const dated = rows.filter(hasPeriod);
+  const withDays = dated.filter((row) => row.days !== null);
   return {
-    count: rows.length,
-    value: rows.reduce((total, row) => total + row.rental_amount, 0),
-    avgDays: dated.length === 0 ? null : dated.reduce((total, row) => total + (row.days as number), 0) / dated.length,
+    count: dated.length,
+    value: dated.reduce((total, row) => total + row.rental_amount, 0),
+    avgDays: withDays.length === 0 ? null : withDays.reduce((total, row) => total + (row.days as number), 0) / withDays.length,
     undated: rows.length - dated.length,
-    zero: rows.filter((row) => row.rental_amount === 0).length,
+    zero: dated.filter((row) => row.rental_amount === 0).length,
   };
 }
 

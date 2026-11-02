@@ -86,14 +86,22 @@ describe('booking rows', () => {
 });
 
 describe('extensions', () => {
-  it('leaves rows without dates out of the average, but not out of the value', () => {
-    const summary = extensionSummary([extension({ days: 2 }), extension({ days: 4, rental_amount: 500 }), extension({ days: null, rental_amount: 0 })]);
-    expect(summary).toEqual({ count: 3, value: 1500, avgDays: 3, undated: 1, zero: 1 });
+  it('counts only extensions with a period, like the monthly figures', () => {
+    const summary = extensionSummary([
+      extension({ days: 2 }),
+      extension({ days: 4, rental_amount: 500 }),
+      extension({ period_start: null, period_end: null, days: null, rental_amount: 25203 }),
+    ]);
+    expect(summary).toEqual({ count: 2, value: 1500, avgDays: 3, undated: 1, zero: 0 });
+  });
+
+  it('never counts a zero amount it left out of the total', () => {
+    expect(extensionSummary([extension({ period_start: null, days: null, rental_amount: 0 })])).toMatchObject({ count: 0, zero: 0, undated: 1 });
   });
 
   it('has no average with nothing to average', () => {
     expect(extensionSummary([]).avgDays).toBeNull();
-    expect(extensionSummary([extension({ days: null })]).avgDays).toBeNull();
+    expect(extensionSummary([extension({ period_start: null, days: null })]).avgDays).toBeNull();
   });
 
   it('filters zero amounts', () => {

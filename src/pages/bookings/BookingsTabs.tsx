@@ -30,43 +30,51 @@ const ROW = 'border-b border-black/[0.05] last:border-b-0';
 
 const dayLabel = (days: number) => (days === 1 ? '1 day' : `${days} days`);
 
-/** A big white tile for this page's three tabs: full width, 3D art, and it still filters. */
+/**
+ * A big white tile for this page's three tabs: art and label on one side, the figure on
+ * the other, and it still filters. `wide` is for a long figure that needs a full row on a
+ * phone, where half a row can't hold an amount beside an icon.
+ */
 export const BigTile: React.FC<{
   icon: React.ReactNode;
   label: string;
   value: string;
   caption: string;
   active?: boolean;
+  wide?: boolean;
   onClick?: () => void;
-}> = ({ icon, label, value, caption, active = false, onClick }) => {
+}> = ({ icon, label, value, caption, active = false, wide = false, onClick }) => {
   const body = (
     <>
       {active && <span aria-hidden="true" className="absolute end-2.5 top-2.5 grid h-5 w-5 place-items-center rounded-full bg-[#6EA4E7] text-white"><Check size={12} strokeWidth={3} /></span>}
-      <span className="flex min-w-0 items-center gap-2.5 pe-5">
-        <span className="shrink-0 [&>*]:!h-10 [&>*]:!w-10 lg:[&>*]:!h-14 lg:[&>*]:!w-14">{icon}</span>
-        <span className="line-clamp-2 min-w-0 text-[13px] font-medium leading-tight text-black/60 lg:text-[13.5px]">{label}</span>
+      <span className="flex w-16 shrink-0 flex-col items-start gap-1.5 xl:w-[72px]">
+        <span className="[&>*]:!h-11 [&>*]:!w-11 xl:[&>*]:!h-14 xl:[&>*]:!w-14">{icon}</span>
+        <span className="line-clamp-2 text-[12.5px] font-medium leading-tight text-black/60 xl:text-[13px]">{label}</span>
       </span>
-      <span className="mt-auto flex min-w-0 flex-wrap items-baseline justify-between gap-x-2">
-        <span className={cn('font-semibold leading-none text-foreground', MONO)} style={{ fontSize: `min(40px, calc(100cqi / (${value.length} * 0.62)))` }}>{value}</span>
-        <span className="min-w-0 truncate text-[12px] text-black/50">{caption}</span>
+      <span className="flex min-w-0 flex-1 flex-col items-end pt-3 text-end xl:pt-0">
+        <span className={cn('whitespace-nowrap font-semibold leading-none text-foreground', MONO)} style={{ fontSize: `min(40px, calc((100cqi - var(--tile-head)) / (${value.length} * 0.62)))` }}>{value}</span>
+        <span className="mt-1.5 line-clamp-2 text-[12px] leading-tight text-black/50">{caption}</span>
       </span>
     </>
   );
   const frame = cn(
-    'surface-depth relative flex h-[132px] min-w-0 flex-col rounded-2xl bg-white text-start [container-type:inline-size] lg:h-[140px]',
+    'surface-depth relative flex h-[124px] min-w-0 flex-row items-center justify-between gap-3 rounded-2xl bg-white text-start [--tile-head:76px] [container-type:inline-size] xl:h-[140px] xl:[--tile-head:84px]',
     active ? 'border-2 border-[#6EA4E7] p-[13px]' : 'border border-[#EBEBEB] p-3.5',
+    wide && 'col-span-2 xl:col-span-1',
   );
   if (!onClick) return <div className={frame}>{body}</div>;
   return <button type="button" aria-pressed={active} onClick={onClick} className={cn(frame, !active && 'transition-colors hover:border-[#6EA4E7]/60')}>{body}</button>;
 };
 
+const TILE_GRID = 'grid grid-flow-dense grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4';
+
 export const BigTileRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div role="group" aria-label="Filter the list" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">{children}</div>
+  <div role="group" aria-label="Filter the list" className={TILE_GRID}>{children}</div>
 );
 
 export const BigTileSkeleton: React.FC<{ count: number }> = ({ count }) => (
-  <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-    {Array.from({ length: count }, (_, index) => <div key={index} className="h-[132px] animate-pulse rounded-2xl bg-black/[0.05] lg:h-[140px]" />)}
+  <div aria-hidden="true" className={TILE_GRID}>
+    {Array.from({ length: count }, (_, index) => <div key={index} className="h-[124px] animate-pulse rounded-2xl bg-black/[0.05] xl:h-[140px]" />)}
   </div>
 );
 
@@ -255,9 +263,11 @@ const ExtensionBadge: React.FC<{ no: number }> = ({ no }) => (
 
 const LegacyChip: React.FC = () => <span className="inline-block rounded-md bg-black/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-black/50">Legacy</span>;
 
+const NoDatesChip: React.FC = () => <span title="Not counted in this month's figures" className="inline-block rounded-md bg-[#F59E0B]/[0.16] px-1.5 py-0.5 text-[11px] font-medium text-[#92400E]">No dates</span>;
+
 const ExtensionPeriod: React.FC<{ row: BookingExtension }> = ({ row }) => (
   <>
-    <span className={cn('block whitespace-nowrap text-[12.5px] text-foreground', MONO)}>{row.period_start || row.period_end ? `${formatDate(row.period_start)} → ${formatDate(row.period_end)}` : '—'}</span>
+    {row.period_start ? <span className={cn('block whitespace-nowrap text-[12.5px] text-foreground', MONO)}>{formatDate(row.period_start)} → {formatDate(row.period_end)}</span> : <NoDatesChip />}
     {row.days !== null && <span className="block text-[12px] text-black/50">{dayLabel(row.days)}</span>}
   </>
 );

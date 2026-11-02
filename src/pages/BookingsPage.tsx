@@ -18,6 +18,7 @@ import {
   extensionSummary,
   fetchExtensions,
   fetchReplacementSheets,
+  hasPeriod,
   inBookingFilter,
   inExtensionFilter,
   inSheetFilter,
@@ -266,6 +267,7 @@ const BookingsPage: React.FC = () => {
 
   const [search, setSearch] = useState(() => params.get('q') ?? '');
   const [statusFilter, setStatusFilter] = useState<BookingStatus | ''>('');
+  const [showUndated, setShowUndated] = useState(false);
   const [modal, setModal] = useState<null | 'add' | 'replacement'>(null);
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [bookingFor, setBookingFor] = useState<string | undefined>(undefined);
@@ -314,6 +316,7 @@ const BookingsPage: React.FC = () => {
     setErrors({});
     setBookings(null);
     setExtensions(null);
+    setShowUndated(false);
     const { from, before } = monthBounds(month);
     supabase
       .from('bookings')
@@ -353,6 +356,7 @@ const BookingsPage: React.FC = () => {
     setParams(updated);
     setSearch('');
     setStatusFilter('');
+    setShowUndated(false);
   };
 
   const moveMonth = (by: number) => {
@@ -375,7 +379,10 @@ const BookingsPage: React.FC = () => {
     () => sortBookings(matchedBookings.filter((row) => inBookingFilter(row, filter as BookingFilter | 'all')), sort.key, sort.direction),
     [matchedBookings, filter, sort.key, sort.direction],
   );
-  const visibleExtensions = useMemo(() => matchedExtensions.filter((row) => inExtensionFilter(row, filter as ExtensionFilter | 'all')), [matchedExtensions, filter]);
+  const visibleExtensions = useMemo(() => {
+    const shown = matchedExtensions.filter((row) => inExtensionFilter(row, filter as ExtensionFilter | 'all'));
+    return [...shown.filter(hasPeriod), ...(showUndated ? shown.filter((row) => !hasPeriod(row)) : [])];
+  }, [matchedExtensions, filter, showUndated]);
   const visibleSheets = useMemo(() => matchedSheets.filter((row) => inSheetFilter(row, filter as SheetFilter | 'all', today)), [matchedSheets, filter, today]);
 
   const loading = tab === 'bookings' ? bookings === null : tab === 'extensions' ? extensions === null : sheets === null;
@@ -439,7 +446,7 @@ const BookingsPage: React.FC = () => {
         </div>
       </header>
 
-      <PillTabs active={tab} counts={{ bookings: bookings?.length ?? null, extensions: extensions?.length ?? null, replacements: sheets === null ? null : monthSheets.length }} onChange={openTab} />
+      <PillTabs active={tab} counts={{ bookings: bookings?.length ?? null, extensions: extensions === null ? null : extensionSummary(extensions).count, replacements: sheets === null ? null : monthSheets.length }} onChange={openTab} />
 
       <div className="my-4">
         <MonthNav label={monthLabel(`${month}-01`)} justify="flex-start" onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} />
@@ -458,14 +465,14 @@ const BookingsPage: React.FC = () => {
           {tab === 'extensions' && (
             <>
               <BigTile icon={<Icon3D name="total" />} label="Extensions" value={String(extensionTiles.count)} caption="starting this month" active={filter === 'all'} onClick={clear} />
-              <BigTile icon={<span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#14B8A6]/15 text-[#0F766E]"><WalletIcon size={24} /></span>} label="Extension value" value={formatMoney(extensionTiles.value)} caption="rental added" />
-              <BigTile icon={<Icon3D name="pending" />} label="Avg days" value={extensionTiles.avgDays === null ? '—' : extensionTiles.avgDays.toFixed(1)} caption={extensionTiles.undated > 0 ? `${extensionTiles.undated} without dates left out` : 'per extension'} />
-              <BigTile icon={<ComplianceTriangle tone="amber" size={56} />} label="Zero amount" value={String(extensionTiles.zero)} caption="no charge entered" active={filter === 'zero'} onClick={() => toggle('zero')} />
+              <BigTile icon={<span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#14B8A6]/15 text-[#0F766E]"><WalletIcon size={24} /></span>} label="Extension value" value={formatMoney(extensionTiles.value)} caption="rental added" wide />
+              <BigTile icon={<Icon3D name="pending" />} label="Avg days" value={extensionTiles.avgDays === null ? '—' : extensionTiles.avgDays.toFixed(1)} caption="per extension" />
+              <BigTile icon={<ComplianceTriangle tone="amber" size={56} />} label="Zero amount" value={String(extensionTiles.zero)} caption="no charge entered" wide active={filter === 'zero'} onClick={() => toggle('zero')} />
             </>
           )}
           {tab === 'replacements' && (
             <>
-              <BigTile icon={<Icon3D name="total" />} label="Total this month" value={String(sheetTiles.total)} caption="starting this month" active={filter === 'all'} onClick={clear} />
+              <BigTile icon={<Icon3D name="total" />} label="Total this month" value={String(sheetTiles.total)} caption="starting this month" wide active={filter === 'all'} onClick={clear} />
               <BigTile icon={<Icon3D name="confirmed" />} label="Open" value={String(sheetTiles.open)} caption="end date not passed" active={filter === 'open'} onClick={() => toggle('open')} />
               <BigTile icon={<Icon3D name="completed" />} label="Closed" value={String(sheetTiles.closed)} caption="ended" active={filter === 'closed'} onClick={() => toggle('closed')} />
             </>
@@ -503,6 +510,12 @@ const BookingsPage: React.FC = () => {
           />
         )}
         {!tabError && !loading && hasRows && tab === 'extensions' && <ExtensionList rows={visibleExtensions} wide={wide} onOpen={openExtension} />}
+        {!tabError && !loading && tab === 'extensions' && extensionTiles.undated > 0 && (
+          <p className="mt-2 text-[12.5px] text-black/50">
+            {extensionTiles.undated === 1 ? "1 extension with no recorded dates isn't counted." : `${extensionTiles.undated} extensions with no recorded dates aren't counted.`}{' '}
+            <button type="button" onClick={() => setShowUndated((value) => !value)} className="min-h-[44px] font-medium text-[#3A74C2] hover:underline md:min-h-[28px]">{showUndated ? 'Hide them' : 'Show them'}</button>
+          </p>
+        )}
         {!tabError && !loading && hasRows && tab === 'replacements' && <SheetList rows={visibleSheets} today={today} />}
       </div>
 
