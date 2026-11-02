@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ConfirmDialog, type ConfirmState } from '../../components/media/ConfirmDialog';
 import { Check, ChevronDown, ChevronRight } from '../../components/media/MediaIcons';
@@ -26,6 +26,7 @@ import {
   fetchMonthEvents,
   firstPlaceLabel,
   inCloseFilter,
+  markLegacyReceived,
   matchesCloseSearch,
   methodIcon,
   methodLabel,
@@ -39,6 +40,7 @@ import {
   sortCloseRows,
   stampLabel,
   TRACKED_FROM,
+  unknownPayments,
   type CloseSort,
   type EventPayment,
   type MoneyPlace,
@@ -58,12 +60,14 @@ const PLACE_PILL: Record<MoneyPlace, string> = {
   pending_bank: 'bg-[#8B5CF6]/[0.12] text-[#5B21B6]',
   in_account: 'bg-primary/10 text-primary',
   cancelled: 'bg-black/[0.06] text-black/50',
-  unknown: 'bg-[#DC2626]/10 text-[#B91C1C]',
+  unknown: 'bg-black/[0.06] text-black/55',
 };
 
-const PlacePill: React.FC<{ place: MoneyPlace; title?: string }> = ({ place, title }) => (
-  <span title={title} className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium', PLACE_PILL[place])}>{PLACE_LABELS[place]}</span>
+const PlacePill: React.FC<{ place: MoneyPlace; title?: string; label?: string }> = ({ place, title, label }) => (
+  <span title={title} className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium', PLACE_PILL[place])}>{label ?? PLACE_LABELS[place]}</span>
 );
+
+const RECEIVE_BUTTON = 'inline-flex min-h-[44px] items-center whitespace-nowrap text-[12px] font-medium text-primary hover:underline xl:min-h-[24px]';
 
 const Remaining: React.FC<{ amount: number }> = ({ amount }) => {
   if (Math.abs(amount) < 0.005) return <span role="img" aria-label="Nothing remaining" className="inline-flex text-[#15803D]"><Check size={15} strokeWidth={3} /></span>;
@@ -81,8 +85,8 @@ const FirstPlace: React.FC<{ payment: EventPayment }> = ({ payment }) => (paymen
   </span>
 ));
 
-const PaymentRow: React.FC<{ payment: EventPayment }> = ({ payment }) => (
-  <li className="grid grid-cols-[150px_150px_minmax(0,1fr)_auto] items-center gap-x-3 py-1.5 text-[12.5px]">
+const PaymentRow: React.FC<{ payment: EventPayment; onReceive?: () => void }> = ({ payment, onReceive }) => (
+  <li className="grid grid-cols-[150px_110px_minmax(0,1fr)_auto_84px] items-center gap-x-3 py-1.5 text-[12.5px]">
     <span className="font-semibold tabular-nums text-foreground">
       {formatMoney(payment.amount, payment.currency)}
       {payment.currency !== 'TRY' && <span className="ms-1 font-normal text-black/45">{formatMoney(payment.amount_try)}</span>}
@@ -92,7 +96,8 @@ const PaymentRow: React.FC<{ payment: EventPayment }> = ({ payment }) => (
       {payment.legacy && <LegacyChip />}
       <span className="truncate">{methodIcon(payment.method)} {firstPlaceLabel(payment)}</span>
     </span>
-    <span className="flex items-center gap-1.5"><span aria-hidden="true" className="text-black/30">→</span><PlacePill place={payment.now} title={nowLabel(payment)} /></span>
+    <span className="flex items-center gap-1.5"><span aria-hidden="true" className="text-black/30">→</span><PlacePill place={payment.now} label={nowLabel(payment)} /></span>
+    {onReceive ? <button type="button" onClick={onReceive} className={RECEIVE_BUTTON}>I received it</button> : <span />}
   </li>
 );
 
@@ -144,6 +149,10 @@ export const MonthlyCloseTab: React.FC = () => {
   const [closingSheet, setClosingSheet] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [marking, setMarking] = useState<EventPayment[] | null>(null);
+  const monthNow = useRef(month);
+  monthNow.current = month;
 
   const { filter, toggle, clear } = useUrlFilter(CLOSE_FILTERS);
   const sort = useUrlSort<CloseSort>(CLOSE_SORTS, { key: 'created', direction: 'asc' }, closeSortFirstDirection);
@@ -152,6 +161,7 @@ export const MonthlyCloseTab: React.FC = () => {
     let cancelled = false;
     setError(null);
     setOpen(new Set());
+    setSelected(new Set());
     setRows([]);
     setClosing(null);
     setLoading(true);
@@ -172,6 +182,16 @@ export const MonthlyCloseTab: React.FC = () => {
 
   const refresh = useCallback(() => setReload((value) => value + 1), []);
 
+  // Marking goes row by row, so the list stays put: open rows stay open and nothing jumps.
+  const reloadRows = useCallback(async () => {
+    try {
+      const fresh = await fetchMonthEvents(month);
+      if (monthNow.current === month) setRows(fresh);
+    } catch {
+      refresh();
+    }
+  }, [month, refresh]);
+
   const moveMonth = (by: number) => {
     const next = new URLSearchParams(params);
     next.set('month', shiftMonth(`${month}-01`, by).slice(0, 7));
@@ -191,6 +211,12 @@ export const MonthlyCloseTab: React.FC = () => {
   const closerName = closing ? (name(closing.closed_by).split(' ')[0] || 'an admin') : '';
   const status = closing ? `Closed by ${closerName} on ${closedOnLabel(closing.closed_at)}` : 'Open';
   const canTick = isAdmin && !closed;
+  const unknown = useMemo(() => unknownPayments(rows), [rows]);
+  const canMark = canTick && unknown.length > 0;
+  const markable = useMemo(() => visible.filter((row) => unknownPayments([row]).length > 0), [visible]);
+  const picked = useMemo(() => markable.filter((row) => selected.has(row.event_id)), [markable, selected]);
+  const pickedPayments = useMemo(() => unknownPayments(picked), [picked]);
+  const sumTry = (payments: EventPayment[]) => payments.reduce((total, payment) => total + payment.amount_try, 0);
 
   const tick = async (row: MonthEvent) => {
     if (ticking.has(row.event_id)) return;
@@ -233,6 +259,13 @@ export const MonthlyCloseTab: React.FC = () => {
     page.focus();
     page.print();
   };
+
+  const pick = (id: number, on: boolean) => setSelected((current) => {
+    const next = new Set(current);
+    if (on) next.add(id);
+    else next.delete(id);
+    return next;
+  });
 
   const askReopen = () => setConfirm({
     title: `Reopen ${monthLabel(`${month}-01`)}?`,
@@ -287,7 +320,7 @@ export const MonthlyCloseTab: React.FC = () => {
       </div>
 
       {closing?.note && <p className="mb-3 max-w-[1100px] break-words text-[13px] text-black/55">Note: {closing.note}</p>}
-      {oldMonth && !error && <p className="mb-3 max-w-[1100px] text-[13px] text-black/55">Old month — payments with unknown destination are counted as received by the admin. Review remaining amounts before closing.</p>}
+      {oldMonth && !error && <p className="mb-3 max-w-[1100px] text-[13px] text-black/55">Old month — payments with unknown destination stay Unknown until you confirm you received them. Review remaining amounts before closing.</p>}
       {error && <LoadError message={`Couldn't load the monthly close: ${error}`} onRetry={refresh} />}
 
       {showFigures && (loading ? <FilterTileSkeleton count={7} columns={7} /> : (
@@ -313,6 +346,13 @@ export const MonthlyCloseTab: React.FC = () => {
       {showFigures && (
         <>
           <SearchField value={query} onChange={setQuery} placeholder="Search booking, customer or plate" className="mt-4 max-w-[420px]" />
+          {canMark && picked.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-primary/[0.06] px-3 py-1.5 text-[13px]">
+              <span className="font-medium text-foreground">{picked.length} {picked.length === 1 ? 'row' : 'rows'} selected · {formatMoney(sumTry(pickedPayments))} unknown</span>
+              <Button size="lg" className="!h-11 px-3 md:!h-9" onClick={() => setMarking(pickedPayments)}>Mark all received</Button>
+              <button type="button" onClick={() => setSelected(new Set())} className="min-h-[44px] text-[12.5px] font-medium text-black/55 hover:underline md:min-h-[36px]">Clear</button>
+            </div>
+          )}
           <div className="mt-3">
             {loading ? <div className="rounded-xl border border-subtle bg-surface"><SkeletonRows count={5} /></div>
               : visible.length === 0 ? (
@@ -324,6 +364,20 @@ export const MonthlyCloseTab: React.FC = () => {
                   <table className="w-full min-w-[1100px] text-[12.5px]">
                     <thead>
                       <tr className="border-b border-subtle">
+                        {canMark && (
+                          <th scope="col" className="w-9 ps-2">
+                            <label className="-m-1.5 grid h-11 w-11 cursor-pointer place-items-center xl:h-8 xl:w-8">
+                              <input
+                                type="checkbox"
+                                aria-label="Select every row with unknown payments"
+                                checked={markable.length > 0 && picked.length === markable.length}
+                                disabled={markable.length === 0}
+                                onChange={(event) => setSelected(new Set(event.target.checked ? markable.map((row) => row.event_id) : []))}
+                                className="h-[18px] w-[18px] accent-[#4ba6ea]"
+                              />
+                            </label>
+                          </th>
+                        )}
                         {HEADERS.map((column) => <SortHeader key={column.key} columns={[column]} sort={sort} end={column.end} />)}
                         <th scope="col" aria-sort={sort.key === 'checked' ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={cn('whitespace-nowrap px-2 py-1.5 text-start text-[11.5px] font-medium', CHECKED_CELL)}>
                           <button type="button" onClick={() => sort.sortBy('checked')} className={cn('inline-flex min-h-[28px] items-center gap-1', sort.key === 'checked' ? 'font-semibold text-primary' : 'text-black/45 hover:text-foreground')}>Checked</button>
@@ -336,10 +390,20 @@ export const MonthlyCloseTab: React.FC = () => {
                         const first = row.payments[0];
                         const more = row.payments.length - 1;
                         const expanded = open.has(row.event_id);
+                        const rowUnknown = unknownPayments([row]);
                         const who = row.checked_by ? people[row.checked_by] ?? (row.checked_by === profile?.id ? profile : null) : null;
                         return (
                           <React.Fragment key={row.event_id}>
                             <tr className={cn('border-b border-subtle', expanded && 'bg-black/[0.015]')}>
+                              {canMark && (
+                                <td className="ps-2">
+                                  {rowUnknown.length > 0 && (
+                                    <label className="-m-1.5 grid h-11 w-11 cursor-pointer place-items-center xl:h-8 xl:w-8">
+                                      <input type="checkbox" checked={selected.has(row.event_id)} aria-label={`Select ${bookingLabel(row)}`} onChange={(event) => pick(row.event_id, event.target.checked)} className="h-[18px] w-[18px] accent-[#4ba6ea]" />
+                                    </label>
+                                  )}
+                                </td>
+                              )}
                               <td className="px-2 py-2">
                                 <span className="flex flex-wrap items-center gap-1">
                                   <span className="whitespace-nowrap font-mono text-[12px] font-semibold text-foreground">{bookingLabel(row)}</span>
@@ -364,16 +428,19 @@ export const MonthlyCloseTab: React.FC = () => {
                                 {first ? (
                                   <span className="flex items-center gap-1">
                                     <FirstPlace payment={first} />
-                                    {more > 0 && (
-                                      <button type="button" aria-expanded={expanded} aria-label={`${more} more ${more === 1 ? 'payment' : 'payments'} on ${bookingLabel(row)}`} onClick={() => expand(row.event_id)} className="inline-flex min-h-[44px] items-center gap-0.5 whitespace-nowrap px-1 text-[12px] font-semibold text-primary hover:underline xl:min-h-[28px]">
-                                        +{more}{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                    {(more > 0 || (canMark && rowUnknown.length > 0)) && (
+                                      <button type="button" aria-expanded={expanded} aria-label={more > 0 ? `${more} more ${more === 1 ? 'payment' : 'payments'} on ${bookingLabel(row)}` : `Show the payment on ${bookingLabel(row)}`} onClick={() => expand(row.event_id)} className="inline-flex min-h-[44px] items-center gap-0.5 whitespace-nowrap px-1 text-[12px] font-semibold text-primary hover:underline xl:min-h-[28px]">
+                                        {more > 0 && `+${more}`}{expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                       </button>
                                     )}
                                   </span>
                                 ) : <span className="text-black/25">—</span>}
                                 {first?.ref && <span className="mt-0.5 block whitespace-nowrap font-mono text-[11.5px] text-black/50">{first.ref}</span>}
                               </td>
-                              <td className="px-2 py-2">{place ? <PlacePill place={place} title={first ? nowLabel(first) : undefined} /> : <span className="text-black/25">—</span>}</td>
+                              <td className="px-2 py-2">
+                                {place ? <PlacePill place={place} title={first ? nowLabel(first) : undefined} /> : <span className="text-black/25">—</span>}
+                                {canMark && rowUnknown.length > 0 && <button type="button" onClick={() => setMarking(rowUnknown)} className={cn(RECEIVE_BUTTON, 'flex')}>Mark all received</button>}
+                              </td>
                               <td className={cn('px-2 py-1', CHECKED_CELL)}>
                                 <span className="flex items-center gap-1.5">
                                   <button
@@ -399,9 +466,9 @@ export const MonthlyCloseTab: React.FC = () => {
                             </tr>
                             {expanded && (
                               <tr className="border-b border-subtle bg-black/[0.015]">
-                                <td colSpan={11} className="px-3 py-1">
-                                  <ul className="max-w-[720px] divide-y divide-black/[0.05]">
-                                    {row.payments.map((payment, index) => <PaymentRow key={`${payment.date}-${index}`} payment={payment} />)}
+                                <td colSpan={canMark ? 12 : 11} className="px-3 py-1">
+                                  <ul className="max-w-[820px] divide-y divide-black/[0.05]">
+                                    {row.payments.map((payment) => <PaymentRow key={payment.ledger_id} payment={payment} onReceive={canMark && payment.now === 'unknown' ? () => setMarking([payment]) : undefined} />)}
                                   </ul>
                                 </td>
                               </tr>
@@ -412,7 +479,7 @@ export const MonthlyCloseTab: React.FC = () => {
                     </tbody>
                     <tfoot>
                       <tr className="font-semibold text-foreground">
-                        <td colSpan={4} className="px-2 py-2.5">Total ({totals.total} {totals.total === 1 ? 'row' : 'rows'})</td>
+                        <td colSpan={canMark ? 5 : 4} className="px-2 py-2.5">Total ({totals.total} {totals.total === 1 ? 'row' : 'rows'})</td>
                         <Money value={totals.revenue} />
                         <Money value={totals.collected} />
                         <Money value={totals.deposits} />
@@ -431,7 +498,7 @@ export const MonthlyCloseTab: React.FC = () => {
       {closingSheet && (
         <ReasonSheet
           title={`Close ${monthLabel(`${month}-01`)}?`}
-          description={`All ${summary.total} rows are checked. Closing locks the ticks until someone reopens the month.${month === currentMonth().slice(0, 7) ? " This month isn't over yet, so anything created later needs a reopen to be ticked." : ''}`}
+          description={`All ${summary.total} rows are checked. Closing locks the ticks and freezes these figures until someone reopens the month.${unknown.length > 0 ? ` ${formatMoney(sumTry(unknown))} is still Unknown and stays that way in the closed month.` : ''}${month === currentMonth().slice(0, 7) ? " This month isn't over yet, so anything created later needs a reopen to be ticked." : ''}`}
           label="Note (optional)"
           confirmLabel="Close month"
           optional
@@ -441,6 +508,24 @@ export const MonthlyCloseTab: React.FC = () => {
             setClosingSheet(false);
             toast.success('Month closed.');
             refresh();
+          }}
+        />
+      )}
+      {marking && (
+        <ReasonSheet
+          title={marking.length === 1 ? `Mark ${formatMoney(marking[0].amount_try)} as received?` : `Mark ${marking.length} payments as received?`}
+          description={`This records ${formatMoney(sumTry(marking))} as received by you and adds it to your account balance in Cash & Envelopes. Nothing in the ledger changes. To undo, reverse the movement in Cash & Envelopes.`}
+          label="Note (optional)"
+          confirmLabel="Mark received"
+          optional
+          onClose={() => setMarking(null)}
+          onConfirm={async (note) => {
+            const count = await markLegacyReceived(marking.map((payment) => payment.ledger_id), note || null);
+            setMarking(null);
+            setSelected(new Set());
+            if (count === marking.length) toast.success(count === 1 ? 'Marked as received.' : `${count} payments marked as received.`);
+            else toast.success(`${count} of ${marking.length} marked. The rest were already confirmed.`);
+            await reloadRows();
           }}
         />
       )}

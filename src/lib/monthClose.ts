@@ -18,6 +18,7 @@ export const PLACE_LABELS: Record<MoneyPlace, string> = {
 };
 
 export interface EventPayment {
+  ledger_id: string;
   type: 'payment' | 'deposit';
   method: PayMethod | null;
   amount: number;
@@ -105,6 +106,13 @@ export async function checkEvent(id: number, checked: boolean): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Records an admin receipt for each one. Returns how many were new, and the ledger doesn't change. */
+export async function markLegacyReceived(ledgerIds: string[], note: string | null): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_mark_legacy_received', { p_ledger_ids: ledgerIds, p_note: note });
+  if (error) throw new Error(error.message);
+  return Number(data);
+}
+
 export async function closeMonth(month: string, close: boolean, note: string | null): Promise<void> {
   const { error } = await supabase.rpc('admin_close_month', { p_month: `${month}-01`, p_close: close, p_note: note });
   if (error) throw new Error(error.message);
@@ -124,6 +132,11 @@ export function rowPlace(row: Pick<MonthEvent, 'payments'>): MoneyPlace | null {
   if (row.payments.length === 0) return null;
   return row.payments.find((payment) => payment.now !== 'with_admin')?.now ?? 'with_admin';
 }
+
+/** Money nobody has confirmed yet. Only these can be marked as received. */
+export const unknownPayments = (rows: Array<Pick<MonthEvent, 'payments'>>): EventPayment[] => (
+  rows.flatMap((row) => row.payments).filter((payment) => payment.now === 'unknown')
+);
 
 export function monthSummary(rows: MonthEvent[]) {
   const checked = rows.filter((row) => row.checked_at).length;
@@ -227,7 +240,7 @@ export const methodLabel = (method: PayMethod | null): string => PAY_METHODS.fin
 export const firstPlaceLabel = (payment: EventPayment): string => [payment.first_account ?? 'Unknown', payment.ref].filter(Boolean).join(' · ');
 
 export const nowLabel = (payment: EventPayment): string => (
-  payment.now === 'with_admin' || !payment.now_account ? PLACE_LABELS[payment.now] : `${PLACE_LABELS[payment.now]} · ${payment.now_account}`
+  payment.now === 'unknown' || !payment.now_account ? PLACE_LABELS[payment.now] : `${PLACE_LABELS[payment.now]} · ${payment.now_account}`
 );
 
 const paymentLine = (payment: EventPayment): string => [

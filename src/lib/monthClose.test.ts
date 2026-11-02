@@ -5,9 +5,11 @@ import {
   monthCloseCsv,
   monthClosePrintHtml,
   monthSummary,
+  nowLabel,
   periodLabel,
   rowPlace,
   sortCloseRows,
+  unknownPayments,
   type EventPayment,
   type MonthEvent,
 } from './monthClose';
@@ -15,7 +17,7 @@ import {
 jest.mock('./supabase', () => ({ supabase: {} }));
 
 const payment = (over: Partial<EventPayment>): EventPayment => ({
-  type: 'payment', method: 'cash', amount: 100, currency: 'TRY', amount_try: 100, date: '2026-11-02T10:00:00Z', ref: 'ENV-2611-0001',
+  ledger_id: 'l1', type: 'payment', method: 'cash', amount: 100, currency: 'TRY', amount_try: 100, date: '2026-11-02T10:00:00Z', ref: 'ENV-2611-0001',
   first_account: 'Sisli - 01', now: 'in_safe', now_account: 'Sisli - 01', legacy: false, ...over,
 });
 const event = (over: Partial<MonthEvent>): MonthEvent => ({
@@ -39,12 +41,29 @@ describe('where the money is', () => {
 });
 
 describe('legacy payments', () => {
-  const legacy = payment({ legacy: true, method: null, ref: null, first_account: 'Unknown (legacy)', now: 'with_admin', now_account: 'Admin — Rajab', amount_try: 500 });
+  const legacy = payment({ ledger_id: 'old', legacy: true, method: null, ref: null, first_account: 'Unknown (legacy)', now: 'unknown', now_account: 'Unknown', amount_try: 500 });
+  const received = payment({ ...legacy, now: 'with_admin', now_account: 'Admin — Rajab' });
 
-  it('counts as with the admin, so old months owe nothing there', () => {
-    expect(rowPlace({ payments: [legacy] })).toBe('with_admin');
-    expect(allWithAdmin({ payments: [legacy, legacy] })).toBe(true);
-    expect(monthSummary([event({ payments: [legacy] })]).notWithAdmin).toBe(0);
+  it('is not with the admin until the admin says so', () => {
+    expect(rowPlace({ payments: [legacy] })).toBe('unknown');
+    expect(allWithAdmin({ payments: [legacy] })).toBe(false);
+    expect(inCloseFilter(event({ payments: [legacy] }), 'not_with_admin')).toBe(true);
+    expect(monthSummary([event({ payments: [legacy, received] })])).toMatchObject({ notWithAdmin: 500, notWithAdminCount: 1 });
+  });
+
+  it('counts as with the admin once confirmed', () => {
+    expect(rowPlace({ payments: [received] })).toBe('with_admin');
+    expect(allWithAdmin({ payments: [received] })).toBe(true);
+    expect(monthSummary([event({ payments: [received] })]).notWithAdmin).toBe(0);
+  });
+
+  it('offers only unconfirmed money for marking', () => {
+    expect(unknownPayments([{ payments: [legacy, received, payment({})] }]).map((row) => row.ledger_id)).toEqual(['old']);
+  });
+
+  it('reads plainly', () => {
+    expect(nowLabel(legacy)).toBe('Unknown');
+    expect(nowLabel(received)).toBe('With admin ✓ · Admin — Rajab');
   });
 
   it('exports with its destination spelled out', () => {
