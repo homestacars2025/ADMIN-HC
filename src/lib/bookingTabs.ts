@@ -6,9 +6,9 @@ export const BOOKING_TABS = ['bookings', 'extensions', 'replacements'] as const;
 export type BookingTab = typeof BOOKING_TABS[number];
 
 export const TAB_FILTERS = {
-  bookings: ['confirmed', 'completed', 'kabis', 'invoice'],
+  bookings: ['confirmed', 'pending', 'completed'],
   extensions: ['zero'],
-  replacements: ['open', 'month'],
+  replacements: ['open', 'closed'],
 } as const;
 
 export type BookingFilter = typeof TAB_FILTERS.bookings[number];
@@ -33,34 +33,15 @@ export const isActiveNow = (row: DatedBooking, today: string): boolean => (
   row.status === 'confirmed' && dayOf(row.start_date) <= today && dayOf(row.end_date) >= today
 );
 
-/** A booking that hasn't started has nothing to report yet. */
-export const kabisMissing = (row: DatedBooking & Pick<Booking, 'kabis_reported'>, today: string): boolean => (
-  (row.status === 'confirmed' || row.status === 'completed') && dayOf(row.start_date) <= today && !row.kabis_reported
-);
-
-/** The same rule as the Pending Invoices page. */
-export const invoicePending = (row: Pick<Booking, 'status' | 'kabis_reported' | 'invoice_issued'>): boolean => (
-  row.status === 'completed' && row.kabis_reported && !row.invoice_issued
-);
-
-export function inBookingFilter(row: Booking, filter: BookingFilter | 'all', today: string): boolean {
-  switch (filter) {
-    case 'confirmed': return row.status === 'confirmed';
-    case 'completed': return row.status === 'completed';
-    case 'kabis': return kabisMissing(row, today);
-    case 'invoice': return invoicePending(row);
-    default: return true;
-  }
-}
+export const inBookingFilter = (row: Pick<Booking, 'status'>, filter: BookingFilter | 'all'): boolean => filter === 'all' || row.status === filter;
 
 export function bookingSummary(rows: Booking[], today: string) {
   return {
     total: rows.length,
     confirmed: rows.filter((row) => row.status === 'confirmed').length,
     activeNow: rows.filter((row) => isActiveNow(row, today)).length,
+    pending: rows.filter((row) => row.status === 'pending').length,
     completed: rows.filter((row) => row.status === 'completed').length,
-    kabis: rows.filter((row) => kabisMissing(row, today)).length,
-    invoice: rows.filter(invoicePending).length,
   };
 }
 
@@ -244,18 +225,15 @@ export async function fetchReplacementSheets(): Promise<ReplacementSheetRow[]> {
 export const sheetIsOpen = (row: Pick<ReplacementSheetRow, 'end_date'>, today: string): boolean => dayOf(row.end_date) >= today;
 export const sheetInMonth = (row: Pick<ReplacementSheetRow, 'start_date'>, month: string): boolean => row.start_date.slice(0, 7) === month;
 
-export function inSheetFilter(row: ReplacementSheetRow, filter: SheetFilter | 'all', today: string, month: string): boolean {
+export function inSheetFilter(row: ReplacementSheetRow, filter: SheetFilter | 'all', today: string): boolean {
   if (filter === 'open') return sheetIsOpen(row, today);
-  if (filter === 'month') return sheetInMonth(row, month);
+  if (filter === 'closed') return !sheetIsOpen(row, today);
   return true;
 }
 
-export function sheetSummary(rows: ReplacementSheetRow[], today: string, month: string) {
-  return {
-    total: rows.length,
-    open: rows.filter((row) => sheetIsOpen(row, today)).length,
-    month: rows.filter((row) => sheetInMonth(row, month)).length,
-  };
+export function sheetSummary(rows: ReplacementSheetRow[], today: string) {
+  const open = rows.filter((row) => sheetIsOpen(row, today)).length;
+  return { total: rows.length, open, closed: rows.length - open };
 }
 
 export const matchesSheetSearch = (row: ReplacementSheetRow, query: string): boolean => matches(query, [

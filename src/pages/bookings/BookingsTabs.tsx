@@ -30,6 +30,46 @@ const ROW = 'border-b border-black/[0.05] last:border-b-0';
 
 const dayLabel = (days: number) => (days === 1 ? '1 day' : `${days} days`);
 
+/** A big white tile for this page's three tabs: full width, 3D art, and it still filters. */
+export const BigTile: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  caption: string;
+  active?: boolean;
+  onClick?: () => void;
+}> = ({ icon, label, value, caption, active = false, onClick }) => {
+  const body = (
+    <>
+      {active && <span aria-hidden="true" className="absolute end-2.5 top-2.5 grid h-5 w-5 place-items-center rounded-full bg-[#6EA4E7] text-white"><Check size={12} strokeWidth={3} /></span>}
+      <span className="flex min-w-0 items-center gap-2.5 pe-5">
+        <span className="shrink-0 [&>*]:!h-10 [&>*]:!w-10 lg:[&>*]:!h-14 lg:[&>*]:!w-14">{icon}</span>
+        <span className="line-clamp-2 min-w-0 text-[13px] font-medium leading-tight text-black/60 lg:text-[13.5px]">{label}</span>
+      </span>
+      <span className="mt-auto flex min-w-0 flex-wrap items-baseline justify-between gap-x-2">
+        <span className={cn('font-semibold leading-none text-foreground', MONO)} style={{ fontSize: `min(40px, calc(100cqi / (${value.length} * 0.62)))` }}>{value}</span>
+        <span className="min-w-0 truncate text-[12px] text-black/50">{caption}</span>
+      </span>
+    </>
+  );
+  const frame = cn(
+    'surface-depth relative flex h-[132px] min-w-0 flex-col rounded-2xl bg-white text-start [container-type:inline-size] lg:h-[140px]',
+    active ? 'border-2 border-[#6EA4E7] p-[13px]' : 'border border-[#EBEBEB] p-3.5',
+  );
+  if (!onClick) return <div className={frame}>{body}</div>;
+  return <button type="button" aria-pressed={active} onClick={onClick} className={cn(frame, !active && 'transition-colors hover:border-[#6EA4E7]/60')}>{body}</button>;
+};
+
+export const BigTileRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div role="group" aria-label="Filter the list" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">{children}</div>
+);
+
+export const BigTileSkeleton: React.FC<{ count: number }> = ({ count }) => (
+  <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+    {Array.from({ length: count }, (_, index) => <div key={index} className="h-[132px] animate-pulse rounded-2xl bg-black/[0.05] lg:h-[140px]" />)}
+  </div>
+);
+
 const TAB_LABELS: Record<BookingTab, string> = { bookings: 'Bookings', extensions: 'Extensions', replacements: 'Replacement sheets' };
 
 export const PillTabs: React.FC<{ active: BookingTab; counts: Record<BookingTab, number | null>; onChange: (tab: BookingTab) => void }> = ({ active, counts, onChange }) => (
@@ -310,6 +350,7 @@ const SheetCard: React.FC<{ row: ReplacementSheetRow; today: string }> = ({ row,
       </div>
       <p className="mt-1 truncate text-[12px] text-black/50">{[row.original_model, row.replacement_model].filter(Boolean).join(' → ')}</p>
       <p className={cn('mt-2 text-[12.5px] text-foreground', MONO)}>{formatDate(row.start_date)} → {formatDate(row.end_date)}</p>
+      <p className="text-[12px] text-black/50">{dayLabel(rentalDays(row))}</p>
       <div className="mt-auto flex justify-end pt-2">
         <Button
           variant="outline"

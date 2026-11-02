@@ -3,10 +3,9 @@ import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Button, Select } from '../components/media/MediaUI';
 import { ComplianceTriangle } from '../components/shared/ComplianceBits';
-import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
+import { Icon3D } from '../components/shared/Icon3D';
 import MonthNav from '../components/shared/MonthNav';
 import { LoadError, SearchField, SkeletonRows } from '../components/shared/PageBits';
-import { StatusImage } from '../components/shared/StatusImage';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import { useUrlSort } from '../hooks/useUrlSort';
@@ -25,6 +24,7 @@ import {
   matchesBookingSearch,
   matchesExtensionSearch,
   matchesSheetSearch,
+  sheetInMonth,
   sheetsCsv,
   sheetSummary,
   sortBookings,
@@ -44,7 +44,7 @@ import { printBookingContract } from '../lib/printContract';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { BookingFormSheet } from './bookings/BookingFormSheet';
-import { BookingList, ExtensionList, PillTabs, SheetList } from './bookings/BookingsTabs';
+import { BigTile, BigTileRow, BigTileSkeleton, BookingList, ExtensionList, PillTabs, SheetList } from './bookings/BookingsTabs';
 import { ExtendSheet } from './bookings/ExtendSheet';
 import { ReplacementSheet } from './bookings/ReplacementSheet';
 import { WalletIcon } from './customers/ui';
@@ -364,18 +364,19 @@ const BookingsPage: React.FC = () => {
   // Tiles follow the search and status filter. Only the active tile narrows the list further.
   const matchedBookings = useMemo(() => (bookings ?? []).filter((row) => matchesBookingSearch(row, search) && (!statusFilter || row.status === statusFilter)), [bookings, search, statusFilter]);
   const matchedExtensions = useMemo(() => (extensions ?? []).filter((row) => matchesExtensionSearch(row, search) && (!statusFilter || row.booking_status === statusFilter)), [extensions, search, statusFilter]);
-  const matchedSheets = useMemo(() => (sheets ?? []).filter((row) => matchesSheetSearch(row, search)), [sheets, search]);
+  const monthSheets = useMemo(() => (sheets ?? []).filter((row) => sheetInMonth(row, month)), [sheets, month]);
+  const matchedSheets = useMemo(() => monthSheets.filter((row) => matchesSheetSearch(row, search)), [monthSheets, search]);
 
   const bookingTiles = useMemo(() => bookingSummary(matchedBookings, today), [matchedBookings, today]);
   const extensionTiles = useMemo(() => extensionSummary(matchedExtensions), [matchedExtensions]);
-  const sheetTiles = useMemo(() => sheetSummary(matchedSheets, today, month), [matchedSheets, today, month]);
+  const sheetTiles = useMemo(() => sheetSummary(matchedSheets, today), [matchedSheets, today]);
 
   const visibleBookings = useMemo(
-    () => sortBookings(matchedBookings.filter((row) => inBookingFilter(row, filter as BookingFilter | 'all', today)), sort.key, sort.direction),
-    [matchedBookings, filter, today, sort.key, sort.direction],
+    () => sortBookings(matchedBookings.filter((row) => inBookingFilter(row, filter as BookingFilter | 'all')), sort.key, sort.direction),
+    [matchedBookings, filter, sort.key, sort.direction],
   );
   const visibleExtensions = useMemo(() => matchedExtensions.filter((row) => inExtensionFilter(row, filter as ExtensionFilter | 'all')), [matchedExtensions, filter]);
-  const visibleSheets = useMemo(() => matchedSheets.filter((row) => inSheetFilter(row, filter as SheetFilter | 'all', today, month)), [matchedSheets, filter, today, month]);
+  const visibleSheets = useMemo(() => matchedSheets.filter((row) => inSheetFilter(row, filter as SheetFilter | 'all', today)), [matchedSheets, filter, today]);
 
   const loading = tab === 'bookings' ? bookings === null : tab === 'extensions' ? extensions === null : sheets === null;
   const tabError = errors[tab];
@@ -417,13 +418,13 @@ const BookingsPage: React.FC = () => {
   const handleExport = () => {
     if (tab === 'bookings') downloadCsv(`bookings-${month}.csv`, bookingsCsv(visibleBookings));
     else if (tab === 'extensions') downloadCsv(`extensions-${month}.csv`, extensionsCsv(visibleExtensions));
-    else downloadCsv('replacement-sheets.csv', sheetsCsv(visibleSheets));
+    else downloadCsv(`replacement-sheets-${month}.csv`, sheetsCsv(visibleSheets));
   };
 
   const emptyMessage = narrowed ? 'Nothing matches your filters.'
     : tab === 'bookings' ? 'No bookings starting this month.'
       : tab === 'extensions' ? 'No extensions starting this month'
-        : 'No replacement sheets yet.';
+        : 'No replacement sheets starting this month';
 
   return (
     <div className="media-scope mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
@@ -438,39 +439,38 @@ const BookingsPage: React.FC = () => {
         </div>
       </header>
 
-      <PillTabs active={tab} counts={{ bookings: bookings?.length ?? null, extensions: extensions?.length ?? null, replacements: sheets?.length ?? null }} onChange={openTab} />
+      <PillTabs active={tab} counts={{ bookings: bookings?.length ?? null, extensions: extensions?.length ?? null, replacements: sheets === null ? null : monthSheets.length }} onChange={openTab} />
 
       <div className="my-4">
         <MonthNav label={monthLabel(`${month}-01`)} justify="flex-start" onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} />
       </div>
 
-      {loading ? <FilterTileSkeleton count={tab === 'bookings' ? 5 : tab === 'extensions' ? 4 : 3} /> : (
-        <FilterTileRow label="Filter the list">
+      {loading ? <BigTileSkeleton count={tab === 'replacements' ? 3 : 4} /> : (
+        <BigTileRow>
           {tab === 'bookings' && (
             <>
-              <FilterTile tone="blue" mono bareIcon icon={<StatusImage status="fleet" size={32} />} label="Total" value={String(bookingTiles.total)} sub={bookingTiles.total === 1 ? 'booking' : 'bookings'} active={filter === 'all'} onClick={clear} />
-              <FilterTile tone="green" mono bareIcon icon={<StatusImage status="working" size={32} />} label="Confirmed" value={String(bookingTiles.confirmed)} sub={`${bookingTiles.activeNow} active now`} active={filter === 'confirmed'} onClick={() => toggle('confirmed')} />
-              <FilterTile tone="neutral" mono bareIcon icon={<StatusImage status="parking" size={32} />} label="Completed" value={String(bookingTiles.completed)} sub="returned" active={filter === 'completed'} onClick={() => toggle('completed')} />
-              <FilterTile tone="amber" mono bareIcon icon={<ComplianceTriangle tone="amber" size={32} />} label="KABIS missing" value={String(bookingTiles.kabis)} sub="started, not reported" active={filter === 'kabis'} onClick={() => toggle('kabis')} />
-              <FilterTile tone="violet" mono icon={<WalletIcon size={15} />} label="Invoice pending" value={String(bookingTiles.invoice)} sub="reported, not invoiced" active={filter === 'invoice'} onClick={() => toggle('invoice')} />
+              <BigTile icon={<Icon3D name="total" />} label="Total" value={String(bookingTiles.total)} caption="starting this month" active={filter === 'all'} onClick={clear} />
+              <BigTile icon={<Icon3D name="confirmed" />} label="Confirmed" value={String(bookingTiles.confirmed)} caption={`${bookingTiles.activeNow} active now`} active={filter === 'confirmed'} onClick={() => toggle('confirmed')} />
+              <BigTile icon={<Icon3D name="pending" />} label="Pending" value={String(bookingTiles.pending)} caption="waiting" active={filter === 'pending'} onClick={() => toggle('pending')} />
+              <BigTile icon={<Icon3D name="completed" />} label="Completed" value={String(bookingTiles.completed)} caption="returned" active={filter === 'completed'} onClick={() => toggle('completed')} />
             </>
           )}
           {tab === 'extensions' && (
             <>
-              <FilterTile tone="blue" mono bareIcon icon={<StatusImage status="fleet" size={32} />} label="Extensions" value={String(extensionTiles.count)} sub={extensionTiles.count === 1 ? 'extension' : 'extensions'} active={filter === 'all'} onClick={clear} />
-              <FilterTile tone="teal" mono icon={<WalletIcon size={15} />} label="Extension value" value={formatMoney(extensionTiles.value)} sub="rental added" />
-              <FilterTile tone="neutral" mono icon={<WalletIcon size={15} />} label="Avg days" value={extensionTiles.avgDays === null ? '—' : extensionTiles.avgDays.toFixed(1)} sub={extensionTiles.undated > 0 ? `${extensionTiles.undated} without dates left out` : 'per extension'} />
-              <FilterTile tone="amber" mono bareIcon icon={<ComplianceTriangle tone="amber" size={32} />} label="Zero amount" value={String(extensionTiles.zero)} sub="no charge entered" active={filter === 'zero'} onClick={() => toggle('zero')} />
+              <BigTile icon={<Icon3D name="total" />} label="Extensions" value={String(extensionTiles.count)} caption="starting this month" active={filter === 'all'} onClick={clear} />
+              <BigTile icon={<span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#14B8A6]/15 text-[#0F766E]"><WalletIcon size={24} /></span>} label="Extension value" value={formatMoney(extensionTiles.value)} caption="rental added" />
+              <BigTile icon={<Icon3D name="pending" />} label="Avg days" value={extensionTiles.avgDays === null ? '—' : extensionTiles.avgDays.toFixed(1)} caption={extensionTiles.undated > 0 ? `${extensionTiles.undated} without dates left out` : 'per extension'} />
+              <BigTile icon={<ComplianceTriangle tone="amber" size={56} />} label="Zero amount" value={String(extensionTiles.zero)} caption="no charge entered" active={filter === 'zero'} onClick={() => toggle('zero')} />
             </>
           )}
           {tab === 'replacements' && (
             <>
-              <FilterTile tone="blue" mono bareIcon icon={<StatusImage status="replacement" size={32} />} label="Total" value={String(sheetTiles.total)} sub={sheetTiles.total === 1 ? 'sheet' : 'sheets'} active={filter === 'all'} onClick={clear} />
-              <FilterTile tone="green" mono bareIcon icon={<StatusImage status="working" size={32} />} label="Open" value={String(sheetTiles.open)} sub="end date not passed" active={filter === 'open'} onClick={() => toggle('open')} />
-              <FilterTile tone="teal" mono icon={<WalletIcon size={15} />} label="This month" value={String(sheetTiles.month)} sub={monthLabel(`${month}-01`)} active={filter === 'month'} onClick={() => toggle('month')} />
+              <BigTile icon={<Icon3D name="total" />} label="Total this month" value={String(sheetTiles.total)} caption="starting this month" active={filter === 'all'} onClick={clear} />
+              <BigTile icon={<Icon3D name="confirmed" />} label="Open" value={String(sheetTiles.open)} caption="end date not passed" active={filter === 'open'} onClick={() => toggle('open')} />
+              <BigTile icon={<Icon3D name="completed" />} label="Closed" value={String(sheetTiles.closed)} caption="ended" active={filter === 'closed'} onClick={() => toggle('closed')} />
             </>
           )}
-        </FilterTileRow>
+        </BigTileRow>
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

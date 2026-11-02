@@ -6,13 +6,12 @@ import {
   inBookingFilter,
   inExtensionFilter,
   inSheetFilter,
-  invoicePending,
   isActiveNow,
-  kabisMissing,
   matchesBookingSearch,
   matchesExtensionSearch,
   matchesSheetSearch,
   rentalDays,
+  sheetInMonth,
   sheetSummary,
   sortBookings,
   type BookingExtension,
@@ -46,31 +45,17 @@ describe('booking tiles', () => {
     expect(isActiveNow(booking({ end_date: '2026-11-09' }), today)).toBe(false);
   });
 
-  it('does not call a future or a cancelled booking missing from KABIS', () => {
-    expect(kabisMissing(booking({ kabis_reported: false }), today)).toBe(true);
-    expect(kabisMissing(booking({ kabis_reported: false, status: 'completed' }), today)).toBe(true);
-    expect(kabisMissing(booking({ kabis_reported: false, start_date: '2026-11-20' }), today)).toBe(false);
-    expect(kabisMissing(booking({ kabis_reported: false, status: 'cancelled' }), today)).toBe(false);
-    expect(kabisMissing(booking({ kabis_reported: false, status: 'pending' }), today)).toBe(false);
-  });
-
-  it('follows the Pending Invoices rule', () => {
-    expect(invoicePending(booking({ status: 'completed' }))).toBe(true);
-    expect(invoicePending(booking({ status: 'confirmed' }))).toBe(false);
-    expect(invoicePending(booking({ status: 'completed', kabis_reported: false }))).toBe(false);
-    expect(invoicePending(booking({ status: 'completed', invoice_issued: true }))).toBe(false);
-  });
-
   it('adds them up', () => {
-    const rows = [booking({}), booking({ status: 'completed' }), booking({ status: 'cancelled', kabis_reported: false }), booking({ start_date: '2026-11-20', end_date: '2026-11-25' })];
-    expect(bookingSummary(rows, today)).toEqual({ total: 4, confirmed: 2, activeNow: 1, completed: 1, kabis: 0, invoice: 1 });
+    const rows = [booking({}), booking({ status: 'completed' }), booking({ status: 'pending' }), booking({ status: 'cancelled' }), booking({ start_date: '2026-11-20', end_date: '2026-11-25' })];
+    expect(bookingSummary(rows, today)).toEqual({ total: 5, confirmed: 2, activeNow: 1, pending: 1, completed: 1 });
   });
 
   it('filters by tile', () => {
-    expect(inBookingFilter(booking({}), 'all', today)).toBe(true);
-    expect(inBookingFilter(booking({}), 'completed', today)).toBe(false);
-    expect(inBookingFilter(booking({ kabis_reported: false }), 'kabis', today)).toBe(true);
-    expect(inBookingFilter(booking({ status: 'completed' }), 'invoice', today)).toBe(true);
+    expect(inBookingFilter(booking({}), 'all')).toBe(true);
+    expect(inBookingFilter(booking({}), 'confirmed')).toBe(true);
+    expect(inBookingFilter(booking({}), 'completed')).toBe(false);
+    expect(inBookingFilter(booking({ status: 'pending' }), 'pending')).toBe(true);
+    expect(inBookingFilter(booking({ status: 'cancelled' }), 'pending')).toBe(false);
   });
 });
 
@@ -126,18 +111,25 @@ describe('extensions', () => {
 describe('replacement sheets', () => {
   const rows = [sheet({ id: 1 }), sheet({ id: 2, end_date: '2026-11-09', start_date: '2026-10-01' })];
 
-  it('counts total, open and the chosen month', () => {
-    expect(sheetSummary(rows, today, '2026-11')).toEqual({ total: 2, open: 1, month: 1 });
+  it('files a sheet under the month it starts', () => {
+    expect(sheetInMonth(rows[0], '2026-11')).toBe(true);
+    expect(sheetInMonth(rows[1], '2026-11')).toBe(false);
+    expect(sheetInMonth(rows[1], '2026-10')).toBe(true);
+  });
+
+  it('counts total, open and closed', () => {
+    expect(sheetSummary(rows, today)).toEqual({ total: 2, open: 1, closed: 1 });
   });
 
   it('treats a sheet ending today as open', () => {
-    expect(inSheetFilter(sheet({ end_date: today }), 'open', today, '2026-11')).toBe(true);
+    expect(inSheetFilter(sheet({ end_date: today }), 'open', today)).toBe(true);
+    expect(inSheetFilter(sheet({ end_date: today }), 'closed', today)).toBe(false);
   });
 
   it('filters by tile', () => {
-    expect(inSheetFilter(rows[1], 'open', today, '2026-11')).toBe(false);
-    expect(inSheetFilter(rows[1], 'month', today, '2026-10')).toBe(true);
-    expect(inSheetFilter(rows[1], 'all', today, '2026-11')).toBe(true);
+    expect(inSheetFilter(rows[1], 'open', today)).toBe(false);
+    expect(inSheetFilter(rows[1], 'closed', today)).toBe(true);
+    expect(inSheetFilter(rows[1], 'all', today)).toBe(true);
   });
 
   it('searches both plates', () => {
