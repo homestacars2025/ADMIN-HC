@@ -152,12 +152,14 @@ interface BookingFormSheetProps {
   booking?: Booking;
   /** Add a booking for this customer rather than creating a new customer record. */
   existingCustomerId?: string;
+  /** Opens with this section in view, for a link that's about the money. */
+  openAt?: 'payment';
   onClose: () => void;
   onSaved: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
 
-export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, booking, existingCustomerId, onClose, onSaved, showToast }) => {
+export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, booking, existingCustomerId, openAt, onClose, onSaved, showToast }) => {
   const { rates } = useCurrency();
   const usdRate = rates.find((rate) => rate.currency === 'USD')?.rate_to_try ?? null;
   const editId = booking?.id;
@@ -300,6 +302,17 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
       });
     return () => { active = false; };
   }, [mode, linkedCustomerId, originalCustomerId, applyLoaded]);
+
+  const paymentAnchor = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (openAt !== 'payment') return undefined;
+    // After the sheet has slid in, and past the height the ledger rows add.
+    const timer = setTimeout(() => {
+      const card = paymentAnchor.current?.firstElementChild;
+      card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [openAt]);
 
   const set = <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -1191,7 +1204,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
           {carSection}
           {coverSection}
           {conditionSection}
-          {paymentSection}
+          <div ref={paymentAnchor} style={{ display: 'contents' }}>{paymentSection}</div>
           <FormCard icon={<FileIcon size={15} />} title="Notes">{notesField}</FormCard>
         </>
       )}

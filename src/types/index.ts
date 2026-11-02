@@ -84,6 +84,7 @@ export interface Booking {
   // Resolved from joins
   plate_number: string;
   car_model: string;
+  car_image?: string | null;
   customer_name: string;
   customer_banned?: boolean;
 }
