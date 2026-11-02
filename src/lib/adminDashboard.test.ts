@@ -1,4 +1,4 @@
-import { attentionItems, dayListRange, deltaPercent, type AdminDashboard } from './adminDashboard';
+import { attentionItems, DAY_LISTS, dayListRange, deltaPercent, type AdminDashboard } from './adminDashboard';
 
 jest.mock('./supabase', () => ({ supabase: {} }));
 
@@ -55,9 +55,17 @@ describe('dayListRange', () => {
   const today = '2026-11-30';
 
   it('matches the dashboard rule for each list', () => {
-    expect(dayListRange('active', today)).toEqual({ startFrom: null, startBefore: '2026-12-01', endFrom: today, endBefore: null, statuses: ['confirmed', 'active'] });
+    expect(dayListRange('active', today)).toEqual({ startFrom: null, startBefore: '2026-12-01', endFrom: today, endBefore: null, statuses: ['confirmed'] });
     expect(dayListRange('pickups', today)).toEqual({ startFrom: today, startBefore: '2026-12-01', endFrom: null, endBefore: null, statuses: null });
     expect(dayListRange('returns', today)).toEqual({ startFrom: null, startBefore: null, endFrom: today, endBefore: '2026-12-01', statuses: null });
+  });
+
+  it('only ever filters on real booking statuses', () => {
+    DAY_LISTS.forEach((list) => {
+      (dayListRange(list, today).statuses ?? []).forEach((status) => {
+        expect(['pending', 'confirmed', 'cancelled', 'completed']).toContain(status);
+      });
+    });
   });
 
   it('counts the next seven days from tomorrow, today excluded', () => {

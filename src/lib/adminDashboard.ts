@@ -143,7 +143,8 @@ export interface DayListRow {
  */
 export function dayListRange(list: DayList, today: string = istanbulToday()) {
   switch (list) {
-    case 'active': return { startFrom: null, startBefore: addDays(today, 1), endFrom: today, endBefore: null, statuses: ['confirmed', 'active'] };
+    // The dashboard also names 'active', but the status enum has no such value and the filter would be refused.
+    case 'active': return { startFrom: null, startBefore: addDays(today, 1), endFrom: today, endBefore: null, statuses: ['confirmed'] };
     case 'pickups': return { startFrom: today, startBefore: addDays(today, 1), endFrom: null, endBefore: null, statuses: null };
     case 'returns': return { startFrom: null, startBefore: null, endFrom: today, endBefore: addDays(today, 1), statuses: null };
     default: return { startFrom: null, startBefore: null, endFrom: addDays(today, 1), endBefore: addDays(today, 8), statuses: null };
