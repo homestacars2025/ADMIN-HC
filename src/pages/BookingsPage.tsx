@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Button, Select } from '../components/media/MediaUI';
 import { ComplianceTriangle } from '../components/shared/ComplianceBits';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
 import { Icon3D } from '../components/shared/Icon3D';
 import MonthNav from '../components/shared/MonthNav';
 import { LoadError, SearchField, SkeletonRows } from '../components/shared/PageBits';
@@ -45,7 +46,7 @@ import { printBookingContract } from '../lib/printContract';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { BookingFormSheet } from './bookings/BookingFormSheet';
-import { BigTile, BigTileRow, BigTileSkeleton, BookingList, ExtensionList, PillTabs, SheetList } from './bookings/BookingsTabs';
+import { BookingList, ExtensionList, PillTabs, SheetList } from './bookings/BookingsTabs';
 import { ExtendSheet } from './bookings/ExtendSheet';
 import { ReplacementSheet } from './bookings/ReplacementSheet';
 import { WalletIcon } from './customers/ui';
@@ -452,32 +453,32 @@ const BookingsPage: React.FC = () => {
         <MonthNav label={monthLabel(`${month}-01`)} justify="flex-start" onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} />
       </div>
 
-      {loading ? <BigTileSkeleton count={tab === 'replacements' ? 3 : 4} /> : (
-        <BigTileRow>
+      {loading ? <FilterTileSkeleton split count={tab === 'replacements' ? 3 : 4} /> : (
+        <FilterTileRow split label="Filter the list">
           {tab === 'bookings' && (
             <>
-              <BigTile icon={<Icon3D name="total" />} label="Total" value={String(bookingTiles.total)} caption="starting this month" active={filter === 'all'} onClick={clear} />
-              <BigTile icon={<Icon3D name="confirmed" />} label="Confirmed" value={String(bookingTiles.confirmed)} caption={`${bookingTiles.activeNow} active now`} active={filter === 'confirmed'} onClick={() => toggle('confirmed')} />
-              <BigTile icon={<Icon3D name="pending" />} label="Pending" value={String(bookingTiles.pending)} caption="waiting" active={filter === 'pending'} onClick={() => toggle('pending')} />
-              <BigTile icon={<Icon3D name="completed" />} label="Completed" value={String(bookingTiles.completed)} caption="returned" active={filter === 'completed'} onClick={() => toggle('completed')} />
+              <FilterTile split mono tone="blue" bareIcon icon={<Icon3D name="total" />} label="Total" value={String(bookingTiles.total)} sub="starting this month" active={filter === 'all'} onClick={clear} />
+              <FilterTile split mono tone="green" bareIcon icon={<Icon3D name="confirmed" />} label="Confirmed" value={String(bookingTiles.confirmed)} sub={`${bookingTiles.activeNow} active now`} active={filter === 'confirmed'} onClick={() => toggle('confirmed')} />
+              <FilterTile split mono tone="amber" bareIcon icon={<Icon3D name="pending" />} label="Pending" value={String(bookingTiles.pending)} sub="waiting" active={filter === 'pending'} onClick={() => toggle('pending')} />
+              <FilterTile split mono tone="slate" bareIcon icon={<Icon3D name="completed" />} label="Completed" value={String(bookingTiles.completed)} sub="returned" active={filter === 'completed'} onClick={() => toggle('completed')} />
             </>
           )}
           {tab === 'extensions' && (
             <>
-              <BigTile icon={<Icon3D name="total" />} label="Extensions" value={String(extensionTiles.count)} caption="starting this month" active={filter === 'all'} onClick={clear} />
-              <BigTile icon={<span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#14B8A6]/15 text-[#0F766E]"><WalletIcon size={24} /></span>} label="Extension value" value={formatMoney(extensionTiles.value)} caption="rental added" wide />
-              <BigTile icon={<Icon3D name="pending" />} label="Avg days" value={extensionTiles.avgDays === null ? '—' : extensionTiles.avgDays.toFixed(1)} caption="per extension" />
-              <BigTile icon={<ComplianceTriangle tone="amber" size={56} />} label="Zero amount" value={String(extensionTiles.zero)} caption="no charge entered" wide active={filter === 'zero'} onClick={() => toggle('zero')} />
+              <FilterTile split mono tone="blue" bareIcon icon={<Icon3D name="total" />} label="Extensions" value={String(extensionTiles.count)} sub="starting this month" active={filter === 'all'} onClick={clear} />
+              <FilterTile split mono tone="blue" icon={<WalletIcon size={22} />} label="Extension value" value={formatMoney(extensionTiles.value)} sub="rental added" wide />
+              <FilterTile split mono tone="slate" bareIcon icon={<Icon3D name="pending" />} label="Avg days" value={extensionTiles.avgDays === null ? '—' : extensionTiles.avgDays.toFixed(1)} sub="per extension" />
+              <FilterTile split mono tone="red" bareIcon icon={<ComplianceTriangle tone="red" size={56} />} label="Zero amount" value={String(extensionTiles.zero)} sub="no charge entered" wide active={filter === 'zero'} onClick={() => toggle('zero')} />
             </>
           )}
           {tab === 'replacements' && (
             <>
-              <BigTile icon={<Icon3D name="total" />} label="Total this month" value={String(sheetTiles.total)} caption="starting this month" wide active={filter === 'all'} onClick={clear} />
-              <BigTile icon={<Icon3D name="confirmed" />} label="Open" value={String(sheetTiles.open)} caption="end date not passed" active={filter === 'open'} onClick={() => toggle('open')} />
-              <BigTile icon={<Icon3D name="completed" />} label="Closed" value={String(sheetTiles.closed)} caption="ended" active={filter === 'closed'} onClick={() => toggle('closed')} />
+              <FilterTile split mono tone="blue" bareIcon icon={<Icon3D name="total" />} label="Total this month" value={String(sheetTiles.total)} sub="starting this month" wide active={filter === 'all'} onClick={clear} />
+              <FilterTile split mono tone="green" bareIcon icon={<Icon3D name="confirmed" />} label="Open" value={String(sheetTiles.open)} sub="end date not passed" active={filter === 'open'} onClick={() => toggle('open')} />
+              <FilterTile split mono tone="slate" bareIcon icon={<Icon3D name="completed" />} label="Closed" value={String(sheetTiles.closed)} sub="ended" active={filter === 'closed'} onClick={() => toggle('closed')} />
             </>
           )}
-        </BigTileRow>
+        </FilterTileRow>
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
