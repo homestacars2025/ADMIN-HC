@@ -1,539 +1,374 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ReactDOM from 'react-dom';
-import { supabase } from '../lib/supabase';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Check } from '../components/media/MediaIcons';
+import { MediaToaster, toast } from '../components/media/MediaToast';
+import { Button, Sheet, SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Spinner } from '../components/media/MediaUI';
+import { ComplianceTriangle } from '../components/shared/ComplianceBits';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
+import MonthNav from '../components/shared/MonthNav';
+import { LoadError, PageHeader, SearchField, SkeletonRows } from '../components/shared/PageBits';
+import { CustomerAvatar } from '../components/shared/PersonAvatar';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import { formatDate } from '../lib/customers';
+import { cn } from '../lib/media/badgeColor';
+import { formatMoney } from '../lib/money';
+import { currentMonth, monthLabel, shiftMonth } from '../lib/payroll';
+import {
+  carLabel,
+  customerFields,
+  fetchPendingInvoices,
+  inInvoiceFilter,
+  INVOICE_FILTERS,
+  invoiceMonth,
+  invoicesCsv,
+  invoiceSummary,
+  invoiceTable,
+  invoiceWarning,
+  lineLabel,
+  markInvoiced,
+  matchesInvoiceSearch,
+  type PendingInvoice,
+} from '../lib/pendingInvoices';
+import { LicensePlate, Notice } from './bookings/ui';
+import { ReceiptIcon, WalletIcon } from './customers/ui';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const ALL_MONTHS = 'all';
+const MONO = 'font-mono tabular-nums';
 
-interface ViewRow {
-  id: number;
-  booking_number: string;
-  customer_id: number;
-  car_id: number;
-  start_date: string;
-  end_date: string;
-  status: string;
-  kabis_reported: boolean;
-  invoice_issued: boolean;
-  created_at: string;
+function downloadCsv(name: string, csv: string): void {
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
-interface EnrichedRow extends ViewRow {
-  customer_name: string;
-  plate: string;
-  car_model: string;
+function useCopy() {
+  const [copied, setCopied] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copy = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(null), 1600);
+    } catch {
+      toast.error("Couldn't copy. Your browser blocked it.");
+    }
+  };
+  return { copied, copy };
 }
 
-type SortKey = 'end_date' | 'created_at';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string): string {
-  if (!iso) return '—';
-  const d = new Date(iso.includes('T') ? iso : iso + 'T00:00:00');
-  return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function daysSince(iso: string): number {
-  const ref = new Date(iso.includes('T') ? iso : iso + 'T00:00:00');
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return Math.floor((now.getTime() - ref.getTime()) / 86400000);
-}
-
-function urgencyColor(days: number): string {
-  if (days > 14) return '#dc2626';
-  if (days > 7)  return '#d97706';
-  return '#374151';
-}
-
-function urgencyBg(days: number): string {
-  if (days > 14) return 'rgba(220,38,38,0.08)';
-  if (days > 7)  return 'rgba(217,119,6,0.08)';
-  return 'rgba(55,65,81,0.06)';
-}
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-interface ToastState { message: string; type: 'success' | 'error'; }
-
-const Toast: React.FC<ToastState> = ({ message, type }) =>
-  ReactDOM.createPortal(
-    <div style={{
-      position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
-      display: 'flex', alignItems: 'center', gap: 10,
-      background: type === 'success' ? '#0f1117' : '#ef4444',
-      color: '#fff', borderRadius: 12, padding: '12px 20px',
-      fontSize: 14, fontWeight: 500,
-      boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-      animation: 'piSlide 200ms ease',
-    }}>
-      {type === 'success'
-        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#4ade80" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="#4ade80" strokeWidth="1.8"/></svg>
-        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
-      }
-      {message}
-    </div>,
-    document.body,
-  );
-
-// ─── Skeleton row ─────────────────────────────────────────────────────────────
-
-const SkeletonRow: React.FC = () => (
-  <tr>
-    {[88, 140, 150, 130, 80, 80, 80, 120].map((w, i) => (
-      <td key={i} style={{ padding: '13px 16px' }}>
-        <div style={{ height: 13, borderRadius: 6, background: '#f0f0f0', width: w, animation: 'piPulse 1.4s ease-in-out infinite' }} />
-      </td>
-    ))}
-  </tr>
+const CopyIcon: React.FC<{ done: boolean; label: string; onClick: () => void }> = ({ done, label, onClick }) => (
+  <button type="button" aria-label={label} onClick={onClick} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-black/40 hover:bg-black/[0.05] hover:text-foreground md:h-8 md:w-8">
+    {done ? <Check size={14} strokeWidth={2.5} className="text-[#15803D]" /> : (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" />
+      </svg>
+    )}
+  </button>
 );
 
-// ─── Sort chevron ─────────────────────────────────────────────────────────────
-
-const SortIcon: React.FC<{ active: boolean; dir: 'asc' | 'desc' }> = ({ active, dir }) => (
-  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 4, opacity: active ? 1 : 0.25, flexShrink: 0 }}>
-    <path d="M12 5l-7 7h14l-7-7z" fill="currentColor" opacity={active && dir === 'asc' ? 1 : 0.35}/>
-    <path d="M12 19l7-7H5l7 7z" fill="currentColor" opacity={active && dir === 'desc' ? 1 : 0.35}/>
-  </svg>
+const Block: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <section aria-label={title}>
+    <h3 className="mb-1.5 text-[12.5px] font-medium text-black/50">{title}</h3>
+    <div className="rounded-xl border border-[#EBEBEB] bg-white px-3 py-1">{children}</div>
+  </section>
 );
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+const Row: React.FC<{ label: string; children: React.ReactNode; action?: React.ReactNode }> = ({ label, children, action }) => (
+  <div className="flex min-h-[44px] items-center justify-between gap-2 border-b border-black/[0.05] py-1 last:border-b-0">
+    <div className="min-w-0">
+      <p className="text-[11.5px] text-black/45">{label}</p>
+      <div className="break-words text-[13.5px] text-foreground">{children}</div>
+    </div>
+    {action}
+  </div>
+);
 
-const PendingInvoicesPage: React.FC = () => {
-  const [rows, setRows]         = useState<EnrichedRow[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [search, setSearch]     = useState('');
-  const [sortKey, setSortKey]   = useState<SortKey>('end_date');
-  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('desc');
-  const [markingId, setMarkingId] = useState<number | null>(null);
-  const [toast, setToast]       = useState<ToastState | null>(null);
-  const toastTimer              = useRef<ReturnType<typeof setTimeout> | null>(null);
+const WarningNote: React.FC<{ row: PendingInvoice }> = ({ row }) => {
+  const warning = invoiceWarning(row);
+  if (warning?.kind === 'lines_differ') {
+    return (
+      <Notice tone="amber">
+        The lines add up to {formatMoney(warning.linesTotal)}, but the total is {formatMoney(row.invoice_total)}. An IN rental row is probably cancelling the charge. Check the ledger before invoicing.
+      </Notice>
+    );
+  }
+  if (warning?.kind === 'no_rental') return <Notice tone="amber">This booking has no rental line, so the invoice only covers the extras. Check the ledger before invoicing.</Notice>;
+  if (row.invoice_total === 0) return <Notice tone="amber">This booking has no amount to invoice. It's an old booking with no rental line.</Notice>;
+  return null;
+};
 
-  const showToast = useCallback((message: string, type: 'success' | 'error') => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast({ message, type });
-    toastTimer.current = setTimeout(() => setToast(null), 3200);
-  }, []);
-
-  // ── Load data ─────────────────────────────────────────────────────────────
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const { data: viewData, error: viewErr } = await supabase
-      .from('bookings_kabis_no_invoice')
-      .select('*')
-      .order('end_date', { ascending: false });
-
-    if (viewErr) {
-      console.error('[pending-invoices] fetch:', viewErr);
-      setError(viewErr.message);
-      setLoading(false);
-      return;
-    }
-
-    const viewRows = (viewData ?? []) as ViewRow[];
-
-    if (viewRows.length === 0) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    const customerIds = [...new Set(viewRows.map(r => r.customer_id))];
-    const carIds      = [...new Set(viewRows.map(r => r.car_id))];
-
-    const [{ data: custData }, { data: carsData }] = await Promise.all([
-      supabase.from('customers').select('id, first_name, last_name').in('id', customerIds),
-      supabase.from('cars').select('id, plate_number, model_group(name)').in('id', carIds),
-    ]);
-
-    // Customer name map
-    const custMap = new Map<number, string>();
-    (custData ?? []).forEach((c: { id: number; first_name: string; last_name: string }) => {
-      custMap.set(c.id, `${c.first_name} ${c.last_name}`.trim());
-    });
-
-    // Car info map
-    const carMap = new Map<number, { plate: string; model: string }>();
-    (carsData ?? []).forEach((c: { id: number; plate_number: string; model_group: { name: string } | { name: string }[] | null }) => {
-      const mg = c.model_group;
-      const modelName = Array.isArray(mg) ? (mg[0]?.name ?? '—') : (mg?.name ?? '—');
-      carMap.set(c.id, { plate: c.plate_number, model: modelName });
-    });
-
-    setRows(viewRows.map(r => ({
-      ...r,
-      customer_name: custMap.get(r.customer_id) ?? '—',
-      plate:     carMap.get(r.car_id)?.plate ?? '—',
-      car_model: carMap.get(r.car_id)?.model ?? '—',
-    })));
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // ── Mark as invoiced ──────────────────────────────────────────────────────
-
-  const markInvoiced = useCallback(async (row: EnrichedRow) => {
-    if (markingId !== null) return;
-    setMarkingId(row.id);
-
-    // Optimistic removal
-    setRows(prev => prev.filter(r => r.id !== row.id));
-
-    const { error: updateErr } = await supabase
-      .from('bookings')
-      .update({ invoice_issued: true })
-      .eq('id', row.id);
-
-    setMarkingId(null);
-
-    if (updateErr) {
-      console.error('[pending-invoices] update:', updateErr);
-      // Restore row on failure
-      setRows(prev => {
-        const next = [row, ...prev];
-        next.sort((a, b) => b.end_date.localeCompare(a.end_date));
-        return next;
-      });
-      showToast(`Update failed: ${updateErr.message}`, 'error');
-      return;
-    }
-
-    showToast(`${row.booking_number} marked as invoiced`, 'success');
-  }, [markingId, showToast]);
-
-  // ── Sort ──────────────────────────────────────────────────────────────────
-
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('desc'); }
-  };
-
-  // ── Filter + sort ─────────────────────────────────────────────────────────
-
-  const displayed = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let list = q
-      ? rows.filter(r =>
-          r.booking_number.toLowerCase().includes(q) ||
-          r.customer_name.toLowerCase().includes(q) ||
-          r.plate.toLowerCase().includes(q)
-        )
-      : rows;
-
-    return [...list].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-  }, [rows, search, sortKey, sortDir]);
-
-  // ── Summary stats ─────────────────────────────────────────────────────────
-
-  const over14 = rows.filter(r => daysSince(r.end_date) > 14).length;
-  const over7  = rows.filter(r => { const d = daysSince(r.end_date); return d > 7 && d <= 14; }).length;
-
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const thStyle: React.CSSProperties = {
-    borderBottom: '1px solid var(--border-subtle)', padding: '11px 16px', textAlign: 'left',
-    fontSize: 11, fontWeight: 600, color: '#9ca3af',
-    letterSpacing: '0.5px', textTransform: 'uppercase',
-    whiteSpace: 'nowrap', background: 'var(--surface)',
-    userSelect: 'none',
-  };
+const InvoiceSheet: React.FC<{
+  row: PendingInvoice;
+  busy: boolean;
+  onClose: () => void;
+  onMark: () => void;
+}> = ({ row, busy, onClose, onMark }) => {
+  const { copied, copy } = useCopy();
+  const fields = customerFields(row, formatDate);
 
   return (
-    <div style={{ padding: '28px 28px 56px', maxWidth: 1300, margin: '0 auto' }}>
-      <style>{`
-        @keyframes piPulse  { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        @keyframes piSlide  { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
-        .pi-tr { transition: opacity 200ms ease; }
-        .pi-tr:hover td { background: #f9fafb !important; }
-        .pi-mark-btn { transition: all 140ms ease; }
-        .pi-mark-btn:hover:not(:disabled) {
-          background: rgba(75,166,234,0.08) !important;
-          color: #4ba6ea !important;
-          border-color: rgba(75,166,234,0.25) !important;
-        }
-      `}</style>
+    <Sheet open onClose={onClose} ariaLabel="Invoice details" maxWidthClass="sm:max-w-[520px]">
+      <SheetHeader className="pe-14">
+        <SheetTitle>Invoice details</SheetTitle>
+        <SheetDescription>{row.booking_number}</SheetDescription>
+      </SheetHeader>
+      <SheetBody>
+        <WarningNote row={row} />
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 26 }}>
-        <div>
-          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: 6 }}>
-            • Bookings
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.5px' }}>
-              Pending Invoices
-            </h1>
-            {!loading && (
-              <span style={{
-                background: rows.length > 0
-                  ? 'linear-gradient(135deg, rgba(220,38,38,0.10) 0%, rgba(220,38,38,0.06) 100%)'
-                  : 'linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.06) 100%)',
-                color: rows.length > 0 ? '#dc2626' : '#16a34a',
-                fontSize: 12, fontWeight: 600,
-                padding: '3px 10px', borderRadius: 20,
-                border: `1px solid ${rows.length > 0 ? 'rgba(220,38,38,0.18)' : 'rgba(16,185,129,0.18)'}`,
-              }}>
-                {rows.length} pending
+        <Block title="Customer">
+          {fields.map((field) => (
+            <Row
+              key={field.key}
+              label={field.label}
+              action={field.value ? <CopyIcon done={copied === field.key} label={`Copy ${field.label.toLowerCase()}`} onClick={() => copy(field.key, field.value as string)} /> : undefined}
+            >
+              {field.value ?? (
+                <span className="text-[#B91C1C]">
+                  Missing — {row.customer_id
+                    ? <Link to={`/dashboard/customers/${row.customer_id}`} className="font-medium text-[#3A74C2] hover:underline">add in customer profile</Link>
+                    : 'add in customer profile'}
+                </span>
+              )}
+            </Row>
+          ))}
+        </Block>
+
+        <Block title="Service">
+          <Row label="Car">
+            <span className="flex flex-wrap items-center gap-2">
+              {carLabel(row) || '—'}
+              {row.plate && <LicensePlate plate={row.plate} />}
+            </span>
+          </Row>
+          <Row label="Period"><span className={MONO}>{formatDate(row.start_date)} – {formatDate(row.end_date)}</span></Row>
+          <Row label="Days"><span className={MONO}>{row.days}</span></Row>
+          <Row label="Booking" action={<CopyIcon done={copied === 'booking'} label="Copy booking number" onClick={() => copy('booking', row.booking_number)} />}><span className={MONO}>{row.booking_number}</span></Row>
+        </Block>
+
+        <Block title="Lines">
+          {row.lines.length === 0 && <p className="py-3 text-[13px] text-black/45">No charges on this booking.</p>}
+          {row.lines.map((line, index) => (
+            <div key={`${line.date}-${index}`} className="flex items-center justify-between gap-3 border-b border-black/[0.05] py-2 text-[13px]">
+              <span className="min-w-0">
+                <span className="block break-words text-foreground">{lineLabel(line)}</span>
+                <span className={cn('block text-[11.5px] text-black/45', MONO)}>{formatDate(line.date)}</span>
               </span>
-            )}
-          </div>
-          <p style={{ margin: '5px 0 0', fontSize: 13, color: '#9ca3af' }}>
-            Completed bookings reported to KABİS, still awaiting an invoice.
-          </p>
-        </div>
+              <span className={cn('shrink-0 text-foreground', MONO)}>{formatMoney(line.amount)}</span>
+            </div>
+          ))}
+          <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 py-2 text-[13px]">
+            <dt className="text-black/55">Net</dt><dd className={cn('text-end text-foreground', MONO)}>{formatMoney(row.net_amount)}</dd>
+            <dt className="text-black/55">KDV 20%</dt><dd className={cn('text-end text-foreground', MONO)}>{formatMoney(row.vat_amount)}</dd>
+            <dt className="font-semibold text-foreground">Total</dt><dd className={cn('text-end text-[15px] font-semibold text-foreground', MONO)}>{formatMoney(row.invoice_total)}</dd>
+          </dl>
+        </Block>
 
-        {/* Search */}
-        <div style={{ position: 'relative', minWidth: 260 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
-            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8"/>
-            <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search booking #, customer, plate…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{
-              paddingLeft: 32, paddingRight: 12, height: 38,
-              border: '1px solid #e5e7eb', borderRadius: 9,
-              fontSize: 13, color: '#0f1117', background: 'white',
-              outline: 'none', width: '100%', boxSizing: 'border-box',
-            }}
-          />
+        <Block title="Paid so far">
+          <Row label="Paid vs total, for information only">
+            <span className={MONO}>{formatMoney(row.paid_total)} / {formatMoney(row.invoice_total)}</span>
+          </Row>
+        </Block>
+
+        <div className="flex flex-col gap-2">
+          <Button size="lg" className="!h-11 w-full" onClick={() => copy('text', row.invoice_text)}>
+            {copied === 'text' ? <><Check size={14} strokeWidth={2.5} /> Copied</> : 'Copy invoice text'}
+          </Button>
+          <Button variant="outline" size="lg" className="!h-11 w-full" onClick={() => copy('table', invoiceTable(row, formatDate))}>
+            {copied === 'table' ? <><Check size={14} strokeWidth={2.5} /> Copied</> : 'Copy all as table'}
+          </Button>
+        </div>
+      </SheetBody>
+      <SheetFooter>
+        <Button variant="secondary" size="lg" className="!h-11 md:!h-10" onClick={onClose}>Close</Button>
+        <Button size="lg" className="!h-11 flex-1 md:!h-10" disabled={busy} onClick={onMark}>
+          {busy && <Spinner size={13} />} Mark as invoiced
+        </Button>
+      </SheetFooter>
+    </Sheet>
+  );
+};
+
+const InvoiceCard: React.FC<{
+  row: PendingInvoice;
+  picked: boolean;
+  onPick: (on: boolean) => void;
+  onOpen: () => void;
+}> = ({ row, picked, onPick, onOpen }) => {
+  const warning = invoiceWarning(row);
+  return (
+    <li className={cn('surface-depth relative min-w-0 rounded-2xl border bg-white transition-colors', picked ? 'border-[#6EA4E7]' : 'border-[#EBEBEB] hover:border-[#6EA4E7]/60')}>
+      <label className="absolute end-1.5 top-1.5 z-10 grid h-11 w-11 cursor-pointer place-items-center">
+        <input type="checkbox" checked={picked} aria-label={`Select ${row.booking_number}`} onChange={(event) => onPick(event.target.checked)} className="h-[18px] w-[18px] accent-[#6EA4E7]" />
+      </label>
+      <button type="button" onClick={onOpen} className="block w-full rounded-2xl p-4 text-start">
+        <span className="flex min-w-0 items-center gap-2.5 pe-9">
+          <CustomerAvatar person={null} size={40} />
+          <span className="min-w-0">
+            <span className="block truncate text-[14px] font-medium text-foreground">{row.customer_name || '—'}</span>
+            <span className={cn('block truncate text-[12px] text-black/50', MONO)}>{row.booking_number}</span>
+          </span>
+        </span>
+        <span className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-[12.5px] text-black/60">
+          {row.plate && <LicensePlate plate={row.plate} />}
+          <span className="truncate">{carLabel(row)}</span>
+        </span>
+        <span className={cn('mt-1.5 block text-[12px] text-black/50', MONO)}>{formatDate(row.start_date)} – {formatDate(row.end_date)} · {row.days === 1 ? '1 day' : `${row.days} days`}</span>
+        <span className={cn('mt-3 block text-[22px] font-semibold leading-tight', MONO, row.invoice_total === 0 ? 'text-[#92400E]' : 'text-foreground')}>{formatMoney(row.invoice_total)}</span>
+        <span className={cn('mt-0.5 block text-[12px] text-black/50', MONO)}>Net {formatMoney(row.net_amount)} · KDV {formatMoney(row.vat_amount)}</span>
+        {warning && (
+          <span className="mt-2 inline-block rounded-full bg-[#F59E0B]/[0.16] px-2 py-0.5 text-[12px] font-medium text-[#92400E]">
+            {warning.kind === 'lines_differ' ? "Lines don't match total" : 'No rental line'}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+};
+
+const PendingInvoicesPage: React.FC = () => {
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('month');
+  const allMonths = requested === ALL_MONTHS;
+  const month = requested && /^\d{4}-\d{2}$/.test(requested) ? requested : currentMonth().slice(0, 7);
+
+  const [invoices, setInvoices] = useState<PendingInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const { filter, toggle, clear } = useUrlFilter(INVOICE_FILTERS);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(null);
+    fetchPendingInvoices()
+      .then((rows) => { if (!cancelled) setInvoices(rows); })
+      .catch((failure: unknown) => { if (!cancelled) setError(failure instanceof Error ? failure.message : 'Try again.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [reload]);
+
+  const setMonth = (next: string) => {
+    const updated = new URLSearchParams(params);
+    updated.set('month', next);
+    setParams(updated);
+    setSelected(new Set());
+  };
+  const moveMonth = (by: number) => setMonth(shiftMonth(`${month}-01`, by).slice(0, 7));
+
+  const inPeriod = useMemo(() => (allMonths ? invoices : invoices.filter((row) => invoiceMonth(row) === month)), [invoices, allMonths, month]);
+  const summary = useMemo(() => invoiceSummary(inPeriod), [inPeriod]);
+  const visible = useMemo(() => inPeriod.filter((row) => inInvoiceFilter(row, filter) && matchesInvoiceSearch(row, query)), [inPeriod, filter, query]);
+  const picked = useMemo(() => visible.filter((row) => selected.has(row.booking_id)), [visible, selected]);
+  const open = invoices.find((row) => row.booking_id === openId) ?? null;
+  const periodLabel = allMonths ? 'All months' : monthLabel(`${month}-01`);
+
+  const pick = (id: number, on: boolean) => setSelected((current) => {
+    const next = new Set(current);
+    if (on) next.add(id);
+    else next.delete(id);
+    return next;
+  });
+
+  const undo = useCallback(async (rows: PendingInvoice[]) => {
+    try {
+      await markInvoiced(rows.map((row) => row.booking_id), false);
+      setInvoices((current) => [...current, ...rows].sort((a, b) => a.end_date.localeCompare(b.end_date) || a.booking_id - b.booking_id));
+      toast.success(rows.length === 1 ? 'Back in pending.' : `${rows.length} invoices back in pending.`);
+    } catch (failure) {
+      toast.error(`Couldn't undo it: ${failure instanceof Error ? failure.message : 'try again'}`);
+    }
+  }, []);
+
+  const mark = async (rows: PendingInvoice[]) => {
+    const ids = new Set(rows.map((row) => row.booking_id));
+    setBusy(true);
+    try {
+      await markInvoiced(Array.from(ids), true);
+      setInvoices((current) => current.filter((row) => !ids.has(row.booking_id)));
+      setSelected(new Set());
+      setOpenId(null);
+      toast.success(rows.length === 1 ? `${rows[0].booking_number} marked as invoiced.` : `${rows.length} bookings marked as invoiced.`, { label: 'Undo', onClick: () => undo(rows) });
+    } catch (failure) {
+      toast.error(`Couldn't mark it: ${failure instanceof Error ? failure.message : 'try again'}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportCsv = () => downloadCsv(`pending-invoices-${allMonths ? 'all' : month}.csv`, invoicesCsv(inPeriod));
+
+  return (
+    <div className="media-scope mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+      <PageHeader eyebrow="Finance" title="Pending invoices" subtitle="Completed bookings reported to KABIS, waiting for an e-Fatura." />
+
+      <div className="mb-4 flex max-w-[1100px] flex-wrap items-center justify-between gap-3">
+        <div className={cn('flex flex-wrap items-center gap-3', allMonths && 'opacity-60')}>
+          <MonthNav label={monthLabel(`${month}-01`)} justify="flex-start" onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant={allMonths ? 'default' : 'outline'} size="lg" aria-pressed={allMonths} className="!h-11 px-3 md:!h-10" onClick={() => setMonth(allMonths ? currentMonth().slice(0, 7) : ALL_MONTHS)}>All months</Button>
+          <Button variant="outline" size="lg" className="!h-11 px-3 md:!h-10" disabled={inPeriod.length === 0} onClick={exportCsv}>{allMonths ? 'Export all (CSV)' : 'Export month (CSV)'}</Button>
         </div>
       </div>
 
-      {/* ── KPI cards ─────────────────────────────────────────────────────── */}
-      {!loading && !error && (
-        <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
-          {/* Total */}
-          <div style={{ background: 'var(--surface)', borderRadius: 13, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 16, minWidth: 170 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 11, background: rows.length > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {rows.length > 0 ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#dc2626' }}>
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                  <path d="M12 18v-1M12 15V9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                </svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#16a34a' }}>
-                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M22 4L12 14.01l-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
-            </div>
-            <div>
-              <div style={{ fontSize: 28, fontWeight: 600, color: rows.length > 0 ? '#dc2626' : '#16a34a', letterSpacing: '-0.8px', lineHeight: 1 }}>{rows.length}</div>
-              <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 4 }}>invoices pending</div>
-            </div>
-          </div>
+      {error && <LoadError message={`Couldn't load pending invoices: ${error}`} onRetry={() => { setLoading(true); setReload((value) => value + 1); }} />}
 
-          {over14 > 0 && (
-            <div style={{ background: 'white', borderRadius: 13, border: '1px solid rgba(220,38,38,0.18)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 14, minWidth: 150 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }}/>
-              <div>
-                <div style={{ fontSize: 24, fontWeight: 600, color: '#dc2626', letterSpacing: '-0.5px', lineHeight: 1 }}>{over14}</div>
-                <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 4 }}>over 14 days</div>
-              </div>
+      {!error && (loading ? <FilterTileSkeleton count={5} /> : (
+        <FilterTileRow label="Filter invoices">
+          <FilterTile tone="blue" mono icon={<ReceiptIcon size={15} />} label="Pending" value={String(summary.count)} sub={summary.count === 1 ? 'booking' : 'bookings'} active={filter === 'all'} onClick={clear} />
+          <FilterTile tone="teal" mono icon={<WalletIcon size={15} />} label="Total to invoice" value={formatMoney(summary.total)} sub={`${summary.ready} with an amount`} active={filter === 'ready'} onClick={() => toggle('ready')} />
+          <FilterTile tone="neutral" mono icon={<WalletIcon size={15} />} label="Net" value={formatMoney(summary.net)} sub="excl. KDV" />
+          <FilterTile tone="neutral" mono icon={<WalletIcon size={15} />} label="KDV" value={formatMoney(summary.vat)} sub="20%" />
+          <FilterTile tone="amber" mono bareIcon icon={<ComplianceTriangle tone="amber" size={32} />} label="Missing amount" value={String(summary.missing)} sub="no rental line" active={filter === 'missing'} onClick={() => toggle('missing')} />
+        </FilterTileRow>
+      ))}
+
+      {!error && (
+        <>
+          <SearchField value={query} onChange={setQuery} placeholder="Search name, plate, booking or ID number" className="mt-4 max-w-[420px]" />
+
+          {picked.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-[#6EA4E7]/[0.1] px-3 py-1.5 text-[13px]">
+              <span className="font-medium text-foreground">{picked.length} selected</span>
+              <Button size="lg" className="!h-11 px-3 md:!h-9" disabled={busy} onClick={() => mark(picked)}>{busy && <Spinner size={13} />} Mark selected as invoiced</Button>
+              <button type="button" onClick={() => setSelected(new Set())} className="min-h-[44px] text-[12.5px] font-medium text-black/55 hover:underline md:min-h-[36px]">Clear</button>
             </div>
           )}
 
-          {over7 > 0 && (
-            <div style={{ background: 'white', borderRadius: 13, border: '1px solid rgba(217,119,6,0.18)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 14, minWidth: 150 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#d97706', flexShrink: 0 }}/>
-              <div>
-                <div style={{ fontSize: 24, fontWeight: 600, color: '#d97706', letterSpacing: '-0.5px', lineHeight: 1 }}>{over7}</div>
-                <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 4 }}>7 – 14 days</div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Error banner ─────────────────────────────────────────────────── */}
-      {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '18px 22px', marginBottom: 22, display: 'flex', alignItems: 'center', gap: 14 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#dc2626', flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
-            <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#991b1b', marginBottom: 2 }}>Failed to load</div>
-            <div style={{ fontSize: 12.5, color: '#dc2626' }}>{error}</div>
-          </div>
-          <button
-            onClick={load}
-            style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #fecaca', background: 'white', color: '#dc2626', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* ── Table ────────────────────────────────────────────────────────── */}
-      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 900 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={thStyle}>Booking #</th>
-                <th style={thStyle}>Customer</th>
-                <th style={thStyle}>Car</th>
-                <th
-                  style={{ ...thStyle, cursor: 'pointer' }}
-                  onClick={() => toggleSort('end_date')}
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    Period <SortIcon active={sortKey === 'end_date'} dir={sortDir} />
-                  </span>
-                </th>
-                <th
-                  style={{ ...thStyle, cursor: 'pointer' }}
-                  onClick={() => toggleSort('end_date')}
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    Days Waiting <SortIcon active={sortKey === 'end_date'} dir={sortDir} />
-                  </span>
-                </th>
-                <th style={thStyle}>KABİS</th>
-                <th style={thStyle}>Invoice</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}></th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
-              ) : displayed.length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: '72px 0', textAlign: 'center' }}>
-                    <div style={{ width: 54, height: 54, borderRadius: 14, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style={{ color: '#16a34a' }}>
-                        <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M22 4L12 14.01l-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 5 }}>
-                      {search ? 'No matching bookings' : 'All caught up!'}
-                    </div>
-                    <div style={{ fontSize: 13, color: '#9ca3af' }}>
-                      {search ? 'Try a different search term' : 'No pending invoices. Finance is up to date.'}
-                    </div>
-                  </td>
-                </tr>
+          <div className="mt-3">
+            {loading ? <div className="rounded-xl border border-subtle bg-surface"><SkeletonRows count={5} /></div>
+              : visible.length === 0 ? (
+                <div className="rounded-xl border border-subtle bg-surface px-4 py-8 text-center text-[13.5px] text-black/45">
+                  {inPeriod.length > 0 ? 'No invoices in this view.' : invoices.length === 0 ? 'Nothing is waiting for an invoice.' : (
+                    <>
+                      <p>Nothing pending for {periodLabel}.</p>
+                      <button type="button" onClick={() => setMonth(ALL_MONTHS)} className="mt-1 min-h-[44px] font-medium text-[#3A74C2] hover:underline">
+                        {invoices.length === 1 ? 'Show 1 pending in another month' : `Show ${invoices.length} pending in other months`}
+                      </button>
+                    </>
+                  )}
+                </div>
               ) : (
-                displayed.map(row => {
-                  const days = daysSince(row.end_date);
-                  const isMarking = markingId === row.id;
-                  return (
-                    <tr
-                      key={row.id}
-                      className="pi-tr"
-                      style={{ borderBottom: '1px solid #f5f5f5', opacity: isMarking ? 0.35 : 1 }}
-                    >
-                      {/* Booking # */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.3px' }}>
-                          {row.booking_number}
-                        </span>
-                      </td>
-
-                      {/* Customer */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontSize: 13, fontWeight: 500, color: '#0f1117' }}>{row.customer_name}</span>
-                      </td>
-
-                      {/* Car */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <span className="font-mono tabular-nums" style={{ background: '#f3f4f6', borderRadius: 6, padding: '3px 7px', fontSize: 11.5, fontWeight: 600, color: '#374151', letterSpacing: '0.5px' }}>
-                            {row.plate}
-                          </span>
-                          <span style={{ fontSize: 13, color: '#6b7280' }}>{row.car_model}</span>
-                        </div>
-                      </td>
-
-                      {/* Period */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontSize: 12.5, color: '#6b7280' }}>
-                          {fmtDate(row.start_date)} → {fmtDate(row.end_date)}
-                        </span>
-                      </td>
-
-                      {/* Days waiting */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          background: urgencyBg(days),
-                          color: urgencyColor(days),
-                          fontWeight: 600, fontSize: 12,
-                          padding: '3px 9px', borderRadius: 6,
-                        }}>
-                          {days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`}
-                        </span>
-                      </td>
-
-                      {/* KABİS */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(22,163,74,0.08)', color: '#16a34a', fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 6 }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          Reported
-                        </span>
-                      </td>
-
-                      {/* Invoice */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(220,38,38,0.07)', color: '#dc2626', fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(220,38,38,0.15)' }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                          Not issued
-                        </span>
-                      </td>
-
-                      {/* Action */}
-                      <td style={{ padding: '13px 16px', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                        <button
-                          onClick={() => markInvoiced(row)}
-                          disabled={isMarking}
-                          className="pi-mark-btn"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '6px 13px', borderRadius: 8,
-                            border: '1px solid #EBEBEB',
-                            background: '#fff', color: 'var(--foreground)',
-                            fontSize: 12.5, fontWeight: 600,
-                            cursor: isMarking ? 'not-allowed' : 'pointer',
-                            fontFamily: 'inherit',
-                            opacity: isMarking ? 0.5 : 1,
-                          }}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                            <path d="M9 13l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          Mark invoiced
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
+                <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {visible.map((row) => <InvoiceCard key={row.booking_id} row={row} picked={selected.has(row.booking_id)} onPick={(on) => pick(row.booking_id, on)} onOpen={() => setOpenId(row.booking_id)} />)}
+                </ul>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          </div>
+        </>
+      )}
 
-      {toast && <Toast {...toast} />}
+      {open && <InvoiceSheet row={open} busy={busy} onClose={() => setOpenId(null)} onMark={() => mark([open])} />}
+      <MediaToaster />
     </div>
   );
 };

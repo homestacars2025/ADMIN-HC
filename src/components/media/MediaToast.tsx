@@ -12,10 +12,16 @@ import { AlertTriangle, CheckCircle2, Info, X } from './MediaIcons';
 
 export type ToastKind = 'success' | 'error' | 'warning';
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastRecord {
   id: number;
   kind: ToastKind;
   message: string;
+  action?: ToastAction;
   leaving?: boolean;
 }
 
@@ -24,13 +30,13 @@ type Listener = (record: Omit<ToastRecord, 'leaving'>) => void;
 let nextId = 1;
 const listeners = new Set<Listener>();
 
-function emit(kind: ToastKind, message: string) {
-  const record = { id: nextId++, kind, message };
+function emit(kind: ToastKind, message: string, action?: ToastAction) {
+  const record = { id: nextId++, kind, message, action };
   listeners.forEach((listener) => listener(record));
 }
 
 export const toast = {
-  success: (message: string) => emit('success', message),
+  success: (message: string, action?: ToastAction) => emit('success', message, action),
   error: (message: string) => emit('error', message),
   warning: (message: string) => emit('warning', message),
 };
@@ -42,6 +48,8 @@ const KIND_STYLES: Record<ToastKind, { ring: string; icon: string }> = {
 };
 
 const DURATION = 4000;
+/** Long enough to read it, change your mind and reach the button. */
+const ACTION_DURATION = 9000;
 
 export const MediaToaster: React.FC = () => {
   const [items, setItems] = useState<ToastRecord[]>([]);
@@ -61,7 +69,7 @@ export const MediaToaster: React.FC = () => {
   useEffect(() => {
     const listener: Listener = (record) => {
       setItems((prev) => [...prev, record]);
-      const timeout = setTimeout(() => dismiss(record.id), DURATION);
+      const timeout = setTimeout(() => dismiss(record.id), record.action ? ACTION_DURATION : DURATION);
       timers.current.set(record.id, [...(timers.current.get(record.id) ?? []), timeout]);
     };
     listeners.add(listener);
@@ -103,6 +111,15 @@ export const MediaToaster: React.FC = () => {
           >
             <Icon size={15} strokeWidth={2} className={cn('mt-px shrink-0', styles.icon)} />
             <p className="flex-1 text-[12.5px] leading-relaxed text-black/75">{item.message}</p>
+            {item.action && (
+              <button
+                type="button"
+                onClick={() => { dismiss(item.id); item.action?.onClick(); }}
+                className="-my-1 shrink-0 rounded-md px-1.5 py-1 text-[12.5px] font-semibold text-[#3A74C2] hover:bg-black/[0.05]"
+              >
+                {item.action.label}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => dismiss(item.id)}

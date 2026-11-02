@@ -20,28 +20,39 @@ export const FilterTile: React.FC<{
   label: string;
   value: string;
   sub: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-}> = ({ tone, icon, bareIcon, label, value, sub, active, onClick }) => (
-  <button
-    type="button"
-    aria-pressed={active}
-    onClick={onClick}
-    className={cn('filter-tile tile-depth', `tile-${tone}`, active && 'is-active')}
-  >
-    {active && (
-      <span aria-hidden="true" className="filter-tile-check"><Check size={11} strokeWidth={3} /></span>
-    )}
-    <span className="filter-tile-head">
-      <span aria-hidden="true" className={cn('filter-tile-icon', bareIcon && 'is-bare')}>{icon}</span>
-      <span className="filter-tile-label">{label}</span>
-    </span>
-    <span className="filter-tile-bottom">
-      <span className="filter-tile-value" style={{ '--chars': value.length } as React.CSSProperties}>{value}</span>
-      <span className="filter-tile-sub">{sub}</span>
-    </span>
-  </button>
-);
+  /** Geist Mono for the big figure, where a page sets its numbers that way. */
+  mono?: boolean;
+  /** Leave both out for a tile with nothing to filter, which is then not a button. */
+  active?: boolean;
+  onClick?: () => void;
+}> = ({ tone, icon, bareIcon, label, value, sub, mono, active = false, onClick }) => {
+  const content = (
+    <>
+      {active && (
+        <span aria-hidden="true" className="filter-tile-check"><Check size={11} strokeWidth={3} /></span>
+      )}
+      <span className="filter-tile-head">
+        <span aria-hidden="true" className={cn('filter-tile-icon', bareIcon && 'is-bare')}>{icon}</span>
+        <span className="filter-tile-label">{label}</span>
+      </span>
+      <span className="filter-tile-bottom">
+        <span className={cn('filter-tile-value', mono && 'font-mono')} style={{ '--chars': value.length } as React.CSSProperties}>{value}</span>
+        <span className="filter-tile-sub">{sub}</span>
+      </span>
+    </>
+  );
+  if (!onClick) return <div className={cn('filter-tile tile-depth !cursor-default', `tile-${tone}`)}>{content}</div>;
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn('filter-tile tile-depth', `tile-${tone}`, active && 'is-active')}
+    >
+      {content}
+    </button>
+  );
+};
 
 export const FilterTileSkeleton: React.FC<{ count?: number; columns?: 6 | 7 }> = ({ count = 5, columns }) => (
   <FilterTileRow columns={columns}>
