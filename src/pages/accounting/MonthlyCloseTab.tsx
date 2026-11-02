@@ -38,6 +38,7 @@ import {
   PLACE_LABELS,
   rowPlace,
   sortCloseRows,
+  splitClosedMonth,
   stampLabel,
   TRACKED_FROM,
   unknownPayments,
@@ -65,6 +66,10 @@ const PLACE_PILL: Record<MoneyPlace, string> = {
 
 const PlacePill: React.FC<{ place: MoneyPlace; title?: string; label?: string }> = ({ place, title, label }) => (
   <span title={title} className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium', PLACE_PILL[place])}>{label ?? PLACE_LABELS[place]}</span>
+);
+
+const LateChip: React.FC = () => (
+  <span className="whitespace-nowrap rounded-full bg-[#F59E0B]/[0.18] px-1.5 py-0.5 text-[11.5px] font-medium text-[#92400E]">Added after close</span>
 );
 
 const RECEIVE_BUTTON = 'inline-flex min-h-[44px] items-center whitespace-nowrap text-[12px] font-medium text-primary hover:underline xl:min-h-[24px]';
@@ -114,17 +119,17 @@ const Money: React.FC<{ value: number; className?: string }> = ({ value, classNa
   <td className={cn('whitespace-nowrap px-2 py-2 text-end tabular-nums', className)}>{formatMoney(value)}</td>
 );
 
-const HEADERS: Array<{ key: CloseSort; label: string; end?: boolean }> = [
-  { key: 'booking', label: 'Booking' },
-  { key: 'type', label: 'Type' },
-  { key: 'customer', label: 'Customer' },
-  { key: 'plate', label: 'Plate' },
-  { key: 'rental', label: 'Rental', end: true },
-  { key: 'paid', label: 'Paid', end: true },
-  { key: 'deposit', label: 'Deposit', end: true },
-  { key: 'remaining', label: 'Remaining', end: true },
-  { key: 'first', label: 'Where it went first' },
-  { key: 'now', label: 'Where it is now' },
+const HEADERS: Array<{ columns: Array<{ key: CloseSort; label: string }>; end?: boolean }> = [
+  { columns: [{ key: 'booking', label: 'Booking' }] },
+  { columns: [{ key: 'type', label: 'Type' }, { key: 'period', label: 'Period' }] },
+  { columns: [{ key: 'customer', label: 'Customer' }] },
+  { columns: [{ key: 'plate', label: 'Plate' }] },
+  { columns: [{ key: 'rental', label: 'Rental' }], end: true },
+  { columns: [{ key: 'paid', label: 'Paid' }], end: true },
+  { columns: [{ key: 'deposit', label: 'Deposit' }], end: true },
+  { columns: [{ key: 'remaining', label: 'Remaining' }], end: true },
+  { columns: [{ key: 'first', label: 'Where it went first' }] },
+  { columns: [{ key: 'now', label: 'Where it is now' }] },
 ];
 
 const CHECKED_CELL = 'sticky end-0 bg-surface shadow-[-1px_0_0_rgba(0,0,0,0.05)]';
@@ -138,6 +143,7 @@ export const MonthlyCloseTab: React.FC = () => {
   const oldMonth = month < TRACKED_FROM;
 
   const [rows, setRows] = useState<MonthEvent[]>([]);
+  const [late, setLate] = useState<MonthEvent[]>([]);
   const [closing, setClosing] = useState<MonthClosing | null>(null);
   const [people, setPeople] = useState<Record<string, ProfileOption>>({});
   const [loading, setLoading] = useState(true);
@@ -155,7 +161,7 @@ export const MonthlyCloseTab: React.FC = () => {
   monthNow.current = month;
 
   const { filter, toggle, clear } = useUrlFilter(CLOSE_FILTERS);
-  const sort = useUrlSort<CloseSort>(CLOSE_SORTS, { key: 'created', direction: 'asc' }, closeSortFirstDirection);
+  const sort = useUrlSort<CloseSort>(CLOSE_SORTS, { key: 'period', direction: 'asc' }, closeSortFirstDirection);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,15 +169,17 @@ export const MonthlyCloseTab: React.FC = () => {
     setOpen(new Set());
     setSelected(new Set());
     setRows([]);
+    setLate([]);
     setClosing(null);
     setLoading(true);
     Promise.all([fetchMonthEvents(month), fetchMonthClosing(month)])
       .then(async ([live, closed]) => {
-        const events = closed?.rows ?? live;
-        const ids = [...events.map((row) => row.checked_by), closed?.closed_by];
+        const { frozen, late: added } = closed ? splitClosedMonth(live, closed) : { frozen: live, late: [] };
+        const ids = [...frozen.map((row) => row.checked_by), closed?.closed_by];
         const profiles = await getAvatarProfiles(Array.from(new Set(ids.filter((id): id is string => Boolean(id)))));
         if (cancelled) return;
-        setRows(events);
+        setRows(frozen);
+        setLate(added);
         setClosing(closed);
         setPeople(profiles);
       })
@@ -199,12 +207,15 @@ export const MonthlyCloseTab: React.FC = () => {
   };
 
   const summary = useMemo(() => monthSummary(rows), [rows]);
+  const lateIds = useMemo(() => new Set(late.map((row) => row.event_id)), [late]);
   const visible = useMemo(() => sortCloseRows(
-    rows.filter((row) => inCloseFilter(row, filter) && matchesCloseSearch(row, query)),
+    [...rows, ...late].filter((row) => inCloseFilter(row, filter) && matchesCloseSearch(row, query)),
     sort.key,
     sort.direction,
-  ), [rows, filter, query, sort.key, sort.direction]);
-  const totals = useMemo(() => monthSummary(visible), [visible]);
+  ), [rows, late, filter, query, sort.key, sort.direction]);
+  // Late rows are listed, but the frozen figures don't move for them.
+  const totals = useMemo(() => monthSummary(visible.filter((row) => !lateIds.has(row.event_id))), [visible, lateIds]);
+  const lateShown = visible.length - totals.total;
 
   const name = useCallback((id: string | null) => (id ? people[id]?.full_name ?? (id === profile?.id ? profile.full_name : null) ?? '' : ''), [people, profile]);
   const closed = Boolean(closing);
@@ -320,6 +331,12 @@ export const MonthlyCloseTab: React.FC = () => {
       </div>
 
       {closing?.note && <p className="mb-3 max-w-[1100px] break-words text-[13px] text-black/55">Note: {closing.note}</p>}
+      {late.length > 0 && (
+        <div role="alert" className="mb-3 flex max-w-[1100px] flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-[#DC2626]/[0.08] px-3 py-1.5 text-[13.5px] font-medium text-[#B91C1C]">
+          <span>{late.length === 1 ? '1 row was' : `${late.length} rows were`} added after this month was closed</span>
+          {isAdmin && <Button variant="outline" size="lg" className="!h-11 bg-white px-3 md:!h-9" onClick={askReopen}>Reopen to review</Button>}
+        </div>
+      )}
       {oldMonth && !error && <p className="mb-3 max-w-[1100px] text-[13px] text-black/55">Old month — payments with unknown destination stay Unknown until you confirm you received them. Review remaining amounts before closing.</p>}
       {error && <LoadError message={`Couldn't load the monthly close: ${error}`} onRetry={refresh} />}
 
@@ -345,6 +362,7 @@ export const MonthlyCloseTab: React.FC = () => {
 
       {showFigures && (
         <>
+          {!loading && month === currentMonth().slice(0, 7) && <p className="mt-3 text-[12.5px] text-black/50">Rows appear by start date — bookings and extensions starting this month.</p>}
           <SearchField value={query} onChange={setQuery} placeholder="Search booking, customer or plate" className="mt-4 max-w-[420px]" />
           {canMark && picked.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-primary/[0.06] px-3 py-1.5 text-[13px]">
@@ -357,7 +375,7 @@ export const MonthlyCloseTab: React.FC = () => {
             {loading ? <div className="rounded-xl border border-subtle bg-surface"><SkeletonRows count={5} /></div>
               : visible.length === 0 ? (
                 <p className="rounded-xl border border-subtle bg-surface px-4 py-8 text-center text-[13.5px] text-black/45">
-                  {rows.length === 0 ? 'No bookings or extensions were created this month.' : filter === 'unchecked' && !query ? 'Every row is checked.' : 'No rows in this view.'}
+                  {rows.length === 0 && late.length === 0 ? 'No bookings or extensions start this month.' : filter === 'unchecked' && !query ? 'Every row is checked.' : 'No rows in this view.'}
                 </p>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-subtle bg-surface">
@@ -378,7 +396,7 @@ export const MonthlyCloseTab: React.FC = () => {
                             </label>
                           </th>
                         )}
-                        {HEADERS.map((column) => <SortHeader key={column.key} columns={[column]} sort={sort} end={column.end} />)}
+                        {HEADERS.map((header) => <SortHeader key={header.columns[0].key} columns={header.columns} sort={sort} end={header.end} />)}
                         <th scope="col" aria-sort={sort.key === 'checked' ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={cn('whitespace-nowrap px-2 py-1.5 text-start text-[11.5px] font-medium', CHECKED_CELL)}>
                           <button type="button" onClick={() => sort.sortBy('checked')} className={cn('inline-flex min-h-[28px] items-center gap-1', sort.key === 'checked' ? 'font-semibold text-primary' : 'text-black/45 hover:text-foreground')}>Checked</button>
                         </th>
@@ -391,10 +409,11 @@ export const MonthlyCloseTab: React.FC = () => {
                         const more = row.payments.length - 1;
                         const expanded = open.has(row.event_id);
                         const rowUnknown = unknownPayments([row]);
+                        const added = lateIds.has(row.event_id);
                         const who = row.checked_by ? people[row.checked_by] ?? (row.checked_by === profile?.id ? profile : null) : null;
                         return (
                           <React.Fragment key={row.event_id}>
-                            <tr className={cn('border-b border-subtle', expanded && 'bg-black/[0.015]')}>
+                            <tr className={cn('border-b border-subtle', added ? 'bg-[#F59E0B]/[0.08]' : expanded && 'bg-black/[0.015]')}>
                               {canMark && (
                                 <td className="ps-2">
                                   {rowUnknown.length > 0 && (
@@ -408,6 +427,7 @@ export const MonthlyCloseTab: React.FC = () => {
                                 <span className="flex flex-wrap items-center gap-1">
                                   <span className="whitespace-nowrap font-mono text-[12px] font-semibold text-foreground">{bookingLabel(row)}</span>
                                   {row.kind === 'extension' && <span className="whitespace-nowrap rounded-full bg-[#8B5CF6]/[0.12] px-1.5 py-0.5 text-[11.5px] font-medium text-[#5B21B6]">Ext #{row.event_no}</span>}
+                                  {added && <LateChip />}
                                 </span>
                               </td>
                               <td className="px-2 py-2">
@@ -441,7 +461,7 @@ export const MonthlyCloseTab: React.FC = () => {
                                 {place ? <PlacePill place={place} title={first ? nowLabel(first) : undefined} /> : <span className="text-black/25">—</span>}
                                 {canMark && rowUnknown.length > 0 && <button type="button" onClick={() => setMarking(rowUnknown)} className={cn(RECEIVE_BUTTON, 'flex')}>Mark all received</button>}
                               </td>
-                              <td className={cn('px-2 py-1', CHECKED_CELL)}>
+                              <td className={cn('px-2 py-1', CHECKED_CELL, added && '!bg-[#FEF6E7]')}>
                                 <span className="flex items-center gap-1.5">
                                   <button
                                     type="button"
@@ -479,7 +499,7 @@ export const MonthlyCloseTab: React.FC = () => {
                     </tbody>
                     <tfoot>
                       <tr className="font-semibold text-foreground">
-                        <td colSpan={canMark ? 5 : 4} className="px-2 py-2.5">Total ({totals.total} {totals.total === 1 ? 'row' : 'rows'})</td>
+                        <td colSpan={canMark ? 5 : 4} className="px-2 py-2.5">Total ({totals.total} {totals.total === 1 ? 'row' : 'rows'}{lateShown > 0 && ` · ${lateShown} added after close not counted`})</td>
                         <Money value={totals.revenue} />
                         <Money value={totals.collected} />
                         <Money value={totals.deposits} />
@@ -498,7 +518,7 @@ export const MonthlyCloseTab: React.FC = () => {
       {closingSheet && (
         <ReasonSheet
           title={`Close ${monthLabel(`${month}-01`)}?`}
-          description={`All ${summary.total} rows are checked. Closing locks the ticks and freezes these figures until someone reopens the month.${unknown.length > 0 ? ` ${formatMoney(sumTry(unknown))} is still Unknown and stays that way in the closed month.` : ''}${month === currentMonth().slice(0, 7) ? " This month isn't over yet, so anything created later needs a reopen to be ticked." : ''}`}
+          description={`All ${summary.total} rows are checked. Closing locks the ticks and freezes these figures until someone reopens the month.${unknown.length > 0 ? ` ${formatMoney(sumTry(unknown))} is still Unknown and stays that way in the closed month.` : ''}${month >= currentMonth().slice(0, 7) ? " This month isn't over yet, so anything added later needs a reopen to be ticked." : ''}`}
           label="Note (optional)"
           confirmLabel="Close month"
           optional

@@ -9,6 +9,7 @@ import {
   periodLabel,
   rowPlace,
   sortCloseRows,
+  splitClosedMonth,
   unknownPayments,
   type EventPayment,
   type MonthEvent,
@@ -127,12 +128,51 @@ describe('sortCloseRows', () => {
     expect(ids(sortCloseRows(rows, 'rental', 'desc'))).toEqual([1, 2]);
     expect(ids(sortCloseRows(rows, 'rental', 'asc'))).toEqual([2, 1]);
     expect(ids(sortCloseRows(rows, 'customer', 'asc'))).toEqual([2, 1]);
-    expect(ids(sortCloseRows(rows, 'created', 'asc'))).toEqual([2, 1]);
+    expect(ids(sortCloseRows(rows, 'customer', 'desc'))).toEqual([1, 2]);
   });
 
   it('leaves the list it was given alone', () => {
     sortCloseRows(rows, 'rental', 'asc');
     expect(ids(rows)).toEqual([1, 2]);
+  });
+});
+
+describe('sorting by period start', () => {
+  it('orders by the day the row belongs to, not when it was entered', () => {
+    const rows = [
+      event({ event_id: 1, period_start: '2026-11-20', created_at: '2026-10-01T09:00:00Z' }),
+      event({ event_id: 2, period_start: '2026-11-03', created_at: '2026-11-02T09:00:00Z' }),
+      event({ event_id: 3, period_start: null, created_at: '2026-11-10T09:00:00Z' }),
+    ];
+    expect(sortCloseRows(rows, 'period', 'asc').map((row) => row.event_id)).toEqual([2, 3, 1]);
+  });
+});
+
+describe('splitClosedMonth', () => {
+  const closedAt = '2026-12-01T09:00:00Z';
+  const kept = event({ event_id: 1, created_at: '2026-11-02T09:00:00Z', rental_amount: 1000 });
+  const added = event({ event_id: 2, created_at: '2026-12-05T09:00:00Z' });
+
+  it('keeps the snapshot as it was and sets late rows beside it', () => {
+    const live = [{ ...kept, rental_amount: 9999 }, added];
+    const { frozen, late } = splitClosedMonth(live, { closed_by: null, closed_at: closedAt, note: null, rows: [kept] });
+    expect(frozen).toEqual([kept]);
+    expect(late.map((row) => row.event_id)).toEqual([2]);
+  });
+
+  it('finds nothing late when nothing was added', () => {
+    expect(splitClosedMonth([kept], { closed_by: null, closed_at: closedAt, note: null, rows: [kept] }).late).toEqual([]);
+  });
+
+  it('never counts a snapshot row twice', () => {
+    const closing = { closed_by: null, closed_at: closedAt, note: null, rows: [added] };
+    expect(splitClosedMonth([added], closing).late).toEqual([]);
+  });
+
+  it('still separates them on a closing with no snapshot', () => {
+    const { frozen, late } = splitClosedMonth([kept, added], { closed_by: null, closed_at: closedAt, note: null, rows: null });
+    expect(frozen.map((row) => row.event_id)).toEqual([1]);
+    expect(late.map((row) => row.event_id)).toEqual([2]);
   });
 });
 

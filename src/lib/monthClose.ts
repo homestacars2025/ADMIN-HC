@@ -138,6 +138,18 @@ export const unknownPayments = (rows: Array<Pick<MonthEvent, 'payments'>>): Even
   rows.flatMap((row) => row.payments).filter((payment) => payment.now === 'unknown')
 );
 
+/**
+ * A closed month keeps its snapshot. Anything entered after it closed isn't in there, so it's
+ * listed beside it rather than mixed in, and the frozen figures stay as they were.
+ */
+export function splitClosedMonth(live: MonthEvent[], closing: MonthClosing): { frozen: MonthEvent[]; late: MonthEvent[] } {
+  const closedAt = Date.parse(closing.closed_at);
+  const inSnapshot = new Set(closing.rows?.map((row) => row.event_id));
+  const late = live.filter((row) => Date.parse(row.created_at) > closedAt && !inSnapshot.has(row.event_id));
+  const lateIds = new Set(late.map((row) => row.event_id));
+  return { frozen: closing.rows ?? live.filter((row) => !lateIds.has(row.event_id)), late };
+}
+
 export function monthSummary(rows: MonthEvent[]) {
   const checked = rows.filter((row) => row.checked_at).length;
   return {
@@ -178,7 +190,7 @@ export function matchesCloseSearch(row: MonthEvent, query: string): boolean {
   return !wanted || [row.booking_number, row.customer_name, row.plate].some((text) => squeeze(text).includes(wanted));
 }
 
-export const CLOSE_SORTS = ['created', 'booking', 'type', 'customer', 'plate', 'rental', 'paid', 'deposit', 'remaining', 'first', 'now', 'checked'] as const;
+export const CLOSE_SORTS = ['period', 'booking', 'type', 'customer', 'plate', 'rental', 'paid', 'deposit', 'remaining', 'first', 'now', 'checked'] as const;
 export type CloseSort = typeof CLOSE_SORTS[number];
 
 const NUMERIC: readonly CloseSort[] = ['rental', 'paid', 'deposit', 'remaining'];
@@ -198,7 +210,8 @@ function sortValue(row: MonthEvent, key: CloseSort): string | number {
     case 'first': return row.payments[0]?.first_account ?? '';
     case 'now': { const place = rowPlace(row); return place ? PLACE_LABELS[place] : ''; }
     case 'checked': return row.checked_at ?? '';
-    default: return row.created_at;
+    // The same day the database files the row under.
+    default: return row.period_start ?? row.created_at.slice(0, 10);
   }
 }
 
