@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { DAY_LIST_TITLES, DAY_LISTS, fetchDayList, type DayList } from '../lib/adminDashboard';
 import { supabase } from '../lib/supabase';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { BannedBadge } from './customers/ui';
@@ -67,33 +68,41 @@ const ActiveBookingsPage: React.FC = () => {
   const [bannedIds, setBannedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [listError, setListError] = useState<string | null>(null);
+  // Home's Today tiles open their own list, so the count on the tile is what's shown here.
+  const [params] = useSearchParams();
+  const requestedList = params.get('list') as DayList | null;
+  const list = requestedList && DAY_LISTS.includes(requestedList) ? requestedList : null;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setListError(null);
 
     (async () => {
       const [{ data, error }, banned] = await Promise.all([
-        supabase.from('active_bookings').select('*').order('end_date', { ascending: true }),
+        list
+          ? fetchDayList(list).then((rows) => ({ data: rows, error: null }), (failure: Error) => ({ data: null, error: failure }))
+          : supabase.from('active_bookings').select('*').order('end_date', { ascending: true }),
         supabase.from('customers').select('id').eq('is_banned', true),
       ]);
 
       if (cancelled) return;
 
       if (error) {
-        console.error('[active_bookings] fetch error:', error);
+        setListError(error.message);
         setRows([]);
         setLoading(false);
         return;
       }
 
-      setRows((data ?? []) as ActiveBookingRow[]);
+      setRows((data ?? []) as unknown as ActiveBookingRow[]);
       setBannedIds(new Set(((banned.data ?? []) as Array<{ id: string }>).map(customer => customer.id)));
       setLoading(false);
     })();
 
     return () => { cancelled = true; };
-  }, []);
+  }, [list]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -118,7 +127,7 @@ const ActiveBookingsPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.5px' }}>
-              Active Bookings
+              {list ? DAY_LIST_TITLES[list] : 'Active Bookings'}
             </h1>
             {!loading && (
               <span style={{
@@ -162,6 +171,8 @@ const ActiveBookingsPage: React.FC = () => {
         </div>
       </div>
 
+      {list && <Link to="/dashboard/bookings/active" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, marginBottom: 4, fontSize: 13, fontWeight: 500, color: '#3A74C2' }}>All active bookings</Link>}
+
       {/* Table */}
       <div style={{
         background: 'var(--surface)', borderRadius: 14,
@@ -204,7 +215,7 @@ const ActiveBookingsPage: React.FC = () => {
                       </svg>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                      {search ? 'No matching bookings' : 'No active bookings right now'}
+                      {listError ? `Couldn't load this list: ${listError}` : search ? 'No matching bookings' : list ? `Nothing in ${DAY_LIST_TITLES[list].toLowerCase()}` : 'No active bookings right now'}
                     </div>
                     <div style={{ fontSize: 12, color: '#9ca3af' }}>
                       {search ? 'Try a different search term' : 'Active rentals will appear here'}

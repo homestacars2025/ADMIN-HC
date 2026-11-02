@@ -17,17 +17,6 @@ export interface ScheduleItem {
 }
 
 export interface AdminHomeData {
-  deliveries: number;
-  deliveriesDone: number;
-  pickups: number;
-  pickupsDone: number;
-  activeRentals: number;
-  carsAvailable: number;
-  carsTotal: number;
-  openIssues: number;
-  pendingKabis: number;
-  staffCustody: number;
-  staffWithCustody: number;
   openTasks: number;
   schedule: ScheduleItem[];
 }
@@ -101,7 +90,7 @@ function failIf(error: { message: string } | null) {
 export async function fetchAdminHome(): Promise<AdminHomeData> {
   const today = istanbulToday();
 
-  const [bookings, operations, active, available, cars, issues, kabis, wallets, tasks] = await Promise.all([
+  const [bookings, operations, tasks] = await Promise.all([
     supabase
       .from('bookings')
       .select('id, booking_number, start_date, end_date, pickup_location, dropoff_location, cars(plate_number), customers(first_name, last_name)')
@@ -113,36 +102,13 @@ export async function fetchAdminHome(): Promise<AdminHomeData> {
       .eq('operation_date', today)
       .in('type', ['DELIVERY', 'PICKUP'])
       .is('deleted_at', null),
-    supabase.from('active_bookings').select('booking_id', { count: 'exact', head: true }),
-    // The same definition as the Parking card on the Cars page.
-    supabase.from('car_availability').select('id', { count: 'exact', head: true }).eq('status', 'parking'),
-    supabase.from('car_availability').select('id', { count: 'exact', head: true }),
-    supabase.from('car_issues').select('id', { count: 'exact', head: true }).eq('status', 'open').is('deleted_at', null),
-    supabase.from('kabis_entries').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('employee_wallet_balances').select('balance'),
     supabase.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['open', 'claimed']),
   ]);
 
-  [bookings, operations, active, available, cars, issues, kabis, wallets, tasks].forEach((r) => failIf(r.error));
-
-  const schedule = buildSchedule(today, (bookings.data ?? []) as BookingRow[], (operations.data ?? []) as OperationRow[]);
-  const deliveries = schedule.filter((s) => s.kind === 'delivery');
-  const pickups = schedule.filter((s) => s.kind === 'pickup');
-  const balances = (wallets.data ?? []).map((w) => Number(w.balance ?? 0));
+  [bookings, operations, tasks].forEach((r) => failIf(r.error));
 
   return {
-    deliveries: deliveries.length,
-    deliveriesDone: deliveries.filter((s) => s.done).length,
-    pickups: pickups.length,
-    pickupsDone: pickups.filter((s) => s.done).length,
-    activeRentals: active.count ?? 0,
-    carsAvailable: available.count ?? 0,
-    carsTotal: cars.count ?? 0,
-    openIssues: issues.count ?? 0,
-    pendingKabis: kabis.count ?? 0,
-    staffCustody: balances.reduce((sum, balance) => sum + balance, 0),
-    staffWithCustody: balances.filter((balance) => balance !== 0).length,
     openTasks: tasks.count ?? 0,
-    schedule,
+    schedule: buildSchedule(today, (bookings.data ?? []) as BookingRow[], (operations.data ?? []) as OperationRow[]),
   };
 }
