@@ -20,6 +20,7 @@ import { SupplierSheet } from './accounting/SupplierSheet';
 import { SuppliersTab } from './accounting/SuppliersTab';
 import { LicensePlate, Segmented } from './bookings/ui';
 import { CurrencyField, PaymentMethod, usePaymentAccounts } from './bookings/PaymentFields';
+import { useCurrentProfile } from '../hooks/useCurrentProfile';
 import { envelopeReceipt, equivalentLabel, isRecordedPayment, NEW_PAYMENT, paymentProblem, recordCustomerPayment, showEnvelopes, type PaymentChoice } from '../lib/payments';
 
 /** Scrolls the row a link pointed at into view. Pair it with `HIGHLIGHT_ROW` on that row. */
@@ -2631,11 +2632,14 @@ const AddCustomerTxModal: React.FC<{
   const [payment, setPayment] = useState<PaymentChoice>(NEW_PAYMENT);
   const accounts = usePaymentAccounts();
   const { rates } = useCurrency();
+  // An admin may record the amount alone. The database lets only admins skip the method.
+  const { profile } = useCurrentProfile();
+  const methodOptional = profile?.role === 'admin';
   // Money coming in has its own form. Charges and refunds stay as they were.
   // Typed by hand as "Other" it's still money received, so it takes the same road.
   const typedType = (form.typePreset === 'other' ? form.typeCustom : form.typePreset).trim().toLowerCase();
   const paymentType = typedType === 'payment' || typedType === 'deposit' ? typedType : null;
-  const paymentIssue = paymentType ? paymentProblem(payment, accounts.list, rates) : null;
+  const paymentIssue = paymentType ? paymentProblem(payment, accounts.list, rates, methodOptional) : null;
 
   const set = (k: keyof AddCustomerTxForm, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
@@ -2795,7 +2799,7 @@ const AddCustomerTxModal: React.FC<{
               {equivalentLabel(parseFloat(form.amount) || 0, payment.currency, rates) && (
                 <p className="text-[12.5px] tabular-nums text-black/55">{equivalentLabel(parseFloat(form.amount) || 0, payment.currency, rates)}</p>
               )}
-              <PaymentMethod choice={payment} accounts={accounts} onChange={setPayment} />
+              <PaymentMethod choice={payment} accounts={accounts} onChange={setPayment} optional={methodOptional} />
             </div>
           )}
 

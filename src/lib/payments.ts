@@ -61,9 +61,13 @@ export function accountsForMethod(accounts: CashAccount[], method: PayMethod, cu
   return accounts.filter((account) => account.is_active && ACCOUNT_KINDS[method].includes(account.kind) && account.currencies.includes(currency));
 }
 
-export function paymentProblem(choice: PaymentChoice, accounts: CashAccount[], rates: Rate[]): string | null {
+/**
+ * `optional` is for an admin, who may record the amount alone: no method and no account
+ * means a ledger row and nothing else. A method, once chosen, still needs its account.
+ */
+export function paymentProblem(choice: PaymentChoice, accounts: CashAccount[], rates: Rate[], optional = false): string | null {
   if (rateOf(rates, choice.currency) === null) return `Today's ${choice.currency} rate hasn't loaded. Reload and try again.`;
-  if (!choice.method) return 'Choose how the money was received.';
+  if (!choice.method) return optional ? null : 'Choose how the money was received.';
   if (choice.accountId === null) return 'Choose where the money went.';
   if (!accountsForMethod(accounts, choice.method, choice.currency).some((account) => account.id === choice.accountId)) return WRONG_ACCOUNT[choice.method];
   return null;
@@ -108,7 +112,8 @@ export async function recordCustomerPayment(input: {
     p_amount: input.amount,
     p_currency: input.choice.currency,
     p_method: input.choice.method,
-    p_account_id: input.choice.accountId,
+    // No method means the amount alone, so no account can ride along with it.
+    p_account_id: input.choice.method ? input.choice.accountId : null,
     p_note: input.note || null,
   });
   if (error) throw new Error(friendlyPaymentError(error.message));

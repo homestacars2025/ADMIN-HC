@@ -14,13 +14,15 @@ import {
   NEW_PAYMENT,
   paymentProblem,
   rateOf,
+  recordCustomerPayment,
   showEnvelopes,
   type EnvelopeReceipt,
   type PaymentChoice,
   type PayMethod,
 } from './payments';
+import { supabase } from './supabase';
 
-jest.mock('./supabase', () => ({ supabase: {} }));
+jest.mock('./supabase', () => ({ supabase: { rpc: jest.fn() } }));
 
 const RATES = [{ currency: 'USD', rate_to_try: 49 }, { currency: 'EUR', rate_to_try: 53 }];
 const account = (over: Partial<CashAccount>): CashAccount => ({
@@ -91,8 +93,30 @@ describe('paymentProblem', () => {
     expect(paymentProblem(choice({ method: 'online', accountId: 1 }), accounts, RATES)).toBe('Choose a bank or payment gateway account.');
   });
 
+  it('lets an admin leave the method empty, but not a chosen method without its account', () => {
+    expect(paymentProblem(NEW_PAYMENT, accounts, RATES, true)).toBeNull();
+    expect(paymentProblem(choice({ method: 'cash' }), accounts, RATES, true)).toBe('Choose where the money went.');
+    expect(paymentProblem(choice({ currency: 'USD' }), [], [], true)).toMatch(/rate/);
+  });
+
   it('needs a rate for foreign money', () => {
     expect(paymentProblem(choice({ currency: 'USD' }), [], [])).toMatch(/rate/);
+  });
+});
+
+describe('recordCustomerPayment', () => {
+  const rpc = supabase.rpc as unknown as jest.Mock;
+
+  it('sends no method and no account for the amount alone', async () => {
+    rpc.mockResolvedValueOnce({ data: { ledger_id: 'l1', amount_try: 400, movement_ref: null, envelope: null }, error: null });
+    await recordCustomerPayment({ bookingId: 7, type: 'payment', amount: 400, choice: { currency: 'TRY', method: null, accountId: 3 } });
+    expect(rpc).toHaveBeenCalledWith('record_customer_payment', expect.objectContaining({ p_method: null, p_account_id: null }));
+  });
+
+  it('keeps the account that goes with a method', async () => {
+    rpc.mockResolvedValueOnce({ data: { ledger_id: 'l2', amount_try: 400, movement_ref: 'MOV-1', envelope: null }, error: null });
+    await recordCustomerPayment({ bookingId: 7, type: 'payment', amount: 400, choice: { currency: 'TRY', method: 'card', accountId: 6 } });
+    expect(rpc).toHaveBeenLastCalledWith('record_customer_payment', expect.objectContaining({ p_method: 'card', p_account_id: 6 }));
   });
 });
 

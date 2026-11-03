@@ -81,13 +81,17 @@ export const PaymentAmount: React.FC<{
   );
 };
 
-/** How the money came in, then where it went. Forms keep Save disabled until both are answered. */
+/**
+ * How the money came in, then where it went. Forms keep Save disabled until both are
+ * answered, unless `optional`: an admin can leave the method empty, or tap it again to clear it.
+ */
 export const PaymentMethod: React.FC<{
   choice: PaymentChoice;
   accounts: PaymentAccounts;
   onChange: (choice: PaymentChoice) => void;
   onSkip?: () => void;
-}> = ({ choice, accounts, onChange, onSkip }) => {
+  optional?: boolean;
+}> = ({ choice, accounts, onChange, onSkip, optional = false }) => {
   const { rates } = useCurrency();
   const headingId = useId();
   const options = useMemo(
@@ -104,13 +108,13 @@ export const PaymentMethod: React.FC<{
   }, [options, choice, accounts.loading, onChange]);
 
   const nowhereToPut = Boolean(choice.method) && !accounts.loading && options.length === 0;
-  const problem = accounts.loading || nowhereToPut ? null : paymentProblem(choice, accounts.list, rates);
+  const problem = accounts.loading || nowhereToPut ? null : paymentProblem(choice, accounts.list, rates, optional);
 
   return (
     <div className="flex flex-col gap-3 sm:col-span-2">
       <div>
         <div className="mb-1.5 flex min-h-[20px] items-center justify-between gap-2">
-          <span id={headingId} className="text-[12.5px] font-medium text-black/65">How did you receive the money?<span className="ms-0.5 text-[#DC2626]">*</span></span>
+          <span id={headingId} className="text-[12.5px] font-medium text-black/65">How did you receive the money?{!optional && <span className="ms-0.5 text-[#DC2626]">*</span>}</span>
           {onSkip && <button type="button" onClick={onSkip} className="-my-3 min-h-[44px] whitespace-nowrap text-[12.5px] font-medium text-primary hover:underline">Not paid yet</button>}
         </div>
         <div role="group" aria-labelledby={headingId} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -119,7 +123,10 @@ export const PaymentMethod: React.FC<{
               key={method.value}
               type="button"
               aria-pressed={choice.method === method.value}
-              onClick={() => { if (choice.method !== method.value) onChange({ ...choice, method: method.value, accountId: null }); }}
+              onClick={() => {
+                if (choice.method !== method.value) onChange({ ...choice, method: method.value, accountId: null });
+                else if (optional) onChange({ ...choice, method: null, accountId: null });
+              }}
               className={cn(
                 'flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[13px] font-medium transition-colors',
                 choice.method === method.value ? 'border-2 border-primary bg-primary/10 text-primary' : 'border-[#E5E7EB] bg-white text-black/60 hover:border-primary/50',
@@ -130,6 +137,7 @@ export const PaymentMethod: React.FC<{
             </button>
           ))}
         </div>
+        {optional && <p className="mt-1.5 text-[12px] text-black/45">Optional — leave empty to record the amount only.</p>}
       </div>
 
       {choice.method && (accounts.loading ? (
