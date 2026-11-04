@@ -21,11 +21,13 @@ import {
   PRESET_LABELS,
   additionalServicesValue,
   changedFields,
+  describeBlock,
   editFormData,
   extrasLabel,
   formatDays,
   formatShortRange,
   friendlyBookingError,
+  hardConflictMessage,
   insuranceValue,
   parseAmount,
   rangeDays,
@@ -33,6 +35,7 @@ import {
   toTry,
   type BookingCurrency,
   type BookingFormData,
+  type CalendarBlockDetail,
   type CarChoice,
 } from '../../lib/bookingForm';
 import { COUNTRIES, parseStoredPhone } from '../../lib/countries';
@@ -58,7 +61,7 @@ import type { Booking, BookingStatus } from '../../types';
 import { DialCodePicker } from '../customers/CustomerEditSheet';
 import { CustomerPicker } from '../customers/CustomerPicker';
 import { BanAlert, CarIcon, FileIcon, UsersIcon, WalletIcon } from '../customers/ui';
-import { CarPicker, useBusyCars, useCarCompliance } from './CarPicker';
+import { CarPicker, softLabels, useCarAvailability, useCarCompliance } from './CarPicker';
 import { CoverSection } from './CoverSection';
 import { DateRangeField } from './DateRangeField';
 import { DocUploadField } from './DocUploadField';
@@ -211,9 +214,21 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
   const [payment, setPayment] = useState<PaymentChoice>(NEW_PAYMENT);
   const paymentAccounts = usePaymentAccounts();
 
-  const busyCars = useBusyCars(form.start_date, form.end_date, editId);
+  const availability = useCarAvailability(form.start_date, form.end_date, { bookingId: editId, customerId: linkedCustomerId ?? null });
+  const busyCars = useMemo(() => (availability ? new Set(availability.hard.keys()) : null), [availability]);
+  const carWarnings = useMemo(() => softLabels(availability), [availability]);
   const selectedCar = cars.find((car) => String(car.id) === form.car_id) ?? null;
-  const carIsBusy = Boolean(form.car_id && busyCars?.has(Number(form.car_id)));
+  // An edit that keeps the car and the dates, or cancels, takes nothing new off the calendar.
+  const checksCalendar = form.status !== 'cancelled' && (mode === 'add'
+    || form.car_id !== baseline.car_id || form.start_date !== baseline.start_date || form.end_date !== baseline.end_date);
+  const hardBlocks = (checksCalendar && form.car_id && availability?.hard.get(Number(form.car_id))) || [];
+  const softBlocks = (checksCalendar && form.car_id && hardBlocks.length === 0 && availability?.soft.get(Number(form.car_id))) || [];
+  const carIsBusy = hardBlocks.length > 0;
+  // "Save anyway" holds for this car and these dates only. A ref, so the submit it triggers sees it.
+  const overlapKey = `${form.car_id}|${form.start_date}|${form.end_date}`;
+  const acceptedOverlap = useRef<string | null>(null);
+  const [overlapAsked, setOverlapAsked] = useState(false);
+  const overlapAccepted = acceptedOverlap.current === overlapKey;
 
   /** Values loaded from the database are the starting point, not edits. */
   const applyLoaded = useCallback((patch: Partial<BookingFormData>) => {
@@ -470,12 +485,13 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
   const validateCarAndDates = (): boolean => {
     const dates = !form.start_date || !form.end_date ? 'Pick the start and end dates' : null;
-    const car = !form.car_id ? 'Select a car'
-      : carIsBusy ? 'This car is already booked for those dates. Choose other dates or another car.' : null;
+    const car = !form.car_id ? 'Select a car' : carIsBusy ? hardConflictMessage(hardBlocks) : null;
+    const unconfirmed = !dates && !car && softBlocks.length > 0 && acceptedOverlap.current !== overlapKey;
     setDatesError(dates);
     setCarError(car);
-    if (dates || car) showFirstError();
-    return !dates && !car;
+    setOverlapAsked(unconfirmed);
+    if (dates || car || unconfirmed) showFirstError();
+    return !dates && !car && !unconfirmed;
   };
 
   /** The database has the final say, but a clear stop here saves creating a customer who can't book. */
@@ -988,6 +1004,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
           setForm((current) => ({ ...current, start_date: start, end_date: end }));
           setDatesError(null);
           setCarError(null);
+          setOverlapAsked(false);
         }}
       />
       <CarPicker
@@ -997,13 +1014,23 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
         cars={cars}
         value={form.car_id}
         busy={busyCars}
+        warnings={carWarnings}
         compliance={compliance}
         changed={isChanged('car_id')}
         error={carError}
         hint={busyCars ? undefined : 'Pick the dates to see which cars are free.'}
-        onChange={(id) => { set('car_id', id); setCarError(null); }}
+        onChange={(id) => { set('car_id', id); setCarError(null); setOverlapAsked(false); }}
       />
-      {carIsBusy && !carError && <Notice tone="red" span>This car is already booked for those dates. Choose other dates or another car.</Notice>}
+      {carIsBusy && !carError && <Notice tone="red" span>{hardConflictMessage(hardBlocks)}</Notice>}
+      {softBlocks.length > 0 && (
+        <OverlapWarning
+          blocks={softBlocks}
+          asked={overlapAsked}
+          accepted={overlapAccepted}
+          confirmLabel={mode === 'add' ? 'Continue anyway' : 'Save anyway'}
+          onConfirm={() => { acceptedOverlap.current = overlapKey; setOverlapAsked(false); }}
+        />
+      )}
       {locationField('Pickup location', 'pickup_location_select', 'pickup_location_custom', 'pickup_location')}
       {locationField('Drop-off location', 'dropoff_location_select', 'dropoff_location_custom', 'dropoff_location')}
       {mode === 'edit' && (
@@ -1212,6 +1239,40 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     </BookingSheet>
   );
 };
+
+/**
+ * A replacement or maintenance block on the chosen car. The database lets a
+ * booking go over one, so it's a warning with the details, and an admin can go
+ * ahead. Saving stops on it until they do.
+ */
+const OverlapWarning: React.FC<{
+  blocks: CalendarBlockDetail[];
+  asked: boolean;
+  accepted: boolean;
+  confirmLabel: string;
+  onConfirm: () => void;
+}> = ({ blocks, asked, accepted, confirmLabel, onConfirm }) => (
+  <div
+    data-field-error={asked || undefined}
+    role={asked ? 'alert' : undefined}
+    className="flex flex-col gap-2 rounded-[10px] border border-[#F59E0B]/35 bg-[#F59E0B]/[0.08] px-3 py-2.5 text-[12.5px] leading-snug text-[#92400E] sm:col-span-2"
+  >
+    <p className="font-medium">
+      {accepted ? 'Booking over this anyway:' : `This car has ${blocks.length === 1 ? 'a block' : `${blocks.length} blocks`} on these dates:`}
+    </p>
+    <ul className="flex flex-col gap-1">
+      {blocks.map((block) => <li key={block.id} className="break-words">{describeBlock(block)}</li>)}
+    </ul>
+    {!accepted && (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[12px] text-[#92400E]/80">It isn't a booking, so it doesn't stop the save. Check the car is really free first.</span>
+        <Button type="submit" variant="outline" size="lg" className="!h-11 border-[#F59E0B]/50 bg-white px-3 text-[#92400E] hover:bg-[#F59E0B]/10 md:!h-9" onClick={onConfirm}>
+          {confirmLabel}
+        </Button>
+      </div>
+    )}
+  </div>
+);
 
 /** `completed` isn't offered as a choice, but a completed booking has to keep showing it. */
 const StatusControl: React.FC<{ value: BookingStatus; onChange: (value: BookingStatus) => void }> = ({ value, onChange }) => (

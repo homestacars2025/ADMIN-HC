@@ -353,6 +353,70 @@ export function busyCarIds(blocks: CalendarBlock[], excludeBookingId?: number | 
   );
 }
 
+export type BlockType = 'booked_confirmed' | 'booked_pending' | 'maintenance' | 'selling' | 'replacement';
+
+export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
+  booked_confirmed: 'Booking',
+  booked_pending: 'Pending booking',
+  maintenance: 'Maintenance',
+  selling: 'For sale',
+  replacement: 'Replacement car',
+};
+
+/**
+ * The database refuses only a booking on top of a booking. A replacement or
+ * maintenance block can be booked over, after a warning; anything else, an
+ * unknown type included, can't.
+ */
+const SOFT_BLOCKS: ReadonlySet<string> = new Set<BlockType>(['maintenance', 'replacement']);
+
+export interface CalendarBlockDetail extends CalendarBlock {
+  id: number;
+  block_type: BlockType | null;
+  start_date: string;
+  end_date: string;
+  notes: string | null;
+}
+
+export interface CarAvailability {
+  /** Cars that can't be booked for the dates. */
+  hard: Map<number, CalendarBlockDetail[]>;
+  /** Cars free but for a replacement or maintenance block. */
+  soft: Map<number, CalendarBlockDetail[]>;
+}
+
+/**
+ * What stands in each car's way for the dates. The booking being edited is never
+ * in its own way, and neither is a replacement car the same customer was given:
+ * `ownBlockIds` are the calendar blocks of this customer's replacement sheets.
+ */
+export function carAvailability(
+  blocks: CalendarBlockDetail[],
+  own: { bookingId?: number | null; ownBlockIds?: ReadonlySet<number> } = {},
+): CarAvailability {
+  const availability: CarAvailability = { hard: new Map(), soft: new Map() };
+  for (const block of blocks) {
+    if (own.bookingId != null && block.booking_id === own.bookingId) continue;
+    if (own.ownBlockIds?.has(block.id)) continue;
+    const bucket = block.block_type && SOFT_BLOCKS.has(block.block_type) ? availability.soft : availability.hard;
+    bucket.set(block.car_id, [...(bucket.get(block.car_id) ?? []), block]);
+  }
+  return availability;
+}
+
+/** "Replacement car · 04.11 → 21.11.2026 · Replacement for 34KDK804" */
+export function describeBlock(block: CalendarBlockDetail): string {
+  const type = block.block_type ? BLOCK_TYPE_LABELS[block.block_type] : 'Blocked';
+  return [type, formatShortRange(block.start_date, block.end_date), block.notes?.trim()].filter(Boolean).join(' · ');
+}
+
+/** The car field's stop, for a car someone else has. */
+export function hardConflictMessage(blocks: CalendarBlockDetail[]): string {
+  return blocks.every((block) => block.block_type === 'selling')
+    ? 'This car is for sale on those dates. Choose other dates or another car.'
+    : 'This car is already booked for those dates. Choose other dates or another car.';
+}
+
 // ─── Cars ─────────────────────────────────────────────────────────────────────
 
 export interface CarChoice {

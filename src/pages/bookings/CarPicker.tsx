@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search } from '../../components/media/MediaIcons';
 import { ComplianceTriangle } from '../../components/shared/ComplianceBits';
-import { busyCarIds, groupCars, readRecentCars, type CalendarBlock, type CarChoice } from '../../lib/bookingForm';
+import { BLOCK_TYPE_LABELS, busyCarIds, carAvailability, groupCars, readRecentCars, type CalendarBlock, type CalendarBlockDetail, type CarAvailability, type CarChoice } from '../../lib/bookingForm';
 import {
   carIssues,
   fetchRegistrationDates,
@@ -41,6 +41,48 @@ export function useBusyCars(start: string, end: string, excludeBookingId?: numbe
   return busy;
 }
 
+/**
+ * The booking form's view of the calendar: which cars are taken, and which only
+ * have a replacement or maintenance block. The booking itself, and any
+ * replacement car this customer (or this booking) was given, are left out.
+ * Null until both dates are known, or if the calendar can't be read.
+ */
+export function useCarAvailability(
+  start: string,
+  end: string,
+  own: { bookingId?: number | null; customerId?: string | null },
+): CarAvailability | null {
+  const [availability, setAvailability] = useState<CarAvailability | null>(null);
+  const { bookingId, customerId } = own;
+
+  useEffect(() => {
+    if (!start || !end) { setAvailability(null); return undefined; }
+    let cancelled = false;
+    const owners = [customerId && `customer_id.eq.${customerId}`, bookingId != null && `original_booking_id.eq.${bookingId}`].filter(Boolean);
+    Promise.all([
+      supabase
+        .from('car_calendar')
+        .select('id, car_id, booking_id, block_type, start_date, end_date, notes')
+        .lte('start_date', end)
+        .gte('end_date', start),
+      owners.length > 0
+        ? supabase.from('replacement_sheets').select('calendar_block_id').is('deleted_at', null).or(owners.join(','))
+        : Promise.resolve({ data: [], error: null }),
+    ]).then(([blocks, sheets]) => {
+      if (cancelled) return;
+      if (blocks.error) { setAvailability(null); return; }
+      // Without the sheets, the customer's own replacement car only shows as a warning.
+      const ownBlockIds = new Set(((sheets.data ?? []) as Array<{ calendar_block_id: number | null }>)
+        .map((row) => row.calendar_block_id)
+        .filter((id): id is number => id !== null));
+      setAvailability(carAvailability((blocks.data ?? []) as CalendarBlockDetail[], { bookingId, ownBlockIds }));
+    });
+    return () => { cancelled = true; };
+  }, [start, end, bookingId, customerId]);
+
+  return availability;
+}
+
 export interface CarComplianceCheck {
   issuesFor: (carId: number) => ComplianceIssue[];
   failed: boolean;
@@ -68,11 +110,16 @@ export function useCarCompliance(): CarComplianceCheck {
   }, [failed, registrations]);
 }
 
-const Availability: React.FC<{ busy: boolean }> = ({ busy }) => (
-  <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-black/50">
-    {busy && 'Booked'}
-    <span className={cn('h-2 w-2 rounded-full', busy ? 'bg-[#DC2626]' : 'bg-[#16A34A]')} />
+const Availability: React.FC<{ busy: boolean; warning?: string | null }> = ({ busy, warning }) => (
+  <span className={cn('flex shrink-0 items-center gap-1.5 text-[11.5px]', warning && !busy ? 'text-[#92400E]' : 'text-black/50')}>
+    {busy ? 'Booked' : warning}
+    <span className={cn('h-2 w-2 rounded-full', busy ? 'bg-[#DC2626]' : warning ? 'bg-[#F59E0B]' : 'bg-[#16A34A]')} />
   </span>
+);
+
+/** A car with only a replacement or maintenance block: still choosable, with a warning. */
+export const softLabels = (availability: CarAvailability | null): Map<number, string> => new Map(
+  Array.from(availability?.soft ?? []).map(([carId, blocks]) => [carId, Array.from(new Set(blocks.map((block) => (block.block_type ? BLOCK_TYPE_LABELS[block.block_type] : 'Blocked')))).join(', ')]),
 );
 
 /** The one way a car gets chosen in every booking flow. */
@@ -82,6 +129,8 @@ export const CarPicker: React.FC<{
   value: string;
   onChange: (id: string) => void;
   busy?: Set<number> | null;
+  /** Cars that can be chosen, but with a warning beside them. */
+  warnings?: ReadonlyMap<number, string>;
   required?: boolean;
   changed?: boolean;
   error?: string | null;
@@ -89,7 +138,7 @@ export const CarPicker: React.FC<{
   pinRecent?: boolean;
   /** Leave out for a car that's already out with a customer, like the original car. */
   compliance?: CarComplianceCheck;
-}> = ({ label, cars, value, onChange, busy, required, changed, error, hint, pinRecent, compliance }) => {
+}> = ({ label, cars, value, onChange, busy, warnings, required, changed, error, hint, pinRecent, compliance }) => {
   const [open, setOpen] = useState(false);
   const [unconfirmed, setUnconfirmed] = useState<CarChoice | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -231,7 +280,7 @@ export const CarPicker: React.FC<{
                             </span>
                           )}
                         </span>
-                        {busy && <Availability busy={Boolean(busy.has(car.id)) && String(car.id) !== value} />}
+                        {busy && <Availability busy={Boolean(busy.has(car.id)) && String(car.id) !== value} warning={warnings?.get(car.id)} />}
                       </button>
                     );
                   })}

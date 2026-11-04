@@ -2,6 +2,10 @@ import {
   EMPTY_FORM,
   additionalServicesValue,
   busyCarIds,
+  carAvailability,
+  describeBlock,
+  hardConflictMessage,
+  type CalendarBlockDetail,
   carMatches,
   changedFields,
   editFormData,
@@ -163,6 +167,48 @@ describe('dates and availability', () => {
     const blocks = [{ car_id: 1, booking_id: 10 }, { car_id: 2, booking_id: null }];
     expect(Array.from(busyCarIds(blocks))).toEqual([1, 2]);
     expect(Array.from(busyCarIds(blocks, 10))).toEqual([2]);
+  });
+});
+
+describe('carAvailability', () => {
+  let nextId = 1;
+  const block = (car_id: number, block_type: CalendarBlockDetail['block_type'], over: Partial<CalendarBlockDetail> = {}): CalendarBlockDetail => ({
+    id: nextId++, car_id, booking_id: null, block_type, start_date: '2026-11-04', end_date: '2026-11-21', notes: null, ...over,
+  });
+  const own = block(1, 'booked_confirmed', { booking_id: 10 });
+  const ownReplacement = block(2, 'replacement', { notes: 'Replacement for 34KDK804 · FURKAN KAÇAR' });
+  const othersReplacement = block(3, 'replacement', { notes: 'Replacement for 34ABC1' });
+  const maintenance = block(4, 'maintenance');
+  const othersBooking = block(5, 'booked_pending', { booking_id: 11 });
+  const forSale = block(6, 'selling');
+  const unknown = block(7, null);
+  const all = [own, ownReplacement, othersReplacement, maintenance, othersBooking, forSale, unknown];
+
+  it("leaves out the booking's own block and the customer's own replacement car", () => {
+    const result = carAvailability(all, { bookingId: 10, ownBlockIds: new Set([ownReplacement.id]) });
+    expect(result.hard.has(1)).toBe(false);
+    expect(result.hard.has(2) || result.soft.has(2)).toBe(false);
+  });
+
+  it("keeps another customer's booking, a car for sale and an unknown block as hard stops", () => {
+    const result = carAvailability(all, { bookingId: 10 });
+    expect(Array.from(result.hard.keys()).sort()).toEqual([5, 6, 7]);
+  });
+
+  it('makes replacement and maintenance blocks a warning, with what they are', () => {
+    const result = carAvailability(all, { bookingId: 10 });
+    expect(Array.from(result.soft.keys()).sort()).toEqual([2, 3, 4]);
+    expect(describeBlock(othersReplacement)).toBe('Replacement car · 04.11 → 21.11.2026 · Replacement for 34ABC1');
+    expect(describeBlock(maintenance)).toBe('Maintenance · 04.11 → 21.11.2026');
+  });
+
+  it('without the booking, its own block counts like any other', () => {
+    expect(carAvailability([own]).hard.has(1)).toBe(true);
+  });
+
+  it('words the hard stop by what is in the way', () => {
+    expect(hardConflictMessage([forSale])).toBe('This car is for sale on those dates. Choose other dates or another car.');
+    expect(hardConflictMessage([forSale, othersBooking])).toBe('This car is already booked for those dates. Choose other dates or another car.');
   });
 });
 
