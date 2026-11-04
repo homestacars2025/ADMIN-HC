@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { setCountsLive, useNotificationCounts } from './useNotificationCounts';
+import { refreshSoon, setCountsLive, useNotificationCounts } from './useNotificationCounts';
 import { mayBeForMe, notificationActivity, notificationArrived, type RecipientRow } from '../lib/notificationEvents';
 import { getNotifications } from '../lib/notifications';
 import { playNotificationSound } from '../lib/notificationSound';
@@ -48,9 +48,23 @@ export function useNotificationRealtime(profileId: string | undefined, role: str
         setCountsLive(status === 'SUBSCRIBED');
       });
 
+    // A new notification, or a read from another tab or device, moves the count.
+    // Kept off the channel above, so a table missing from the realtime publication
+    // can't take the badge's live updates down with it.
+    const counts = supabase
+      .channel(`notification-counts-${profileId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications_v2' }, refreshSoon)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notification_reads', filter: `profile_id=eq.${profileId}` },
+        refreshSoon,
+      )
+      .subscribe();
+
     return () => {
       setCountsLive(false);
       supabase.removeChannel(channel);
+      supabase.removeChannel(counts);
     };
   }, [profileId, role, refreshNow]);
 }

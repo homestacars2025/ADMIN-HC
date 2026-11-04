@@ -2,14 +2,12 @@ import { ComplianceTriangle, FineImage } from './shared/ComplianceBits';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { readAllNotifications, readNotification, useNotificationCounts } from '../hooks/useNotificationCounts';
 import { useMessageRenderer } from '../lib/i18n';
 import { notificationArrived } from '../lib/notificationEvents';
 import {
   CATEGORY_STYLES,
   getNotifications,
-  markAllRead,
-  markRead,
   relativeTime,
   resolveNotificationLink,
   type NotificationRow,
@@ -42,7 +40,7 @@ const CategoryDot: React.FC<{ category: NotificationRow['category'] }> = ({ cate
 
 const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 }) => {
   const navigate = useNavigate();
-  const { unread, refreshNow } = useNotificationCounts();
+  const { unread } = useNotificationCounts();
   const renderMessage = useMessageRenderer();
 
   const [open, setOpen] = useState(false);
@@ -115,27 +113,22 @@ const NotificationBell: React.FC<{ openRequest?: number }> = ({ openRequest = 0 
     if (next) load();
   }
 
-  async function openItem(item: NotificationRow) {
+  function openItem(item: NotificationRow) {
     setOpen(false);
     if (!item.is_read) {
-      try {
-        await markRead(item.id);
-        setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
-        refreshNow();
-      } catch {
-        // Navigation still matters more than the read flag; the next poll or
-        // the notifications page will reconcile it.
-      }
+      setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
+      // Navigation matters more than the read flag. On a failure the count is
+      // re-fetched and the list reloads the next time the bell opens.
+      readNotification(item.id).catch(() => undefined);
     }
     const target = resolveNotificationLink(item.link);
     if (target) navigate(target);
   }
 
   async function handleMarkAll() {
+    setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
     try {
-      await markAllRead();
-      setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      refreshNow();
+      await readAllNotifications();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not mark all as read');
     }

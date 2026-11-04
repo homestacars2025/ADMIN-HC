@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getOpenTasksCount, getUnreadCount } from '../lib/notifications';
+import { getOpenTasksCount, getUnreadCount, markAllRead, markRead } from '../lib/notifications';
 
 const POLL_MS = 30_000;
+const SOON_MS = 300;
 
 /*
  * One store drives both the bell badge and the sidebar's Tasks badge.
@@ -20,7 +21,12 @@ interface Counts {
 let counts: Counts = { unread: 0, openTasks: 0, live: false };
 const listeners = new Set<(next: Counts) => void>();
 let timer: ReturnType<typeof setInterval> | null = null;
+let soon: ReturnType<typeof setTimeout> | null = null;
 let inFlight = false;
+let again = false;
+// A count asked for before a mark-read landed would put the old number back.
+let edits = 0;
+let pendingEdits = 0;
 
 function publish(next: Counts) {
   counts = next;
@@ -28,19 +34,53 @@ function publish(next: Counts) {
 }
 
 async function refresh(): Promise<void> {
-  // Overlapping polls would be wasted work if a request runs long.
-  if (inFlight) return;
+  // One request at a time; a call that arrives meanwhile runs once it's done.
+  if (inFlight) {
+    again = true;
+    return;
+  }
   inFlight = true;
+  const stamp = edits;
   try {
     const [unread, openTasks] = await Promise.all([getUnreadCount(), getOpenTasksCount()]);
-    publish({ ...counts, unread, openTasks });
+    const current = stamp === edits && pendingEdits === 0;
+    publish({ ...counts, unread: current ? unread : counts.unread, openTasks });
   } catch {
     // A failed poll leaves the last known counts on screen; the next tick
     // retries. A badge is not worth an error toast every 30 seconds.
   } finally {
     inFlight = false;
+    if (again) {
+      again = false;
+      refresh();
+    }
   }
 }
+
+/** Mark all as read writes one row per notification, so its realtime events come in a burst. */
+export function refreshSoon() {
+  if (soon) clearTimeout(soon);
+  soon = setTimeout(() => {
+    soon = null;
+    refresh();
+  }, SOON_MS);
+}
+
+/** The badge moves at once; the real count follows once the write lands, or fails. */
+async function applyRead(change: number | 'all', write: () => Promise<void>): Promise<void> {
+  edits += 1;
+  pendingEdits += 1;
+  publish({ ...counts, unread: change === 'all' ? 0 : Math.max(0, counts.unread - change) });
+  try {
+    await write();
+  } finally {
+    pendingEdits -= 1;
+    refresh();
+  }
+}
+
+export const readNotification = (id: string) => applyRead(1, () => markRead(id));
+export const readAllNotifications = () => applyRead('all', markAllRead);
 
 function syncTimer() {
   const shouldPoll = listeners.size > 0 && !counts.live;

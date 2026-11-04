@@ -130,7 +130,7 @@ export async function getNotifications(
 }
 
 export async function getUnreadCount(): Promise<number> {
-  const { data, error } = await supabase.rpc('my_unread_count');
+  const { data, error } = await supabase.rpc('my_unread_notifications_count');
   if (error) throw new Error(friendlyError(error));
   return (data as number) ?? 0;
 }

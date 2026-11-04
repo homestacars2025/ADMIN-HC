@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useShell } from '../components/shell/shellContext';
 import StaffAvatar from '../components/shared/StaffAvatar';
 import { useOnlineUsers } from '../hooks/usePresence';
-import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { readNotification, useNotificationCounts } from '../hooks/useNotificationCounts';
 import { useComplianceCars } from '../lib/complianceStore';
 import {
   fetchAdminHome,
@@ -17,7 +17,6 @@ import { cn } from '../lib/media/badgeColor';
 import {
   getAvatarProfiles,
   getNotifications,
-  markRead,
   relativeTime,
   resolveNotificationLink,
   type NotificationRow,
@@ -71,7 +70,7 @@ const SkeletonGrid: React.FC = () => (
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useShell();
-  const { unread, refreshNow } = useNotificationCounts();
+  const { unread } = useNotificationCounts();
   const renderMessage = useMessageRenderer();
   const online = useOnlineUsers();
 
@@ -113,15 +112,11 @@ const HomePage: React.FC = () => {
     return () => { cancelled = true; };
   }, [onlineKey]);
 
-  const openNotification = async (item: NotificationRow) => {
+  const openNotification = (item: NotificationRow) => {
     if (!item.is_read) {
-      try {
-        await markRead(item.id);
-        setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
-        refreshNow();
-      } catch {
-        // Opening it matters more than the read flag; the next poll reconciles.
-      }
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
+      // Opening it matters more than the read flag; a failure re-fetches the count.
+      readNotification(item.id).catch(() => undefined);
     }
     const target = resolveNotificationLink(item.link);
     if (target) navigate(target);

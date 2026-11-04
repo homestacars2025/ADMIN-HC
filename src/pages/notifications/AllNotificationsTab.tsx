@@ -1,13 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ComplianceTriangle, FineImage } from '../../components/shared/ComplianceBits';
 import { useNavigate } from 'react-router-dom';
-import { useNotificationCounts } from '../../hooks/useNotificationCounts';
+import { readAllNotifications, readNotification, useNotificationCounts } from '../../hooks/useNotificationCounts';
 import { useMessageRenderer } from '../../lib/i18n';
 import {
   CATEGORY_STYLES,
   getNotifications,
-  markAllRead,
-  markRead,
   relativeTime,
   resolveNotificationLink,
   type NotificationCategory,
@@ -29,7 +27,7 @@ const CATEGORY_FILTERS: Array<{ value: NotificationCategory | 'all'; label: stri
 
 export const AllNotificationsTab: React.FC = () => {
   const navigate = useNavigate();
-  const { unread, refreshNow } = useNotificationCounts();
+  const { unread } = useNotificationCounts();
   const renderMessage = useMessageRenderer();
 
   const [rows, setRows] = useState<NotificationRow[]>([]);
@@ -70,28 +68,24 @@ export const AllNotificationsTab: React.FC = () => {
   const visible = category === 'all' ? rows : rows.filter((r) => r.category === category);
   const hasNext = rows.length === PAGE_SIZE;
 
-  async function open(item: NotificationRow) {
+  function open(item: NotificationRow) {
     if (!item.is_read) {
-      try {
-        await markRead(item.id);
-        setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, is_read: true } : r)));
-        refreshNow();
-      } catch {
-        // The link is the point; the flag reconciles on the next load.
-      }
+      setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, is_read: true } : r)));
+      // The link is the point; a failure re-fetches the count and the next load fixes the row.
+      readNotification(item.id).catch(() => undefined);
     }
     const target = resolveNotificationLink(item.link);
     if (target) navigate(target);
   }
 
   async function handleMarkAll() {
+    setRows((prev) => prev.map((r) => ({ ...r, is_read: true })));
     try {
-      await markAllRead();
-      setRows((prev) => prev.map((r) => ({ ...r, is_read: true })));
-      refreshNow();
+      await readAllNotifications();
       if (onlyUnread) load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not mark all as read');
+      load();
     }
   }
 
