@@ -417,7 +417,6 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     width: 100%;
     border-collapse: collapse;
     flex: 1;
-    height: 100%;
   }
   .info-label {
     width: 106px;

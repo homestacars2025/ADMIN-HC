@@ -53,7 +53,8 @@ describe('on a phone', () => {
   it('adds a Back button and fits the page to the screen', () => {
     const page = asTabPage(HTML);
     expect(page).toContain('history.back()');
-    expect(page).toContain('page.style.zoom');
+    expect(page).toContain("'scale(' + scale + ')'");
+    expect(page).not.toContain('style.zoom');
     expect(page.indexOf('<style>')).toBeLessThan(page.indexOf('</head>'));
     expect(page.indexOf('<script>')).toBeLessThan(page.indexOf('</body>'));
   });

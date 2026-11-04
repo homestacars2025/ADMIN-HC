@@ -270,7 +270,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     display: flex;
     flex-direction: column;
   }
-  .info-table { width: 100%; border-collapse: collapse; flex: 1; height: 100%; }
+  .info-table { width: 100%; border-collapse: collapse; flex: 1; }
   .info-label {
     width: 106px;
     padding: 3px 7px;

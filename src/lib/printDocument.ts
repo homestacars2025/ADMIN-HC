@@ -34,7 +34,8 @@ const PAGE_STYLE = `<style>
     .preview-bar button { min-height: 44px; }
     .preview-bar button.back { background: rgba(255,255,255,0.14); }
   }
-  @media print { .page { zoom: 1 !important; } }
+  html { -webkit-text-size-adjust: 100%; }
+  @media print { .page[data-fit] { transform: none !important; margin: 0 !important; } }
 </style>`;
 
 const PAGE_SCRIPT = `<script>
@@ -53,14 +54,25 @@ const PAGE_SCRIPT = `<script>
     actions.appendChild(back);
     actions.appendChild(print);
   }
+  // A transform, not zoom: Safari holds zoomed text at its minimum font size,
+  // which overflows and clips. The negative margins take back the space the
+  // page still lays out at full size.
   function fit() {
     var width = document.documentElement.clientWidth;
     var pages = document.querySelectorAll('.page');
     for (var i = 0; i < pages.length; i++) {
       var page = pages[i];
-      page.style.zoom = '';
+      page.removeAttribute('data-fit');
+      page.style.transform = '';
+      page.style.margin = '';
       var scale = width / page.offsetWidth;
-      if (width > 0 && scale < 1) page.style.zoom = String(scale);
+      if (width > 0 && scale < 1) {
+        page.setAttribute('data-fit', '');
+        page.style.transformOrigin = '0 0';
+        page.style.transform = 'scale(' + scale + ')';
+        page.style.marginRight = (-(1 - scale) * page.offsetWidth) + 'px';
+        page.style.marginBottom = (-(1 - scale) * page.offsetHeight) + 'px';
+      }
     }
   }
   fit();
