@@ -20,6 +20,8 @@ import {
   canComplete,
   canReverse,
   completeMovement,
+  deletedMessage,
+  deleteFailedMessage,
   ENVELOPE_LABELS,
   fetchAccountBalances,
   fetchEnvelopes,
@@ -35,6 +37,7 @@ import {
   withStaff,
   type AccountBalance,
   type CurrencyTotal,
+  type DeleteOutcome,
   type Envelope,
   type EnvelopeStatus,
   type Movement,
@@ -47,6 +50,7 @@ import { getAvatarProfiles, type ProfileOption } from '../../lib/notifications';
 import { LicensePlate } from '../bookings/ui';
 import { MoreIcon, WalletIcon } from '../customers/ui';
 import { AccountsSection } from './AccountsSection';
+import { DeleteEnvelopesDialog, DeleteIconButton, EnvelopeDetailSheet } from './EnvelopeDelete';
 import { ReceiveEnvelopeSheet, TransferSheet } from './EnvelopeSheets';
 
 const TONES: Record<AccountKind, FilterTileTone> = { safe: 'teal', pos: 'violet', bank: 'green', gateway: 'green', custody: 'neutral', other: 'neutral' };
@@ -125,6 +129,8 @@ export const CashEnvelopesTab: React.FC = () => {
   const [receiving, setReceiving] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [reversing, setReversing] = useState<Movement | null>(null);
+  const [opened, setOpened] = useState<Envelope | null>(null);
+  const [deleting, setDeleting] = useState<Envelope[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [accountPick, setAccountPick] = useState(ALL);
   const [typePick, setTypePick] = useState(ALL);
@@ -139,7 +145,7 @@ export const CashEnvelopesTab: React.FC = () => {
     setError(null);
     Promise.all([fetchCashAccounts(), fetchAccountBalances(), fetchEnvelopes(), fetchMovements()])
       .then(async ([accountRows, balanceRows, envelopeRows, movementRows]) => {
-        const ids = [...envelopeRows.map((row) => row.holder_profile_id), ...movementRows.map((row) => row.created_by)];
+        const ids = [...envelopeRows.flatMap((row) => [row.holder_profile_id, row.created_by]), ...movementRows.map((row) => row.created_by)];
         const profiles = await getAvatarProfiles(Array.from(new Set(ids.filter((id): id is string => Boolean(id)))));
         if (cancelled) return;
         setAccounts(accountRows);
@@ -173,6 +179,22 @@ export const CashEnvelopesTab: React.FC = () => {
   }, istanbulDate)), [movements, filter, accountPick, typePick, dates, banks, isAdmin, showInternal]);
 
   const pickedIds = Array.from(picked).filter((id) => envelopes.some((envelope) => envelope.id === id && envelope.status === 'in_safe'));
+  // Only what's on screen can be deleted, so a filter never hides part of a bulk delete.
+  const pickedForDelete = isAdmin ? visibleEnvelopes.filter((envelope) => picked.has(envelope.id)) : [];
+  const allVisiblePicked = visibleEnvelopes.length > 0 && visibleEnvelopes.every((envelope) => picked.has(envelope.id));
+
+  const deleted = (outcome: DeleteOutcome) => {
+    const gone = new Set(outcome.deleted.map((row) => row.ref));
+    setDeleting(null);
+    setOpened(null);
+    setEnvelopes((current) => current.filter((envelope) => !gone.has(envelope.ref)));
+    setPicked(new Set(outcome.failed.map((row) => row.envelope.id)));
+    const success = deletedMessage(outcome.deleted);
+    const failure = deleteFailedMessage(outcome.failed);
+    if (success) toast.success(success);
+    if (failure) toast.error(failure);
+    refresh();
+  };
 
   const adminTake = async () => {
     setBusy(true);
@@ -226,7 +248,19 @@ export const CashEnvelopesTab: React.FC = () => {
   const struck = (row: Movement) => reversals.has(row.id);
   const strike = (row: Movement) => (struck(row) ? 'line-through opacity-60' : undefined);
 
-  const pickBox = (envelope: Envelope) => (envelope.status === 'in_safe' ? (
+  const pickAllVisible = (on: boolean) => setPicked((current) => {
+    const next = new Set(current);
+    visibleEnvelopes.forEach((envelope) => (on ? next.add(envelope.id) : next.delete(envelope.id)));
+    return next;
+  });
+
+  const refButton = (envelope: Envelope, className: string) => (
+    <button type="button" onClick={() => setOpened(envelope)} className={cn('min-h-[44px] truncate text-start font-mono font-semibold text-foreground hover:text-primary hover:underline xl:min-h-0', className)}>
+      {envelope.ref}
+    </button>
+  );
+
+  const pickBox = (envelope: Envelope) => (isAdmin || envelope.status === 'in_safe' ? (
     <label className="-m-1.5 grid h-11 w-11 cursor-pointer place-items-center xl:h-8 xl:w-8">
       <input type="checkbox" checked={picked.has(envelope.id)} aria-label={`Select ${envelope.ref}`} onChange={(event) => pick(envelope.id, event.target.checked)} className="h-[18px] w-[18px] accent-[#4ba6ea]" />
     </label>
@@ -280,10 +314,19 @@ export const CashEnvelopesTab: React.FC = () => {
 
       <Section
         title="Envelopes"
-        action={pickedIds.length > 0 && (
-          <Button size="lg" className="!h-11 px-3 md:!h-9" disabled={busy} onClick={adminTake}>
-            {busy ? <Spinner size={13} /> : <Check size={14} strokeWidth={2.5} />} Received by admin ({pickedIds.length})
-          </Button>
+        action={(pickedIds.length > 0 || pickedForDelete.length > 0) && (
+          <span className="flex flex-wrap items-center gap-2">
+            {pickedIds.length > 0 && (
+              <Button size="lg" className="!h-11 px-3 md:!h-9" disabled={busy} onClick={adminTake}>
+                {busy ? <Spinner size={13} /> : <Check size={14} strokeWidth={2.5} />} Received by admin ({pickedIds.length})
+              </Button>
+            )}
+            {pickedForDelete.length > 0 && (
+              <Button variant="danger" size="lg" className="!h-11 px-3 md:!h-9" disabled={busy} onClick={() => setDeleting(pickedForDelete)}>
+                Delete selected ({pickedForDelete.length})
+              </Button>
+            )}
+          </span>
         )}
       >
         {loading ? <div className="rounded-xl border border-subtle bg-surface"><SkeletonRows count={3} /></div>
@@ -293,18 +336,25 @@ export const CashEnvelopesTab: React.FC = () => {
                 <table className="w-full min-w-[900px] text-[13px]">
                   <thead>
                     <tr className="border-b border-subtle text-[11.5px] text-black/45">
-                      <th scope="col" className="w-9"><span className="sr-only">Select</span></th>
+                      <th scope="col" className="w-9 ps-2 text-start">
+                        {isAdmin ? (
+                          <label className="-m-1.5 grid h-8 w-8 cursor-pointer place-items-center">
+                            <input type="checkbox" checked={allVisiblePicked} aria-label="Select all envelopes" onChange={(event) => pickAllVisible(event.target.checked)} className="h-[18px] w-[18px] accent-[#4ba6ea]" />
+                          </label>
+                        ) : <span className="sr-only">Select</span>}
+                      </th>
                       {['Envelope', 'Staff', 'Customer', 'Car'].map((label) => <th key={label} scope="col" className="px-2 py-1.5 text-start font-medium">{label}</th>)}
                       <th scope="col" className="px-2 py-1.5 text-end font-medium">Amount</th>
                       <th scope="col" className="px-2 py-1.5 text-start font-medium">Age</th>
                       <th scope="col" className="px-2 py-1.5 text-start font-medium">Status</th>
+                      {isAdmin && <th scope="col" className="w-10"><span className="sr-only">Delete</span></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {visibleEnvelopes.map((envelope) => (
                       <tr key={envelope.id} className="border-b border-subtle last:border-b-0">
                         <td className="ps-2">{pickBox(envelope)}</td>
-                        <td className="whitespace-nowrap px-2 py-2 font-mono text-[12.5px] font-semibold text-foreground">{envelope.ref}</td>
+                        <td className="whitespace-nowrap px-2 py-2">{refButton(envelope, 'text-[12.5px]')}</td>
                         <td className="px-2 py-2">
                           <span className="flex items-center gap-2">
                             <StaffAvatar profile={envelope.holder_profile_id ? people[envelope.holder_profile_id] : null} size={26} />
@@ -319,6 +369,7 @@ export const CashEnvelopesTab: React.FC = () => {
                         </td>
                         <td className={cn('whitespace-nowrap px-2 py-2 tabular-nums', isOverdue(envelope, now) ? 'font-medium text-[#B91C1C]' : 'text-black/55')}>{ageLabel(envelope.created_at, now)}</td>
                         <td className="px-2 py-2"><EnvelopeStatusPill envelope={envelope} now={now} /></td>
+                        {isAdmin && <td className="pe-2"><DeleteIconButton envelope={envelope} onClick={() => setDeleting([envelope])} /></td>}
                       </tr>
                     ))}
                   </tbody>
@@ -331,7 +382,7 @@ export const CashEnvelopesTab: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-2">
                         {pickBox(envelope)}
-                        <span className="truncate font-mono text-[13.5px] font-semibold text-foreground">{envelope.ref}</span>
+                        {refButton(envelope, 'text-[13.5px]')}
                       </span>
                       <span className="shrink-0 text-[16px] font-semibold tabular-nums text-foreground">{formatMoney(envelope.counted_amount ?? envelope.amount, envelope.currency)}</span>
                     </div>
@@ -341,6 +392,7 @@ export const CashEnvelopesTab: React.FC = () => {
                       <span className="flex items-center gap-2 text-[12.5px] tabular-nums text-black/55">
                         {ageLabel(envelope.created_at, now)}
                         <EnvelopeStatusPill envelope={envelope} now={now} />
+                        {isAdmin && <DeleteIconButton envelope={envelope} onClick={() => setDeleting([envelope])} />}
                       </span>
                     </div>
                   </li>
@@ -455,6 +507,18 @@ export const CashEnvelopesTab: React.FC = () => {
           }}
         />
       )}
+      {opened && (
+        <EnvelopeDetailSheet
+          envelope={opened}
+          people={people}
+          accountName={opened.current_account_id ? names.get(opened.current_account_id) ?? null : null}
+          now={now}
+          canDelete={isAdmin}
+          onClose={() => setOpened(null)}
+          onDelete={() => setDeleting([opened])}
+        />
+      )}
+      {deleting && <DeleteEnvelopesDialog envelopes={deleting} people={people} onClose={() => setDeleting(null)} onDone={deleted} />}
       <MediaToaster />
     </div>
   );

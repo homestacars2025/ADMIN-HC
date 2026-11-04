@@ -3,6 +3,9 @@ import {
   balancesOf,
   canComplete,
   canReverse,
+  deletedMessage,
+  deleteEnvelopes,
+  deleteFailedMessage,
   filteredAccountId,
   findEnvelope,
   inEnvelopeFilter,
@@ -24,7 +27,8 @@ const NOW = Date.parse('2026-11-02T12:00:00Z');
 const ago = (hours: number) => new Date(NOW - hours * 3600000).toISOString();
 const envelope = (over: Partial<Envelope>): Envelope => ({
   id: 1, ref: 'ENV-2611-0001', amount: 100, currency: 'TRY', holder_profile_id: 'a', status: 'with_employee', current_account_id: null,
-  counted_amount: null, difference: null, difference_note: null, created_at: ago(2), customer: 'Ali', plate: '34A', ...over,
+  counted_amount: null, difference: null, difference_note: null, created_at: ago(2), created_by: 'a', note: null, customer_id: 'c1',
+  customer: 'Ali', plate: '34A', booking_number: 'HOM-11-26-001', ...over,
 });
 const movement = (over: Partial<Movement>): Movement => ({
   id: 1, ref: 'MOV-1', kind: 'transfer', status: 'done', from_account_id: 1, to_account_id: 2, amount: 100, currency: 'TRY', amount_try: 100,
@@ -174,5 +178,36 @@ describe('waitingForAdmin', () => {
       envelopes: { count: 2, totals: [{ currency: 'USD', total: 140 }] },
       accounts: [{ currency: 'TRY', total: 700 }],
     });
+  });
+});
+
+describe('deleting envelopes', () => {
+  const gone = (id: number, ref: string) => ({ ref, amount: id * 100, currency: 'TRY' as const, ledgerRowsDeleted: 1 });
+
+  it('deletes each in turn, keeps going past a failure and reports progress', async () => {
+    const remove = jest.fn(async (id: number) => {
+      if (id === 2) throw new Error('Envelope not found');
+      return gone(id, `ENV-${id}`);
+    });
+    const progress: number[] = [];
+    const outcome = await deleteEnvelopes(
+      [{ id: 1, ref: 'ENV-1' }, { id: 2, ref: 'ENV-2' }, { id: 3, ref: 'ENV-3' }],
+      'test data',
+      (done) => progress.push(done),
+      remove,
+    );
+    expect(remove.mock.calls).toEqual([[1, 'test data'], [2, 'test data'], [3, 'test data']]);
+    expect(outcome.deleted.map((row) => row.ref)).toEqual(['ENV-1', 'ENV-3']);
+    expect(outcome.failed).toEqual([{ envelope: { id: 2, ref: 'ENV-2' }, message: 'Envelope not found' }]);
+    expect(progress).toEqual([1, 2, 3]);
+  });
+
+  it('words the toast by count', () => {
+    expect(deletedMessage([gone(1, 'ENV-2611-0007')])).toBe('ENV-2611-0007 deleted');
+    expect(deletedMessage([gone(1, 'ENV-1'), gone(2, 'ENV-2')])).toBe('2 envelopes deleted');
+    expect(deletedMessage([])).toBeNull();
+    expect(deleteFailedMessage([{ envelope: { id: 2, ref: 'ENV-2' }, message: 'Admins only' }])).toBe("Couldn't delete ENV-2: Admins only");
+    expect(deleteFailedMessage([{ envelope: { id: 2, ref: 'ENV-2' }, message: 'x' }, { envelope: { id: 3, ref: 'ENV-3' }, message: 'y' }])).toBe("Couldn't delete 2 envelopes: ENV-2, ENV-3");
+    expect(deleteFailedMessage([])).toBeNull();
   });
 });

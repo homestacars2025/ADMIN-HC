@@ -44,8 +44,12 @@ export interface Envelope {
   difference: number | null;
   difference_note: string | null;
   created_at: string;
+  created_by: string | null;
+  note: string | null;
+  customer_id: string | null;
   customer: string | null;
   plate: string | null;
+  booking_number: string | null;
 }
 
 export interface Movement {
@@ -74,14 +78,15 @@ export interface AccountBalance {
 export async function fetchEnvelopes(): Promise<Envelope[]> {
   const { data, error } = await supabase
     .from('money_envelopes')
-    .select('id, ref, amount, currency, holder_profile_id, status, current_account_id, counted_amount, difference, difference_note, created_at, customer:customer_id(first_name, last_name), car:car_id(plate_number)')
+    .select('id, ref, amount, currency, holder_profile_id, status, current_account_id, counted_amount, difference, difference_note, created_at, created_by, note, customer_id, customer:customer_id(first_name, last_name), car:car_id(plate_number), booking:booking_id(booking_number)')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as unknown as Array<Omit<Envelope, 'customer' | 'plate' | 'amount'> & {
+  return ((data ?? []) as unknown as Array<Omit<Envelope, 'customer' | 'plate' | 'booking_number' | 'amount'> & {
     amount: number | string;
     customer: Joined<{ first_name: string | null; last_name: string | null }>;
     car: Joined<{ plate_number: string }>;
-  }>).map(({ customer, car, ...row }) => {
+    booking: Joined<{ booking_number: string | null }>;
+  }>).map(({ customer, car, booking, ...row }) => {
     const person = one(customer);
     return {
       ...row,
@@ -90,6 +95,7 @@ export async function fetchEnvelopes(): Promise<Envelope[]> {
       difference: row.difference === null ? null : Number(row.difference),
       customer: [person?.first_name, person?.last_name].filter(Boolean).join(' ') || null,
       plate: one(car)?.plate_number ?? null,
+      booking_number: one(booking)?.booking_number ?? null,
     };
   });
 }
@@ -142,6 +148,56 @@ export async function reverseMovement(id: number, reason: string): Promise<strin
   const { data, error } = await supabase.rpc('admin_reverse_movement', { p_id: id, p_reason: reason });
   if (error) throw new Error(error.message);
   return data as string;
+}
+
+export interface DeletedEnvelope {
+  ref: string;
+  amount: number;
+  currency: Currency;
+  ledgerRowsDeleted: number;
+}
+
+/** Admins only, checked by the database: the envelope, its customer payment line and its movements go. */
+export async function deleteEnvelope(id: number, reason: string | null): Promise<DeletedEnvelope> {
+  const { data, error } = await supabase.rpc('admin_delete_envelope', { p_envelope_id: id, p_reason: reason });
+  if (error) throw new Error(error.message);
+  const row = data as { deleted_envelope: string; amount: number | string; currency: Currency; ledger_rows_deleted: number };
+  return { ref: row.deleted_envelope, amount: Number(row.amount), currency: row.currency, ledgerRowsDeleted: row.ledger_rows_deleted };
+}
+
+export interface DeleteOutcome {
+  deleted: DeletedEnvelope[];
+  failed: Array<{ envelope: Pick<Envelope, 'id' | 'ref'>; message: string }>;
+}
+
+/** One at a time, so a failure stops nothing else and each envelope answers for itself. */
+export async function deleteEnvelopes(
+  envelopes: Array<Pick<Envelope, 'id' | 'ref'>>,
+  reason: string | null,
+  onProgress?: (done: number) => void,
+  remove: typeof deleteEnvelope = deleteEnvelope,
+): Promise<DeleteOutcome> {
+  const outcome: DeleteOutcome = { deleted: [], failed: [] };
+  for (const envelope of envelopes) {
+    try {
+      outcome.deleted.push(await remove(envelope.id, reason));
+    } catch (failure) {
+      outcome.failed.push({ envelope, message: failure instanceof Error ? failure.message : 'Try again.' });
+    }
+    onProgress?.(outcome.deleted.length + outcome.failed.length);
+  }
+  return outcome;
+}
+
+export function deletedMessage(deleted: DeletedEnvelope[]): string | null {
+  if (deleted.length === 0) return null;
+  return deleted.length === 1 ? `${deleted[0].ref} deleted` : `${deleted.length} envelopes deleted`;
+}
+
+export function deleteFailedMessage(failed: DeleteOutcome['failed']): string | null {
+  if (failed.length === 0) return null;
+  if (failed.length === 1) return `Couldn't delete ${failed[0].envelope.ref}: ${failed[0].message}`;
+  return `Couldn't delete ${failed.length} envelopes: ${failed.map((row) => row.envelope.ref).join(', ')}`;
 }
 
 // ─── Working it out ───────────────────────────────────────────────────────────
