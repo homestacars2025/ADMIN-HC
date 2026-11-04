@@ -1,173 +1,152 @@
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import HGSPage from './HGSPage';
+import { currentMonth, shiftMonth } from '../lib/payroll';
 
 jest.mock('../lib/supabase', () => ({ supabase: {} }));
 
-const mockGetHgsDashboard = jest.fn();
-const mockGetCarTransits = jest.fn();
+const mockFetchHgsData = jest.fn();
+const mockFetchCarTransits = jest.fn();
+const mockSaveHgsBarcode = jest.fn();
 
 jest.mock('../lib/hgs', () => {
   const actual = jest.requireActual('../lib/hgs');
   return {
     ...actual,
-    getHgsDashboard: (...a: unknown[]) => mockGetHgsDashboard(...a),
-    getCarTransits: (...a: unknown[]) => mockGetCarTransits(...a),
+    fetchHgsData: (...a: unknown[]) => mockFetchHgsData(...a),
+    fetchCarTransits: (...a: unknown[]) => mockFetchCarTransits(...a),
+    saveHgsBarcode: (...a: unknown[]) => mockSaveHgsBarcode(...a),
   };
 });
 
-const DASHBOARD = {
-  summary: { totalAmount: 1408.5, transitCount: 28, carsWithHgs: 41, carsWithoutHgs: 9 },
+const month = currentMonth().slice(0, 7);
+const lastMonth = shiftMonth(`${month}-01`, -1).slice(0, 7);
+
+const DATA = {
   cars: [
-    {
-      carId: 39, plateNumber: '06FHN975', hgsBarcode: '1131524991',
-      modelGroup: 'Chery Tiggo 7 Pro',
-      transitCount: 5, totalAmount: 744.5, lastTransit: '2026-09-09T00:00:00+00:00',
-    },
-    {
-      carId: 51, plateNumber: '34HGC631', hgsBarcode: '1131524997',
-      modelGroup: 'Renault Clio',
-      transitCount: 2, totalAmount: 204.5, lastTransit: '2026-09-10T00:00:00+00:00',
-    },
-    {
-      carId: 7, plateNumber: '34ABC123', hgsBarcode: '1131500000',
-      modelGroup: null,
-      transitCount: 0, totalAmount: 0, lastTransit: null,
-    },
+    { id: 39, plate: '06FHN975', model: 'Chery Tiggo 7 Pro', image: null, barcode: '1131524991', active: true },
+    { id: 51, plate: '34HGC631', model: 'Renault Clio', image: null, barcode: '1131524997', active: true },
+    { id: 57, plate: '34MDJ129', model: 'Renault Taliant', image: null, barcode: null, active: true },
   ],
+  transits: [
+    { id: 1, carId: 39, plate: null, day: `${month}-02`, amount: 148.5, pending: false },
+    { id: 2, carId: 39, plate: null, day: `${month}-03`, amount: 96, pending: true },
+    { id: 3, carId: 51, plate: null, day: `${lastMonth}-10`, amount: 500, pending: false },
+  ],
+  lastSync: new Date(Date.now() - 12 * 60000).toISOString(),
 };
 
-/**
- * One transit today and one 200 days back, built relative to the clock so the
- * "This month" assertion holds whatever month the suite runs in.
- */
-const daysAgo = (n: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00+00:00`;
-};
-
-const TRANSITS = [
-  {
-    id: 1, tollLocation: 'Mahmutbey', entryLocation: 'Avcılar', exitLocation: 'Mahmutbey',
-    direction: 'KMO ASYA KESIMI GECIS UCRETI', transitDatetime: daysAgo(0), amount: 148.5,
-  },
-  {
-    id: 2, tollLocation: 'İstoç', entryLocation: 'İkitelli', exitLocation: 'İstoç',
-    direction: 'KCO GECIS UCRETI', transitDatetime: daysAgo(200), amount: 596,
-  },
-];
+const Where: React.FC = () => <span data-testid="where">{useLocation().search}</span>;
+const renderPage = (url = '/dashboard/hgs') => render(<MemoryRouter initialEntries={[url]}><HGSPage /><Where /></MemoryRouter>);
+const plates = () => screen.getAllByText(/^(06FHN975|34HGC631)$/).filter((n) => n.closest('li[class*="rounded-2xl"]')).map((n) => n.textContent);
 
 beforeEach(() => {
-  mockGetHgsDashboard.mockReset().mockResolvedValue(DASHBOARD);
-  mockGetCarTransits.mockReset().mockResolvedValue(TRANSITS);
+  mockFetchHgsData.mockReset().mockResolvedValue(DATA);
+  mockFetchCarTransits.mockReset().mockResolvedValue([
+    { id: 2, day: `${month}-03`, entry: 'Avcılar', exit: 'Mahmutbey', amount: 96, pending: true, bookingId: 7, bookingNumber: 'HOM-11-26-007', bookingMonth: month, customerId: 'c1', customerName: 'Ali Veli' },
+    { id: 1, day: `${month}-02`, entry: null, exit: 'İstoç', amount: 148.5, pending: false, bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null },
+  ]);
+  mockSaveHgsBarcode.mockReset();
 });
 
-test('renders the summary in Turkish format and the model group column', async () => {
-  render(<HGSPage />);
-
-  expect(await screen.findByText('1.408,50 TL')).toBeInTheDocument();
-  expect(screen.getByText('28')).toBeInTheDocument();
-
-  expect(screen.getByText('06FHN975')).toBeInTheDocument();
-  expect(screen.getByText('Chery Tiggo 7 Pro')).toBeInTheDocument();
-  expect(screen.getByText('Renault Clio')).toBeInTheDocument();
-  // A car with no model group falls back to an em-dash rather than blank.
-  expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+test('warns about the car with no barcode, and drops the old tile', async () => {
+  renderPage();
+  expect(await screen.findByText(/1 car has no HGS barcode — tolls for this car are not tracked/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Add an HGS barcode to 34MDJ129' })).toBeInTheDocument();
+  expect(screen.queryByText('Without HGS')).not.toBeInTheDocument();
+  expect(screen.getByText('Last sync: 12 min ago')).toBeInTheDocument();
 });
 
-test('sorting cycles asc -> desc -> off on a column header', async () => {
-  render(<HGSPage />);
-  await screen.findByText('06FHN975');
+test('tiles follow the month, and All time', async () => {
+  renderPage();
+  const total = await screen.findByRole('button', { name: /Total spend/ });
+  expect(total).toHaveTextContent('₺244,50');
+  expect(screen.getByRole('button', { name: /Transits\s*\d/ })).toHaveTextContent('2');
+  expect(screen.getByText('Cars on HGS').closest('.filter-tile')).toHaveTextContent('1 had no transit');
+  expect(screen.getByText('This month').closest('.filter-tile')).toHaveTextContent(/−51% vs/);
 
-  const plates = () =>
-    screen.getAllByText(/^(06FHN975|34HGC631|34ABC123)$/).map((n) => n.textContent);
+  await userEvent.click(screen.getByRole('button', { name: 'All time' }));
+  expect(screen.getByTestId('where')).toHaveTextContent('month=all');
+  expect(screen.getByRole('button', { name: /Total spend/ })).toHaveTextContent('₺744,50');
+  expect(screen.getByText('This month').closest('.filter-tile')).toHaveTextContent('₺244,50');
 
-  // Default is the RPC order: spend descending.
-  expect(plates()).toEqual(['06FHN975', '34HGC631', '34ABC123']);
-
-  const header = screen.getByRole('button', { name: /Sort by Plate/i });
-  await userEvent.click(header);
-  expect(plates()).toEqual(['06FHN975', '34ABC123', '34HGC631']);
-
-  await userEvent.click(header);
-  expect(plates()).toEqual(['34HGC631', '34ABC123', '06FHN975']);
-
-  await userEvent.click(header);   // third click clears back to the default
-  expect(plates()).toEqual(['06FHN975', '34HGC631', '34ABC123']);
+  await userEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+  expect(screen.getByRole('button', { name: /Total spend/ })).toHaveTextContent('₺500,00');
 });
 
-test('details are collapsed until asked for, and the range total updates', async () => {
-  render(<HGSPage />);
-  const row = await screen.findByText('06FHN975');
+test('the Transits tile filters to cars that used it, and clicking it again clears', async () => {
+  renderPage();
+  await screen.findByRole('button', { name: /Transits\s*\d/ });
+  expect(plates()).toEqual(['06FHN975', '34HGC631']);
+  const tile = screen.getByRole('button', { name: /Transits\s*\d/ });
+  await userEvent.click(tile);
+  expect(tile).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByTestId('where')).toHaveTextContent('filter=used');
+  expect(plates()).toEqual(['06FHN975']);
+  await userEvent.click(tile);
+  expect(plates()).toEqual(['06FHN975', '34HGC631']);
+});
+
+test('sorts and searches', async () => {
+  renderPage('/dashboard/hgs?month=all');
+  await screen.findByRole('button', { name: /Total spend/ });
+  expect(plates()).toEqual(['34HGC631', '06FHN975']);
+  await userEvent.click(screen.getByRole('button', { name: 'Transits' }));
+  expect(plates()).toEqual(['06FHN975', '34HGC631']);
+  await userEvent.type(screen.getByRole('searchbox'), 'clio');
+  expect(plates()).toEqual(['34HGC631']);
+});
+
+test('opening a car lists its transits with booking and customer, once', async () => {
+  renderPage();
+  const row = (await screen.findByText('06FHN975')).closest('button') as HTMLElement;
+  await userEvent.click(row);
+  await waitFor(() => expect(mockFetchCarTransits).toHaveBeenCalledTimes(1));
+  expect(mockFetchCarTransits.mock.calls[0][1]).toBe(month);
+  expect(await screen.findByText('HOM-11-26-007')).toHaveAttribute('href', `/dashboard/bookings?month=${month}&q=HOM-11-26-007`);
+  expect(screen.getByText('Ali Veli')).toHaveAttribute('href', '/dashboard/customers/c1');
+  expect(screen.getByText('Pending')).toBeInTheDocument();
+  expect(screen.getByText('Not linked')).toBeInTheDocument();
 
   await userEvent.click(row);
-  await waitFor(() => expect(mockGetCarTransits).toHaveBeenCalledTimes(1));
-
-  // Both transits, summed, and no detail table yet.
-  expect(await screen.findByText('744,50 TL')).toBeInTheDocument();     // the row total
-  expect(screen.getByText(/2 transits in total/)).toBeInTheDocument();
-  expect(screen.queryByText('Mahmutbey')).not.toBeInTheDocument();
-
-  await userEvent.click(screen.getByRole('button', { name: /Show details/i }));
-  // Entry and exit are separate cells now, not one joined string.
-  expect(screen.getByText('Avcılar')).toBeInTheDocument();
-  expect(screen.getByText('Mahmutbey')).toBeInTheDocument();
-
-  // Pick a range in the popover. Nothing filters until Apply, which is the
-  // whole point of staging the draft.
-  await userEvent.click(screen.getByRole('button', { name: /All dates/i }));
-  const dialog = within(screen.getByRole('dialog'));
-
-  await userEvent.click(dialog.getByRole('button', { name: 'This month' }));
-  expect(screen.getByText(/2 transits in total/)).toBeInTheDocument();   // still unfiltered
-
-  await userEvent.click(dialog.getByRole('button', { name: 'Apply' }));
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  expect(screen.getByText(/1 transit in range/)).toBeInTheDocument();    // July dropped
-
-  // Applying a range re-collapses the table, so re-open it.
-  await userEvent.click(screen.getByRole('button', { name: /Show details/i }));
-  expect(screen.getByText('Mahmutbey')).toBeInTheDocument();
-  expect(screen.queryByText('İstoç')).not.toBeInTheDocument();
-});
-
-test('expanding a car fetches its history only once', async () => {
-  render(<HGSPage />);
-  const row = await screen.findByText('06FHN975');
-
   await userEvent.click(row);
-  await waitFor(() => expect(mockGetCarTransits).toHaveBeenCalledTimes(1));
-  await userEvent.click(row);            // collapse
-  await userEvent.click(row);            // re-open — served from the kept entry
-  await waitFor(() => expect(screen.getByText(/2 transits in total/)).toBeInTheDocument());
-  expect(mockGetCarTransits).toHaveBeenCalledTimes(1);
+  expect(mockFetchCarTransits).toHaveBeenCalledTimes(1);
 });
 
-test('a car with no transits is not expandable', async () => {
-  render(<HGSPage />);
-  await screen.findByText('34ABC123');
-  expect(screen.getByText('34ABC123').closest('button')).toBeDisabled();
+test('a car with no transits in the period is not expandable', async () => {
+  renderPage();
+  expect((await screen.findByText('34HGC631')).closest('button')).toBeDisabled();
 });
 
-test('the All cars / With transits filter still works', async () => {
-  render(<HGSPage />);
-  await screen.findByText('06FHN975');
-  expect(screen.getByText('34ABC123')).toBeInTheDocument();
+test('a barcode saved from the banner takes the car off it', async () => {
+  mockSaveHgsBarcode.mockResolvedValue('1131525011');
+  renderPage();
+  await userEvent.click(await screen.findByRole('button', { name: 'Add an HGS barcode to 34MDJ129' }));
+  const sheet = within(screen.getByRole('dialog'));
+  expect(sheet.getByRole('link', { name: 'Open in Cars' })).toHaveAttribute('href', '/dashboard/cars?car=57');
+  await userEvent.type(sheet.getByRole('textbox'), '1131525011');
+  await userEvent.click(sheet.getByRole('button', { name: /Save barcode/ }));
+  expect(mockSaveHgsBarcode).toHaveBeenCalledWith(57, '1131525011');
+  await waitFor(() => expect(screen.queryByText(/no HGS barcode/)).not.toBeInTheDocument());
+  expect(screen.getByText('34MDJ129')).toBeInTheDocument();
+});
 
-  await userEvent.click(screen.getByRole('button', { name: /With transits/ }));
-  expect(screen.queryByText('34ABC123')).not.toBeInTheDocument();
-  expect(screen.getByText('06FHN975')).toBeInTheDocument();
+test('a failed save stays open with the reason', async () => {
+  mockSaveHgsBarcode.mockRejectedValue(new Error('That barcode is already on 34HGC631.'));
+  renderPage();
+  await userEvent.click(await screen.findByRole('button', { name: 'Add an HGS barcode to 34MDJ129' }));
+  const sheet = within(screen.getByRole('dialog'));
+  await userEvent.type(sheet.getByRole('textbox'), '1131524997');
+  await userEvent.click(sheet.getByRole('button', { name: /Save barcode/ }));
+  expect(await sheet.findByRole('alert')).toHaveTextContent('already on 34HGC631');
 });
 
 test('surfaces a load failure with a retry', async () => {
-  mockGetHgsDashboard.mockRejectedValueOnce(new Error('network down'));
-  render(<HGSPage />);
-
-  expect(await screen.findByText('Could not load HGS data')).toBeInTheDocument();
-  expect(screen.getByText('network down')).toBeInTheDocument();
-
-  await userEvent.click(screen.getAllByRole('button', { name: /Try again/ })[0]);
+  mockFetchHgsData.mockRejectedValueOnce(new Error('network down'));
+  renderPage();
+  expect(await screen.findByText("Couldn't load HGS: network down")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByText('06FHN975')).toBeInTheDocument();
 });
