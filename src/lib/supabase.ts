@@ -1,40 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
+import { authFetch } from './authFetch';
 
 const supabaseUrl     = process.env.REACT_APP_SUPABASE_URL!;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY!;
 
 // ── Primary singleton — public schema, auth, realtime ─────────────────────────
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// The session lives in localStorage and refreshes itself; `session.ts` keeps it
+// alive through background tabs and failed refreshes.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession:     true,
+    autoRefreshToken:   true,
+    detectSessionInUrl: true,
+    storage:            typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+  global: { fetch: authFetch },
+});
 
 // ── Social schema client ───────────────────────────────────────────────────────
-// Uses a unique storageKey so GoTrueClient doesn't conflict with the primary
-// client.  Session is kept in sync via the listener below.
+// Borrows the primary client's token rather than holding a session of its own.
+// A second auth client would refresh with the same refresh token, and spending
+// it twice can get the whole session revoked.
 export const socialSupabase = createClient(supabaseUrl, supabaseAnonKey, {
   db: { schema: 'social' },
-  auth: {
-    storageKey:        'sb-social-session',
-    autoRefreshToken:  false,   // primary client handles token refresh
-    detectSessionInUrl: false,
-  },
-});
-
-// Bootstrap: if the user is already logged in when the module loads, forward
-// that session to socialSupabase immediately.
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (session) {
-    socialSupabase.auth.setSession({
-      access_token:  session.access_token,
-      refresh_token: session.refresh_token,
-    });
-  }
-});
-
-// Keep socialSupabase in sync on every auth event (login, logout, token refresh).
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (session) {
-    socialSupabase.auth.setSession({
-      access_token:  session.access_token,
-      refresh_token: session.refresh_token,
-    });
-  }
+  accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+  global: { fetch: authFetch },
 });

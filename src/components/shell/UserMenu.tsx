@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { endSession } from '../../lib/session';
 import type { CurrentProfile } from '../../hooks/useCurrentProfile';
 import StaffAvatar from '../shared/StaffAvatar';
 
@@ -32,7 +32,7 @@ export const UserMenu: React.FC<{ profile: CurrentProfile | null }> = ({ profile
   }, [open]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await endSession();
     navigate('/login');
   };
 

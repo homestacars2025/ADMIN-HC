@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ACCESS_MESSAGES, checkAdminAccess, signInAsAdmin } from '../lib/adminAccess';
 import { resetComplianceAlert } from '../lib/complianceStore';
+import { endSession } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import Logo from '../components/shared/Logo';
 import { Button } from '../components/media/MediaUI';
@@ -16,9 +18,9 @@ const LoginPage: React.FC = () => {
 
   // Show access-denied message when redirected from ProtectedRoute
   useEffect(() => {
-    if (searchParams.get('error') === 'access_denied') {
-      setError('Access denied. This portal is restricted to administrators only.');
-    }
+    const reason = searchParams.get('error');
+    if (reason === 'access_denied') setError(ACCESS_MESSAGES.not_admin);
+    if (reason === 'disabled') setError(ACCESS_MESSAGES.disabled);
   }, [searchParams]);
 
   // If already signed in, verify admin role before redirecting
@@ -28,19 +30,12 @@ const LoginPage: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || cancelled) return;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-
+      const access = await checkAdminAccess(session.user.id);
       if (cancelled) return;
 
-      if (profile?.role === 'admin') {
-        navigate('/dashboard', { replace: true });
-      } else {
-        await supabase.auth.signOut();
-      }
+      if (access === 'allowed') navigate('/dashboard', { replace: true });
+      // A lookup that didn't get through leaves the session alone.
+      else if (access !== 'unreachable') await endSession();
     })();
     return () => { cancelled = true; };
   }, [navigate]);
@@ -50,31 +45,9 @@ const LoginPage: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    const userId = signInData.session?.user.id;
-    if (!userId) {
-      setError('Authentication failed. Please try again.');
-      setLoading(false);
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      console.warn('[HomestaCars] Login denied for:', email, '— role:', profile?.role ?? 'missing');
-      await supabase.auth.signOut();
-      setError('Access denied. This portal is restricted to administrators only.');
+    const failure = await signInAsAdmin(email, password);
+    if (failure) {
+      setError(failure);
       setLoading(false);
       return;
     }

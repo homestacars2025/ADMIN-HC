@@ -10,7 +10,10 @@ import './index.css';
 // Loaded after index.css so the Stay-derived tokens win where the two overlap.
 import './styles/theme.css';
 import App from './App';
+import { startSessionKeeper } from './lib/session';
 import reportWebVitals from './reportWebVitals';
+
+startSessionKeeper();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
