@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { printDocument } from './printDocument';
 import { standaloneFontCss } from './standaloneFonts';
 import { formatFuelRange } from './fuelRange';
 import { fmt, fmtDate, fmtKm, infoRow, infoRowPair } from './printContract';
@@ -651,14 +652,7 @@ export async function printReplacementSheet(sheet: ReplacementSheet): Promise<vo
 
   const html = buildHTML(sheet, cust);
 
-  const win = window.open('', '_blank', 'width=960,height=1150');
-  if (!win) {
-    alert('Pop-up blocked. Please allow pop-ups for this site and try again.');
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  await printDocument(html);
 }
 
 // ─── Layout preview ───────────────────────────────────────────────────────────
