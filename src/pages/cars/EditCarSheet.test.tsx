@@ -142,3 +142,22 @@ test('closing untouched closes straight away', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(onClose).toHaveBeenCalledWith(false);
 });
+
+test('the spare key switch toggles from the row and saves with the form', async () => {
+  const { onClose } = renderSheet();
+  const toggle = await screen.findByRole('switch', { name: 'Spare key' });
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+  expect(toggle).toHaveAccessibleDescription('Is there a spare key for this car?');
+  await userEvent.click(screen.getByText('Is there a spare key for this car?'));
+  expect(toggle).toHaveAttribute('aria-checked', 'true');
+  expect(screen.getByText('1 unsaved change')).toBeInTheDocument();
+  await userEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+  toggle.focus();
+  await userEvent.keyboard(' ');
+  expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(onClose).toHaveBeenCalledWith(true));
+  expect(mockSaveFields.mock.calls[0][1].hasSpareKey).toBe('true');
+  expect(mockSaveFields.mock.calls[0][2].hasSpareKey).toBe('false');
+});

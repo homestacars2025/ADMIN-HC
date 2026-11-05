@@ -7,8 +7,10 @@ import {
   expiryChip,
   fieldUpdates,
   makePrimary,
+  matchesSpareKey,
   mirrorOf,
   movePhoto,
+  parseSpareKeyFilter,
   persistPhotos,
   photoObjectPath,
   removeDoc,
@@ -172,8 +174,24 @@ describe('documents', () => {
   });
 });
 
+describe('spare key filter', () => {
+  it('reads only yes or no from the URL', () => {
+    expect(parseSpareKeyFilter('yes')).toBe('yes');
+    expect(parseSpareKeyFilter('no')).toBe('no');
+    expect(parseSpareKeyFilter('maybe')).toBeNull();
+    expect(parseSpareKeyFilter(null)).toBeNull();
+  });
+  it('treats a car with no record as having no spare key', () => {
+    expect(matchesSpareKey(true, 'yes')).toBe(true);
+    expect(matchesSpareKey(undefined, 'yes')).toBe(false);
+    expect(matchesSpareKey(null, 'no')).toBe(true);
+    expect(matchesSpareKey(true, 'no')).toBe(false);
+    expect(matchesSpareKey(false, null)).toBe(true);
+  });
+});
+
 describe('fields', () => {
-  const base: CarFields = { plate: '34ABC1', modelGroupId: '2', investorId: 'i1', manufactureYear: '2022', carPackage: '', insuranceExpiry: '2027-01-01', inspectionExpiry: '', purchaseDate: '' };
+  const base: CarFields = { plate: '34ABC1', modelGroupId: '2', investorId: 'i1', manufactureYear: '2022', carPackage: '', insuranceExpiry: '2027-01-01', inspectionExpiry: '', purchaseDate: '', hasSpareKey: 'false' };
 
   it('sends only what changed, to the right table', () => {
     const next = { ...base, plate: '34abc2', manufactureYear: '2023', inspectionExpiry: '2027-03-01', carPackage: '  ' };
@@ -183,6 +201,11 @@ describe('fields', () => {
       registration: { manufacture_year: 2023, inspection_expiry: '2027-03-01' },
     });
     expect(fieldUpdates({ ...base, insuranceExpiry: '' }, base).registration).toEqual({ insurance_expiry: null });
+  });
+
+  it('saves the spare key as a boolean', () => {
+    expect(fieldUpdates({ ...base, hasSpareKey: 'true' }, base)).toEqual({ car: {}, registration: { has_spare_key: true } });
+    expect(fieldUpdates(base, { ...base, hasSpareKey: 'true' }).registration).toEqual({ has_spare_key: false });
   });
 
   it('needs a plate and a sensible year', () => {

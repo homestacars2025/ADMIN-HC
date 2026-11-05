@@ -82,6 +82,7 @@ async function loadCar(carId: number): Promise<Loaded> {
       insuranceExpiry: text(reg.insurance_expiry).slice(0, 10),
       inspectionExpiry: text(reg.inspection_expiry).slice(0, 10),
       purchaseDate: text(reg.purchase_date).slice(0, 10),
+      hasSpareKey: reg.has_spare_key === true ? 'true' : 'false',
     },
     docs: Object.fromEntries(DOC_SLOTS.map((slot) => [slot.column, (reg[slot.column] as string | null) || null])) as Record<DocColumn, string | null>,
     photos: buildPhotoList((photoRes.data ?? []) as PhotoRow[], Array.isArray(car.car_photo_urls) ? car.car_photo_urls : []),
@@ -207,6 +208,48 @@ function useFileDrop(onFiles: (files: File[]) => void, disabled: boolean) {
     },
   };
 }
+
+/** Apple's switch: 51×31, green when on, the thumb sliding across (mirrored right to left). */
+export const IosSwitch: React.FC<{ id?: string; checked: boolean; labelledBy?: string; describedBy?: string; onChange: (checked: boolean) => void }> = ({ id, checked, labelledBy, describedBy, onChange }) => (
+  <button
+    id={id}
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-labelledby={labelledBy}
+    aria-describedby={describedBy}
+    onClick={() => onChange(!checked)}
+    className="ios-switch relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full p-[2px] outline-none transition-colors duration-200 focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/50"
+    style={{ background: checked ? '#34C759' : '#E9E9EB' }}
+  >
+    <span
+      aria-hidden="true"
+      className="block h-[27px] w-[27px] rounded-full bg-white transition-transform duration-200 [transition-timing-function:cubic-bezier(.4,0,.2,1)] rtl:[--ios-dir:-1]"
+      style={{
+        boxShadow: '0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.16)',
+        transform: `translateX(calc(${checked ? 20 : 0}px * var(--ios-dir, 1)))`,
+      }}
+    />
+  </button>
+);
+
+const SpareKeyRow: React.FC<{ checked: boolean; changed: boolean; onChange: (checked: boolean) => void }> = ({ checked, changed, onChange }) => (
+  // The whole row is a 44px+ target; the switch itself carries the state.
+  <div
+    className="mt-3.5 flex min-h-[56px] cursor-pointer items-center gap-3 rounded-xl border border-subtle bg-black/[0.015] px-3 py-2"
+    onClick={(event) => { if (!(event.target as HTMLElement).closest('[role="switch"]')) onChange(!checked); }}
+  >
+    <CarIcon3D name="key" size={40} />
+    <div className="min-w-0 flex-1">
+      <div id="spare-key-label" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-foreground">
+        Spare key
+        {changed && <span title="Changed" aria-label="Changed" className="h-1.5 w-1.5 rounded-full bg-[#6EA4E7]" />}
+      </div>
+      <div id="spare-key-caption" className="text-[12px] text-black/50">Is there a spare key for this car?</div>
+    </div>
+    <IosSwitch checked={checked} labelledBy="spare-key-label" describedBy="spare-key-caption" onChange={onChange} />
+  </div>
+);
 
 // ── Documents ────────────────────────────────────────────────────────────────
 
@@ -428,6 +471,7 @@ const FIELD_LABELS: Record<FieldKey, string> = {
   insuranceExpiry: 'Insurance expiry',
   inspectionExpiry: 'Inspection expiry',
   purchaseDate: 'Purchase date',
+  hasSpareKey: 'Spare key',
 };
 
 export const EditCarSheet: React.FC<{
@@ -748,6 +792,11 @@ export const EditCarSheet: React.FC<{
                 <input type="date" value={fields.purchaseDate} aria-label={FIELD_LABELS.purchaseDate} onChange={(event) => set('purchaseDate', event.target.value)} className={INPUT} />
               </Field>
             </div>
+            <SpareKeyRow
+              checked={fields.hasSpareKey === 'true'}
+              changed={changed.includes('hasSpareKey')}
+              onChange={(checked) => set('hasSpareKey', checked ? 'true' : 'false')}
+            />
           </Section>
 
           <Section icon="expiry" title="Expiry dates" hint="Insurance and inspection">

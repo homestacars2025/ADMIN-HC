@@ -267,7 +267,7 @@ export async function uploadPhoto(carId: number, original: File, onProgress?: Pr
  * Some cars have no registration row yet, so the first write creates it. The
  * sheet runs its writes one at a time, so two uploads can't both create one.
  */
-async function setRegistrationColumns(carId: number, values: Record<string, string | number | null>): Promise<void> {
+async function setRegistrationColumns(carId: number, values: Record<string, string | number | boolean | null>): Promise<void> {
   const existing = await supabase.from('cars_registration').select('id').eq('car_id', carId).limit(1);
   throwIf(existing.error);
   const { error } = (existing.data ?? []).length > 0
@@ -307,6 +307,8 @@ export interface CarFields {
   insuranceExpiry: string;
   inspectionExpiry: string;
   purchaseDate: string;
+  /** 'true' or 'false', so every field compares the same way. */
+  hasSpareKey: string;
 }
 
 export type FieldKey = keyof CarFields;
@@ -319,6 +321,7 @@ export const REGISTRATION_COLUMNS: Partial<Record<FieldKey, string>> = {
   insuranceExpiry: 'insurance_expiry',
   inspectionExpiry: 'inspection_expiry',
   purchaseDate: 'purchase_date',
+  hasSpareKey: 'has_spare_key',
 };
 
 export const changedFields = (current: CarFields, baseline: CarFields): FieldKey[] =>
@@ -334,8 +337,11 @@ export function validateFields(fields: CarFields, thisYear: number): Partial<Rec
   return errors;
 }
 
-function columnValue(key: FieldKey, value: string): string | number | null {
+type ColumnValue = string | number | boolean | null;
+
+function columnValue(key: FieldKey, value: string): ColumnValue {
   const text = value.trim();
+  if (key === 'hasSpareKey') return text === 'true';
   if (!text) return null;
   if (key === 'plate') return normalizePlate(text);
   if (key === 'modelGroupId' || key === 'manufactureYear') return Number(text);
@@ -343,9 +349,9 @@ function columnValue(key: FieldKey, value: string): string | number | null {
 }
 
 /** Only the changed columns, so a save never overwrites a document saved a moment ago. */
-export function fieldUpdates(current: CarFields, baseline: CarFields): { car: Record<string, string | number | null>; registration: Record<string, string | number | null> } {
-  const car: Record<string, string | number | null> = {};
-  const registration: Record<string, string | number | null> = {};
+export function fieldUpdates(current: CarFields, baseline: CarFields): { car: Record<string, ColumnValue>; registration: Record<string, ColumnValue> } {
+  const car: Record<string, ColumnValue> = {};
+  const registration: Record<string, ColumnValue> = {};
   for (const key of changedFields(current, baseline)) {
     if (CAR_COLUMNS[key]) car[CAR_COLUMNS[key] as string] = columnValue(key, current[key]);
     if (REGISTRATION_COLUMNS[key]) registration[REGISTRATION_COLUMNS[key] as string] = columnValue(key, current[key]);
@@ -362,3 +368,15 @@ export async function saveFields(carId: number, current: CarFields, baseline: Ca
   }
   if (Object.keys(registration).length > 0) await setRegistrationColumns(carId, registration);
 }
+
+// ── Spare key filter ─────────────────────────────────────────────────────────
+
+export type SpareKeyFilter = 'yes' | 'no';
+
+export const SPARE_KEY_PARAM = 'spare_key';
+
+export const parseSpareKeyFilter = (value: string | null): SpareKeyFilter | null => (value === 'yes' || value === 'no' ? value : null);
+
+/** A car with no registration row has no spare key on record. */
+export const matchesSpareKey = (hasSpareKey: boolean | null | undefined, filter: SpareKeyFilter | null) =>
+  filter === null || (filter === 'yes') === Boolean(hasSpareKey);

@@ -20,6 +20,7 @@ import {
   ExpiryCell,
 } from './cars/ComplianceAlert';
 import { EditCarSheet } from './cars/EditCarSheet';
+import { matchesSpareKey, parseSpareKeyFilter, SPARE_KEY_PARAM, type SpareKeyFilter } from '../lib/carEditor';
 
 // ─── Car Table Types ──────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ interface CarTableRow {
   kasko_url:     string | null;
   insurance_expiry:  string | null;
   inspection_expiry: string | null;
+  has_spare_key:     boolean;
 }
 
 type CarTableStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
@@ -65,6 +67,16 @@ const CarStatusBadge: React.FC<{ status: string }> = ({ status }) => {
     </span>
   );
 };
+
+/** Shown after the plate when the car has a spare key. */
+const SpareKeyGlyph: React.FC = () => (
+  <span title="Spare key" aria-label="Spare key" role="img" style={{ display: 'inline-flex', color: '#3A74C2' }}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="M10.7 12.3L21 2M16 7l3 3M18.5 4.5l2 2" />
+    </svg>
+  </span>
+);
 
 // ─── Stat Card Types ───────────────────────────────────────────────────────────
 
@@ -393,7 +405,13 @@ const CarsPage: React.FC = () => {
   const [cars, setCars]             = useState<CarTableRow[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
   const [tableSearch, setTableSearch] = useState('');
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const spareKey = parseSpareKeyFilter(searchParams.get(SPARE_KEY_PARAM));
+  const setSpareKey = (value: SpareKeyFilter | null) => setSearchParams((params) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(SPARE_KEY_PARAM, value); else next.delete(SPARE_KEY_PARAM);
+    return next;
+  }, { replace: true });
   const { filter: statusFilter, toggle: toggleStatus, clear: clearStatus } = useUrlFilter(STATUS_FILTERS);
   const { key: locationKey } = useLocation();
   useEffect(() => {
@@ -478,7 +496,7 @@ const CarsPage: React.FC = () => {
       const [carsRes, trackingRes, registrationsRes, availabilityRes, modelGroupsRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true).order('id', { ascending: false }),
         supabase.from('car_tracking').select('car_id, current_km, updated_at').order('updated_at', { ascending: false }),
-        supabase.from('cars_registration').select('car_id, manufacture_year, purchase_contract_url, purchase_invoice_url, insurance_file_url, ruhsat_url, kasko, insurance_expiry, inspection_expiry'),
+        supabase.from('cars_registration').select('car_id, manufacture_year, purchase_contract_url, purchase_invoice_url, insurance_file_url, ruhsat_url, kasko, insurance_expiry, inspection_expiry, has_spare_key'),
         supabase.from('car_availability').select('id, status'),
         supabase.from('model_group').select('id, name'),
       ]);
@@ -486,7 +504,7 @@ const CarsPage: React.FC = () => {
 
       const rawCars        = (carsRes.data         ?? []) as { id: number; plate_number: string; model_group_id: number | null }[];
       const rawTracking    = (trackingRes.data      ?? []) as { car_id: number; current_km: number; updated_at: string }[];
-      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; purchase_contract_url: string | null; purchase_invoice_url: string | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null; insurance_expiry: string | null; inspection_expiry: string | null }[];
+      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; purchase_contract_url: string | null; purchase_invoice_url: string | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null; insurance_expiry: string | null; inspection_expiry: string | null; has_spare_key: boolean | null }[];
       const rawAvailability= (availabilityRes.data  ?? []) as { id: number; status: string }[];
       const rawModels      = (modelGroupsRes.data   ?? []) as { id: number; name: string }[];
 
@@ -514,6 +532,7 @@ const CarsPage: React.FC = () => {
           kasko_url:     reg?.kasko ?? null,
           insurance_expiry:  reg?.insurance_expiry ?? null,
           inspection_expiry: reg?.inspection_expiry ?? null,
+          has_spare_key:     reg?.has_spare_key === true,
         };
       });
 
@@ -738,6 +757,19 @@ const CarsPage: React.FC = () => {
               <span className="tabular-nums">{compliance.length}</span>
             </button>
           )}
+          <select
+            aria-label="Spare key"
+            value={spareKey ?? ''}
+            onChange={e => setSpareKey(parseSpareKeyFilter(e.target.value))}
+            className={cn(
+              'h-11 shrink-0 rounded-[9px] border-[1.5px] bg-white px-2.5 text-[13px] font-medium outline-none md:h-9',
+              spareKey ? 'border-[#4ba6ea] text-[#3A74C2]' : 'border-[#e5e7eb] text-[#374151]',
+            )}
+          >
+            <option value="">Spare key: All</option>
+            <option value="yes">Spare key: Yes</option>
+            <option value="no">Spare key: No</option>
+          </select>
           {/* Search */}
           <div className="relative min-w-0 flex-1 sm:w-[220px] sm:flex-none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
@@ -872,6 +904,7 @@ const CarsPage: React.FC = () => {
                   const filtered = cars.filter(car => {
                     if (onlyIssues && !issuesByCar.has(car.id)) return false;
                     if (statusFilter !== 'all' && car.status?.toLowerCase() !== statusFilter) return false;
+                    if (!matchesSpareKey(car.has_spare_key, spareKey)) return false;
                     if (!q) return true;
                     return car.plate_number.toLowerCase().includes(q) || car.model.toLowerCase().includes(q);
                   });
@@ -898,7 +931,7 @@ const CarsPage: React.FC = () => {
                       <tr>
                         <td colSpan={13} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
                           {statusFilter !== 'all' && <StatusImage status={statusFilter} size={96} className="mx-auto mb-2" />}
-                          {tableSearch ? 'No cars match your search.' : statusFilter !== 'all' ? `No cars in ${STATUS_CONFIG[statusFilter].label}.` : 'No cars found.'}
+                          {tableSearch ? 'No cars match your search.' : spareKey ? `No cars ${spareKey === 'yes' ? 'with' : 'without'} a spare key here.` : statusFilter !== 'all' ? `No cars in ${STATUS_CONFIG[statusFilter].label}.` : 'No cars found.'}
                         </td>
                       </tr>
                     );
@@ -922,6 +955,7 @@ const CarsPage: React.FC = () => {
                           <span className="font-mono tabular-nums" style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', letterSpacing: '0.3px' }}>
                             {car.plate_number}
                           </span>
+                          {car.has_spare_key && <SpareKeyGlyph />}
                           {affected && <ComplianceTriangle tone={toneOf(affected.severity)} size={18} alt={affected.severity === 'expired' ? 'Expired' : 'Date not recorded'} />}
                         </span>
                       </td>
