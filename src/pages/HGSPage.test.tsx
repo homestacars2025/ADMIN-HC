@@ -129,7 +129,7 @@ test('opening a car lists its transits with time, road and booking, once', async
 
 test('the banner follows the month, and all time is never', async () => {
   renderPage('/dashboard/hgs?month=all');
-  expect(await screen.findByRole('alert')).toHaveTextContent('1 car has no HGS transits yet — check their HGS');
+  expect(await screen.findByRole('alert')).toHaveTextContent('1 car has no HGS transits yet — check its HGS');
   await userEvent.click(screen.getByRole('button', { name: 'All time' }));
   await userEvent.click(screen.getByRole('button', { name: 'Previous month' }));
   expect(screen.getByRole('alert')).toHaveTextContent(/^2 cars have no HGS transits in \w+ \d{4} — check their HGS/);
@@ -156,6 +156,24 @@ test('a chip opens that car in the list, with no fetch when it has no transits',
   expect(screen.queryByRole('button', { name: 'Add barcode' })).not.toBeInTheDocument();
   expect(mockFetchCarTransits).not.toHaveBeenCalled();
   expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { expanded: true })).toHaveFocus();
+});
+
+test('past twelve cars the banner ends in +N more, which filters to them all', async () => {
+  const many = Array.from({ length: 14 }, (_, index) => ({ id: 100 + index, plate: `34TST${100 + index}`, model: 'Fiat Egea', image: null, barcode: '1131500000', active: true }));
+  mockFetchHgsData.mockResolvedValue({ ...DATA, cars: [...DATA.cars, ...many] });
+  renderPage();
+  const banner = await screen.findByRole('alert');
+  expect(within(banner).getAllByRole('button', { name: /^Show / })).toHaveLength(12);
+  expect(within(banner).getByRole('button', { name: '+4 more' })).toBeInTheDocument();
+  expect(within(banner).getByRole('button', { name: '+11 more' })).toBeInTheDocument();
+  await userEvent.click(within(banner).getByRole('button', { name: '+4 more' }));
+  expect(screen.getByTestId('where')).toHaveTextContent('filter=idle');
+});
+
+test('one car reads its, not their', async () => {
+  renderPage('/dashboard/hgs?month=all');
+  expect(await screen.findByRole('alert')).toHaveTextContent('1 car has no HGS transits yet — check its HGS');
 });
 
 test('a barcode added from the open row takes the No barcode tag off its chip', async () => {

@@ -148,7 +148,9 @@ const HGSPage: React.FC = () => {
 
   useEffect(() => {
     if (!scrollTo) return;
-    document.getElementById(hgsRowId(scrollTo))?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const row = document.getElementById(hgsRowId(scrollTo));
+    row?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    row?.querySelector('button')?.focus({ preventScroll: true });
     setScrollTo(null);
   }, [scrollTo, visible]);
 
@@ -191,7 +193,7 @@ const HGSPage: React.FC = () => {
 
       {error && <LoadError message={`Couldn't load HGS: ${error}`} onRetry={refresh} />}
 
-      {data && <NoTransitsBanner cars={idleCars} when={bannerWhen} onPick={showCar} />}
+      {data && <NoTransitsBanner cars={idleCars} when={bannerWhen} onPick={showCar} onMore={() => { if (filter !== 'idle') toggle('idle'); }} />}
 
       {loading && <FilterTileSkeleton split count={4} />}
       {summary && (

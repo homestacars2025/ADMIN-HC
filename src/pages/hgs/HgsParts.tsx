@@ -11,26 +11,32 @@ import { LicensePlate } from '../bookings/ui';
 
 // ── Cars with no HGS data ─────────────────────────────────────────────────────
 
-/** "this month", "in October 2026" or "yet", after "no HGS transits". */
-export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; onPick: (car: HgsCarInfo) => void }> = ({ cars, when, onPick }) => {
+/** Chips shown before "+N more": fewer on a phone, where they stack. */
+const CHIPS_DESKTOP = 12;
+const CHIPS_PHONE = 5;
+
+const chipClass = 'flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#92400E]/10 bg-white/85 p-1 pe-2 transition-colors hover:border-[#92400E]/30 hover:bg-white focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:min-h-0';
+
+/** `when` is "this month", "in October 2026" or "yet", after "no HGS transits". */
+export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; onPick: (car: HgsCarInfo) => void; onMore: () => void }> = ({ cars, when, onPick, onMore }) => {
   if (cars.length === 0) return null;
   const many = cars.length !== 1;
+  const more = (shown: number, className: string) => cars.length > shown && (
+    <li className={className}>
+      <button type="button" onClick={onMore} className={cn(chipClass, 'px-2.5 text-[12.5px] font-medium text-[#92400E]')}>+{cars.length - shown} more</button>
+    </li>
+  );
   return (
     <div role="alert" className={cn('mb-4 flex max-w-[1100px] items-start gap-3 rounded-2xl border px-3.5 py-3 sm:px-4', TONE_CLASSES.amber.panel)}>
       <ComplianceTriangle tone="amber" size={44} className="shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-semibold leading-snug text-[#92400E] sm:text-[14px]">
-          {cars.length} {many ? 'cars have' : 'car has'} no HGS transits {when} — check their HGS
+          {cars.length} {many ? 'cars have' : 'car has'} no HGS transits {when} — check {many ? 'their' : 'its'} HGS
         </p>
         <ul className="mt-2 flex flex-wrap items-center gap-1.5">
-          {cars.map((car) => (
-            <li key={car.id}>
-              <button
-                type="button"
-                onClick={() => onPick(car)}
-                aria-label={`Show ${car.plate}`}
-                className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#92400E]/10 bg-white/85 p-1 pe-2 transition-colors hover:border-[#92400E]/30 hover:bg-white focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:min-h-0"
-              >
+          {cars.slice(0, CHIPS_DESKTOP).map((car, index) => (
+            <li key={car.id} className={cn(index >= CHIPS_PHONE && 'hidden sm:block')}>
+              <button type="button" onClick={() => onPick(car)} aria-label={`Show ${car.plate}`} className={chipClass}>
                 <CarThumb src={car.image} width={34} height={24} />
                 <LicensePlate plate={car.plate} />
                 <span className="max-w-[160px] truncate text-[12px] text-black/55">{car.model ?? '—'}</span>
@@ -38,6 +44,8 @@ export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; onPi
               </button>
             </li>
           ))}
+          {more(CHIPS_PHONE, 'sm:hidden')}
+          {more(CHIPS_DESKTOP, 'hidden sm:block')}
         </ul>
       </div>
     </div>
