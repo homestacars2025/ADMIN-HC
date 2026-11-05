@@ -263,7 +263,10 @@ export function buildWallet(data: WalletData): Wallet {
   const bookingsByNumber = new Map<string, number>();
   data.bookings.forEach((booking) => { if (booking.booking_number) bookingsByNumber.set(booking.booking_number, booking.id); });
 
-  const cards = data.bookings.slice().sort(newestFirst).map((booking): WalletCard => {
+  // A cancelled booking only shows when it still holds money.
+  const withLines = new Set(data.lines.map((line) => line.booking_id));
+  const listed = data.bookings.filter((booking) => booking.status !== 'cancelled' || withLines.has(booking.id));
+  const cards = listed.slice().sort(newestFirst).map((booking): WalletCard => {
     const car = one(booking.cars);
     const own = data.lines.filter((line) => line.booking_id === booking.id);
     return {
@@ -485,6 +488,8 @@ export interface SummaryBooking {
   cars: Joined<{ plate_number: string | null }>;
 }
 
+const compact = (value: string) => value.replace(/[\s\-+().]/g, '').toLowerCase();
+
 /**
  * Customers with at least one line. Each booking's balance is rounded to the kuruş
  * and then summed, the same total the wallet shows. Biggest balance either way first.
@@ -510,10 +515,16 @@ export function summarizeWallets(
     .map((customer): WalletSummary => {
       const own = perBooking.get(customer.id) as Map<number, number>;
       const rides = (theirs.get(customer.id) ?? []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date) || b.id - a.id);
-      const plates = Array.from(new Set(rides
-        .filter((booking) => booking.status !== 'cancelled')
-        .map((booking) => one(booking.cars)?.plate_number?.trim())
-        .filter((plate): plate is string => Boolean(plate))));
+      // The same bookings the wallet lists: a cancelled one only when it holds money.
+      const listed = rides.filter((booking) => booking.status !== 'cancelled' || own.has(booking.id));
+      const plates: string[] = [];
+      const seen = new Set<string>();
+      rides.filter((booking) => booking.status !== 'cancelled').forEach((booking) => {
+        const plate = one(booking.cars)?.plate_number?.trim();
+        if (!plate || seen.has(compact(plate))) return;
+        seen.add(compact(plate));
+        plates.push(plate);
+      });
       return {
         customerId: customer.id,
         name: customerName(customer),
@@ -522,7 +533,7 @@ export function summarizeWallets(
         banReason: customer.ban_reason ?? null,
         balance: roundMoney(Array.from(own.values()).reduce((sum, value) => sum + roundMoney(value), 0)),
         // All their bookings, as the wallet lists them, not only those with money on.
-        bookings: Math.max(rides.length, own.size),
+        bookings: Math.max(listed.length, own.size),
         plates,
         onRoad: rides.some((booking) => booking.is_currently_active),
       };
@@ -547,15 +558,13 @@ export function inWalletFilter(row: WalletSummary, filter: WalletFilter | 'all')
   return filter === 'all' || walletTone(row.balance) === filter;
 }
 
-const compact = (value: string) => value.replace(/[\s\-+().]/g, '').toLowerCase();
-
 /** Name, phone, or any car they've had: "34KDT" finds "34 KDT 123". */
 export function matchesWalletSearch(row: WalletSummary, query: string): boolean {
   const term = query.trim().toLowerCase();
   if (!term) return true;
   const bare = compact(term);
   return row.name.toLowerCase().includes(term)
-    || (bare !== '' && compact(row.phone ?? '').includes(bare))
+    || (bare.replace(/\D/g, '').length >= 3 && compact(row.phone ?? '').includes(bare))
     || (bare !== '' && row.plates.some((plate) => compact(plate).includes(bare)));
 }
 

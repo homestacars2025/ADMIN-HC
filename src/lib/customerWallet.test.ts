@@ -138,6 +138,7 @@ test('targets leave out the booking itself and cancelled ones; the default is th
   const wallet = buildWallet(data);
   const targets = moveTargets(wallet, 1);
   expect(targets.map((card) => card.id)).toEqual([2]);
+  expect(wallet.cards.map((card) => card.id)).toEqual([2, 1]);
   expect(defaultTarget(targets)?.id).toBe(2);
   expect(defaultTarget(moveTargets(wallet, 2))?.id).toBe(1);
   expect(defaultTarget([])).toBeNull();
@@ -197,14 +198,16 @@ test('the list carries every car a customer had, newest first, and finds them by
       { id: 1, customer_id: 'a', start_date: '2026-01-01', status: 'completed', is_currently_active: false, cars: { plate_number: '34 KDT 101' } },
       { id: 2, customer_id: 'a', start_date: '2026-10-01', status: 'confirmed', is_currently_active: true, cars: [{ plate_number: '34 ABC 22' }] },
       { id: 3, customer_id: 'a', start_date: '2026-11-01', status: 'cancelled', is_currently_active: false, cars: { plate_number: '34 ZZZ 9' } },
-      { id: 4, customer_id: 'a', start_date: '2025-05-01', status: 'completed', is_currently_active: false, cars: { plate_number: '34 KDT 101' } },
+      { id: 4, customer_id: 'a', start_date: '2025-05-01', status: 'completed', is_currently_active: false, cars: { plate_number: '34KDT101' } },
     ],
   );
-  expect(row).toMatchObject({ plates: ['34 ABC 22', '34 KDT 101'], onRoad: true, banned: true, banReason: 'Late', balance: -200, bookings: 4 });
+  // The empty cancelled booking isn't counted, as the wallet doesn't list it.
+  expect(row).toMatchObject({ plates: ['34 ABC 22', '34 KDT 101'], onRoad: true, banned: true, banReason: 'Late', balance: -200, bookings: 3 });
   expect(matchesWalletSearch(row, '34KDT')).toBe(true);
   expect(matchesWalletSearch(row, '34zzz')).toBe(false);
   expect(matchesWalletSearch(row, 'kaya')).toBe(true);
   expect(matchesWalletSearch(row, '0536 111')).toBe(true);
+  expect(matchesWalletSearch(row, '11')).toBe(false);
 });
 
 test('a recorded payment and a transfer half are not edited on their own', () => {
