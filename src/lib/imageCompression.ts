@@ -8,28 +8,38 @@ export function scaledSize(width: number, height: number, maxSide: number = MAX_
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
-export const canCompress = (file: Pick<File, 'type' | 'size'>): boolean =>
+export interface CompressOptions {
+  maxSide?: number;
+  quality?: number;
+  /** Smaller files go up untouched. */
+  skipBelowBytes?: number;
+}
+
+export const canCompress = (file: Pick<File, 'type' | 'size'>, skipBelowBytes: number = SKIP_BELOW_BYTES): boolean =>
   file.type.startsWith('image/')
   && file.type !== 'image/gif'
   && file.type !== 'image/svg+xml'
-  && file.size >= SKIP_BELOW_BYTES;
+  && file.size >= skipBelowBytes;
 
 /**
  * A smaller JPEG of a photo. Anything it can't improve goes back untouched, so a
  * format the browser can't read, like HEIC on desktop, still uploads as it came.
  */
-export async function compressImage(file: File): Promise<File> {
-  if (!canCompress(file)) return file;
+export async function compressImage(file: File, options: CompressOptions = {}): Promise<File> {
+  const { maxSide = MAX_SIDE, quality = QUALITY, skipBelowBytes = SKIP_BELOW_BYTES } = options;
+  if (!canCompress(file, skipBelowBytes)) return file;
   try {
     const bitmap = await createImageBitmap(file);
-    const { width, height } = scaledSize(bitmap.width, bitmap.height);
+    const oversized = Math.max(bitmap.width, bitmap.height) > maxSide;
+    const { width, height } = scaledSize(bitmap.width, bitmap.height, maxSide);
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     canvas.getContext('2d')?.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', QUALITY));
-    if (!blob || blob.size >= file.size) return file;
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    // A photo over the size limit is always scaled down, even if the JPEG comes out larger.
+    if (!blob || (blob.size >= file.size && !oversized)) return file;
     return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, { type: 'image/jpeg' });
   } catch {
     return file;

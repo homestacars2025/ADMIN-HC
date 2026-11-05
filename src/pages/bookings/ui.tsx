@@ -33,13 +33,17 @@ export const BookingSheet: React.FC<{
   summary?: React.ReactNode;
   /** Fines and car issues use the slightly narrower sheet. */
   narrow?: boolean;
+  /** Edit Car has five sections and a photo grid, so it gets more room. */
+  wide?: boolean;
+  /** A dialog of the sheet's own is open over it and answers Esc itself. */
+  paused?: boolean;
   dirty: boolean;
   saving: boolean;
   onClose: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   footer: (requestClose: () => void) => React.ReactNode;
   children: React.ReactNode;
-}> = ({ label, title, subtitle, badge, stepper, summary, narrow, dirty, saving, onClose, onSubmit, footer, children }) => {
+}> = ({ label, title, subtitle, badge, stepper, summary, narrow, wide, paused, dirty, saving, onClose, onSubmit, footer, children }) => {
   const [confirming, setConfirming] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -57,11 +61,11 @@ export const BookingSheet: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (confirming) return undefined;
+    if (confirming || paused) return undefined;
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') requestClose(); };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [confirming, requestClose]);
+  }, [confirming, paused, requestClose]);
 
   return ReactDOM.createPortal(
     <div className="media-scope fixed inset-0 z-[1000]">
@@ -72,7 +76,7 @@ export const BookingSheet: React.FC<{
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={cn('absolute inset-y-0 right-0 flex w-full flex-col bg-[#F8F9FB] shadow-lg outline-none', narrow ? 'sm:max-w-[600px]' : 'sm:max-w-[640px]')}
+        className={cn('absolute inset-y-0 right-0 flex w-full flex-col bg-[#F8F9FB] shadow-lg outline-none', narrow ? 'sm:max-w-[600px]' : wide ? 'sm:max-w-[720px]' : 'sm:max-w-[640px]')}
         style={{ animation: 'm-sheet-in 200ms ease-in-out' }}
       >
         <form onSubmit={onSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
