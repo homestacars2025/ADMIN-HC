@@ -10,7 +10,7 @@ import { StatusImage } from '../components/shared/StatusImage';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import {
   ALL_TIME,
-  carsWithoutHgs,
+  carsWithoutTransits,
   fetchCarTransits,
   fetchHgsData,
   formatChange,
@@ -34,7 +34,7 @@ import { formatMoney } from '../lib/money';
 import { currentMonth, monthLabel, shiftMonth } from '../lib/payroll';
 import { Segmented } from './bookings/ui';
 import { WalletIcon } from './customers/ui';
-import { BarcodeSheet, HgsCarRow, HgsListHeader, NoHgsBanner, type HistoryState } from './hgs/HgsParts';
+import { BarcodeSheet, HgsCarRow, HgsListHeader, NoTransitsBanner, hgsRowId, type HistoryState } from './hgs/HgsParts';
 
 /**
  * HGS tolls, from the portal files finance uploads per car. Every transit loads once,
@@ -72,6 +72,7 @@ const HGSPage: React.FC = () => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [histories, setHistories] = useState<Record<string, HistoryState>>({});
   const [editing, setEditing] = useState<HgsCarInfo | null>(null);
+  const [scrollTo, setScrollTo] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,7 +109,7 @@ const HGSPage: React.FC = () => {
   const setPeriod = (next: HgsPeriod) => { setExpanded(null); setParam('month', next === thisMonth ? null : next); };
   const moveMonth = (by: number) => setPeriod(shiftMonth(`${month}-01`, by).slice(0, 7));
 
-  const missing = useMemo(() => (data ? carsWithoutHgs(data.cars) : []), [data]);
+  const idleCars = useMemo(() => (data ? carsWithoutTransits(data, period) : []), [data, period]);
   const summary = useMemo(() => (data ? hgsSummary(data, period, thisMonth) : null), [data, period, thisMonth]);
   const rows = useMemo(() => (data ? hgsRows(data, period) : []), [data, period]);
   const visible = useMemo(
@@ -118,6 +119,7 @@ const HGSPage: React.FC = () => {
   const usedCars = useMemo(() => rows.filter((row) => row.transits > 0).length, [rows]);
 
   const periodLabel = allTime ? 'all time' : `in ${monthLabel(`${month}-01`)}`;
+  const bannerWhen = allTime ? 'yet' : month === thisMonth ? 'this month' : periodLabel;
   const historyKey = (row: HgsRow) => `${row.key}|${period}`;
 
   const loadHistory = useCallback(async (row: HgsRow, key: string) => {
@@ -133,7 +135,26 @@ const HGSPage: React.FC = () => {
   const toggleRow = (row: HgsRow) => {
     const opening = expanded !== row.key;
     setExpanded(opening ? row.key : null);
-    if (opening && !histories[historyKey(row)]) void loadHistory(row, historyKey(row));
+    if (opening && row.transits > 0 && !histories[historyKey(row)]) void loadHistory(row, historyKey(row));
+  };
+
+  // A chip in the banner shows that car's row, open, wherever the list was.
+  const showCar = (car: HgsCarInfo) => {
+    setQuery('');
+    if (filter === 'used') clear();
+    setExpanded(`car:${car.id}`);
+    setScrollTo(`car:${car.id}`);
+  };
+
+  useEffect(() => {
+    if (!scrollTo) return;
+    document.getElementById(hgsRowId(scrollTo))?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    setScrollTo(null);
+  }, [scrollTo, visible]);
+
+  const addBarcode = (row: HgsRow) => {
+    const car = data?.cars.find((item) => item.id === row.carId);
+    if (car) setEditing(car);
   };
 
   const barcodeSaved = (carId: number, barcode: string) => {
@@ -170,7 +191,7 @@ const HGSPage: React.FC = () => {
 
       {error && <LoadError message={`Couldn't load HGS: ${error}`} onRetry={refresh} />}
 
-      {data && <NoHgsBanner cars={missing} onPick={setEditing} />}
+      {data && <NoTransitsBanner cars={idleCars} when={bannerWhen} onPick={showCar} />}
 
       {loading && <FilterTileSkeleton split count={4} />}
       {summary && (
@@ -187,7 +208,8 @@ const HGSPage: React.FC = () => {
           />
           <FilterTile
             split mono tone="slate" bareIcon icon={<StatusImage status="fleet" size={56} />}
-            label="Cars on HGS" value={formatCount(summary.carsOnHgs)} sub={`${summary.idle} had no transit`}
+            label="Cars on HGS" value={formatCount(summary.carsOnHgs)} sub={`Without transits: ${formatCount(summary.idle)}`}
+            active={filter === 'idle'} onClick={() => toggle('idle')}
           />
           <FilterTile
             split mono wide tone="amber" icon={<CalendarIcon />}
@@ -211,10 +233,10 @@ const HGSPage: React.FC = () => {
         ) : data && visible.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-black/10 px-6 py-12 text-center">
             <p className="text-[14px] font-medium text-black/65">
-              {query ? 'No car matches that search' : filter === 'used' ? `No car passed a toll ${periodLabel}` : 'No cars on HGS'}
+              {query ? 'No car matches that search' : filter === 'used' ? `No car passed a toll ${periodLabel}` : filter === 'idle' ? `Every active car has HGS transits ${periodLabel}` : 'No active cars'}
             </p>
             <p className="mt-1 text-[13px] text-black/45">
-              {query || filter === 'used' ? 'Clear the search or the filter to see every car.' : 'Add an HGS barcode to an active car for it to show up here.'}
+              {query || filter !== 'all' ? 'Clear the search or the filter to see every car.' : 'Active cars show up here.'}
             </p>
           </div>
         ) : data && (
@@ -230,6 +252,7 @@ const HGSPage: React.FC = () => {
                   periodLabel={periodLabel}
                   onToggle={toggleRow}
                   onRetry={(target) => void loadHistory(target, historyKey(target))}
+                  onAddBarcode={addBarcode}
                 />
               ))}
             </ul>

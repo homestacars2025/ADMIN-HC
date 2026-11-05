@@ -9,17 +9,18 @@ import { cn } from '../../lib/media/badgeColor';
 import { formatMoney } from '../../lib/money';
 import { LicensePlate } from '../bookings/ui';
 
-// ── Cars with no barcode ───────────────────────────────────────────────────
+// ── Cars with no HGS data ─────────────────────────────────────────────────────
 
-export const NoHgsBanner: React.FC<{ cars: HgsCarInfo[]; onPick: (car: HgsCarInfo) => void }> = ({ cars, onPick }) => {
+/** "this month", "in October 2026" or "yet", after "no HGS transits". */
+export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; onPick: (car: HgsCarInfo) => void }> = ({ cars, when, onPick }) => {
   if (cars.length === 0) return null;
   const many = cars.length !== 1;
   return (
-    <div role="alert" className={cn('mb-4 flex max-w-[1100px] items-start gap-3 rounded-2xl border px-3.5 py-3 sm:px-4', TONE_CLASSES.red.panel)}>
-      <ComplianceTriangle tone="red" size={44} className="shrink-0" />
+    <div role="alert" className={cn('mb-4 flex max-w-[1100px] items-start gap-3 rounded-2xl border px-3.5 py-3 sm:px-4', TONE_CLASSES.amber.panel)}>
+      <ComplianceTriangle tone="amber" size={44} className="shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="text-[13.5px] font-semibold leading-snug text-[#B91C1C] sm:text-[14px]">
-          {cars.length} {many ? 'cars have' : 'car has'} no HGS barcode on file
+        <p className="text-[13.5px] font-semibold leading-snug text-[#92400E] sm:text-[14px]">
+          {cars.length} {many ? 'cars have' : 'car has'} no HGS transits {when} — check their HGS
         </p>
         <ul className="mt-2 flex flex-wrap items-center gap-1.5">
           {cars.map((car) => (
@@ -27,12 +28,13 @@ export const NoHgsBanner: React.FC<{ cars: HgsCarInfo[]; onPick: (car: HgsCarInf
               <button
                 type="button"
                 onClick={() => onPick(car)}
-                aria-label={`Add an HGS barcode to ${car.plate}`}
-                className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#B91C1C]/10 bg-white/85 p-1 pe-2 transition-colors hover:border-[#B91C1C]/30 hover:bg-white focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:min-h-0"
+                aria-label={`Show ${car.plate}`}
+                className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#92400E]/10 bg-white/85 p-1 pe-2 transition-colors hover:border-[#92400E]/30 hover:bg-white focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:min-h-0"
               >
                 <CarThumb src={car.image} width={34} height={24} />
                 <LicensePlate plate={car.plate} />
                 <span className="max-w-[160px] truncate text-[12px] text-black/55">{car.model ?? '—'}</span>
+                {!car.barcode && <span className="rounded-full bg-black/[0.06] px-1.5 py-px text-[10.5px] font-medium text-black/55">No barcode</span>}
               </button>
             </li>
           ))}
@@ -132,6 +134,8 @@ const ShareBar: React.FC<{ share: number }> = ({ share }) => (
 
 const sharePercent = (share: number) => (share > 0 && share < 0.005 ? '<1%' : `${Math.round(share * 100)}%`);
 
+export const hgsRowId = (key: string) => `hgs-row-${key.replace(/[^a-z0-9]/gi, '-')}`;
+
 export const HgsCarRow: React.FC<{
   row: HgsRow;
   expanded: boolean;
@@ -139,11 +143,13 @@ export const HgsCarRow: React.FC<{
   periodLabel: string;
   onToggle: (row: HgsRow) => void;
   onRetry: (row: HgsRow) => void;
-}> = ({ row, expanded, history, periodLabel, onToggle, onRetry }) => {
-  const openable = row.transits > 0;
+  onAddBarcode: (row: HgsRow) => void;
+}> = ({ row, expanded, history, periodLabel, onToggle, onRetry, onAddBarcode }) => {
+  // A car with no transit opens too, to say so and to reach its barcode.
+  const openable = row.transits > 0 || row.carId !== null;
   const panelId = `hgs-${row.key.replace(/[^a-z0-9]/gi, '-')}`;
   return (
-    <li className={cn('overflow-hidden rounded-2xl border bg-white transition-[border-color,box-shadow]', expanded ? 'border-[#6EA4E7]/45 shadow-[0_2px_10px_rgb(15_23_42/0.06)]' : 'border-[#EBEBEB] hover:border-black/[0.14]')}>
+    <li id={hgsRowId(row.key)} className={cn('scroll-mt-24 overflow-hidden rounded-2xl border bg-white transition-[border-color,box-shadow]', expanded ? 'border-[#6EA4E7]/45 shadow-[0_2px_10px_rgb(15_23_42/0.06)]' : 'border-[#EBEBEB] hover:border-black/[0.14]')}>
       <button
         type="button"
         disabled={!openable}
@@ -194,18 +200,29 @@ export const HgsCarRow: React.FC<{
 
       {expanded && openable && (
         <div id={panelId} className="border-t border-[#EBEBEB] bg-[#FAFAFA] px-3 py-3 sm:px-4">
-          {history?.status === 'loading' && (
+          {row.transits === 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 py-1">
+              <span className="text-[13px] text-black/55">No HGS transits {periodLabel}.</span>
+              <span className="flex flex-wrap items-center gap-2">
+                {!row.barcode && <Button variant="outline" size="lg" className="!h-11 md:!h-9" onClick={() => onAddBarcode(row)}>Add barcode</Button>}
+                {row.carId !== null && (
+                  <Link to={`/dashboard/cars?car=${row.carId}`} className="inline-flex min-h-[44px] items-center px-1 text-[13px] font-medium text-[#3A74C2] hover:underline md:min-h-0">Open in Cars</Link>
+                )}
+              </span>
+            </div>
+          )}
+          {row.transits > 0 && history?.status === 'loading' && (
             <ul aria-hidden="true" className="flex flex-col gap-2">
               {Array.from({ length: Math.min(4, row.transits) }, (_, index) => <li key={index} className="h-10 animate-pulse rounded-lg bg-black/[0.05]" />)}
             </ul>
           )}
-          {history?.status === 'error' && (
+          {row.transits > 0 && history?.status === 'error' && (
             <div className="flex flex-wrap items-center justify-between gap-2 py-1">
               <span className="text-[13px] text-[#B91C1C]">{history.message ?? 'Could not load these transits.'}</span>
               <Button variant="outline" size="lg" className="!h-11 md:!h-9" onClick={() => onRetry(row)}>Try again</Button>
             </div>
           )}
-          {history?.status === 'ready' && <TransitList rows={history.rows} periodLabel={periodLabel} />}
+          {row.transits > 0 && history?.status === 'ready' && <TransitList rows={history.rows} periodLabel={periodLabel} />}
         </div>
       )}
     </li>

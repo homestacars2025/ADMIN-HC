@@ -42,7 +42,11 @@ const Where: React.FC = () => <span data-testid="where">{useLocation().search}</
 const renderPage = (url = '/dashboard/hgs') => render(<MemoryRouter initialEntries={[url]}><HGSPage /><Where /></MemoryRouter>);
 const plates = () => screen.getAllByText(/^(06FHN975|34HGC631)$/).filter((n) => n.closest('li[class*="rounded-2xl"]')).map((n) => n.textContent);
 
+const mockScrollIntoView = jest.fn();
+beforeAll(() => { Element.prototype.scrollIntoView = mockScrollIntoView; });
+
 beforeEach(() => {
+  mockScrollIntoView.mockReset();
   mockFetchHgsData.mockReset().mockResolvedValue(DATA);
   mockFetchCarTransits.mockReset().mockResolvedValue([
     { id: 2, day: `${month}-03`, at: `${month}-03T11:04:00+00:00`, entry: null, exit: 'FENERTEPE', road: 'KCO GECIS UCRET', roadType: 'private', amount: 96, bookingId: 7, bookingNumber: 'HOM-11-26-007', bookingMonth: month, customerId: 'c1', customerName: 'Ali Veli' },
@@ -51,10 +55,13 @@ beforeEach(() => {
   mockSaveHgsBarcode.mockReset();
 });
 
-test('warns about the car with no barcode, and drops the old tile', async () => {
+test('warns about the active cars with no transits this month, barcode or not', async () => {
   renderPage();
-  expect(await screen.findByText('1 car has no HGS barcode on file')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Add an HGS barcode to 34MDJ129' })).toBeInTheDocument();
+  const banner = await screen.findByRole('alert');
+  expect(banner).toHaveTextContent('2 cars have no HGS transits this month — check their HGS');
+  expect(within(banner).getByRole('button', { name: 'Show 34HGC631' })).not.toHaveTextContent('No barcode');
+  expect(within(banner).getByRole('button', { name: 'Show 34MDJ129' })).toHaveTextContent('No barcode');
+  expect(within(banner).queryByRole('button', { name: 'Show 06FHN975' })).not.toBeInTheDocument();
   expect(screen.queryByText('Without HGS')).not.toBeInTheDocument();
   expect(screen.getByText('Last upload: 12 min ago')).toBeInTheDocument();
   expect(screen.getByText('1 private')).toBeInTheDocument();
@@ -65,7 +72,7 @@ test('tiles follow the month, and All time', async () => {
   const total = await screen.findByRole('button', { name: /Total spend/ });
   expect(total).toHaveTextContent('₺244,50');
   expect(screen.getByRole('button', { name: /Transits\s*\d/ })).toHaveTextContent('2');
-  expect(screen.getByText('Cars on HGS').closest('.filter-tile')).toHaveTextContent('1 had no transit');
+  expect(screen.getByRole('button', { name: /Cars on HGS/ })).toHaveTextContent('3Without transits: 2');
   expect(screen.getByText('This month').closest('.filter-tile')).toHaveTextContent(/−51% vs/);
 
   await userEvent.click(screen.getByRole('button', { name: 'All time' }));
@@ -120,28 +127,57 @@ test('opening a car lists its transits with time, road and booking, once', async
   expect(mockFetchCarTransits).toHaveBeenCalledTimes(1);
 });
 
-test('a car with no transits in the period is not expandable', async () => {
-  renderPage();
-  expect((await screen.findByText('34HGC631')).closest('button')).toBeDisabled();
+test('the banner follows the month, and all time is never', async () => {
+  renderPage('/dashboard/hgs?month=all');
+  expect(await screen.findByRole('alert')).toHaveTextContent('1 car has no HGS transits yet — check their HGS');
+  await userEvent.click(screen.getByRole('button', { name: 'All time' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+  expect(screen.getByRole('alert')).toHaveTextContent(/^2 cars have no HGS transits in \w+ \d{4} — check their HGS/);
 });
 
-test('a barcode saved from the banner takes the car off it', async () => {
+test('the Cars on HGS tile filters to the banner cars, and clicking it again clears', async () => {
+  renderPage();
+  const tile = await screen.findByRole('button', { name: /Cars on HGS/ });
+  await userEvent.click(tile);
+  expect(tile).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByTestId('where')).toHaveTextContent('filter=idle');
+  const listed = screen.getAllByText(/^(06FHN975|34HGC631|34MDJ129)$/).filter((n) => n.closest('li[id^="hgs-row-"]')).map((n) => n.textContent);
+  expect(listed).toEqual(['34HGC631', '34MDJ129']);
+  await userEvent.click(tile);
+  expect(screen.getByTestId('where')).not.toHaveTextContent('filter=');
+});
+
+test('a chip opens that car in the list, with no fetch when it has no transits', async () => {
+  renderPage('/dashboard/hgs?filter=used');
+  await userEvent.click(await screen.findByRole('button', { name: 'Show 34HGC631' }));
+  expect(screen.getByTestId('where')).not.toHaveTextContent('filter=used');
+  expect(await screen.findByText(/^No HGS transits in /)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Open in Cars' })).toHaveAttribute('href', '/dashboard/cars?car=51');
+  expect(screen.queryByRole('button', { name: 'Add barcode' })).not.toBeInTheDocument();
+  expect(mockFetchCarTransits).not.toHaveBeenCalled();
+  expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
+});
+
+test('a barcode added from the open row takes the No barcode tag off its chip', async () => {
   mockSaveHgsBarcode.mockResolvedValue('1131525011');
   renderPage();
-  await userEvent.click(await screen.findByRole('button', { name: 'Add an HGS barcode to 34MDJ129' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Show 34MDJ129' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Add barcode' }));
   const sheet = within(screen.getByRole('dialog'));
   expect(sheet.getByRole('link', { name: 'Open in Cars' })).toHaveAttribute('href', '/dashboard/cars?car=57');
   await userEvent.type(sheet.getByRole('textbox'), '1131525011');
   await userEvent.click(sheet.getByRole('button', { name: /Save barcode/ }));
   expect(mockSaveHgsBarcode).toHaveBeenCalledWith(57, '1131525011');
-  await waitFor(() => expect(screen.queryByText(/no HGS barcode/)).not.toBeInTheDocument());
-  expect(screen.getByText('34MDJ129')).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(screen.getByRole('button', { name: 'Show 34MDJ129' })).not.toHaveTextContent('No barcode');
+  expect(screen.queryByRole('button', { name: 'Add barcode' })).not.toBeInTheDocument();
 });
 
 test('a failed save stays open with the reason', async () => {
   mockSaveHgsBarcode.mockRejectedValue(new Error('That barcode is already on 34HGC631.'));
   renderPage();
-  await userEvent.click(await screen.findByRole('button', { name: 'Add an HGS barcode to 34MDJ129' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Show 34MDJ129' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Add barcode' }));
   const sheet = within(screen.getByRole('dialog'));
   await userEvent.type(sheet.getByRole('textbox'), '1131524997');
   await userEvent.click(sheet.getByRole('button', { name: /Save barcode/ }));

@@ -289,13 +289,6 @@ export async function saveHgsBarcode(carId: number, input: string): Promise<stri
 
 export const hasBarcode = (car: Pick<HgsCarInfo, 'barcode'>): boolean => Boolean(car.barcode?.trim());
 
-/** Active cars with no HGS barcode on file. */
-export const carsWithoutHgs = (cars: HgsCarInfo[]): HgsCarInfo[] => cars
-  .filter((car) => car.active && !hasBarcode(car))
-  .sort((a, b) => a.plate.localeCompare(b.plate, 'tr'));
-
-const onHgs = (car: HgsCarInfo) => car.active && hasBarcode(car);
-
 export const inPeriod = (transit: Pick<HgsTransitLite, 'day'>, period: HgsPeriod): boolean => period === ALL_TIME || transit.day.slice(0, 7) === period;
 
 /** Null when last month had nothing, which is no comparison rather than +100%. */
@@ -309,19 +302,30 @@ const previousMonth = (month: string) => {
   return new Date(Date.UTC(year, index - 2, 1)).toISOString().slice(0, 7);
 };
 
+/**
+ * Active cars with no HGS data in the period: no transit and nothing spent, barcode or
+ * not. The banner, the Cars on HGS tile and its filter all use this one list.
+ */
+export function carsWithoutTransits(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPeriod): HgsCarInfo[] {
+  const used = new Set<number>();
+  data.transits.forEach((transit) => { if (transit.carId !== null && inPeriod(transit, period)) used.add(transit.carId); });
+  return data.cars
+    .filter((car) => car.active && !used.has(car.id))
+    .sort((a, b) => a.plate.localeCompare(b.plate, 'tr'));
+}
+
 export interface HgsSummary {
   spend: number;
   transits: number;
+  /** Every active car, barcode or not. */
   carsOnHgs: number;
-  /** Cars on HGS that didn't pass a toll in the period. */
+  /** Of those, the ones with no HGS data in the period. */
   idle: number;
   thisMonth: { month: string; previous: string; spend: number; previousSpend: number; change: number | null };
 }
 
 export function hgsSummary(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPeriod, currentMonth: string): HgsSummary {
   const periodTransits = data.transits.filter((transit) => inPeriod(transit, period));
-  const used = new Set(periodTransits.map((transit) => transit.carId));
-  const hgsCars = data.cars.filter(onHgs);
   const previous = previousMonth(currentMonth);
   const spendIn = (month: string) => data.transits.reduce((total, transit) => total + (inPeriod(transit, month) ? transit.amount : 0), 0);
   const spend = spendIn(currentMonth);
@@ -329,8 +333,8 @@ export function hgsSummary(data: Pick<HgsData, 'cars' | 'transits'>, period: Hgs
   return {
     spend: periodTransits.reduce((total, transit) => total + transit.amount, 0),
     transits: periodTransits.length,
-    carsOnHgs: hgsCars.length,
-    idle: hgsCars.filter((car) => !used.has(car.id)).length,
+    carsOnHgs: data.cars.filter((car) => car.active).length,
+    idle: carsWithoutTransits(data, period).length,
     thisMonth: { month: currentMonth, previous, spend, previousSpend, change: monthChange(spend, previousSpend) },
   };
 }
@@ -352,7 +356,7 @@ export interface HgsRow {
   share: number;
 }
 
-/** Every car on HGS, plus any other car that passed a toll in the period. */
+/** Every active car, plus any other car that passed a toll in the period. */
 export function hgsRows(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPeriod): HgsRow[] {
   const carsById = new Map(data.cars.map((car) => [car.id, car]));
   const rows = new Map<string, HgsRow>();
@@ -360,7 +364,7 @@ export function hgsRows(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPer
     key, carId, plate: car?.plate ?? plate, model: car?.model ?? null, image: car?.image ?? null, barcode: car?.barcode ?? null,
     transits: 0, privateRoad: 0, amount: 0, last: null, share: 0,
   });
-  data.cars.filter(onHgs).forEach((car) => rows.set(`car:${car.id}`, blank(`car:${car.id}`, car, car.plate, car.id)));
+  data.cars.filter((car) => car.active).forEach((car) => rows.set(`car:${car.id}`, blank(`car:${car.id}`, car, car.plate, car.id)));
 
   let total = 0;
   data.transits.forEach((transit) => {
@@ -398,10 +402,15 @@ export function matchesHgsSearch(row: Pick<HgsRow, 'plate' | 'barcode' | 'model'
   return !wanted || [row.plate, row.barcode, row.model].some((field) => squeeze(field).includes(wanted));
 }
 
-export const HGS_FILTERS = ['used'] as const;
+export const HGS_FILTERS = ['used', 'idle'] as const;
 export type HgsFilter = typeof HGS_FILTERS[number];
 
-export const inHgsFilter = (row: HgsRow, filter: HgsFilter | 'all'): boolean => filter === 'all' || row.transits > 0;
+/** A row with no transit is always an active car, so `idle` is the banner's list. */
+export function inHgsFilter(row: HgsRow, filter: HgsFilter | 'all'): boolean {
+  if (filter === 'used') return row.transits > 0;
+  if (filter === 'idle') return row.transits === 0;
+  return true;
+}
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 

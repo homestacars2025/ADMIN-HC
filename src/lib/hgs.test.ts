@@ -1,12 +1,13 @@
 import {
   bookingOnDay,
-  carsWithoutHgs,
+  carsWithoutTransits,
   formatDay,
   formatTime,
   istanbulDay,
   formatChange,
   hgsRows,
   hgsSummary,
+  inHgsFilter,
   matchesHgsSearch,
   monthChange,
   normalizeBarcode,
@@ -42,20 +43,30 @@ const transits = [
 ];
 const data = { cars, transits };
 
-describe('cars without HGS', () => {
-  it('counts an active car with no barcode, a blank one included', () => {
-    expect(carsWithoutHgs(cars).map((c) => c.id)).toEqual([3, 4]);
+describe('cars without transits', () => {
+  it('are the active cars with no HGS data in the month, barcode or not', () => {
+    expect(carsWithoutTransits(data, '2026-11').map((c) => c.id)).toEqual([2, 3, 4]);
+    expect(carsWithoutTransits(data, '2026-10').map((c) => c.id)).toEqual([1, 3, 4]);
+  });
+
+  it('are the ones with none ever for all time', () => {
+    expect(carsWithoutTransits(data, 'all').map((c) => c.id)).toEqual([3, 4]);
+  });
+
+  it('are the same cars as the idle filter on the rows', () => {
+    const idle = hgsRows(data, '2026-11').filter((row) => inHgsFilter(row, 'idle')).map((row) => row.carId).sort();
+    expect(idle).toEqual(carsWithoutTransits(data, '2026-11').map((c) => c.id));
   });
 });
 
 describe('the tiles', () => {
   it('follow the month', () => {
     const s = hgsSummary(data, '2026-11', '2026-11');
-    expect(s).toMatchObject({ spend: 200, transits: 4, carsOnHgs: 2, idle: 1 });
+    expect(s).toMatchObject({ spend: 200, transits: 4, carsOnHgs: 4, idle: 3 });
   });
 
   it('count everything for all time', () => {
-    expect(hgsSummary(data, 'all', '2026-11')).toMatchObject({ spend: 500, transits: 5, idle: 0 });
+    expect(hgsSummary(data, 'all', '2026-11')).toMatchObject({ spend: 500, transits: 5, idle: 2 });
   });
 
   it('keep This month on the calendar month, against the one before', () => {
@@ -77,8 +88,8 @@ describe('the rows', () => {
   const rows = hgsRows(data, '2026-11');
   const byKey = Object.fromEntries(rows.map((row) => [row.key, row]));
 
-  it('list every car on HGS, and any other car that passed a toll', () => {
-    expect(rows.map((row) => row.key).sort()).toEqual(['car:1', 'car:2', 'car:5', 'plate:34 ZZ 999']);
+  it('list every active car, and any other car that passed a toll', () => {
+    expect(rows.map((row) => row.key).sort()).toEqual(['car:1', 'car:2', 'car:3', 'car:4', 'car:5', 'plate:34 ZZ 999']);
   });
 
   it('add up a car in the period, with its private-road rows and last transit', () => {
@@ -87,7 +98,7 @@ describe('the rows', () => {
   });
 
   it('sort biggest first, with the plate breaking a tie', () => {
-    expect(sortHgsRows(rows, 'amount').map((row) => row.key)).toEqual(['car:1', 'car:5', 'plate:34 ZZ 999', 'car:2']);
+    expect(sortHgsRows(rows, 'amount').map((row) => row.key)).toEqual(['car:1', 'car:5', 'plate:34 ZZ 999', 'car:2', 'car:3', 'car:4']);
     expect(sortHgsRows(rows, 'last')[0].key).toBe('plate:34 ZZ 999');
     expect(sortHgsRows(rows, 'transits')[0].key).toBe('car:1');
   });
