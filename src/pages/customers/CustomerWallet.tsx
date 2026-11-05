@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Lock, Plus } from '../../components/media/MediaIcons';
+import { ArrowDown, ArrowUp, Lock, Pencil, Plus, Trash2 } from '../../components/media/MediaIcons';
 import { Button } from '../../components/media/MediaUI';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
+import { useCurrency } from '../../lib/CurrencyContext';
 import { formatDate } from '../../lib/customers';
 import {
   balanceLabel,
   balanceToMove,
   defaultTarget,
+  deleteLedgerLine,
   fetchWallet,
   formatWalletMoney,
   moveBookingBalance,
@@ -22,8 +24,9 @@ import {
   type WalletTone,
 } from '../../lib/customerWallet';
 import { cn } from '../../lib/media/badgeColor';
+import { AddCustomerTxModal, EditTxModal, printLedgerInvoice, type CustomerLedgerEntry } from '../accounting/CustomerLedgerForms';
 import { BookingSheet, Field, FOOTER_BUTTON, INPUT, LicensePlate, PrimaryButton } from '../bookings/ui';
-import { CarIcon, EmptyNote, ReceiptIcon, RoadIcon, StatusPill } from './ui';
+import { BannedBadge, CarIcon, EmptyNote, ReceiptIcon, RoadIcon, StatusPill } from './ui';
 
 export type Notify = (message: string, type: 'success' | 'error') => void;
 
@@ -77,13 +80,28 @@ const KIND_ICON: Record<LineKind, React.ReactNode> = {
   other: <ReceiptIcon size={14} />,
 };
 
-const LineRow: React.FC<{ line: WalletCardLine }> = ({ line }) => {
+const ICON_ACTION =
+  'grid h-11 w-11 shrink-0 place-items-center rounded-[9px] text-black/45 transition-colors hover:bg-black/[0.05] hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35 disabled:opacity-40 md:h-8 md:w-8';
+
+interface LineActions {
+  onEdit: (line: WalletCardLine) => void;
+  /** Asks first, on the line itself. */
+  onDelete: (line: WalletCardLine) => Promise<void>;
+}
+
+const LineRow: React.FC<LineActions & { line: WalletCardLine }> = ({ line, onEdit, onDelete }) => {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   const received = line.direction === 'IN';
   const transfer = line.kind === 'transfer';
   const peer = line.peer;
   const detail = transfer ? line.note : line.description;
+  const remove = async () => {
+    setBusy(true);
+    try { await onDelete(line); } finally { setBusy(false); setConfirming(false); }
+  };
   return (
-    <li className="flex items-center gap-3 py-2.5">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5">
       <span className={cn(
         'grid h-8 w-8 shrink-0 place-items-center rounded-full',
         transfer ? 'bg-[#6EA4E7]/[0.14] text-brand-strong' : received ? 'bg-[#16A34A]/10 text-[#15803D]' : 'bg-[#DC2626]/[0.08] text-[#B91C1C]',
@@ -114,6 +132,27 @@ const LineRow: React.FC<{ line: WalletCardLine }> = ({ line }) => {
       <div className={cn('shrink-0 text-[13.5px] font-medium tabular-nums', received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
         {received ? '+' : '−'}{formatWalletMoney(line.amount)}
       </div>
+      <div className="flex shrink-0 items-center">
+        {confirming ? (
+          <span role="group" aria-label="Delete this line?" className="inline-flex items-center gap-1.5">
+            <span className="text-[12px] font-semibold text-[#B91C1C]">Delete?</span>
+            <Button type="button" variant="danger" size="sm" className="!h-11 px-3 md:!h-8" disabled={busy} onClick={remove}>{busy ? '…' : 'Yes'}</Button>
+            <Button type="button" variant="secondary" size="sm" className="!h-11 px-3 md:!h-8" disabled={busy} onClick={() => setConfirming(false)}>No</Button>
+          </span>
+        ) : line.editable ? (
+          <>
+            <button type="button" className={ICON_ACTION} aria-label="Edit transaction" title="Edit" onClick={() => onEdit(line)}><Pencil size={14} /></button>
+            <button type="button" className={cn(ICON_ACTION, 'hover:bg-[#DC2626]/[0.07] hover:text-[#B91C1C]')} aria-label="Delete transaction" title="Delete" onClick={() => setConfirming(true)}><Trash2 size={14} /></button>
+          </>
+        ) : (
+          <span
+            title={transfer ? 'Half of a balance move. Move it back to undo it.' : 'Recorded with an envelope or account. Reverse it in Cash & Envelopes.'}
+            className="px-1 text-[11.5px] text-black/40"
+          >
+            Recorded
+          </span>
+        )}
+      </div>
     </li>
   );
 };
@@ -122,7 +161,15 @@ const LINES_SHOWN = 6;
 
 // ── A booking ────────────────────────────────────────────────────────────────
 
-const BookingCard: React.FC<{ card: WalletCard; canMove: boolean; onMove: () => void }> = ({ card, canMove, onMove }) => {
+const SOFT_BUTTON = '!h-11 flex-1 px-3.5 sm:flex-none md:!h-9';
+
+const BookingCard: React.FC<LineActions & {
+  card: WalletCard;
+  canMove: boolean;
+  onMove: () => void;
+  onAdd: () => void;
+  onPrint: () => void;
+}> = ({ card, canMove, onMove, onAdd, onPrint, onEdit, onDelete }) => {
   const [all, setAll] = useState(false);
   const tone = walletTone(card.balance);
   const lines = all ? card.lines : card.lines.slice(0, LINES_SHOWN);
@@ -152,6 +199,23 @@ const BookingCard: React.FC<{ card: WalletCard; canMove: boolean; onMove: () => 
           <WalletChip balance={card.balance} />
         </header>
 
+        {card.lines.length === 0 ? (
+          <p className="mt-3 rounded-xl bg-black/[0.025] px-3 py-3 text-[12.5px] text-black/45">No money recorded on this booking yet.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-black/[0.05]">
+            {lines.map((line) => <LineRow key={line.id} line={line} onEdit={onEdit} onDelete={onDelete} />)}
+          </ul>
+        )}
+        {card.lines.length > LINES_SHOWN && (
+          <button
+            type="button"
+            onClick={() => setAll((value) => !value)}
+            className="mt-1 min-h-[44px] text-[12.5px] font-medium text-brand-strong hover:underline md:min-h-[32px]"
+          >
+            {all ? 'Show fewer entries' : `Show all ${card.lines.length} entries`}
+          </button>
+        )}
+
         {card.carNotes.length > 0 && (
           <ul className="mt-3 flex flex-col gap-1">
             {card.carNotes.map((note) => (
@@ -163,34 +227,31 @@ const BookingCard: React.FC<{ card: WalletCard; canMove: boolean; onMove: () => 
           </ul>
         )}
 
-        {card.lines.length === 0 ? (
-          <p className="mt-3 rounded-xl bg-black/[0.025] px-3 py-3 text-[12.5px] text-black/45">No money recorded on this booking yet.</p>
-        ) : (
-          <ul className="mt-2 divide-y divide-black/[0.05]">
-            {lines.map((line) => <LineRow key={line.id} line={line} />)}
-          </ul>
-        )}
-        {card.lines.length > LINES_SHOWN && (
-          <button
-            type="button"
-            onClick={() => setAll((value) => !value)}
-            className="mt-1 min-h-[44px] text-[12.5px] font-medium text-brand-strong hover:underline md:min-h-[32px]"
-          >
-            {all ? 'Show fewer' : `Show all ${card.lines.length} lines`}
-          </button>
-        )}
-
-        {canMove && (
-          <div className="mt-3 flex justify-end border-t border-subtle pt-3">
-            <Button type="button" variant="secondary" size="lg" className="!h-11 w-full px-4 sm:w-auto md:!h-10" onClick={onMove}>
+        <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-subtle pt-3">
+          {canMove && (
+            <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={onMove}>
               <TransferIcon size={14} /> Move balance
             </Button>
-          </div>
-        )}
+          )}
+          <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={onAdd}>
+            <Plus size={14} /> Add Transaction
+          </Button>
+          {card.lines.length > 0 && (
+            <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={onPrint}>
+              <PrinterIcon /> Print invoice
+            </Button>
+          )}
+        </div>
       </article>
     </li>
   );
 };
+
+const PrinterIcon: React.FC = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z" />
+  </svg>
+);
 
 // ── The wallet ───────────────────────────────────────────────────────────────
 
@@ -209,15 +270,18 @@ export const WalletHero: React.FC<{ wallet: Wallet; action?: React.ReactNode }> 
       <div className="flex min-w-0 flex-1 items-center gap-3.5">
         <CustomerAvatar alt={wallet.name} size={52} style={{ border: '1px solid var(--border-subtle)' }} />
         <div className="min-w-0">
-          <div className="truncate text-[16px] font-medium tracking-[-0.01em] text-foreground">{wallet.name}</div>
-          <div className="text-[12.5px] text-black/50">{count} {count === 1 ? 'booking' : 'bookings'}</div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="truncate text-[16px] font-medium tracking-[-0.01em] text-foreground">{wallet.name}</span>
+            {wallet.customer.is_banned && <BannedBadge reason={wallet.customer.ban_reason} />}
+          </div>
+          <div className="text-[12.5px] text-black/50">Across {count} {count === 1 ? 'booking' : 'bookings'}</div>
         </div>
       </div>
       <div className="flex flex-wrap items-end justify-between gap-3 sm:justify-end">
         <div className="sm:text-end">
-          <div className="text-[12px] text-black/45">{tone === 'credit' ? 'Credit' : tone === 'owes' ? 'Owes' : 'Balance'}</div>
+          <div className="text-[12px] text-black/45">Total balance</div>
           <div className={cn('text-[26px] font-semibold leading-tight tracking-[-0.02em] tabular-nums sm:text-[32px]', TONE_TEXT[tone])}>
-            {tone === 'settled' ? 'Settled' : formatWalletMoney(Math.abs(wallet.total))}
+            {tone === 'settled' ? 'Settled' : <>{tone === 'credit' ? 'Credit' : 'Owes'} {formatWalletMoney(Math.abs(wallet.total))}</>}
           </div>
         </div>
         {action}
@@ -226,24 +290,46 @@ export const WalletHero: React.FC<{ wallet: Wallet; action?: React.ReactNode }> 
   );
 };
 
+/** Shapes a wallet line for the old Edit form, which takes a ledger row. */
+const asLedgerEntry = (line: WalletCardLine, customerId: string) => ({
+  id: line.id,
+  booking_id: line.booking_id,
+  customer_id: customerId,
+  car_id: line.car_id,
+  type: line.type,
+  description: line.description,
+  amount: line.amount,
+  direction: line.direction,
+  created_at: line.created_at ?? new Date().toISOString(),
+  created_by: null,
+  transaction_type: null,
+  pay_method: line.pay_method ?? null,
+  customers: null,
+  bookings: null,
+}) as unknown as CustomerLedgerEntry;
+
 /**
  * One customer's money: a single total, then each booking with its own balance
- * and lines. Loads itself, and again whenever `refreshKey` changes.
+ * and lines, each line editable through the ledger's own forms. Loads itself, and
+ * again whenever `refreshKey` changes.
  */
 export const CustomerWalletView: React.FC<{
   customerId: string;
   refreshKey?: number;
   notify: Notify;
-  /** After a move. The parent refreshes, which bumps `refreshKey`. */
+  /** After anything changed. The parent refreshes, which bumps `refreshKey`. */
   onChanged: () => void;
   onAddPayment?: () => void;
-  /** So a sheet this view sits in can leave Esc to the move sheet. */
-  onMoveOpenChange?: (open: boolean) => void;
-}> = ({ customerId, refreshKey = 0, notify, onChanged, onAddPayment, onMoveOpenChange }) => {
+  /** So a sheet this view sits in leaves Esc to a form open over it. */
+  onCoverChange?: (covered: boolean) => void;
+}> = ({ customerId, refreshKey = 0, notify, onChanged, onAddPayment, onCoverChange }) => {
+  const { fmt } = useCurrency();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [moving, setMoving] = useState<WalletCard | null>(null);
+  const [adding, setAdding] = useState<WalletCard | null>(null);
+  const [editing, setEditing] = useState<WalletCardLine | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,10 +346,18 @@ export const CustomerWalletView: React.FC<{
     return () => { cancelled = true; };
   }, [customerId, refreshKey, attempt]);
 
-  const openMove = useCallback((card: WalletCard | null) => {
-    setMoving(card);
-    onMoveOpenChange?.(card !== null);
-  }, [onMoveOpenChange]);
+  const covered = moving !== null || adding !== null || editing !== null;
+  useEffect(() => { onCoverChange?.(covered); }, [covered, onCoverChange]);
+
+  const deleteLine = useCallback(async (line: WalletCardLine) => {
+    try {
+      await deleteLedgerLine(line.id);
+      notify('Transaction deleted', 'success');
+      onChanged();
+    } catch (failure) {
+      notify(failure instanceof Error ? failure.message : 'The transaction was not deleted.', 'error');
+    }
+  }, [notify, onChanged]);
 
   if (error && !wallet) {
     return (
@@ -275,6 +369,19 @@ export const CustomerWalletView: React.FC<{
     );
   }
   if (!wallet) return <WalletSkeleton />;
+
+  const [firstName, ...lastNames] = wallet.name.split(' ');
+  const print = (card: WalletCard) => printLedgerInvoice({
+    bookingNumber: card.bookingNumber,
+    first_name: wallet.customer.first_name ?? firstName,
+    last_name: wallet.customer.last_name ?? lastNames.join(' '),
+    phone: wallet.customer.phone ?? null,
+    nationality: wallet.customer.nationality ?? null,
+    id_number: wallet.customer.id_number ?? null,
+    entries: card.lines.map((line) => ({ ...line, created_at: line.created_at ?? '' })),
+    totalIn: card.lines.filter((line) => line.direction === 'IN').reduce((sum, line) => sum + line.amount, 0),
+    totalOut: card.lines.filter((line) => line.direction === 'OUT').reduce((sum, line) => sum + line.amount, 0),
+  }, { plate_number: card.plate ?? '—', model_name: card.model ?? '—' }, fmt);
 
   return (
     <div className="flex flex-col gap-4">
@@ -294,7 +401,11 @@ export const CustomerWalletView: React.FC<{
               key={card.id}
               card={card}
               canMove={walletTone(card.balance) !== 'settled' && moveTargets(wallet, card.id).length > 0}
-              onMove={() => openMove(card)}
+              onMove={() => setMoving(card)}
+              onAdd={() => setAdding(card)}
+              onPrint={() => print(card)}
+              onEdit={setEditing}
+              onDelete={deleteLine}
             />
           ))}
         </ol>
@@ -305,8 +416,27 @@ export const CustomerWalletView: React.FC<{
           from={moving}
           targets={moveTargets(wallet, moving.id)}
           initialTargetId={defaultTarget(moveTargets(wallet, moving.id))?.id ?? null}
-          onClose={() => openMove(null)}
+          onClose={() => setMoving(null)}
           onMoved={(message) => { notify(message, 'success'); onChanged(); }}
+        />
+      )}
+      {adding && (
+        <AddCustomerTxModal
+          customerName={wallet.name}
+          customerId={wallet.customerId}
+          carId={adding.carId}
+          bookingId={adding.id}
+          bookingLabel={`${adding.bookingNumber} · ${formatDate(adding.startDate)} → ${formatDate(adding.endDate)}`}
+          carPlate={adding.plate ?? undefined}
+          onClose={() => setAdding(null)}
+          onSaved={() => { notify('Transaction added', 'success'); onChanged(); }}
+        />
+      )}
+      {editing && (
+        <EditTxModal
+          entry={asLedgerEntry(editing, wallet.customerId)}
+          onClose={() => setEditing(null)}
+          onSaved={() => { notify('Transaction updated', 'success'); onChanged(); }}
         />
       )}
     </div>
@@ -563,7 +693,7 @@ export const CustomerWalletSheet: React.FC<{
         </div>
       )}
     >
-      <CustomerWalletView customerId={customerId} refreshKey={refreshKey} notify={notify} onChanged={onChanged} onMoveOpenChange={setMoveOpen} />
+      <CustomerWalletView customerId={customerId} refreshKey={refreshKey} notify={notify} onChanged={onChanged} onCoverChange={setMoveOpen} />
     </BookingSheet>
   );
 };

@@ -35,6 +35,8 @@ export interface WalletLine {
   direction: 'IN' | 'OUT';
   created_at: string | null;
   payment_ref: string | null;
+  /** Set when the money came in through `record_customer_payment`, with its envelope or account. */
+  pay_method?: string | null;
 }
 
 export interface WalletReplacement {
@@ -45,8 +47,19 @@ export interface WalletReplacement {
   start_date: string | null;
 }
 
+export interface WalletCustomer {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone?: string | null;
+  nationality?: string | null;
+  id_number?: string | null;
+  is_banned?: boolean | null;
+  ban_reason?: string | null;
+}
+
 export interface WalletData {
-  customer: { id: string; first_name: string | null; last_name: string | null };
+  customer: WalletCustomer;
   bookings: WalletBookingRow[];
   lines: WalletLine[];
   replacements: WalletReplacement[];
@@ -209,10 +222,16 @@ export interface WalletCardLine extends WalletLine {
   label: string;
   peer: TransferPeer | null;
   note: string | null;
+  /** A recorded payment belongs to its envelope and a transfer to its other half, so neither changes alone. */
+  editable: boolean;
 }
+
+export const isEditableLine = (line: Pick<WalletLine, 'type' | 'pay_method'>): boolean =>
+  !line.pay_method && lineKind(line.type) !== 'transfer';
 
 export interface WalletCard {
   id: number;
+  carId: number;
   bookingNumber: string;
   plate: string | null;
   model: string | null;
@@ -229,6 +248,7 @@ export interface WalletCard {
 export interface Wallet {
   customerId: string;
   name: string;
+  customer: WalletCustomer;
   /** The sum of the bookings' balances, nothing else. */
   total: number;
   /** Newest first. */
@@ -248,6 +268,7 @@ export function buildWallet(data: WalletData): Wallet {
     const own = data.lines.filter((line) => line.booking_id === booking.id);
     return {
       id: booking.id,
+      carId: booking.car_id,
       bookingNumber: booking.booking_number ?? `#${booking.id}`,
       plate: car?.plate_number ?? data.plates.get(booking.car_id) ?? null,
       model: one(car?.model_group)?.name ?? null,
@@ -268,6 +289,7 @@ export function buildWallet(data: WalletData): Wallet {
             label: lineLabel(line),
             peer: kind === 'transfer' ? transferPeer(line, data.lines, bookingsByNumber, numbersById) : null,
             note: kind === 'transfer' ? transferNote(line.description) : null,
+            editable: isEditableLine(line),
           };
         }),
       carNotes: carNotes(booking, data.lines, data.replacements, data.plates),
@@ -277,6 +299,7 @@ export function buildWallet(data: WalletData): Wallet {
   return {
     customerId: data.customer.id,
     name: customerName(data.customer),
+    customer: data.customer,
     total: roundMoney(cards.reduce((sum, card) => sum + card.balance, 0)),
     cards,
   };
@@ -358,12 +381,12 @@ async function fetchAll<T>(page: (from: number, to: number) => PageResult): Prom
   }
 }
 
-const LINE_COLUMNS = 'id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref';
+const LINE_COLUMNS = 'id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref, pay_method';
 
 /** Null when there's no such customer. Everything is read at once, with no waterfall. */
 export async function fetchWalletData(customerId: string): Promise<WalletData | null> {
   const [customer, bookings, lines, replacements, cars] = await Promise.all([
-    supabase.from('customers').select('id, first_name, last_name').eq('id', customerId).maybeSingle(),
+    supabase.from('customers').select('id, first_name, last_name, phone, nationality, id_number, is_banned, ban_reason').eq('id', customerId).maybeSingle(),
     supabase
       .from('bookings')
       .select('id, booking_number, car_id, start_date, end_date, status, is_currently_active, cars(plate_number, model_group(name))')
@@ -415,6 +438,12 @@ export async function fetchBookingCarNotes(bookingId: number, carId: number): Pr
   return carNotes({ id: bookingId, car_id: carId }, lines, (replacements.data ?? []) as WalletReplacement[], plates);
 }
 
+/** The ledger's own delete, as the car customer sheet does it. */
+export async function deleteLedgerLine(lineId: string): Promise<void> {
+  const { error } = await supabase.from('customer_accounting_ledger').delete().eq('id', lineId);
+  if (error) throw new Error(error.message);
+}
+
 export async function fetchWallet(customerId: string): Promise<Wallet | null> {
   const data = await fetchWalletData(customerId);
   return data && buildWallet(data);
@@ -426,30 +455,77 @@ export interface WalletSummary {
   customerId: string;
   name: string;
   phone: string | null;
+  banned: boolean;
+  banReason: string | null;
   balance: number;
   bookings: number;
+  /** Every car they've had, newest first: labels and search terms, never a split. */
+  plates: string[];
+  onRoad: boolean;
 }
 
 export type WalletFilter = 'owes' | 'credit' | 'settled';
 export const WALLET_FILTERS: readonly WalletFilter[] = ['owes', 'credit', 'settled'];
 
-/** Customers with at least one line, biggest balance either way first. */
+export interface SummaryCustomer {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  is_banned?: boolean | null;
+  ban_reason?: string | null;
+}
+
+export interface SummaryBooking {
+  id: number;
+  customer_id: string | null;
+  start_date: string;
+  status: string | null;
+  is_currently_active: boolean | null;
+  cars: Joined<{ plate_number: string | null }>;
+}
+
+/**
+ * Customers with at least one line. Each booking's balance is rounded to the kuruş
+ * and then summed, the same total the wallet shows. Biggest balance either way first.
+ */
 export function summarizeWallets(
-  customers: Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null }>,
+  customers: SummaryCustomer[],
   lines: Array<Pick<WalletLine, 'booking_id' | 'amount' | 'direction'> & { customer_id: string }>,
+  bookings: SummaryBooking[] = [],
 ): WalletSummary[] {
-  const byCustomer = new Map<string, { balance: number; bookings: Set<number> }>();
+  const perBooking = new Map<string, Map<number, number>>();
   lines.forEach((line) => {
-    const entry = byCustomer.get(line.customer_id) ?? { balance: 0, bookings: new Set<number>() };
-    entry.balance += (line.direction === 'IN' ? 1 : -1) * Number(line.amount);
-    entry.bookings.add(line.booking_id);
-    byCustomer.set(line.customer_id, entry);
+    const own = perBooking.get(line.customer_id) ?? new Map<number, number>();
+    own.set(line.booking_id, (own.get(line.booking_id) ?? 0) + (line.direction === 'IN' ? 1 : -1) * Number(line.amount));
+    perBooking.set(line.customer_id, own);
+  });
+  const theirs = new Map<string, SummaryBooking[]>();
+  bookings.forEach((booking) => {
+    if (!booking.customer_id) return;
+    theirs.set(booking.customer_id, [...(theirs.get(booking.customer_id) ?? []), booking]);
   });
   return customers
-    .filter((customer) => byCustomer.has(customer.id))
-    .map((customer) => {
-      const entry = byCustomer.get(customer.id) as { balance: number; bookings: Set<number> };
-      return { customerId: customer.id, name: customerName(customer), phone: customer.phone, balance: roundMoney(entry.balance), bookings: entry.bookings.size };
+    .filter((customer) => perBooking.has(customer.id))
+    .map((customer): WalletSummary => {
+      const own = perBooking.get(customer.id) as Map<number, number>;
+      const rides = (theirs.get(customer.id) ?? []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date) || b.id - a.id);
+      const plates = Array.from(new Set(rides
+        .filter((booking) => booking.status !== 'cancelled')
+        .map((booking) => one(booking.cars)?.plate_number?.trim())
+        .filter((plate): plate is string => Boolean(plate))));
+      return {
+        customerId: customer.id,
+        name: customerName(customer),
+        phone: customer.phone,
+        banned: Boolean(customer.is_banned),
+        banReason: customer.ban_reason ?? null,
+        balance: roundMoney(Array.from(own.values()).reduce((sum, value) => sum + roundMoney(value), 0)),
+        // All their bookings, as the wallet lists them, not only those with money on.
+        bookings: Math.max(rides.length, own.size),
+        plates,
+        onRoad: rides.some((booking) => booking.is_currently_active),
+      };
     })
     .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance) || a.name.localeCompare(b.name));
 }
@@ -471,21 +547,26 @@ export function inWalletFilter(row: WalletSummary, filter: WalletFilter | 'all')
   return filter === 'all' || walletTone(row.balance) === filter;
 }
 
-const compact = (value: string) => value.replace(/[\s\-+()]/g, '').toLowerCase();
+const compact = (value: string) => value.replace(/[\s\-+().]/g, '').toLowerCase();
 
+/** Name, phone, or any car they've had: "34KDT" finds "34 KDT 123". */
 export function matchesWalletSearch(row: WalletSummary, query: string): boolean {
   const term = query.trim().toLowerCase();
   if (!term) return true;
   const bare = compact(term);
-  return row.name.toLowerCase().includes(term) || (bare !== '' && compact(row.phone ?? '').includes(bare));
+  return row.name.toLowerCase().includes(term)
+    || (bare !== '' && compact(row.phone ?? '').includes(bare))
+    || (bare !== '' && row.plates.some((plate) => compact(plate).includes(bare)));
 }
 
 export async function fetchWalletSummaries(): Promise<WalletSummary[]> {
-  const [customers, lines] = await Promise.all([
-    fetchAll<{ id: string; first_name: string | null; last_name: string | null; phone: string | null }>((from, to) => supabase
-      .from('customers').select('id, first_name, last_name, phone').order('id').range(from, to)),
+  const [customers, lines, bookings] = await Promise.all([
+    fetchAll<SummaryCustomer>((from, to) => supabase
+      .from('customers').select('id, first_name, last_name, phone, is_banned, ban_reason').order('id').range(from, to)),
     fetchAll<Pick<WalletLine, 'booking_id' | 'amount' | 'direction'> & { customer_id: string }>((from, to) => supabase
       .from('customer_accounting_ledger').select('customer_id, booking_id, amount, direction').order('id').range(from, to)),
+    fetchAll<SummaryBooking>((from, to) => supabase
+      .from('bookings').select('id, customer_id, start_date, status, is_currently_active, cars(plate_number)').order('id').range(from, to)),
   ]);
-  return summarizeWallets(customers, lines);
+  return summarizeWallets(customers, lines, bookings);
 }

@@ -6,6 +6,8 @@ import {
   defaultTarget,
   formatWalletMoney,
   friendlyMoveError,
+  isEditableLine,
+  matchesWalletSearch,
   lineKind,
   lineLabel,
   moveTargets,
@@ -182,4 +184,32 @@ test('Accounting lists only customers with lines, biggest balance first, with to
   );
   expect(rows.map((row) => [row.name, row.balance, row.bookings])).toEqual([['Bo', -800, 2], ['Ada', 100, 1], ['Cem', 0, 1]]);
   expect(walletTotals(rows)).toEqual({ all: 3, owesCount: 1, owesTotal: 800, creditCount: 1, creditTotal: 100, settledCount: 1 });
+});
+
+test('the list carries every car a customer had, newest first, and finds them by plate, name or phone', () => {
+  const [row] = summarizeWallets(
+    [{ id: 'a', first_name: 'Ada', last_name: 'Kaya', phone: '+90 536 111 22 33', is_banned: true, ban_reason: 'Late' }],
+    [
+      { customer_id: 'a', booking_id: 1, amount: 100.004, direction: 'OUT' },
+      { customer_id: 'a', booking_id: 2, amount: 100.004, direction: 'OUT' },
+    ],
+    [
+      { id: 1, customer_id: 'a', start_date: '2026-01-01', status: 'completed', is_currently_active: false, cars: { plate_number: '34 KDT 101' } },
+      { id: 2, customer_id: 'a', start_date: '2026-10-01', status: 'confirmed', is_currently_active: true, cars: [{ plate_number: '34 ABC 22' }] },
+      { id: 3, customer_id: 'a', start_date: '2026-11-01', status: 'cancelled', is_currently_active: false, cars: { plate_number: '34 ZZZ 9' } },
+      { id: 4, customer_id: 'a', start_date: '2025-05-01', status: 'completed', is_currently_active: false, cars: { plate_number: '34 KDT 101' } },
+    ],
+  );
+  expect(row).toMatchObject({ plates: ['34 ABC 22', '34 KDT 101'], onRoad: true, banned: true, banReason: 'Late', balance: -200, bookings: 4 });
+  expect(matchesWalletSearch(row, '34KDT')).toBe(true);
+  expect(matchesWalletSearch(row, '34zzz')).toBe(false);
+  expect(matchesWalletSearch(row, 'kaya')).toBe(true);
+  expect(matchesWalletSearch(row, '0536 111')).toBe(true);
+});
+
+test('a recorded payment and a transfer half are not edited on their own', () => {
+  expect(isEditableLine({ type: 'payment', pay_method: 'cash' })).toBe(false);
+  expect(isEditableLine({ type: 'transfer', pay_method: null })).toBe(false);
+  expect(isEditableLine({ type: 'payment', pay_method: null })).toBe(true);
+  expect(isEditableLine({ type: 'hgs' })).toBe(true);
 });

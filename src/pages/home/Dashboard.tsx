@@ -312,7 +312,7 @@ export const Dashboard: React.FC<{ compliant: boolean }> = ({ compliant }) => {
                 <Money value={data.cash.envelopes_in_safe_try} className="mt-1 block text-[22px] font-semibold text-foreground" />
                 <span className="mt-0.5 block text-[12.5px] text-black/50"><span className={MONO}>{data.cash.envelopes_in_safe}</span> {data.cash.envelopes_in_safe === 1 ? 'envelope' : 'envelopes'} in safes · lira part only</span>
               </Link>
-              <Link to="/dashboard/accounting?tab=customers&view=bookings" className={cn(CARD, CLICKABLE, 'block p-4')}>
+              <Link to="/dashboard/accounting?tab=customers&filter=owes" className={cn(CARD, CLICKABLE, 'block p-4')}>
                 <span className="block text-[12.5px] text-black/55">Customers owing</span>
                 <Money value={data.alerts.customers_owing_amount} className="mt-1 block text-[22px] font-semibold text-foreground" />
                 <span className="mt-0.5 block text-[12.5px] text-black/50"><span className={MONO}>{data.alerts.customers_owing}</span> {data.alerts.customers_owing === 1 ? 'customer' : 'customers'}</span>

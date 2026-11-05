@@ -6,12 +6,28 @@ import { BalanceToMoveBanner, CustomerWalletView, MoveBalanceSheet } from './Cus
 
 const mockMove = jest.fn();
 const mockFetchWallet = jest.fn();
+const mockDelete = jest.fn();
+const mockPrint = jest.fn();
 
 jest.mock('../../lib/supabase', () => ({ supabase: {} }));
 jest.mock('../../lib/customerWallet', () => ({
   ...jest.requireActual('../../lib/customerWallet'),
   fetchWallet: (...args: unknown[]) => mockFetchWallet(...args),
   moveBookingBalance: (...args: unknown[]) => mockMove(...args),
+  deleteLedgerLine: (...args: unknown[]) => mockDelete(...args),
+}));
+jest.mock('../../lib/CurrencyContext', () => ({ useCurrency: () => ({ fmt: (amount: number) => `TRY ${amount}` }) }));
+jest.mock('../accounting/CustomerLedgerForms', () => ({
+  printLedgerInvoice: (...args: unknown[]) => mockPrint(...args),
+  AddCustomerTxModal: (props: { bookingId: number; carId: number; bookingLabel: string; onSaved: () => void; onClose: () => void }) => (
+    <div role="dialog" aria-label="Add Transaction">
+      {`booking ${props.bookingId} car ${props.carId} ${props.bookingLabel}`}
+      <button type="button" onClick={() => { props.onSaved(); props.onClose(); }}>Save it</button>
+    </div>
+  ),
+  EditTxModal: (props: { entry: { id: string; amount: number } }) => (
+    <div role="dialog" aria-label="Edit Transaction">{`edit ${props.entry.id} ${props.entry.amount}`}</div>
+  ),
 }));
 
 const data = (): WalletData => ({
@@ -22,7 +38,7 @@ const data = (): WalletData => ({
   ],
   lines: [
     { id: 'a', booking_id: 1, car_id: 10, type: 'rental', description: null, amount: 5000, direction: 'OUT', created_at: '2026-10-01T09:00:00Z', payment_ref: null },
-    { id: 'b', booking_id: 1, car_id: 10, type: 'payment', description: null, amount: 6500, direction: 'IN', created_at: '2026-10-02T09:00:00Z', payment_ref: null },
+    { id: 'b', booking_id: 1, car_id: 10, type: 'payment', description: null, amount: 6500, direction: 'IN', created_at: '2026-10-02T09:00:00Z', payment_ref: null, pay_method: 'cash' },
     { id: 'c', booking_id: 1, car_id: 30, type: 'hgs', description: null, amount: 0, direction: 'OUT', created_at: '2026-10-02T10:00:00Z', payment_ref: null },
     { id: 'd', booking_id: 2, car_id: 20, type: 'rental', description: null, amount: 2000, direction: 'OUT', created_at: '2026-11-01T09:00:00Z', payment_ref: null },
   ],
@@ -36,13 +52,17 @@ beforeEach(() => {
   wallet = buildWallet(data());
   mockMove.mockReset().mockResolvedValue({ ref: 'TRF-1', amount: 1500, from: 'HOM-10-26-001', to: 'HOM-11-26-002', from_balance_after: 0 });
   mockFetchWallet.mockReset().mockImplementation(async () => wallet);
+  mockDelete.mockReset().mockResolvedValue(undefined);
+  mockPrint.mockReset();
 });
 
 test('shows one total, then each booking with its car, balance and lines', async () => {
   render(<CustomerWalletView customerId="c1" notify={jest.fn()} onChanged={jest.fn()} />);
   const hero = await screen.findByRole('region', { name: 'Wallet balance' });
   expect(within(hero).getByText('Omar Ali')).toBeInTheDocument();
-  expect(within(hero).getByText('Owes')).toBeInTheDocument();
+  expect(within(hero).getByText('Total balance')).toBeInTheDocument();
+  expect(within(hero).getByText(/^Owes .*500$/)).toBeInTheDocument();
+  expect(within(hero).getByText('Across 2 bookings')).toBeInTheDocument();
   const older = screen.getByRole('article', { name: 'HOM-10-26-001' });
   expect(within(older).getByText('34ABC10')).toBeInTheDocument();
   expect(within(older).getByText(/^Credit/)).toBeInTheDocument();
@@ -109,4 +129,40 @@ test('no banner when the other bookings are settled', async () => {
   render(<BalanceToMoveBanner customerId="c1" bookingId={2} notify={jest.fn()} onDismiss={jest.fn()} />);
   await waitFor(() => expect(mockFetchWallet).toHaveBeenCalled());
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
+});
+
+test('every free line has Edit and Delete; a recorded payment says Recorded', async () => {
+  const notify = jest.fn();
+  const onChanged = jest.fn();
+  render(<CustomerWalletView customerId="c1" notify={notify} onChanged={onChanged} />);
+  const older = await screen.findByRole('article', { name: 'HOM-10-26-001' });
+  const payment = within(older).getByText('Payment').closest('li') as HTMLElement;
+  expect(within(payment).getByText('Recorded')).toBeInTheDocument();
+  expect(within(payment).queryByRole('button', { name: 'Edit transaction' })).not.toBeInTheDocument();
+  const rental = within(older).getByText('Rental').closest('li') as HTMLElement;
+  await userEvent.click(within(rental).getByRole('button', { name: 'Edit transaction' }));
+  expect(screen.getByRole('dialog', { name: 'Edit Transaction' })).toHaveTextContent('edit a 5000');
+  await userEvent.click(within(rental).getByRole('button', { name: 'Delete transaction' }));
+  expect(mockDelete).not.toHaveBeenCalled();
+  await userEvent.click(within(within(rental).getByRole('group', { name: 'Delete this line?' })).getByRole('button', { name: 'Yes' }));
+  await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('a'));
+  expect(notify).toHaveBeenCalledWith('Transaction deleted', 'success');
+  expect(onChanged).toHaveBeenCalled();
+});
+
+test('each booking adds a transaction through the old form and prints its own invoice', async () => {
+  const notify = jest.fn();
+  render(<CustomerWalletView customerId="c1" notify={notify} onChanged={jest.fn()} />);
+  const older = await screen.findByRole('article', { name: 'HOM-10-26-001' });
+  await userEvent.click(within(older).getByRole('button', { name: 'Add Transaction' }));
+  const form = screen.getByRole('dialog', { name: 'Add Transaction' });
+  expect(form).toHaveTextContent('booking 1 car 10 HOM-10-26-001');
+  await userEvent.click(within(form).getByRole('button', { name: 'Save it' }));
+  expect(notify).toHaveBeenCalledWith('Transaction added', 'success');
+  expect(screen.queryByRole('dialog', { name: 'Add Transaction' })).not.toBeInTheDocument();
+  await userEvent.click(within(older).getByRole('button', { name: 'Print invoice' }));
+  const [invoice, car] = mockPrint.mock.calls[0];
+  expect(invoice).toMatchObject({ bookingNumber: 'HOM-10-26-001', first_name: 'Omar', last_name: 'Ali', totalIn: 6500, totalOut: 5000 });
+  expect(invoice.entries).toHaveLength(3);
+  expect(car).toEqual({ plate_number: '34ABC10', model_name: 'Fiat Egea' });
 });
