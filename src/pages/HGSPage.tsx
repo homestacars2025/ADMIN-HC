@@ -37,9 +37,10 @@ import { WalletIcon } from './customers/ui';
 import { BarcodeSheet, HgsCarRow, HgsListHeader, NoHgsBanner, type HistoryState } from './hgs/HgsParts';
 
 /**
- * HGS tolls. Every transit loads once, so the month switcher, the tiles and the rows
- * are worked out in memory. A car's own rows, with booking and customer, load when it
- * is opened, and are kept per car and period until the next refresh.
+ * HGS tolls, from the portal files finance uploads per car. Every transit loads once,
+ * so the month switcher, the tiles and the rows are worked out in memory. A car's own
+ * rows, with the booking on the car that day, load when it is opened, and are kept per
+ * car and period until the next refresh.
  */
 
 const SORT_LABELS: Record<HgsSort, string> = { amount: 'Amount', transits: 'Transits', last: 'Last' };
@@ -86,7 +87,7 @@ const HGSPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [reload]);
 
-  // "Last sync" keeps counting while the page is open.
+  // "Last upload" keeps counting while the page is open.
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
@@ -147,10 +148,10 @@ const HGSPage: React.FC = () => {
       <PageHeader
         eyebrow="Finance"
         title="HGS"
-        subtitle="Motorway tolls per car, synced hourly."
+        subtitle="Motorway and private-road tolls per car, from the HGS portal files."
         action={(
           <div className="flex items-center gap-3">
-            <span className="text-[12.5px] text-black/45">Last sync: {data ? syncedAgo(data.lastSync, now) : '…'}</span>
+            <span className="text-[12.5px] text-black/45">Last upload: {data ? syncedAgo(data.lastSync, now) : '…'}</span>
             <Button variant="outline" size="lg" className="!h-11 px-3 md:!h-10" disabled={loading || refreshing} onClick={refresh}>
               {refreshing && <Spinner size={13} />} {refreshing ? 'Refreshing…' : 'Refresh'}
             </Button>

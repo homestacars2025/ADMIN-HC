@@ -1,5 +1,9 @@
 import {
+  bookingOnDay,
   carsWithoutHgs,
+  formatDay,
+  formatTime,
+  istanbulDay,
   formatChange,
   hgsRows,
   hgsSummary,
@@ -19,7 +23,7 @@ const car = (id: number, over: Partial<HgsCarInfo> = {}): HgsCarInfo => ({
 });
 let nextId = 1;
 const transit = (carId: number | null, day: string, amount: number, over: Partial<HgsTransitLite> = {}): HgsTransitLite => ({
-  id: nextId++, carId, plate: carId === null ? '34 ZZ 999' : null, day, amount, pending: false, ...over,
+  id: nextId++, carId, plate: carId === null ? '34 ZZ 999' : null, day, at: `${day}T09:00:00+00:00`, amount, road: 'public', ...over,
 });
 
 const cars = [
@@ -31,7 +35,7 @@ const cars = [
 ];
 const transits = [
   transit(1, '2026-11-02', 100),
-  transit(1, '2026-11-03', 50, { pending: true }),
+  transit(1, '2026-11-03', 50, { road: 'private' }),
   transit(2, '2026-10-20', 300),
   transit(5, '2026-11-01', 25),
   transit(null, '2026-11-04', 25),
@@ -77,8 +81,8 @@ describe('the rows', () => {
     expect(rows.map((row) => row.key).sort()).toEqual(['car:1', 'car:2', 'car:5', 'plate:34 ZZ 999']);
   });
 
-  it('add up a car in the period, with its pending rows and last day', () => {
-    expect(byKey['car:1']).toMatchObject({ transits: 2, pending: 1, amount: 150, last: '2026-11-03', share: 0.75 });
+  it('add up a car in the period, with its private-road rows and last transit', () => {
+    expect(byKey['car:1']).toMatchObject({ transits: 2, privateRoad: 1, amount: 150, last: '2026-11-03T09:00:00+00:00', share: 0.75 });
     expect(byKey['car:2']).toMatchObject({ transits: 0, amount: 0, last: null, share: 0 });
   });
 
@@ -94,6 +98,35 @@ describe('the rows', () => {
     expect(matchesHgsSearch(row, '1131524901')).toBe(true);
     expect(matchesHgsSearch(row, 'egea')).toBe(true);
     expect(matchesHgsSearch(row, 'clio')).toBe(false);
+  });
+});
+
+describe('Istanbul time', () => {
+  it('puts a late-evening UTC transit on the next Istanbul day and month', () => {
+    expect(istanbulDay('2026-10-31T21:30:00+00:00')).toBe('2026-11-01');
+    expect(istanbulDay('2026-10-31T20:59:00+00:00')).toBe('2026-10-31');
+    expect(istanbulDay(null)).toBe('');
+    expect(hgsRows({ cars: [], transits: [transit(9, istanbulDay('2026-10-31T21:30:00+00:00'), 40)] }, '2026-11')).toHaveLength(1);
+  });
+
+  it('shows the date and time in Istanbul', () => {
+    expect(formatDay('2026-11-04T21:04:37+00:00')).toBe('5 Nov 2026');
+    expect(formatTime('2026-11-04T11:04:37+00:00')).toBe('14:04');
+    expect(formatDay(null)).toBe('—');
+    expect(formatTime(null)).toBe('');
+  });
+});
+
+describe('the booking on the car', () => {
+  const bookings = [
+    { id: 1, start: '2026-10-01', end: '2026-10-10' },
+    { id: 2, start: '2026-10-10', end: '2026-10-20' },
+  ];
+  it('is the one whose dates hold the day, the newer one on a handover day', () => {
+    expect(bookingOnDay(bookings, '2026-10-05')?.id).toBe(1);
+    expect(bookingOnDay(bookings, '2026-10-10')?.id).toBe(2);
+    expect(bookingOnDay(bookings, '2026-10-25')).toBeNull();
+    expect(bookingOnDay(bookings, '')).toBeNull();
   });
 });
 

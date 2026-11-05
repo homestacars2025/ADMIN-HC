@@ -3,13 +3,14 @@ import { supabase } from './supabase';
 /**
  * HGS (Turkish motorway toll) reads, and the one write the page makes: a car's barcode.
  *
- * An n8n workflow writes `hgs_transactions` hourly. The page loads every transit once,
- * light columns only, so the month switcher, the tiles and the rows are all worked out
- * here with no further request. One car's full rows, with the booking and customer, are
- * fetched when it's expanded.
+ * Transits come from `hgs_portal_transits`: the official HGS portal files, uploaded per
+ * car by finance. They cover public motorways and private roads (bridges, private
+ * gates), and every row has a real time. The page loads every transit once, light
+ * columns only, so the month switcher, the tiles and the rows are all worked out here
+ * with no further request. One car's full rows are fetched when it's expanded, with the
+ * booking that was on the car that day.
  *
- * Every transit carries a date at 00:00 UTC and no time, which is the same day in
- * Istanbul, so a month is the first seven characters of `transit_datetime`.
+ * Days and months are Istanbul time.
  */
 
 export type HgsPeriod = string | 'all';
@@ -24,30 +25,37 @@ export interface HgsCarInfo {
   active: boolean;
 }
 
+export type HgsRoad = 'public' | 'private';
+
 export interface HgsTransitLite {
   id: number;
   carId: number | null;
   plate: string | null;
-  /** YYYY-MM-DD */
+  /** The Istanbul day, YYYY-MM-DD. */
   day: string;
+  /** The transit's own timestamp, ISO. */
+  at: string | null;
   amount: number;
-  pending: boolean;
+  road: HgsRoad | null;
 }
 
 export interface HgsData {
   cars: HgsCarInfo[];
   transits: HgsTransitLite[];
-  /** When the sync last wrote a row, or null before the first one. */
+  /** When a portal file was last uploaded, or null before the first one. */
   lastSync: string | null;
 }
 
 export interface HgsTransitDetail {
   id: number;
   day: string;
+  at: string | null;
   entry: string | null;
   exit: string | null;
+  /** The motorway or road operator. */
+  road: string | null;
+  roadType: HgsRoad | null;
   amount: number;
-  pending: boolean;
   bookingId: number | null;
   bookingNumber: string | null;
   bookingMonth: string | null;
@@ -70,25 +78,45 @@ function text(value: unknown): string | null {
 type Joined<T> = T | T[] | null | undefined;
 const one = <T,>(value: Joined<T>): T | null => (Array.isArray(value) ? value[0] ?? null : value ?? null);
 
+/** The portal writes `*` for a station it doesn't know. */
+const station = (value: unknown): string | null => {
+  const name = text(value);
+  return name === '*' ? null : name;
+};
+
+const roadType = (value: unknown): HgsRoad | null => (value === 'public' || value === 'private' ? value : null);
+
+const ISTANBUL_DAY = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Istanbul' });
+
+/** The Istanbul day of a timestamp, YYYY-MM-DD, or '' when it can't be read. */
+export function istanbulDay(iso: string | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : ISTANBUL_DAY.format(date);
+}
+
 // ── Reads ─────────────────────────────────────────────────────────────────────
 
 const PAGE = 1000;
-const LITE = 'id, car_id, plate_number, transit_datetime, amount, record_type';
+const TABLE = 'hgs_portal_transits';
+const LITE = 'id, car_id, plate_number, transit_datetime, amount, road_type';
 
 function parseLite(raw: Record<string, unknown>): HgsTransitLite {
+  const at = text(raw.transit_datetime);
   return {
     id: num(raw.id),
     carId: raw.car_id == null ? null : num(raw.car_id),
     plate: text(raw.plate_number),
-    day: (text(raw.transit_datetime) ?? '').slice(0, 10),
+    day: istanbulDay(at),
+    at,
     amount: num(raw.amount),
-    pending: raw.record_type === 'pending',
+    road: roadType(raw.road_type),
   };
 }
 
 /** The first page asks for the count, so the rest can all go at once. */
 async function fetchAllTransits(): Promise<HgsTransitLite[]> {
-  const page = (from: number) => supabase.from('hgs_transactions').select(LITE, { count: from === 0 ? 'exact' : undefined })
+  const page = (from: number) => supabase.from(TABLE).select(LITE, { count: from === 0 ? 'exact' : undefined })
     .order('id', { ascending: true }).range(from, from + PAGE - 1);
   const first = await page(0);
   if (first.error) throw new Error(first.error.message);
@@ -113,7 +141,7 @@ export async function fetchHgsData(): Promise<HgsData> {
   const [cars, transits, sync] = await Promise.all([
     supabase.from('cars').select('id, plate_number, is_active, hgs_barcode, model_group:model_group_id(name, image_url)'),
     fetchAllTransits(),
-    supabase.from('hgs_transactions').select('created_at').order('created_at', { ascending: false }).limit(1),
+    supabase.from(TABLE).select('created_at').order('created_at', { ascending: false }).limit(1),
   ]);
   if (cars.error) throw new Error(cars.error.message);
   if (sync.error) throw new Error(sync.error.message);
@@ -139,33 +167,99 @@ const nextMonth = (month: string) => {
   return new Date(Date.UTC(year, index, 1)).toISOString().slice(0, 7);
 };
 
-/** One car's transits in the period, newest first, with what they were billed to. */
-export async function fetchCarTransits(car: { carId: number | null; plate: string }, period: HgsPeriod): Promise<HgsTransitDetail[]> {
+/** Midnight in Istanbul on the first of the month. Turkey has kept UTC+3 all year since 2016. */
+const monthStart = (month: string) => `${month}-01T00:00:00+03:00`;
+
+interface BookingOnCar {
+  id: number;
+  number: string | null;
+  start: string;
+  end: string;
+  customerId: string | null;
+  customerName: string | null;
+}
+
+/** The booking that had the car that day. On a handover day the one that started it wins. */
+export function bookingOnDay<T extends Pick<BookingOnCar, 'start' | 'end'>>(bookings: T[], day: string): T | null {
+  if (!day) return null;
+  return bookings
+    .filter((booking) => booking.start <= day && day <= booking.end)
+    .sort((a, b) => b.start.localeCompare(a.start))[0] ?? null;
+}
+
+async function fetchCarBookings(carId: number, period: HgsPeriod): Promise<BookingOnCar[]> {
   let query = supabase
-    .from('hgs_transactions')
-    .select('id, transit_datetime, toll_location, entry_location, exit_location, amount, record_type, booking_id, customer_id, booking:booking_id(booking_number, start_date), customer:customer_id(first_name, last_name)')
-    .order('transit_datetime', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(PAGE);
-  query = car.carId !== null ? query.eq('car_id', car.carId) : query.is('car_id', null).eq('plate_number', car.plate);
-  if (period !== ALL_TIME) query = query.gte('transit_datetime', `${period}-01`).lt('transit_datetime', `${nextMonth(period)}-01`);
+    .from('bookings')
+    .select('id, booking_number, start_date, end_date, customer_id, customer:customer_id(first_name, last_name)')
+    .eq('car_id', carId)
+    .neq('status', 'cancelled')
+    .not('start_date', 'is', null)
+    .not('end_date', 'is', null);
+  if (period !== ALL_TIME) {
+    const last = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    query = query.lte('start_date', last).gte('end_date', `${period}-01`);
+  }
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map((raw) => {
-    const booking = one(raw.booking as Joined<{ booking_number: string | null; start_date: string | null }>);
     const customer = one(raw.customer as Joined<{ first_name: string | null; last_name: string | null }>);
     return {
       id: num(raw.id),
-      day: (text(raw.transit_datetime) ?? '').slice(0, 10),
-      entry: text(raw.entry_location),
-      exit: text(raw.exit_location) ?? text(raw.toll_location),
-      amount: num(raw.amount),
-      pending: raw.record_type === 'pending',
-      bookingId: raw.booking_id == null ? null : num(raw.booking_id),
-      bookingNumber: text(booking?.booking_number),
-      bookingMonth: text(booking?.start_date)?.slice(0, 7) ?? null,
+      number: text(raw.booking_number),
+      start: (text(raw.start_date) ?? '').slice(0, 10),
+      end: (text(raw.end_date) ?? '').slice(0, 10),
       customerId: text(raw.customer_id),
       customerName: [customer?.first_name, customer?.last_name].map(text).filter(Boolean).join(' ') || null,
+    };
+  });
+}
+
+/** One car's transits in the period, newest first, each with the booking on the car that day. */
+export async function fetchCarTransits(car: { carId: number | null; plate: string }, period: HgsPeriod): Promise<HgsTransitDetail[]> {
+  // A busy car passes a few hundred gates a month, so a car's all-time list can run past one page.
+  const page = (from: number) => {
+    let query = supabase
+      .from(TABLE)
+      .select('id, transit_datetime, entry_location, exit_location, otoyol, road_type, amount')
+      .order('transit_datetime', { ascending: false })
+      .order('id', { ascending: false });
+    query = car.carId !== null ? query.eq('car_id', car.carId) : query.is('car_id', null).eq('plate_number', car.plate);
+    if (period !== ALL_TIME) query = query.gte('transit_datetime', monthStart(period)).lt('transit_datetime', monthStart(nextMonth(period)));
+    return query.range(from, from + PAGE - 1);
+  };
+  const [transits, bookings] = await Promise.all([
+    (async () => {
+      const rows: Record<string, unknown>[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await page(from);
+        if (error) throw new Error(error.message);
+        rows.push(...((data ?? []) as Record<string, unknown>[]));
+        if ((data ?? []).length < PAGE) return rows;
+      }
+    })(),
+    car.carId !== null ? fetchCarBookings(car.carId, period) : Promise.resolve([]),
+  ]);
+  return transits.map((raw) => {
+    const at = text(raw.transit_datetime);
+    const day = istanbulDay(at);
+    const booking = bookingOnDay(bookings, day);
+    const entry = station(raw.entry_location);
+    const exit = station(raw.exit_location);
+    return {
+      id: num(raw.id),
+      day,
+      at,
+      // A single gate is written as both entry and exit.
+      entry: entry && entry !== exit ? entry : null,
+      exit: exit ?? entry,
+      road: text(raw.otoyol),
+      roadType: roadType(raw.road_type),
+      amount: num(raw.amount),
+      bookingId: booking?.id ?? null,
+      bookingNumber: booking?.number ?? null,
+      bookingMonth: booking?.start.slice(0, 7) ?? null,
+      customerId: booking?.customerId ?? null,
+      customerName: booking?.customerName ?? null,
     };
   });
 }
@@ -195,7 +289,7 @@ export async function saveHgsBarcode(carId: number, input: string): Promise<stri
 
 export const hasBarcode = (car: Pick<HgsCarInfo, 'barcode'>): boolean => Boolean(car.barcode?.trim());
 
-/** Active cars the sync can't see: no barcode, so no tolls tracked. */
+/** Active cars with no HGS barcode on file. */
 export const carsWithoutHgs = (cars: HgsCarInfo[]): HgsCarInfo[] => cars
   .filter((car) => car.active && !hasBarcode(car))
   .sort((a, b) => a.plate.localeCompare(b.plate, 'tr'));
@@ -249,8 +343,10 @@ export interface HgsRow {
   image: string | null;
   barcode: string | null;
   transits: number;
-  pending: number;
+  /** Of those, on private roads: bridges and private gates. */
+  privateRoad: number;
   amount: number;
+  /** The last transit's timestamp, ISO. */
   last: string | null;
   /** Of the period's spend, 0 to 1. */
   share: number;
@@ -262,7 +358,7 @@ export function hgsRows(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPer
   const rows = new Map<string, HgsRow>();
   const blank = (key: string, car: HgsCarInfo | null, plate: string, carId: number | null): HgsRow => ({
     key, carId, plate: car?.plate ?? plate, model: car?.model ?? null, image: car?.image ?? null, barcode: car?.barcode ?? null,
-    transits: 0, pending: 0, amount: 0, last: null, share: 0,
+    transits: 0, privateRoad: 0, amount: 0, last: null, share: 0,
   });
   data.cars.filter(onHgs).forEach((car) => rows.set(`car:${car.id}`, blank(`car:${car.id}`, car, car.plate, car.id)));
 
@@ -273,9 +369,9 @@ export function hgsRows(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPer
     const key = transit.carId !== null ? `car:${transit.carId}` : `plate:${transit.plate ?? '—'}`;
     const row = rows.get(key) ?? blank(key, car, transit.plate ?? '—', transit.carId);
     row.transits += 1;
-    if (transit.pending) row.pending += 1;
+    if (transit.road === 'private') row.privateRoad += 1;
     row.amount += transit.amount;
-    if (!row.last || transit.day > row.last) row.last = transit.day;
+    if (transit.at && (!row.last || Date.parse(transit.at) > Date.parse(row.last))) row.last = transit.at;
     rows.set(key, row);
     total += transit.amount;
   });
@@ -288,11 +384,9 @@ export type HgsSort = typeof HGS_SORTS[number];
 
 /** Biggest first for every key; the plate breaks a tie, so the order never jumps. */
 export function sortHgsRows(rows: HgsRow[], key: HgsSort): HgsRow[] {
-  const value = (row: HgsRow) => (key === 'amount' ? row.amount : key === 'transits' ? row.transits : row.last ?? '');
+  const value = (row: HgsRow) => (key === 'amount' ? row.amount : key === 'transits' ? row.transits : row.last ? Date.parse(row.last) || 0 : 0);
   return [...rows].sort((a, b) => {
-    const va = value(a);
-    const vb = value(b);
-    const order = typeof va === 'number' && typeof vb === 'number' ? vb - va : String(vb).localeCompare(String(va));
+    const order = value(b) - value(a);
     return order || a.plate.localeCompare(b.plate, 'tr');
   });
 }
@@ -312,15 +406,21 @@ export const inHgsFilter = (row: HgsRow, filter: HgsFilter | 'all'): boolean => 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
 const COUNT = new Intl.NumberFormat('tr-TR');
-const DAY = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const DAY = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Istanbul' });
+const TIME = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Europe/Istanbul' });
 
 export const formatCount = (value: number): string => COUNT.format(value);
 
-/** A transit has a date and no time, so it's shown as the date alone. */
-export function formatDay(day: string | null): string {
-  if (!day) return '—';
-  const date = new Date(`${day.slice(0, 10)}T00:00:00Z`);
-  return Number.isNaN(date.getTime()) ? '—' : DAY.format(date);
+/** The Istanbul date of a timestamp, e.g. "4 Nov 2026". */
+export function formatDay(iso: string | null): string {
+  const date = iso ? new Date(iso) : null;
+  return date && !Number.isNaN(date.getTime()) ? DAY.format(date) : '—';
+}
+
+/** The Istanbul time of a timestamp, e.g. "14:04". */
+export function formatTime(iso: string | null): string {
+  const date = iso ? new Date(iso) : null;
+  return date && !Number.isNaN(date.getTime()) ? TIME.format(date) : '';
 }
 
 export function formatChange(change: number | null, previousLabel: string): string {

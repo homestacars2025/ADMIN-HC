@@ -31,9 +31,9 @@ const DATA = {
     { id: 57, plate: '34MDJ129', model: 'Renault Taliant', image: null, barcode: null, active: true },
   ],
   transits: [
-    { id: 1, carId: 39, plate: null, day: `${month}-02`, amount: 148.5, pending: false },
-    { id: 2, carId: 39, plate: null, day: `${month}-03`, amount: 96, pending: true },
-    { id: 3, carId: 51, plate: null, day: `${lastMonth}-10`, amount: 500, pending: false },
+    { id: 1, carId: 39, plate: null, day: `${month}-02`, at: `${month}-02T08:00:00+00:00`, amount: 148.5, road: 'public' },
+    { id: 2, carId: 39, plate: null, day: `${month}-03`, at: `${month}-03T11:04:00+00:00`, amount: 96, road: 'private' },
+    { id: 3, carId: 51, plate: null, day: `${lastMonth}-10`, at: `${lastMonth}-10T08:00:00+00:00`, amount: 500, road: 'public' },
   ],
   lastSync: new Date(Date.now() - 12 * 60000).toISOString(),
 };
@@ -45,18 +45,19 @@ const plates = () => screen.getAllByText(/^(06FHN975|34HGC631)$/).filter((n) => 
 beforeEach(() => {
   mockFetchHgsData.mockReset().mockResolvedValue(DATA);
   mockFetchCarTransits.mockReset().mockResolvedValue([
-    { id: 2, day: `${month}-03`, entry: 'Avcılar', exit: 'Mahmutbey', amount: 96, pending: true, bookingId: 7, bookingNumber: 'HOM-11-26-007', bookingMonth: month, customerId: 'c1', customerName: 'Ali Veli' },
-    { id: 1, day: `${month}-02`, entry: null, exit: 'İstoç', amount: 148.5, pending: false, bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null },
+    { id: 2, day: `${month}-03`, at: `${month}-03T11:04:00+00:00`, entry: null, exit: 'FENERTEPE', road: 'KCO GECIS UCRET', roadType: 'private', amount: 96, bookingId: 7, bookingNumber: 'HOM-11-26-007', bookingMonth: month, customerId: 'c1', customerName: 'Ali Veli' },
+    { id: 1, day: `${month}-02`, at: `${month}-02T08:00:00+00:00`, entry: 'ORHANLI', exit: 'KURTKÖY SGS', road: 'İSTANBUL-ANKARA OTOYOLU', roadType: 'public', amount: 148.5, bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null },
   ]);
   mockSaveHgsBarcode.mockReset();
 });
 
 test('warns about the car with no barcode, and drops the old tile', async () => {
   renderPage();
-  expect(await screen.findByText(/1 car has no HGS barcode — tolls for this car are not tracked/)).toBeInTheDocument();
+  expect(await screen.findByText('1 car has no HGS barcode on file')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Add an HGS barcode to 34MDJ129' })).toBeInTheDocument();
   expect(screen.queryByText('Without HGS')).not.toBeInTheDocument();
-  expect(screen.getByText('Last sync: 12 min ago')).toBeInTheDocument();
+  expect(screen.getByText('Last upload: 12 min ago')).toBeInTheDocument();
+  expect(screen.getByText('1 private')).toBeInTheDocument();
 });
 
 test('tiles follow the month, and All time', async () => {
@@ -99,7 +100,7 @@ test('sorts and searches', async () => {
   expect(plates()).toEqual(['34HGC631']);
 });
 
-test('opening a car lists its transits with booking and customer, once', async () => {
+test('opening a car lists its transits with time, road and booking, once', async () => {
   renderPage();
   const row = (await screen.findByText('06FHN975')).closest('button') as HTMLElement;
   await userEvent.click(row);
@@ -107,7 +108,11 @@ test('opening a car lists its transits with booking and customer, once', async (
   expect(mockFetchCarTransits.mock.calls[0][1]).toBe(month);
   expect(await screen.findByText('HOM-11-26-007')).toHaveAttribute('href', `/dashboard/bookings?month=${month}&q=HOM-11-26-007`);
   expect(screen.getByText('Ali Veli')).toHaveAttribute('href', '/dashboard/customers/c1');
-  expect(screen.getByText('Pending')).toBeInTheDocument();
+  expect(screen.getByText('Private road')).toBeInTheDocument();
+  expect(screen.getByText('Public road')).toBeInTheDocument();
+  expect(screen.getByText('14:04')).toBeInTheDocument();
+  expect(screen.getByText('KCO GECIS UCRET')).toBeInTheDocument();
+  expect(screen.getByText(/ORHANLI/)).toHaveTextContent('ORHANLI → KURTKÖY SGS');
   expect(screen.getByText('Not linked')).toBeInTheDocument();
 
   await userEvent.click(row);

@@ -4,12 +4,12 @@ import { Button, Sheet, SheetBody, SheetDescription, SheetFooter, SheetHeader, S
 import { ChevronDown } from '../../components/media/MediaIcons';
 import { CarThumb } from '../../components/shared/CarThumb';
 import { ComplianceTriangle, TONE_CLASSES } from '../../components/shared/ComplianceBits';
-import { formatCount, formatDay, saveHgsBarcode, type HgsCarInfo, type HgsRow, type HgsTransitDetail } from '../../lib/hgs';
+import { formatCount, formatDay, formatTime, saveHgsBarcode, type HgsCarInfo, type HgsRoad, type HgsRow, type HgsTransitDetail } from '../../lib/hgs';
 import { cn } from '../../lib/media/badgeColor';
 import { formatMoney } from '../../lib/money';
 import { LicensePlate } from '../bookings/ui';
 
-// ── Cars the sync can't see ───────────────────────────────────────────────────
+// ── Cars with no barcode ───────────────────────────────────────────────────
 
 export const NoHgsBanner: React.FC<{ cars: HgsCarInfo[]; onPick: (car: HgsCarInfo) => void }> = ({ cars, onPick }) => {
   if (cars.length === 0) return null;
@@ -19,7 +19,7 @@ export const NoHgsBanner: React.FC<{ cars: HgsCarInfo[]; onPick: (car: HgsCarInf
       <ComplianceTriangle tone="red" size={44} className="shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-semibold leading-snug text-[#B91C1C] sm:text-[14px]">
-          {cars.length} {many ? 'cars have' : 'car has'} no HGS barcode — tolls for {many ? 'these cars' : 'this car'} are not tracked
+          {cars.length} {many ? 'cars have' : 'car has'} no HGS barcode on file
         </p>
         <ul className="mt-2 flex flex-wrap items-center gap-1.5">
           {cars.map((car) => (
@@ -64,7 +64,7 @@ export const BarcodeSheet: React.FC<{ car: HgsCarInfo; onClose: () => void; onSa
       <form onSubmit={submit} className="flex h-full min-h-0 flex-col">
         <SheetHeader>
           <SheetTitle>HGS barcode</SheetTitle>
-          <SheetDescription>The 10-digit number on the HGS sticker. Tolls are tracked from the next sync.</SheetDescription>
+          <SheetDescription>The 10-digit number on the HGS sticker.</SheetDescription>
         </SheetHeader>
         <SheetBody>
           <div className="flex items-center gap-2.5">
@@ -112,7 +112,7 @@ export interface HistoryState {
 }
 
 /** Car, barcode, transits, last, amount with its share. The header strip uses it too. */
-const ROW_GRID = 'lg:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_84px_116px_minmax(150px,1fr)]';
+const ROW_GRID = 'lg:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_92px_116px_minmax(150px,1fr)]';
 
 export const HgsListHeader: React.FC = () => (
   <div className={cn('hidden gap-x-4 px-4 pb-1.5 ps-11 text-[11.5px] font-medium text-black/45 lg:grid', ROW_GRID)}>
@@ -173,9 +173,9 @@ export const HgsCarRow: React.FC<{
 
           <span className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-black/50 lg:contents">
             <span className="truncate font-mono tabular-nums text-black/40 lg:text-[12.5px]">{row.barcode ?? 'No barcode'}</span>
-            <span className="tabular-nums lg:text-end lg:text-[13px] lg:text-black/70">
-              {formatCount(row.transits)}<span className="lg:hidden"> {row.transits === 1 ? 'transit' : 'transits'}</span>
-              {row.pending > 0 && <span className="ms-1.5 rounded-full bg-[#F59E0B]/15 px-1.5 py-px text-[11px] font-medium text-[#92400E]">{row.pending} pending</span>}
+            <span className="tabular-nums lg:flex lg:flex-col lg:items-end lg:gap-0.5 lg:text-[13px] lg:text-black/70">
+              <span>{formatCount(row.transits)}<span className="lg:hidden"> {row.transits === 1 ? 'transit' : 'transits'}</span></span>
+              {row.privateRoad > 0 && <span className="ms-1.5 whitespace-nowrap rounded-full bg-[#7C3AED]/10 px-1.5 py-px text-[11px] font-medium text-[#5B21B6] lg:ms-0">{formatCount(row.privateRoad)} private</span>}
             </span>
             <span className="tabular-nums lg:text-end lg:text-[13px] lg:text-black/60"><span className="lg:hidden">Last </span>{formatDay(row.last)}</span>
           </span>
@@ -214,6 +214,18 @@ export const HgsCarRow: React.FC<{
 
 // ── A car's transits ──────────────────────────────────────────────────────────
 
+/** Private roads are the bridges and private gates the bank feed never had. */
+const ROAD_BADGE: Record<HgsRoad, { label: string; className: string }> = {
+  private: { label: 'Private road', className: 'bg-[#7C3AED]/10 text-[#5B21B6]' },
+  public: { label: 'Public road', className: 'bg-black/[0.05] text-black/55' },
+};
+
+const RoadBadge: React.FC<{ type: HgsRoad | null }> = ({ type }) => {
+  if (!type) return null;
+  const badge = ROAD_BADGE[type];
+  return <span className={cn('shrink-0 rounded-full px-1.5 py-px text-[11px] font-medium', badge.className)}>{badge.label}</span>;
+};
+
 const TRANSIT_GRID = 'sm:grid-cols-[150px_minmax(0,1.4fr)_minmax(0,1fr)_100px]';
 
 const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string }> = ({ rows, periodLabel }) => {
@@ -222,7 +234,7 @@ const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string }> =
     <div className="overflow-hidden rounded-xl border border-[#EBEBEB] bg-white">
       <div className={cn('hidden gap-x-3 border-b border-[#EBEBEB] px-3 py-2 text-[11.5px] font-medium text-black/45 sm:grid', TRANSIT_GRID)}>
         <span>Date</span>
-        <span>Entry → exit</span>
+        <span>Where</span>
         <span>Booking</span>
         <span className="text-end">Amount</span>
       </div>
@@ -230,14 +242,19 @@ const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string }> =
         {rows.map((transit) => (
           <li key={transit.id} className={cn('grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2.5', TRANSIT_GRID)}>
             <span className="text-[12.5px] tabular-nums text-black/60">
-              {formatDay(transit.day)}
-              {transit.pending && <span className="ms-1.5 rounded-full bg-[#F59E0B]/15 px-1.5 py-px text-[11px] font-medium text-[#92400E]">Pending</span>}
+              {formatDay(transit.at ?? transit.day)}
+              {transit.at && <span className="ms-1.5 text-black/40">{formatTime(transit.at)}</span>}
             </span>
             <span className="col-start-2 row-start-1 text-end font-mono text-[13px] font-semibold tabular-nums text-foreground sm:col-start-4">{formatMoney(transit.amount)}</span>
-            <span className="col-span-2 min-w-0 truncate text-[13px] text-foreground sm:col-span-1 sm:col-start-2 sm:row-start-1">
-              {transit.entry || transit.exit
-                ? <>{transit.entry ?? '—'} <span className="text-black/35">→</span> {transit.exit ?? '—'}</>
-                : <span className="text-black/30">—</span>}
+            <span className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+              <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-foreground">
+                <span className="min-w-0 truncate">
+                  {transit.entry && <>{transit.entry} <span className="text-black/35">→</span> </>}
+                  {transit.exit ?? <span className="text-black/30">—</span>}
+                </span>
+                <RoadBadge type={transit.roadType} />
+              </span>
+              {transit.road && <span className="block truncate text-[11.5px] text-black/45">{transit.road}</span>}
             </span>
             <span className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-2 text-[12.5px] sm:col-span-1 sm:col-start-3 sm:row-start-1">
               {transit.bookingNumber
