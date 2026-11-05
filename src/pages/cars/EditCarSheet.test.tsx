@@ -1,11 +1,12 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EditCarSheet } from './EditCarSheet';
 
 const BASE = 'https://x.supabase.co/storage/v1/object/public';
 const mockSaveFields = jest.fn();
 const mockRemoveDoc = jest.fn();
+const mockUploadDoc = jest.fn();
 let mockTables: Record<string, unknown>;
 
 jest.mock('../../lib/session', () => ({ ensureFreshSession: async () => 'token' }));
@@ -13,6 +14,7 @@ jest.mock('../../lib/carEditor', () => ({
   ...jest.requireActual('../../lib/carEditor'),
   saveFields: (...args: unknown[]) => mockSaveFields(...args),
   removeDoc: (...args: unknown[]) => mockRemoveDoc(...args),
+  uploadDoc: (...args: unknown[]) => mockUploadDoc(...args),
 }));
 jest.mock('../../lib/supabase', () => {
   const builder = (table: string) => {
@@ -115,13 +117,15 @@ test('saves only the changed fields, then toasts and closes', async () => {
   expect(showToast).toHaveBeenCalledWith('Car saved', 'success');
 });
 
-test('a bad year stops the save', async () => {
+test('a bad year says why and keeps Save off', async () => {
   renderSheet();
   const year = await screen.findByLabelText('Manufacture year');
   await userEvent.clear(year);
-  await userEvent.type(year, '1700');
-  await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByText('Enter a year between 1980 and 2027.')).toBeInTheDocument();
+  await userEvent.type(year, '17');
+  expect(screen.queryByText('Enter a year between 1980 and 2027.')).not.toBeInTheDocument();
+  await userEvent.type(year, '00');
+  expect(screen.getByText('Enter a year between 1980 and 2027.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   expect(mockSaveFields).not.toHaveBeenCalled();
 });
 
@@ -136,11 +140,43 @@ test('closing with unsaved changes asks first', async () => {
   expect(onClose).toHaveBeenCalledWith(false);
 });
 
-test('closing untouched closes straight away', async () => {
+test('untouched, the footer says files save on their own and offers Done alone', async () => {
   const { onClose } = renderSheet();
   await screen.findByRole('heading', { name: 'Fiat Egea' });
-  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByText('Photos & files save automatically')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Done' }));
   expect(onClose).toHaveBeenCalledWith(false);
+});
+
+test('a field change turns the footer into Cancel and Save, and Done goes', async () => {
+  renderSheet();
+  await userEvent.type(await screen.findByLabelText('Car package'), ' X');
+  expect(screen.getByText('1 unsaved change')).toBeInTheDocument();
+  expect(screen.queryByText('Photos & files save automatically')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+});
+
+test('a document that saves gets a Saved badge for a few seconds and a toast', async () => {
+  mockUploadDoc.mockResolvedValue(`${BASE}/doc/K-34ABC123?v=1`);
+  const { showToast } = renderSheet();
+  const docs = await screen.findByRole('region', { name: 'Documents' });
+  jest.useFakeTimers();
+  try {
+    const kasko = within(docs).getByRole('group', { name: 'Kasko' });
+    fireEvent.change(within(kasko).getByLabelText('Upload Kasko', { selector: 'input' }), { target: { files: [new File(['%PDF'], 'k.pdf', { type: 'application/pdf' })] } });
+    await act(async () => { await Promise.resolve(); });
+    await waitFor(() => expect(within(kasko).getByText('Saved')).toBeInTheDocument());
+    expect(showToast).toHaveBeenCalledWith('Kasko saved', 'success');
+    act(() => { jest.advanceTimersByTime(4000); });
+    expect(within(kasko).queryByText('Saved')).not.toBeInTheDocument();
+    expect(within(kasko).getByText('Uploaded')).toBeInTheDocument();
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 test('the spare key switch toggles from the row and saves with the form', async () => {

@@ -260,15 +260,34 @@ const DocThumb: React.FC<{ url: string }> = ({ url }) => {
   return <img src={url} alt="" loading="lazy" onError={() => setIsImage(false)} className="h-full w-full object-cover" />;
 };
 
+const SAVED_FOR_MS = 4000;
+const SAVED_FADE_MS = 400;
+
+type SavedState = 'on' | 'fading';
+
+/** "Saved ✓" on the tile that just saved, for about four seconds. */
+const SavedBadge: React.FC<{ state: SavedState; className?: string }> = ({ state, className }) => (
+  <span
+    className={cn(
+      'inline-flex items-center gap-1 rounded-full border border-[#067647]/20 bg-[#ECFDF3] px-2 py-0.5 text-[11.5px] font-semibold text-[#067647] transition-opacity duration-[400ms]',
+      state === 'fading' ? 'opacity-0' : 'opacity-100',
+      className,
+    )}
+  >
+    Saved <Check size={11} strokeWidth={3} />
+  </span>
+);
+
 const DocCard: React.FC<{
   slot: DocSlot;
   url: string | null;
   progress: number | null;
   error: string | null;
+  saved: SavedState | null;
   disabled: boolean;
   onUpload: (file: File) => void;
   onRemove: () => Promise<void>;
-}> = ({ slot, url, progress, error, disabled, onUpload, onRemove }) => {
+}> = ({ slot, url, progress, error, saved, disabled, onUpload, onRemove }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -315,8 +334,11 @@ const DocCard: React.FC<{
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13.5px] font-semibold text-foreground">{slot.label}</div>
           {url ? (
-            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#16A34A]/[0.1] px-2 py-0.5 text-[11.5px] font-semibold text-[#15803D]">
-              <Check size={11} strokeWidth={3} /> Uploaded
+            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#16A34A]/[0.1] px-2 py-0.5 text-[11.5px] font-semibold text-[#15803D]">
+                <Check size={11} strokeWidth={3} /> Uploaded
+              </span>
+              {saved && <SavedBadge state={saved} />}
             </span>
           ) : (
             <span className="mt-1 inline-flex items-center rounded-full bg-[#F59E0B]/[0.14] px-2 py-0.5 text-[11.5px] font-semibold text-[#B45309]">Missing</span>
@@ -367,6 +389,7 @@ const PhotoTile: React.FC<{
   index: number;
   count: number;
   isPrimary: boolean;
+  saved: SavedState | null;
   dragging: boolean;
   target: boolean;
   disabled: boolean;
@@ -375,7 +398,7 @@ const PhotoTile: React.FC<{
   onDelete: () => void;
   onGrab: (event: React.PointerEvent<HTMLButtonElement>) => void;
   onNudge: (by: number) => void;
-}> = ({ photo, index, count, isPrimary, dragging, target, disabled, onView, onPrimary, onDelete, onGrab, onNudge }) => {
+}> = ({ photo, index, count, isPrimary, saved, dragging, target, disabled, onView, onPrimary, onDelete, onGrab, onNudge }) => {
   const [broken, setBroken] = useState(false);
   const unavailable = photo.dead || broken;
   return (
@@ -403,6 +426,7 @@ const PhotoTile: React.FC<{
           <StarGlyph filled /> Primary
         </span>
       )}
+      {saved && <SavedBadge state={saved} className="pointer-events-none absolute bottom-1.5 right-1.5 shadow-sm" />}
 
       <div className="absolute inset-x-0 top-0 flex justify-between">
         {!photo.dead ? (
@@ -451,6 +475,21 @@ const UploadTile: React.FC<{ upload: PendingUpload; onDismiss: () => void }> = (
       </button>
     )}
   </div>
+);
+
+/** Says out loud that files and photos don't wait for Save. */
+const SaveHint: React.FC<{ uploading: boolean; unsaved: number; className?: string }> = ({ uploading, unsaved, className }) => (
+  unsaved > 0 && !uploading ? (
+    <span className={cn('inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#F59E0B]/[0.14] px-2.5 py-1 text-[12.5px] font-medium text-[#B45309]', className)}>
+      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F59E0B]" />
+      {unsaved} unsaved {unsaved === 1 ? 'change' : 'changes'}
+    </span>
+  ) : (
+    <span className={cn('inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#ECFDF3] px-2.5 py-1 text-[12.5px] font-medium text-[#067647]', className)}>
+      {uploading ? <Spinner size={12} /> : <Check size={13} strokeWidth={3} className="shrink-0" />}
+      <span className="truncate">{uploading ? 'Saving photos & files…' : 'Photos & files save automatically'}</span>
+    </span>
+  )
 );
 
 // ── Sheet ────────────────────────────────────────────────────────────────────
@@ -506,6 +545,23 @@ export const EditCarSheet: React.FC<{
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  // Tiles that just saved: `doc:<column>` or `photo:<url>`.
+  const [justSaved, setJustSaved] = useState<Record<string, SavedState>>({});
+  const savedTimers = useRef<number[]>([]);
+  useEffect(() => () => savedTimers.current.forEach((timer) => window.clearTimeout(timer)), []);
+  const flashSaved = useCallback((key: string) => {
+    setJustSaved((current) => ({ ...current, [key]: 'on' }));
+    savedTimers.current.push(
+      window.setTimeout(() => setJustSaved((current) => (current[key] ? { ...current, [key]: 'fading' } : current)), SAVED_FOR_MS - SAVED_FADE_MS),
+      window.setTimeout(() => setJustSaved((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      }), SAVED_FOR_MS),
+    );
+  }, []);
+  const [yearTouched, setYearTouched] = useState(false);
+
   const wrote = useRef(false);
   const enqueue = useWriteQueue();
   const today = useMemo(() => istanbulDate(), []);
@@ -545,6 +601,9 @@ export const EditCarSheet: React.FC<{
 
   const changed = fields && baseline ? changedFields(fields, baseline) : [];
   const dirty = changed.length > 0;
+  const yearError = fields ? validateFields(fields, Number(today.slice(0, 4))).manufactureYear : undefined;
+  // Shown while typing only once all four digits are in, so "20" isn't flagged on the way to "2024".
+  const shownYearError = fieldErrors.manufactureYear ?? (yearError && (yearTouched || fields?.manufactureYear.length === 4) ? yearError : undefined);
   const uploading = Object.keys(docProgress).length > 0 || uploads.some((upload) => !upload.error) || photoBusy || deleting;
 
   const set = (key: FieldKey, value: string) => {
@@ -565,7 +624,8 @@ export const EditCarSheet: React.FC<{
       .then((url) => {
         wrote.current = true;
         setDocs((current) => ({ ...current, [slot.column]: url }));
-        showToast(`${slot.label} uploaded`, 'success');
+        flashSaved(`doc:${slot.column}`);
+        showToast(`${slot.label} saved`, 'success');
       })
       .catch((error: unknown) => setDocErrors((current) => ({ ...current, [slot.column]: errorText(error) })))
       .finally(() => setDocProgress((current) => {
@@ -601,13 +661,13 @@ export const EditCarSheet: React.FC<{
     showPhotos(buildPhotoList((rows.data ?? []) as PhotoRow[], Array.isArray(mirror) ? mirror : []));
   }, [carId, showPhotos]);
 
-  /** Shows the new order at once, then writes it; a failed write puts back what's really saved. */
-  const commitPhotos = (next: CarPhoto[], failure: string) => {
+  /** Shows the new order at once, then writes it; a failed write puts back what's really saved. True once saved. */
+  const commitPhotos = (next: CarPhoto[], failure: string): Promise<boolean> => {
     showPhotos(next);
     setPhotoBusy(true);
     return enqueue(() => persistPhotos(carId, photosRef.current))
-      .then((saved) => { wrote.current = true; showPhotos(saved); })
-      .catch((error: unknown) => { showToast(`${failure}: ${errorText(error)}`, 'error'); return reloadPhotos(); })
+      .then((saved) => { wrote.current = true; showPhotos(saved); return true; })
+      .catch(async (error: unknown) => { showToast(`${failure}: ${errorText(error)}`, 'error'); await reloadPhotos(); return false; })
       .finally(() => setPhotoBusy(false));
   };
 
@@ -629,7 +689,10 @@ export const EditCarSheet: React.FC<{
       try {
         const photo = await uploadPhoto(carId, images[index], (fraction) => patch(key, { progress: fraction }));
         setUploads((current) => current.filter((upload) => upload.key !== key));
-        await commitPhotos(orderPhotos([...photosRef.current, photo]), "The photo uploaded but couldn't be added");
+        if (await commitPhotos(orderPhotos([...photosRef.current, photo]), "The photo uploaded but couldn't be added")) {
+          flashSaved(`photo:${photo.url}`);
+          showToast('Photo saved', 'success');
+        }
       } catch (error) {
         patch(key, { error: errorText(error) });
       }
@@ -740,13 +803,19 @@ export const EditCarSheet: React.FC<{
       onClose={close}
       onSubmit={submit}
       footer={(requestClose) => (
-        <div className="flex items-center justify-between gap-3">
-          <span className="hidden min-w-0 truncate text-[12.5px] text-black/50 sm:block">
-            {uploading ? 'Uploading… files save on their own.' : dirty ? `${changed.length} unsaved ${changed.length === 1 ? 'change' : 'changes'}` : 'Files and photos save as you add them.'}
-          </span>
-          <div className="flex flex-1 gap-2 sm:flex-none">
-            <Button type="button" variant="outline" size="lg" className={cn(FOOTER_BUTTON, 'flex-1 px-4 sm:flex-none')} disabled={saving || uploading} onClick={requestClose}>Cancel</Button>
-            <PrimaryButton saving={saving} disabled={!loaded || uploading}>{saving ? 'Saving…' : 'Save'}</PrimaryButton>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Its own row on a phone, so it's read in full and the buttons keep their width. */}
+          <SaveHint uploading={uploading} unsaved={changed.length} className="w-full justify-center sm:w-auto sm:justify-start" />
+          {/* Closing waits for uploads either way: a photo still on its way would be cut off. */}
+          <div className="ms-auto flex flex-1 justify-end gap-2 sm:flex-none">
+            {dirty && (
+              <Button type="button" variant="outline" size="lg" className={cn(FOOTER_BUTTON, 'flex-1 px-4 sm:flex-none')} disabled={saving || uploading} onClick={requestClose}>Cancel</Button>
+            )}
+            {dirty ? (
+              <PrimaryButton saving={saving} disabled={!loaded || uploading || Boolean(yearError)}>{saving ? 'Saving…' : 'Save'}</PrimaryButton>
+            ) : (
+              <PrimaryButton type="button" saving={false} disabled={uploading} onClick={close}>Done</PrimaryButton>
+            )}
           </div>
         </div>
       )}
@@ -782,8 +851,8 @@ export const EditCarSheet: React.FC<{
 
           <Section icon="registration" title="Registration" hint="Year, package and purchase">
             <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-3">
-              <Field label={FIELD_LABELS.manufactureYear} changed={changed.includes('manufactureYear')} error={fieldErrors.manufactureYear}>
-                <input value={fields.manufactureYear} aria-label={FIELD_LABELS.manufactureYear} inputMode="numeric" maxLength={4} placeholder="2024" onChange={(event) => set('manufactureYear', event.target.value.replace(/\D/g, ''))} className={cn(INPUT, 'tabular-nums')} />
+              <Field label={FIELD_LABELS.manufactureYear} changed={changed.includes('manufactureYear')} error={shownYearError}>
+                <input value={fields.manufactureYear} aria-label={FIELD_LABELS.manufactureYear} inputMode="numeric" maxLength={4} placeholder="2024" onBlur={() => setYearTouched(true)} onChange={(event) => set('manufactureYear', event.target.value.replace(/\D/g, ''))} className={cn(INPUT, 'tabular-nums')} />
               </Field>
               <Field label={FIELD_LABELS.carPackage} changed={changed.includes('carPackage')}>
                 <input value={fields.carPackage} aria-label={FIELD_LABELS.carPackage} placeholder="e.g. Premium" onChange={(event) => set('carPackage', event.target.value)} className={INPUT} />
@@ -835,6 +904,7 @@ export const EditCarSheet: React.FC<{
                   url={docs[slot.column]}
                   progress={docProgress[slot.column] ?? null}
                   error={docErrors[slot.column] ?? null}
+                  saved={justSaved[`doc:${slot.column}`] ?? null}
                   disabled={saving}
                   onUpload={(file) => uploadDocFile(slot, file)}
                   onRemove={() => removeDocFile(slot)}
@@ -874,6 +944,7 @@ export const EditCarSheet: React.FC<{
                       index={index}
                       count={usableCount}
                       isPrimary={photo === primary}
+                      saved={justSaved[`photo:${photo.url}`] ?? null}
                       dragging={drag?.from === index}
                       target={drag !== null && drag.over === index && drag.from !== index}
                       disabled={saving || deleting}
