@@ -55,6 +55,7 @@ import {
   type BanMatch,
 } from '../../lib/customers';
 import { FUEL_RANGE_LABEL, formatFuelRange } from '../../lib/fuelRange';
+import { fetchBookingCarNotes, type CarNote } from '../../lib/customerWallet';
 import { cn } from '../../lib/media/badgeColor';
 import { supabase } from '../../lib/supabase';
 import type { Booking, BookingStatus } from '../../types';
@@ -158,8 +159,14 @@ interface BookingFormSheetProps {
   /** Opens with this section in view, for a link that's about the money. */
   openAt?: 'payment';
   onClose: () => void;
-  onSaved: () => void;
+  /** Which booking was saved, and whose it is, so the page can offer to move an old balance onto it. */
+  onSaved: (saved: SavedBooking) => void;
   showToast: (message: string, type: 'success' | 'error') => void;
+}
+
+export interface SavedBooking {
+  bookingId: number;
+  customerId: string;
 }
 
 export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, booking, existingCustomerId, openAt, onClose, onSaved, showToast }) => {
@@ -211,6 +218,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
   // An extension adds its own rental and payment rows. The form edits only the first
   // of each, as it always has, so the summary adds the rest to stay truthful.
   const [otherLedger, setOtherLedger] = useState({ rental: 0, paid: 0 });
+  const [carHistory, setCarHistory] = useState<CarNote[]>([]);
   const [payment, setPayment] = useState<PaymentChoice>(NEW_PAYMENT);
   const paymentAccounts = usePaymentAccounts();
 
@@ -365,6 +373,17 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
       });
     return () => { active = false; };
   }, [mode, editId, applyLoaded]);
+
+  // Only a small note: the ledger follows the car on its own (a trigger), so nothing here acts on it.
+  const savedCarId = booking?.car_id;
+  useEffect(() => {
+    if (mode !== 'edit' || !editId || savedCarId == null) return undefined;
+    let active = true;
+    fetchBookingCarNotes(editId, Number(savedCarId))
+      .then((notes) => { if (active) setCarHistory(notes); })
+      .catch(() => { /* The note is history only; the booking itself loaded. */ });
+    return () => { active = false; };
+  }, [mode, editId, savedCarId]);
 
   const handleFinCurrencyChange = (next: BookingCurrency) => {
     if (next === form.fin_currency) return;
@@ -639,7 +658,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
     rememberCar(carId);
     finishSaving();
-    return true;
+    return { bookingId, customerId: String(customerId) };
   };
 
   /** New money only: a row that already exists is edited, or locked if it's recorded. */
@@ -782,9 +801,14 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
 
     savingRef.current = true;
     setSaving(true);
-    const saved = mode === 'add' ? await createBooking() : await updateBooking();
-    if (!saved) return;
-    onSaved();
+    if (mode === 'add') {
+      const created = await createBooking();
+      if (!created) return;
+      onSaved(created);
+    } else {
+      if (!(await updateBooking())) return;
+      onSaved({ bookingId: editId as number, customerId: linkedCustomerId as string });
+    }
     onClose();
   };
 
@@ -1021,6 +1045,19 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
         hint={busyCars ? undefined : 'Pick the dates to see which cars are free.'}
         onChange={(id) => { set('car_id', id); setCarError(null); setOverlapAsked(false); }}
       />
+      {carHistory.length > 0 && (
+        <ul aria-label="Car history" className="flex flex-col gap-1 sm:col-span-2">
+          {carHistory.map((note) => (
+            <li key={note.key} className="flex items-center gap-1.5 text-[12px] text-black/55">
+              <CarIcon size={13} />
+              <span className="min-w-0 truncate">{note.text}{note.date && ` on ${formatDate(note.date)}`}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {mode === 'edit' && isChanged('car_id') && (
+        <Notice tone="blue" span>On save, this booking's money moves to the new car by itself. HGS passes stay with the car that made them.</Notice>
+      )}
       {carIsBusy && !carError && <Notice tone="red" span>{hardConflictMessage(hardBlocks)}</Notice>}
       {softBlocks.length > 0 && (
         <OverlapWarning

@@ -245,13 +245,14 @@ export function balanceState(balance: number): BalanceState {
 }
 
 /**
- * An OUT row is a charge unless it hands money back. `type` is free text, which
- * is why refunds appear as refund, REFUND, REF and REFOUND.
+ * An OUT row is a charge unless it hands money back, or moves a balance to
+ * another booking. `type` is free text, which is why refunds appear as refund,
+ * REFUND, REF and REFOUND.
  */
 export function isCharge(entry: Pick<LedgerRow, 'type' | 'direction'>): boolean {
   if (entry.direction !== 'OUT') return false;
   const type = entry.type.trim().toLowerCase();
-  return !type.startsWith('ref') && type !== 'deposit';
+  return !type.startsWith('ref') && type !== 'deposit' && type !== 'transfer';
 }
 
 /**

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ExternalLink, Plus } from '../../components/media/MediaIcons';
+import { ExternalLink } from '../../components/media/MediaIcons';
 import { toast } from '../../components/media/MediaToast';
 import { Button, Spinner, Textarea } from '../../components/media/MediaUI';
 import {
@@ -10,10 +10,7 @@ import {
   focusBooking,
   formatDate,
   formatLira,
-  ledgerBalance,
-  ledgerTypeLabel,
   rateCustomer,
-  runningLedger,
   updateCustomer,
   type ActivityKind,
   type Customer,
@@ -23,7 +20,7 @@ import {
 } from '../../lib/customers';
 import { cn } from '../../lib/media/badgeColor';
 import { formatTry } from '../../lib/payroll';
-import { BalancePill, CarIcon, EmptyNote, Panel, PlateChip, StarIcon, StatusPill } from './ui';
+import { CarIcon, EmptyNote, Panel, PlateChip, StarIcon, StatusPill } from './ui';
 
 const bookingLink = (booking: ProfileBooking) =>
   `/dashboard/bookings?q=${encodeURIComponent(booking.booking_number ?? '')}&month=${booking.start_date.slice(0, 7)}`;
@@ -138,68 +135,6 @@ export const BookingsTab: React.FC<{ bookings: ProfileBooking[] }> = ({ bookings
     )}
   </Panel>
 );
-
-// ── Wallet ───────────────────────────────────────────────────────────────────
-
-export const WalletTab: React.FC<{ profile: CustomerProfile; onAddPayment: () => void }> = ({ profile, onAddPayment }) => {
-  const { ledger, bookings } = profile;
-  const lines = runningLedger(ledger);
-  const balance = ledgerBalance(ledger);
-  const totalIn = ledger.filter((entry) => entry.direction === 'IN').reduce((sum, entry) => sum + Number(entry.amount), 0);
-  const totalOut = ledger.filter((entry) => entry.direction === 'OUT').reduce((sum, entry) => sum + Number(entry.amount), 0);
-  const numbers = new Map(bookings.map((booking) => [booking.id, booking]));
-
-  return (
-    <div className="flex flex-col gap-4">
-      <Panel>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="text-[12.5px] text-black/50">Balance</div>
-            <div className="mt-1.5"><BalancePill balance={balance} className="!px-3 !py-1 !text-[16px]" /></div>
-          </div>
-          <dl className="flex gap-6 text-[12.5px]">
-            <div><dt className="text-black/45">Charged</dt><dd className="mt-0.5 text-[15px] font-medium tabular-nums text-foreground">{formatLira(totalOut)}</dd></div>
-            <div><dt className="text-black/45">Received</dt><dd className="mt-0.5 text-[15px] font-medium tabular-nums text-foreground">{formatLira(totalIn)}</dd></div>
-          </dl>
-          <Button size="lg" className="!h-11 w-full px-4 sm:w-auto md:!h-10" onClick={onAddPayment}><Plus size={14} /> Add payment</Button>
-        </div>
-      </Panel>
-
-      <Panel title="Movements">
-        {lines.length === 0 ? <EmptyNote>No ledger movements yet.</EmptyNote> : (
-          <ul className="flex flex-col">
-            {lines.map((line) => {
-              const received = line.direction === 'IN';
-              const booking = numbers.get(line.booking_id);
-              return (
-                <li key={line.id} className="flex items-center gap-3 border-b border-black/[0.05] py-3 first:pt-0 last:border-b-0 last:pb-0">
-                  <span className={cn(
-                    'grid h-8 w-8 shrink-0 place-items-center rounded-full',
-                    received ? 'bg-[#16A34A]/10 text-[#15803D]' : 'bg-[#DC2626]/10 text-[#B91C1C]',
-                  )}>
-                    {received ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-medium text-foreground">{ledgerTypeLabel(line.type)}</div>
-                    <div className="truncate text-[12.5px] tabular-nums text-black/50">
-                      {[formatDate(line.created_at), booking?.booking_number, line.description].filter(Boolean).join(' · ')}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className={cn('text-[13.5px] font-medium tabular-nums', received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
-                      {received ? '+' : '−'}{formatTry(Number(line.amount))}
-                    </div>
-                    <div className="text-[12px] tabular-nums text-black/45">{line.running < 0 ? '−' : ''}{formatTry(Math.abs(line.running))}</div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Panel>
-    </div>
-  );
-};
 
 // ── Fines & HGS ──────────────────────────────────────────────────────────────
 

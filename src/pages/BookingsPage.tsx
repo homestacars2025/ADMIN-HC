@@ -45,10 +45,11 @@ import { currentMonth, monthLabel, shiftMonth } from '../lib/payroll';
 import { printBookingContract } from '../lib/printContract';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
-import { BookingFormSheet } from './bookings/BookingFormSheet';
+import { BookingFormSheet, type SavedBooking } from './bookings/BookingFormSheet';
 import { BookingList, ExtensionList, PillTabs, SheetList } from './bookings/BookingsTabs';
 import { ExtendSheet } from './bookings/ExtendSheet';
 import { ReplacementSheet } from './bookings/ReplacementSheet';
+import { BalanceToMoveBanner } from './customers/CustomerWallet';
 import { WalletIcon } from './customers/ui';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
@@ -274,6 +275,8 @@ const BookingsPage: React.FC = () => {
   const [bookingFor, setBookingFor] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [extendTarget, setExtendTarget] = useState<Booking | null>(null);
+  // After a new booking or an extension: offer to bring an older booking's balance onto it.
+  const [movePrompt, setMovePrompt] = useState<SavedBooking | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -447,6 +450,17 @@ const BookingsPage: React.FC = () => {
         </div>
       </header>
 
+      {movePrompt && (
+        <BalanceToMoveBanner
+          key={`${movePrompt.customerId}:${movePrompt.bookingId}`}
+          customerId={movePrompt.customerId}
+          bookingId={movePrompt.bookingId}
+          notify={showToast}
+          onDismiss={() => setMovePrompt(null)}
+          className="mb-4"
+        />
+      )}
+
       <PillTabs active={tab} counts={{ bookings: bookings?.length ?? null, extensions: extensions === null ? null : extensionSummary(extensions).count, replacements: sheets === null ? null : monthSheets.length }} onChange={openTab} />
 
       <div className="my-4">
@@ -526,7 +540,7 @@ const BookingsPage: React.FC = () => {
           existingCustomerId={bookingFor}
           showToast={showToast}
           onClose={() => { setModal(null); setBookingFor(undefined); }}
-          onSaved={() => { showToast('Booking added successfully', 'success'); refresh(); }}
+          onSaved={(saved) => { showToast('Booking added successfully', 'success'); refresh(); setMovePrompt(saved); }}
         />
       )}
       {modal === 'replacement' && (
@@ -543,7 +557,12 @@ const BookingsPage: React.FC = () => {
         />
       )}
       {extendTarget && (
-        <ExtendSheet booking={extendTarget} showToast={showToast} onClose={() => setExtendTarget(null)} onSaved={refresh} />
+        <ExtendSheet
+          booking={extendTarget}
+          showToast={showToast}
+          onClose={() => setExtendTarget(null)}
+          onSaved={() => { refresh(); setMovePrompt({ customerId: String(extendTarget.customer_id), bookingId: extendTarget.id }); }}
+        />
       )}
       {deleteTarget && (
         <DeleteConfirm booking={deleteTarget} deleting={deleting} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />

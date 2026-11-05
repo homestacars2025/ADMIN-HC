@@ -80,8 +80,8 @@ describe('ledger balance', () => {
 });
 
 describe('total spent', () => {
-  it('treats refunds and deposits as money moving, not spend', () => {
-    ['refund', 'REFUND', 'REF', 'REFOUND', 'deposit'].forEach((type) => {
+  it('treats refunds, deposits and balance transfers as money moving, not spend', () => {
+    ['refund', 'REFUND', 'REF', 'REFOUND', 'deposit', 'transfer'].forEach((type) => {
       expect(isCharge({ type, direction: 'OUT' })).toBe(false);
     });
     expect(isCharge({ type: 'rental', direction: 'OUT' })).toBe(true);

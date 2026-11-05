@@ -1,0 +1,185 @@
+import {
+  balanceLabel,
+  balanceToMove,
+  buildWallet,
+  carNotes,
+  defaultTarget,
+  formatWalletMoney,
+  friendlyMoveError,
+  lineKind,
+  lineLabel,
+  moveTargets,
+  signedMoveAmount,
+  summarizeWallets,
+  walletBalance,
+  walletTone,
+  walletTotals,
+  type WalletBookingRow,
+  type WalletData,
+  type WalletLine,
+} from './customerWallet';
+
+jest.mock('./supabase', () => ({ supabase: {} }));
+
+const line = (over: Partial<WalletLine>): WalletLine => ({
+  id: Math.random().toString(36).slice(2),
+  booking_id: 1,
+  car_id: 10,
+  type: 'rental',
+  description: null,
+  amount: 0,
+  direction: 'OUT',
+  created_at: '2026-10-01T10:00:00Z',
+  payment_ref: null,
+  ...over,
+});
+
+const booking = (over: Partial<WalletBookingRow>): WalletBookingRow => ({
+  id: 1,
+  booking_number: 'HOM-10-26-001',
+  car_id: 10,
+  start_date: '2026-10-01',
+  end_date: '2026-10-05',
+  status: 'completed',
+  is_currently_active: false,
+  cars: { plate_number: '34ABC10', model_group: { name: 'Fiat Egea' } },
+  ...over,
+});
+
+const plates = new Map([[10, '34ABC10'], [20, '34XYZ20'], [30, '34REP30']]);
+
+test('balance is IN minus OUT: credit is positive, owed is negative', () => {
+  expect(walletBalance([line({ amount: 5000, direction: 'OUT' }), line({ amount: 6000, direction: 'IN' })])).toBe(1000);
+  expect(walletBalance([line({ amount: 5000, direction: 'OUT' }), line({ amount: 3499.5, direction: 'IN' })])).toBe(-1500.5);
+  expect(walletTone(1000)).toBe('credit');
+  expect(walletTone(-0.01)).toBe('owes');
+  expect(walletTone(0.004)).toBe('settled');
+});
+
+test('labels read Credit, Owes or Settled, with kuruş only when there are some', () => {
+  expect(balanceLabel(1500)).toBe(`Credit ${formatWalletMoney(1500)}`);
+  expect(balanceLabel(-1500.5)).toBe(`Owes ${formatWalletMoney(1500.5)}`);
+  expect(formatWalletMoney(1500.5)).toMatch(/1\.500,5/);
+  expect(formatWalletMoney(1500)).not.toMatch(/,/);
+  expect(balanceLabel(0)).toBe('Settled');
+});
+
+test('free-text types fall into a handful of kinds', () => {
+  expect(lineKind(' Payment ')).toBe('payment');
+  expect(['ref', 'REF', 'refund', 'refound', 'refunfd'].map(lineKind)).toEqual(Array(5).fill('refund'));
+  expect(lineKind('car_wash')).toBe('other');
+  expect(lineLabel({ type: 'deposit', direction: 'OUT' })).toBe('Deposit returned');
+  expect(lineLabel({ type: 'car_wash', direction: 'OUT' })).toBe('Car wash');
+  expect(lineLabel({ type: 'airport otopark', direction: 'OUT' })).toBe('Airport otopark');
+});
+
+const twoBookings = (): WalletData => ({
+  customer: { id: 'c1', first_name: 'Omar', last_name: 'Ali' },
+  bookings: [
+    booking({ id: 1, booking_number: 'HOM-10-26-001', start_date: '2026-10-01' }),
+    booking({ id: 2, booking_number: 'HOM-11-26-002', start_date: '2026-11-01', status: 'confirmed', is_currently_active: true, car_id: 20, cars: { plate_number: '34XYZ20', model_group: null } }),
+  ],
+  lines: [
+    line({ booking_id: 1, amount: 5000, direction: 'OUT', created_at: '2026-10-01T09:00:00Z' }),
+    line({ booking_id: 1, type: 'payment', amount: 6500, direction: 'IN', created_at: '2026-10-02T09:00:00Z' }),
+    line({ booking_id: 1, type: 'transfer', amount: 500, direction: 'OUT', payment_ref: 'TRF-1', description: 'Balance moved to HOM-11-26-002 · cash', created_at: '2026-10-03T09:00:00Z' }),
+    line({ booking_id: 2, car_id: 20, type: 'transfer', amount: 500, direction: 'IN', payment_ref: 'TRF-1', description: 'Balance moved from HOM-10-26-001 · cash', created_at: '2026-10-03T09:00:00Z' }),
+    line({ booking_id: 2, car_id: 20, amount: 2000, direction: 'OUT', created_at: '2026-11-01T09:00:00Z' }),
+  ],
+  replacements: [],
+  plates,
+});
+
+test('the wallet is one total over bookings, newest first, each with its own balance', () => {
+  const wallet = buildWallet(twoBookings());
+  expect(wallet.name).toBe('Omar Ali');
+  expect(wallet.cards.map((card) => card.bookingNumber)).toEqual(['HOM-11-26-002', 'HOM-10-26-001']);
+  expect(wallet.cards.map((card) => card.balance)).toEqual([-1500, 1000]);
+  expect(wallet.total).toBe(-500);
+  expect(wallet.cards[1].lines[0].kind).toBe('transfer');
+});
+
+test('a transfer links to the other booking by payment_ref, and keeps its note', () => {
+  const wallet = buildWallet(twoBookings());
+  const out = wallet.cards[1].lines.find((entry) => entry.kind === 'transfer');
+  const into = wallet.cards[0].lines.find((entry) => entry.kind === 'transfer');
+  expect(out?.peer).toEqual({ direction: 'to', bookingId: 2, bookingNumber: 'HOM-11-26-002' });
+  expect(into?.peer).toEqual({ direction: 'from', bookingId: 1, bookingNumber: 'HOM-10-26-001' });
+  expect(out?.note).toBe('cash');
+});
+
+test('a transfer to another customer still names the booking from its description', () => {
+  const data = twoBookings();
+  data.lines = [line({ booking_id: 1, type: 'transfer', amount: 100, direction: 'OUT', payment_ref: 'TRF-9', description: 'Balance moved to HOM-09-26-777' })];
+  const peer = buildWallet(data).cards[1].lines[0].peer;
+  expect(peer).toEqual({ direction: 'to', bookingId: null, bookingNumber: 'HOM-09-26-777' });
+});
+
+test('car notes come from lines left on another car and from replacement sheets', () => {
+  const lines = [
+    line({ booking_id: 1, car_id: 20, type: 'hgs', created_at: '2026-10-02T00:00:00Z' }),
+    line({ booking_id: 1, car_id: 10 }),
+    line({ booking_id: 1, car_id: 30, type: 'hgs' }),
+    line({ booking_id: 2, car_id: 20 }),
+  ];
+  const sheets = [{ id: 5, original_booking_id: 1, original_car_id: 10, replacement_car_id: 30, start_date: '2026-10-03' }];
+  expect(carNotes({ id: 1, car_id: 10 }, lines, sheets, plates)).toEqual([
+    { key: 'car-20', text: 'Car changed 34XYZ20 → 34ABC10', date: null },
+    { key: 'sheet-5', text: 'Replacement car 34ABC10 → 34REP30', date: '2026-10-03' },
+  ]);
+  expect(carNotes({ id: 2, car_id: 20 }, lines, sheets, plates)).toEqual([]);
+});
+
+test('targets leave out the booking itself and cancelled ones; the default is the one on the road', () => {
+  const data = twoBookings();
+  data.bookings.push(booking({ id: 3, booking_number: 'HOM-12-26-003', start_date: '2026-12-01', status: 'cancelled' }));
+  const wallet = buildWallet(data);
+  const targets = moveTargets(wallet, 1);
+  expect(targets.map((card) => card.id)).toEqual([2]);
+  expect(defaultTarget(targets)?.id).toBe(2);
+  expect(defaultTarget(moveTargets(wallet, 2))?.id).toBe(1);
+  expect(defaultTarget([])).toBeNull();
+});
+
+test('the prompt picks the newest other booking that still has a balance', () => {
+  const wallet = buildWallet(twoBookings());
+  expect(balanceToMove(wallet, 2)?.id).toBe(1);
+  expect(balanceToMove(wallet, 999)).toBeNull();
+  const settled = twoBookings();
+  settled.lines = settled.lines.filter((entry) => entry.booking_id === 2);
+  expect(balanceToMove(buildWallet(settled), 2)).toBeNull();
+});
+
+test('the typed amount gets the balance sign and may not exceed it', () => {
+  expect(signedMoveAmount(1000, '1000')).toEqual({ ok: true, amount: 1000 });
+  expect(signedMoveAmount(-1500.5, '1500,5')).toEqual({ ok: true, amount: -1500.5 });
+  expect(signedMoveAmount(-1500, '200')).toEqual({ ok: true, amount: -200 });
+  expect(signedMoveAmount(1000, '1000.01')).toMatchObject({ ok: false });
+  expect(signedMoveAmount(1000, '0')).toMatchObject({ ok: false, error: 'Enter an amount above zero.' });
+  expect(signedMoveAmount(1000, '')).toMatchObject({ ok: false });
+});
+
+test('a refused move is said plainly', () => {
+  expect(friendlyMoveError('forbidden')).toBe("Your account can't move balances.");
+  expect(friendlyMoveError('Both bookings must belong to the same customer')).toBe('Both bookings must belong to the same customer');
+});
+
+test('Accounting lists only customers with lines, biggest balance first, with totals per tile', () => {
+  const rows = summarizeWallets(
+    [
+      { id: 'a', first_name: 'Ada', last_name: null, phone: null },
+      { id: 'b', first_name: 'Bo', last_name: null, phone: '+90 555' },
+      { id: 'c', first_name: 'Cem', last_name: null, phone: null },
+      { id: 'd', first_name: 'Dee', last_name: null, phone: null },
+    ],
+    [
+      { customer_id: 'a', booking_id: 1, amount: 100, direction: 'IN' },
+      { customer_id: 'b', booking_id: 2, amount: 900, direction: 'OUT' },
+      { customer_id: 'b', booking_id: 3, amount: 100, direction: 'IN' },
+      { customer_id: 'c', booking_id: 4, amount: 50, direction: 'IN' },
+      { customer_id: 'c', booking_id: 4, amount: 50, direction: 'OUT' },
+    ],
+  );
+  expect(rows.map((row) => [row.name, row.balance, row.bookings])).toEqual([['Bo', -800, 2], ['Ada', 100, 1], ['Cem', 0, 1]]);
+  expect(walletTotals(rows)).toEqual({ all: 3, owesCount: 1, owesTotal: 800, creditCount: 1, creditTotal: 100, settledCount: 1 });
+});

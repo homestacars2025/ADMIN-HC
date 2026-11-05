@@ -30,7 +30,8 @@ import { BanFlow } from './BanFlow';
 import { CustomerEditSheet } from './CustomerEditSheet';
 import { DocumentsTab } from './DocumentsTab';
 import { PremiumTile } from './PremiumTile';
-import { BookingsTab, FinesHgsTab, NotesTab, OverviewTab, WalletTab } from './ProfileTabs';
+import { CustomerWalletView, type Notify } from './CustomerWallet';
+import { BookingsTab, FinesHgsTab, NotesTab, OverviewTab } from './ProfileTabs';
 import { BannedBadge, ClockIcon, Flag, ICON_BUTTON, MoreIcon, PhoneIcon, ReceiptIcon, RoadIcon, WalletIcon, WhatsAppIcon } from './ui';
 
 const TABS = [
@@ -66,6 +67,8 @@ const ProfileSkeleton: React.FC = () => (
     <div className="h-[280px] animate-pulse rounded-2xl bg-black/[0.04]" />
   </div>
 );
+
+const notify: Notify = (message, type) => (type === 'success' ? toast.success(message) : toast.error(message));
 
 const PrimaryActions: React.FC<{
   customerId: string;
@@ -342,7 +345,15 @@ const CustomerProfilePage: React.FC = () => {
       <div id="customer-tab-panel" role="tabpanel" aria-labelledby={`customer-tab-${tab}`} tabIndex={0} className="mt-3 rounded-2xl focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20">
         {tab === 'overview' && <OverviewTab profile={profile} today={today} />}
         {tab === 'bookings' && <BookingsTab bookings={bookings} />}
-        {tab === 'wallet' && <WalletTab profile={profile} onAddPayment={() => setSheet('payment')} />}
+        {tab === 'wallet' && (
+          <CustomerWalletView
+            customerId={customer.id}
+            refreshKey={attempt}
+            notify={notify}
+            onChanged={reload}
+            onAddPayment={() => setSheet('payment')}
+          />
+        )}
         {tab === 'documents' && (
           <DocumentsTab customer={customer} bookings={bookings} today={today} onUploaded={onCustomerSaved} onEdit={() => setSheet('edit')} />
         )}

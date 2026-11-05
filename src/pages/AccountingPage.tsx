@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
@@ -11,6 +11,7 @@ import { Button } from '../components/media/MediaUI';
 import { CarThumb } from '../components/shared/CarThumb';
 import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, fetchSuggestedExpenses, type PendingSummary } from '../lib/expenseApprovals';
 import { CashEnvelopesTab } from './accounting/CashEnvelopesTab';
+import { CustomerWalletsTab } from './accounting/CustomerWalletsTab';
 import { MonthlyCloseTab } from './accounting/MonthlyCloseTab';
 import { OverviewTiles } from './accounting/OverviewTiles';
 import { StaffCustodyTab } from './accounting/StaffCustodyTab';
@@ -2428,6 +2429,13 @@ const CarSheetsList: React.FC<{ onExpensesChanged: () => void }> = ({ onExpenses
                     <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
+                {expanded && (
+                  <div className="flex justify-end border-t border-subtle px-3 sm:px-4">
+                    <Link to={`/dashboard/accounting/customer-sheet/${row.id}`} className="inline-flex min-h-[44px] items-center text-[12.5px] font-medium text-brand-strong hover:underline md:min-h-[36px]">
+                      Customer sheet for this car →
+                    </Link>
+                  </div>
+                )}
                 {expanded && waiting.length > 0 && (
                   <ul className="flex flex-col gap-2 border-t border-subtle p-2 sm:p-3">
                     {waiting.map(suggestion => <SuggestedExpense key={suggestion.id} row={suggestion} suggestions={suggestions} />)}
@@ -3006,240 +3014,6 @@ const EditTxModal: React.FC<{
   );
 };
 
-// ─── Tab 3: Customer Sheets ───────────────────────────────────────────────────
-
-// Lightweight booking row used to build the per-car customer list from bookings.
-interface TabBookingRow {
-  id:          number;
-  car_id:      number | null;
-  customer_id: string | null;
-  customers:   { first_name: string; last_name: string } | null;
-}
-
-const CustomerSheetsTab: React.FC = () => {
-  const { fmt }  = useCurrency();
-  const navigate = useNavigate();
-
-  // ── Data ──────────────────────────────────────────────────────────────────
-  const [cars,            setCars]            = useState<CarInfo[]>([]);
-  const [carsLoading,     setCarsLoading]     = useState(true);
-  const [allLedger,       setAllLedger]       = useState<CustomerLedgerEntry[]>([]);
-  const [allBookings,     setAllBookings]     = useState<TabBookingRow[]>([]);
-  const [ledgerLoading,   setLedgerLoading]   = useState(true);
-
-  // ── UI ────────────────────────────────────────────────────────────────────
-  const [search, setSearch] = useState('');
-
-  // ── Load all data on mount ─────────────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [carsRes, modelsRes, ledgerRes, bookingsRes] = await Promise.all([
-        supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true),
-        supabase.from('model_group').select('id, name'),
-        supabase
-          .from('customer_accounting_ledger')
-          .select('customer_id, car_id, direction, amount, customers(first_name, last_name)')
-          .order('created_at', { ascending: false }),
-        // Customer sheets are driven by BOOKINGS, not by ledger rows — a customer
-        // shows up under a car because they booked it, even with no transactions yet.
-        supabase
-          .from('bookings')
-          .select('id, car_id, customer_id, customers(first_name, last_name)')
-          .not('customer_id', 'is', null),
-      ]);
-      if (cancelled) return;
-
-      const models  = (modelsRes.data ?? []) as { id: number; name: string }[];
-      const rawCars = (carsRes.data  ?? []) as { id: number; plate_number: string; model_group_id: number | null }[];
-      setCars(rawCars.map(c => ({
-        id: c.id, plate_number: c.plate_number,
-        model_name: models.find(m => m.id === c.model_group_id)?.name ?? '—',
-      })));
-      setAllLedger((ledgerRes.data ?? []) as unknown as CustomerLedgerEntry[]);
-      setAllBookings((bookingsRes.data ?? []) as unknown as TabBookingRow[]);
-      setCarsLoading(false);
-      setLedgerLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // ── Derived data ──────────────────────────────────────────────────────────
-  const ledgerByCar = useMemo(() => {
-    const map = new Map<number, CustomerLedgerEntry[]>();
-    for (const e of allLedger) {
-      if (e.car_id == null) continue;
-      if (!map.has(e.car_id)) map.set(e.car_id, []);
-      map.get(e.car_id)!.push(e);
-    }
-    return map;
-  }, [allLedger]);
-
-  const bookingsByCar = useMemo(() => {
-    const map = new Map<number, TabBookingRow[]>();
-    for (const b of allBookings) {
-      if (b.car_id == null) continue;
-      if (!map.has(b.car_id)) map.set(b.car_id, []);
-      map.get(b.car_id)!.push(b);
-    }
-    return map;
-  }, [allBookings]);
-
-  const carSummaries = useMemo(() =>
-    cars.map(car => {
-      const entries  = ledgerByCar.get(car.id) ?? [];
-      const bookings = bookingsByCar.get(car.id) ?? [];
-      const totalIn  = entries.filter(e => e.direction?.toUpperCase() === 'IN' ).reduce((s, e) => s + e.amount, 0);
-      const totalOut = entries.filter(e => e.direction?.toUpperCase() === 'OUT').reduce((s, e) => s + e.amount, 0);
-      // One sheet per booking → the count reflects bookings, not ledger rows.
-      const customerNames = bookings.map(b => b.customers ? `${b.customers.first_name} ${b.customers.last_name}` : '');
-      return { ...car, totalIn, totalOut, netBalance: totalIn - totalOut, customerCount: bookings.length, customerNames };
-    }).sort((a, b) =>
-      b.netBalance !== a.netBalance
-        ? b.netBalance - a.netBalance
-        : a.plate_number.localeCompare(b.plate_number),
-    ),
-  [cars, ledgerByCar, bookingsByCar]);
-
-  const kpiTotalIn  = useMemo(() => allLedger.filter(r => r.direction?.toUpperCase() === 'IN' ).reduce((s, r) => s + r.amount, 0), [allLedger]);
-  const kpiTotalOut = useMemo(() => allLedger.filter(r => r.direction?.toUpperCase() === 'OUT').reduce((s, r) => s + r.amount, 0), [allLedger]);
-  const cashBalance     = kpiTotalIn - kpiTotalOut;
-  const balancePositive = cashBalance >= 0;
-
-  const filteredSummaries = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return carSummaries;
-    return carSummaries.filter(car =>
-      car.plate_number.toLowerCase().includes(q) ||
-      car.model_name.toLowerCase().includes(q) ||
-      car.customerNames.some(n => n.toLowerCase().includes(q)),
-    );
-  }, [carSummaries, search]);
-
-  // ── JSX ───────────────────────────────────────────────────────────────────
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-      {/* ── Hero KPI ── */}
-      {carsLoading && ledgerLoading ? (
-        <div style={{ height: 140, borderRadius: 16, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-      ) : (
-        <div style={{
-          background: balancePositive
-            ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
-            : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-          borderRadius: 16, padding: '28px 32px', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-        }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>
-              Customer Cash Balance
-            </div>
-            <div style={{ fontSize: 44, fontWeight: 600, letterSpacing: '-2px', lineHeight: 1 }}>
-              {cashBalance < 0 ? '\u2212' : ''}{fmt(Math.abs(cashBalance))}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 28, textAlign: 'right' }}>
-            <div>
-              <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total IN</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{fmt(kpiTotalIn)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Total OUT</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{fmt(kpiTotalOut)}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Search bar ── */}
-      <div style={{ position: 'relative', maxWidth: 400 }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-          <circle cx="11" cy="11" r="7" stroke="#9ca3af" strokeWidth="2"/>
-          <path d="M20 20l-3-3" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Search by plate, model or customer…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ width: '100%', height: 40, padding: '0 34px 0 34px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 10, outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#0f1117', boxSizing: 'border-box', transition: 'border-color 140ms ease' }}
-          onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-          onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-        />
-        {search && (
-          <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, borderRadius: 5, border: 'none', background: '#e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round"/></svg>
-          </button>
-        )}
-      </div>
-
-      {/* ── Car cards grid ── */}
-      {carsLoading || ledgerLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{ height: 110, borderRadius: 16, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-          ))}
-        </div>
-      ) : filteredSummaries.length === 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 180, background: '#fff', borderRadius: 14, border: '1.5px dashed #e5e7eb', gap: 10 }}>
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#d1d5db" strokeWidth="1.8"/><path d="M20 20l-3-3" stroke="#d1d5db" strokeWidth="1.8" strokeLinecap="round"/></svg>
-          <div style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>No matching cars or customers</div>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-          {filteredSummaries.map(car => (
-            <div
-              key={car.id}
-              onClick={() => navigate(`/dashboard/accounting/customer-sheet/${car.id}`)}
-              style={{
-                background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden', cursor: 'pointer',
-                transition: 'box-shadow 180ms ease, border-color 180ms ease, transform 140ms ease',
-              }}
-              onMouseEnter={e => {
-                const d = e.currentTarget as HTMLDivElement;
-                d.style.boxShadow = '0 6px 24px rgba(75,166,234,0.13)';
-                d.style.borderColor = '#4ba6ea';
-                d.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={e => {
-                const d = e.currentTarget as HTMLDivElement;
-                d.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)';
-                d.style.borderColor = 'var(--border-subtle)';
-                d.style.transform = 'translateY(0)';
-              }}
-            >
-              {/* Plate + customer count */}
-              <div style={{ padding: '14px 16px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <div>
-                  <div className="font-mono tabular-nums" style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px', lineHeight: 1.15 }}>{car.plate_number}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{car.model_name}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 2 }}>
-                  <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>
-                    {car.customerCount} customer{car.customerCount !== 1 ? 's' : ''}
-                  </span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af', flexShrink: 0 }}>
-                    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-              {/* Balance */}
-              <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 12, padding: '10px 0 14px', textAlign: 'center' }}>
-                <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 5 }}>Balance</div>
-                <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.5px', color: car.netBalance >= 0 ? '#16a34a' : '#dc2626' }}>
-                  {car.netBalance < 0 ? '\u2212' : ''}{fmt(Math.abs(car.netBalance))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ─── Investor Report Page (routed: /dashboard/accounting/report?investor_id=X) ─
 
 export const InvestorReportPage: React.FC = () => {
@@ -3546,13 +3320,13 @@ export const CarCustomerSheetPage: React.FC = () => {
       {/* ── Page header ── */}
       <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', gap: 16 }}>
         <button
-          onClick={() => navigate('/dashboard/accounting')}
+          onClick={() => navigate('/dashboard/accounting?tab=investors&view=cars')}
           style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, transition: 'all 140ms ease' }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)'; }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          Customer Sheets
+          Car sheets
         </button>
         <div>
           <h1 className="font-mono tabular-nums" style={{ fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.6px', margin: 0, lineHeight: 1.1 }}>{car?.plate_number}</h1>
@@ -5759,17 +5533,19 @@ const InvestorsTab: React.FC<{ view: string | null; onExpensesChanged: () => voi
   );
 };
 
+// The wallet is the customer's, across their bookings. The per-car customer sheet
+// is reached from Investors › By car, never from here.
 const CUSTOMER_VIEWS = [
-  { value: 'cars', label: 'By car' },
+  { value: 'customers', label: 'Customers' },
   { value: 'bookings', label: 'Booking accounts' },
 ] as const;
 
-const CustomerWalletsTab: React.FC<{ view: string | null }> = ({ view }) => {
-  const current = view === 'bookings' ? 'bookings' : 'cars';
+const CustomerWalletsViews: React.FC<{ view: string | null }> = ({ view }) => {
+  const current = view === 'bookings' ? 'bookings' : 'customers';
   return (
     <>
       <ViewSwitch views={CUSTOMER_VIEWS} current={current} />
-      {current === 'cars' ? <CustomerSheetsTab /> : <BookingAccountsTab />}
+      {current === 'customers' ? <CustomerWalletsTab /> : <BookingAccountsTab />}
     </>
   );
 };
@@ -5931,7 +5707,7 @@ const AccountingPage: React.FC = () => {
       {activeTab === 'expenses'  && <CompanyExpensesTab key={refreshKey} onExpensesChanged={recheckPending} />}
       {activeTab === 'custody'   && <CustodyTab onPending={setPending} />}
       {activeTab === 'wallets'   && <WalletsTab />}
-      {activeTab === 'customers' && <CustomerWalletsTab key={refreshKey} view={params.get('view')} />}
+      {activeTab === 'customers' && <CustomerWalletsViews key={refreshKey} view={params.get('view')} />}
       {activeTab === 'suppliers' && (supplierId ? <SupplierSheet key={supplierId} supplierId={supplierId} /> : <SuppliersTab />)}
       {activeTab === 'vault'     && <CashEnvelopesTab key={refreshKey} />}
 
