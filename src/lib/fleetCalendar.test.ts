@@ -170,9 +170,9 @@ describe('utilization', () => {
     expect(fleetUtilization(new Map())).toBeNull();
   });
 
-  it('sorts high to low or low to high, ties by plate, a car with no figure last', () => {
-    expect(sortCars(cars, util, 'util_desc').map((car) => car.id)).toEqual([3, 2, 1, 4]);
-    expect(sortCars(cars, util, 'util_asc').map((car) => car.id)).toEqual([2, 1, 3, 4]);
+  it('sorts high to low or low to high, ties in model order, a car with no figure last', () => {
+    expect(sortCars(cars, util, 'util_desc').map((car) => car.id)).toEqual([3, 1, 2, 4]);
+    expect(sortCars(cars, util, 'util_asc').map((car) => car.id)).toEqual([1, 2, 3, 4]);
     expect(sortCars(cars, util, 'model')).toBe(cars);
   });
 });

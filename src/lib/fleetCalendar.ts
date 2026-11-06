@@ -277,16 +277,15 @@ export function fleetUtilization(utilization: Map<number, Utilization>): number 
 export const CALENDAR_SORTS = ['model', 'util_desc', 'util_asc'] as const;
 export type CalendarSort = typeof CALENDAR_SORTS[number];
 
-/** A tie goes by plate; a car with no figure goes last either way. Team sorts the same. */
+/** A tie keeps the model order; a car with no figure goes last either way. Team sorts the same. */
 export function sortCars(cars: CalendarCar[], utilization: Map<number, Utilization>, sort: CalendarSort): CalendarCar[] {
   if (sort === 'model') return cars;
   const direction = sort === 'util_desc' ? -1 : 1;
   return cars
-    .map((car) => ({ car, rate: utilization.get(car.id)?.rate }))
+    .map((car, index) => ({ car, index, rate: utilization.get(car.id)?.rate }))
     .sort((a, b) => {
-      const byPlate = a.car.plate.localeCompare(b.car.plate, 'en', { numeric: true });
-      if (a.rate === undefined || b.rate === undefined) return (a.rate === undefined ? 1 : 0) - (b.rate === undefined ? 1 : 0) || byPlate;
-      return direction * (a.rate - b.rate) || byPlate;
+      if (a.rate === undefined || b.rate === undefined) return (a.rate === undefined ? 1 : 0) - (b.rate === undefined ? 1 : 0) || a.index - b.index;
+      return direction * (a.rate - b.rate) || a.index - b.index;
     })
     .map((item) => item.car);
 }
