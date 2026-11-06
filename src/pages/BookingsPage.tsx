@@ -274,6 +274,7 @@ const BookingsPage: React.FC = () => {
   const [modal, setModal] = useState<null | 'add' | 'replacement'>(null);
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [bookingFor, setBookingFor] = useState<string | undefined>(undefined);
+  const [prefill, setPrefill] = useState<{ car_id: string; start_date: string; end_date: string } | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [extendTarget, setExtendTarget] = useState<Booking | null>(null);
   // After a new booking or an extension: offer to bring an older booking's balance onto it.
@@ -308,6 +309,21 @@ const BookingsPage: React.FC = () => {
       const next = new URLSearchParams(current);
       next.delete('new');
       next.delete('customer');
+      return next;
+    }, { replace: true });
+  }, [params, setParams]);
+
+  // Two days picked on the Fleet Calendar open the form on that car and those dates, once.
+  useEffect(() => {
+    const carId = params.get('car_id');
+    const start = params.get('start_date');
+    const end = params.get('end_date');
+    if (!carId || !start || !end || !/^\d+$/.test(carId) || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return;
+    setPrefill({ car_id: carId, start_date: start, end_date: end });
+    setModal('add');
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      ['new', 'car_id', 'start_date', 'end_date'].forEach((key) => next.delete(key));
       return next;
     }, { replace: true });
   }, [params, setParams]);
@@ -539,8 +555,9 @@ const BookingsPage: React.FC = () => {
         <BookingFormSheet
           mode="add"
           existingCustomerId={bookingFor}
+          prefill={prefill}
           showToast={showToast}
-          onClose={() => { setModal(null); setBookingFor(undefined); }}
+          onClose={() => { setModal(null); setBookingFor(undefined); setPrefill(undefined); }}
           onSaved={(saved) => { showToast('Booking added successfully', 'success'); refresh(); setMovePrompt(saved); }}
         />
       )}

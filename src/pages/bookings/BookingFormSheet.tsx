@@ -158,6 +158,8 @@ interface BookingFormSheetProps {
   existingCustomerId?: string;
   /** Opens with this section in view, for a link that's about the money. */
   openAt?: 'payment';
+  /** A new booking that starts from a car and dates picked elsewhere, like the Fleet Calendar. */
+  prefill?: Partial<Pick<BookingFormData, 'car_id' | 'start_date' | 'end_date'>>;
   onClose: () => void;
   /** Which booking was saved, and whose it is, so the page can offer to move an old balance onto it. */
   onSaved: (saved: SavedBooking) => void;
@@ -169,13 +171,13 @@ export interface SavedBooking {
   customerId: string;
 }
 
-export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, booking, existingCustomerId, openAt, onClose, onSaved, showToast }) => {
+export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, booking, existingCustomerId, openAt, prefill, onClose, onSaved, showToast }) => {
   const { rates } = useCurrency();
   const usdRate = rates.find((rate) => rate.currency === 'USD')?.rate_to_try ?? null;
   const editId = booking?.id;
   const originalCustomerId = booking ? String(booking.customer_id) : undefined;
 
-  const initial = useMemo(() => (booking ? editFormData(booking) : EMPTY_FORM), [booking]);
+  const initial = useMemo(() => (booking ? editFormData(booking) : { ...EMPTY_FORM, ...prefill }), [booking, prefill]);
   const [form, setForm] = useState<BookingFormData>(initial);
   const [baseline, setBaseline] = useState<BookingFormData>(initial);
   const [saving, setSaving] = useState(false);
