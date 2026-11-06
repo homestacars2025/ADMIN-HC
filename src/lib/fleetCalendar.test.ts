@@ -10,7 +10,10 @@ import {
   parseStamp,
   placeBars,
   shiftCalendarMonth,
+  sortCars,
   statusCounts,
+  fleetUtilization,
+  utilizationTone,
   type CalendarBar,
   type CalendarCar,
   type CalendarConflict,
@@ -146,5 +149,30 @@ describe('car history', () => {
   it('sums bookings, days rented this year and the latest km', () => {
     // 4 days of January (1st to 5th) and 31 of the October booking, the cancelled one left out.
     expect(historySummary(parseHistory(raw), 2026)).toEqual({ bookings: 2, daysThisYear: 4 + 31, km: 39088 });
+  });
+});
+
+describe('utilization', () => {
+  const cars: CalendarCar[] = [
+    { id: 1, plate: '34 ABC 101', model: 'Fiat Egea', status: 'working' },
+    { id: 2, plate: '34 ABC 100', model: 'Fiat Egea', status: 'working' },
+    { id: 3, plate: '06 XYZ 103', model: 'Renault Clio', status: 'parking' },
+    { id: 4, plate: '01 NEW 104', model: 'Renault Clio', status: 'parking' },
+  ];
+  const util = new Map([[1, { days: 30, rented: 15, rate: 50 }], [2, { days: 30, rented: 15, rate: 50 }], [3, { days: 30, rented: 29, rate: 97 }]]);
+
+  it('is green from 80%, amber from 50%, red below', () => {
+    expect([100, 80, 79, 50, 49, 0].map(utilizationTone)).toEqual(['green', 'green', 'amber', 'amber', 'red', 'red']);
+  });
+
+  it('pools the fleet: rented days over all days, not an average of rounded rates', () => {
+    expect(fleetUtilization(util)).toBe(Math.round((100 * 59) / 90));
+    expect(fleetUtilization(new Map())).toBeNull();
+  });
+
+  it('sorts high to low or low to high, ties by plate, a car with no figure last', () => {
+    expect(sortCars(cars, util, 'util_desc').map((car) => car.id)).toEqual([3, 2, 1, 4]);
+    expect(sortCars(cars, util, 'util_asc').map((car) => car.id)).toEqual([2, 1, 3, 4]);
+    expect(sortCars(cars, util, 'model')).toBe(cars);
   });
 });

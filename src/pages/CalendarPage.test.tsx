@@ -8,6 +8,7 @@ import type { CalendarConflict, FleetMonth } from '../lib/fleetCalendar';
 const mockMonth = jest.fn();
 const mockConflicts = jest.fn();
 const mockHistory = jest.fn();
+const mockUtilization = jest.fn();
 
 jest.mock('../lib/supabase', () => ({ supabase: { auth: { getUser: async () => ({ data: { user: null } }) } } }));
 jest.mock('../lib/fleetCalendar', () => ({
@@ -15,6 +16,7 @@ jest.mock('../lib/fleetCalendar', () => ({
   fetchFleetMonth: (...args: unknown[]) => mockMonth(...args),
   fetchConflicts: (...args: unknown[]) => mockConflicts(...args),
   fetchCarHistory: (...args: unknown[]) => mockHistory(...args),
+  fetchUtilization: (...args: unknown[]) => mockUtilization(...args),
 }));
 
 const MONTH = '2026-11';
@@ -46,6 +48,7 @@ beforeEach(() => {
   mockScroll.mockReset();
   mockMonth.mockReset().mockResolvedValue(DATA);
   mockConflicts.mockReset().mockResolvedValue(CONFLICTS);
+  mockUtilization.mockReset().mockResolvedValue(new Map([[1, { days: 30, rented: 27, rate: 90 }], [2, { days: 30, rented: 18, rate: 60 }]]));
   mockHistory.mockReset().mockResolvedValue([
     { kind: 'operation', at: '2026-11-05T12:37:26+00:00', end: null, title: 'DELIVERY', status: null, customer: null, customerId: null, amount: null, km: 39088, fuel: 170, by: 'Omar', note: null, fromCar: null, toCar: null, refId: 1, bookingId: 11 },
     { kind: 'booking', at: '2026-11-02', end: '2026-11-10', title: 'HOM-11-26-011', status: 'confirmed', customer: 'Ali Veli', customerId: 'c1', amount: null, km: null, fuel: null, by: null, note: null, fromCar: null, toCar: null, refId: 11, bookingId: null },
@@ -76,22 +79,34 @@ test('the tiles count cars per status and filter the rows; search finds a custom
   expect(rows()).toEqual(['History of 34ABC101']);
 });
 
-test('issues list on top with a count, and one jumps to its bar', async () => {
-  renderPage();
-  const panel = await screen.findByRole('button', { name: /2 issues this month/ });
-  expect(panel).toHaveAttribute('aria-expanded', 'true');
-  await userEvent.click(screen.getByRole('button', { name: /Double booking/ }));
-  await waitFor(() => expect(mockScroll).toHaveBeenCalled());
-  expect(screen.getByRole('button', { name: /^Ali Veli, Booked/ })).toHaveClass('cal-pulse');
-  await userEvent.click(panel);
-  expect(panel).toHaveAttribute('aria-expanded', 'false');
-});
-
-test('no issues, no panel', async () => {
-  mockConflicts.mockResolvedValue([]);
+test('no issues panel; high-severity bars keep their red outline', async () => {
   renderPage();
   await screen.findByRole('button', { name: /^Ali Veli/ });
   expect(screen.queryByText(/issues? this month/)).not.toBeInTheDocument();
+  expect(screen.queryByText('Two bookings overlap on the same car')).not.toBeInTheDocument();
+  expect(mockConflicts).toHaveBeenCalledWith(MONTH);
+});
+
+test('each car shows its utilization ring, coloured by how busy it was, and the fleet figure', async () => {
+  renderPage();
+  expect(await screen.findByRole('img', { name: 'Utilization 90%, 27 / 30 days' })).toHaveAttribute('title', '27 / 30 days');
+  expect(screen.getByRole('img', { name: 'Utilization 60%, 18 / 30 days' })).toHaveTextContent('60%');
+  expect(screen.getByRole('img', { name: 'Utilization not available' })).toHaveTextContent('—');
+  expect(mockUtilization).toHaveBeenCalledWith(MONTH);
+  // (27 + 18) / (30 + 30)
+  expect(screen.getByText(/Fleet utilization/)).toHaveTextContent('Fleet utilization 75%');
+});
+
+test('the cars sort by utilization either way, cars without a figure last', async () => {
+  renderPage();
+  await screen.findByRole('img', { name: /Utilization 90%/ });
+  await userEvent.click(screen.getByRole('button', { name: 'Lowest use' }));
+  expect(screen.getByTestId('where')).toHaveTextContent('sort=util_asc');
+  expect(rows()).toEqual(['History of 34KDT102', 'History of 34ABC101', 'History of 06XYZ103']);
+  await userEvent.click(screen.getByRole('button', { name: 'Highest use' }));
+  expect(rows()).toEqual(['History of 34ABC101', 'History of 34KDT102', 'History of 06XYZ103']);
+  await userEvent.click(screen.getByRole('button', { name: 'Model' }));
+  expect(screen.getByTestId('where')).not.toHaveTextContent('sort=');
 });
 
 test('a bar opens its details, with Open booking and Car history', async () => {

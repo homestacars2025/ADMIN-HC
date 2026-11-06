@@ -1,12 +1,11 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, X } from '../../components/media/MediaIcons';
+import { X } from '../../components/media/MediaIcons';
 import { Button, Sheet, SheetBody, SheetHeader, SheetTitle } from '../../components/media/MediaUI';
 import { CarIcon3D, Icon3D } from '../../components/shared/Icon3D';
 import { ComplianceTriangle, FineImage } from '../../components/shared/ComplianceBits';
 import { StatusImage } from '../../components/shared/StatusImage';
 import { formatDate, istanbulDate } from '../../lib/customers';
 import {
-  CONFLICT_LABELS,
   HISTORY_FILTERS,
   barDays,
   fetchCarHistory,
@@ -15,10 +14,11 @@ import {
   parseStamp,
   type CalendarBar,
   type CalendarCar,
-  type CalendarConflict,
-  type ConflictKind,
   type HistoryFilter,
   type HistoryItem,
+  type Utilization,
+  UTILIZATION_COLORS,
+  utilizationTone,
 } from '../../lib/fleetCalendar';
 import { FLEET_STATUS, FLEET_STATUS_ORDER, bookingStatusKey, carStatusToken, type StatusToken } from '../../lib/fleetStatus';
 import { cn } from '../../lib/media/badgeColor';
@@ -48,56 +48,43 @@ export const Legend: React.FC = () => (
   </ul>
 );
 
-const range = (from: string | null, to: string | null) => (from && to && from !== to ? `${formatDate(from)} → ${formatDate(to)}` : formatDate(from ?? to));
+// ── Utilization ──────────────────────────────────────────────────────────────
 
-// ── Issues ───────────────────────────────────────────────────────────────────
+const RING = 36;
+const STROKE = 4;
 
-const SEVERITY: Record<CalendarConflict['severity'], { dot: string; text: string; label: string }> = {
-  high: { dot: 'bg-[#DC2626]', text: 'text-[#B91C1C]', label: 'High' },
-  medium: { dot: 'bg-[#F59E0B]', text: 'text-[#92400E]', label: 'Medium' },
-  low: { dot: 'bg-black/30', text: 'text-black/55', label: 'Low' },
+/** How much of the month the car was out, as a ring: green from 80%, amber from 50%, red below. */
+export const UtilizationRing: React.FC<{ value: Utilization | undefined }> = ({ value }) => {
+  const radius = (RING - STROKE) / 2;
+  const circumference = 2 * Math.PI * radius;
+  if (!value) {
+    return (
+      <span role="img" aria-label="Utilization not available" title="No figure for this month" className="grid shrink-0 place-items-center text-[11px] font-semibold text-black/30" style={{ width: RING, height: RING }}>—</span>
+    );
+  }
+  const colors = UTILIZATION_COLORS[utilizationTone(value.rate)];
+  const tooltip = `${value.rented} / ${value.days} days`;
+  return (
+    <span role="img" aria-label={`Utilization ${value.rate}%, ${tooltip}`} title={tooltip} className="relative grid shrink-0 place-items-center" style={{ width: RING, height: RING }}>
+      <svg width={RING} height={RING} viewBox={`0 0 ${RING} ${RING}`} aria-hidden="true" className="absolute inset-0 -rotate-90">
+        <circle cx={RING / 2} cy={RING / 2} r={radius} fill="none" stroke={colors.soft} strokeWidth={STROKE} />
+        <circle cx={RING / 2} cy={RING / 2} r={radius} fill="none" stroke={colors.ring} strokeWidth={STROKE} strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={circumference * (1 - Math.min(100, Math.max(0, value.rate)) / 100)} />
+      </svg>
+      <span className="relative font-mono text-[10px] font-semibold tabular-nums" style={{ color: colors.ink }}>{value.rate}%</span>
+    </span>
+  );
 };
 
-/** What the database finds wrong this month. Hidden when there's nothing. */
-export const ConflictsPanel: React.FC<{ conflicts: CalendarConflict[]; onPick: (conflict: CalendarConflict) => void }> = ({ conflicts, onPick }) => {
-  const [open, setOpen] = useState(true);
-  if (conflicts.length === 0) return null;
-  const high = conflicts.some((conflict) => conflict.severity === 'high');
-  const count = conflicts.length;
+/** The whole fleet's figure for the month, beside the month switcher. */
+export const FleetUtilizationChip: React.FC<{ rate: number | null }> = ({ rate }) => {
+  if (rate === null) return null;
+  const colors = UTILIZATION_COLORS[utilizationTone(rate)];
   return (
-    <section className={cn('mb-4 max-w-[1100px] overflow-hidden rounded-2xl border', high ? 'border-[#DC2626]/30 bg-[#DC2626]/[0.04]' : 'border-[#F59E0B]/40 bg-[#F59E0B]/[0.06]')}>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls="calendar-issues"
-        onClick={() => setOpen((value) => !value)}
-        className="flex min-h-[52px] w-full items-center gap-3 px-3.5 py-2 text-start sm:px-4"
-      >
-        <ComplianceTriangle tone={high ? 'red' : 'amber'} size={32} className="shrink-0" />
-        <span className={cn('min-w-0 flex-1 text-[14px] font-semibold', high ? 'text-[#B91C1C]' : 'text-[#92400E]')}>
-          {count} {count === 1 ? 'issue' : 'issues'} this month
-        </span>
-        <ChevronDown size={16} className={cn('shrink-0 text-black/40 transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <ul id="calendar-issues" className="max-h-[260px] divide-y divide-black/[0.05] overflow-y-auto border-t border-black/[0.06] bg-white/70">
-          {conflicts.map((conflict, index) => (
-            <li key={`${conflict.kind}-${conflict.bookingId}-${conflict.otherRef}-${index}`}>
-              <button type="button" onClick={() => onPick(conflict)} className="flex min-h-[48px] w-full flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2 text-start transition-colors hover:bg-white sm:px-4">
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', SEVERITY[conflict.severity].dot)} />
-                  <span className={cn('text-[12px] font-semibold', SEVERITY[conflict.severity].text)}>{CONFLICT_LABELS[conflict.kind as ConflictKind] ?? conflict.kind}</span>
-                </span>
-                <LicensePlate plate={conflict.plate} />
-                {conflict.bookingNumber && <span className="font-mono text-[12.5px] tabular-nums text-black/70">{conflict.bookingNumber}{conflict.otherRef && conflict.kind === 'double_booking' ? ` + ${conflict.otherRef}` : ''}</span>}
-                <span className="text-[12px] tabular-nums text-black/50">{range(conflict.from, conflict.to)}</span>
-                <span className="basis-full text-[12.5px] text-black/60 sm:basis-auto">{conflict.message}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <span className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12.5px] font-medium" style={{ background: colors.soft, color: colors.ink }}>
+      <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: colors.ring }} />
+      Fleet utilization <span className="font-mono font-semibold tabular-nums">{rate}%</span>
+    </span>
   );
 };
 

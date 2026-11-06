@@ -202,14 +202,6 @@ export interface CalendarConflict {
   message: string;
 }
 
-export const CONFLICT_LABELS: Record<ConflictKind, string> = {
-  double_booking: 'Double booking',
-  blocked_period: 'Booked over a block',
-  missing_delivery: 'No delivery recorded',
-  missing_pickup: 'No pickup recorded',
-  not_closed: 'Not closed',
-};
-
 const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
 
 export async function fetchConflicts(month: string): Promise<CalendarConflict[]> {
@@ -243,6 +235,60 @@ export function highSeverityBars(conflicts: CalendarConflict[], bars: CalendarBa
     }
   });
   return keys;
+}
+
+// ─── Utilization ──────────────────────────────────────────────────────────────
+
+export interface Utilization {
+  days: number;
+  rented: number;
+  /** 0 to 100, as the RPC rounds it. */
+  rate: number;
+}
+
+/** How busy each active car was in the month: booked days (and replacement days) over the month's days. */
+export async function fetchUtilization(month: string): Promise<Map<number, Utilization>> {
+  const { data, error } = await supabase.rpc('car_utilization', { p_month: monthStart(month) });
+  if (error) throw new Error(error.message);
+  return new Map(((data ?? []) as Array<Record<string, unknown>>).map((row) => [
+    Number(row.car_id),
+    { days: Number(row.days_in_month) || 0, rented: Number(row.rented_days) || 0, rate: Math.round(Number(row.rate) || 0) },
+  ]));
+}
+
+export type UtilizationTone = 'green' | 'amber' | 'red';
+
+export const utilizationTone = (rate: number): UtilizationTone => (rate >= 80 ? 'green' : rate >= 50 ? 'amber' : 'red');
+
+export const UTILIZATION_COLORS: Record<UtilizationTone, { ring: string; ink: string; soft: string }> = {
+  green: { ring: '#22C55E', ink: '#166534', soft: '#D3EEDC' },
+  amber: { ring: '#F59E0B', ink: '#92400E', soft: '#FBE8C4' },
+  red: { ring: '#DC2626', ink: '#991B1B', soft: '#FEE2E2' },
+};
+
+/** The whole active fleet's rented days over its days, not an average of the cars' rounded rates. */
+export function fleetUtilization(utilization: Map<number, Utilization>): number | null {
+  let rented = 0;
+  let days = 0;
+  utilization.forEach((car) => { rented += car.rented; days += car.days; });
+  return days > 0 ? Math.round((100 * rented) / days) : null;
+}
+
+export const CALENDAR_SORTS = ['model', 'util_desc', 'util_asc'] as const;
+export type CalendarSort = typeof CALENDAR_SORTS[number];
+
+/** A tie goes by plate; a car with no figure goes last either way. Team sorts the same. */
+export function sortCars(cars: CalendarCar[], utilization: Map<number, Utilization>, sort: CalendarSort): CalendarCar[] {
+  if (sort === 'model') return cars;
+  const direction = sort === 'util_desc' ? -1 : 1;
+  return cars
+    .map((car) => ({ car, rate: utilization.get(car.id)?.rate }))
+    .sort((a, b) => {
+      const byPlate = a.car.plate.localeCompare(b.car.plate, 'en', { numeric: true });
+      if (a.rate === undefined || b.rate === undefined) return (a.rate === undefined ? 1 : 0) - (b.rate === undefined ? 1 : 0) || byPlate;
+      return direction * (a.rate - b.rate) || byPlate;
+    })
+    .map((item) => item.car);
 }
 
 // ─── Car history ──────────────────────────────────────────────────────────────

@@ -11,25 +11,31 @@ import { StatusImage, type StatusArt } from '../components/shared/StatusImage';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import { istanbulDate } from '../lib/customers';
 import {
+  CALENDAR_SORTS,
   daysInMonth,
   fetchConflicts,
   fetchFleetMonth,
+  fetchUtilization,
+  fleetUtilization,
   highSeverityBars,
   matchesCalendarSearch,
   placeBars,
   shiftCalendarMonth,
+  sortCars,
   statusCounts,
   type CalendarBar,
   type CalendarCar,
   type CalendarConflict,
+  type CalendarSort,
   type FleetMonth,
+  type Utilization,
 } from '../lib/fleetCalendar';
 import { CAR_STATUSES, FLEET_STATUS, barBackground, carStatusToken, type CarStatus } from '../lib/fleetStatus';
 import { cn } from '../lib/media/badgeColor';
 import { supabase } from '../lib/supabase';
-import { LicensePlate } from './bookings/ui';
+import { LicensePlate, Segmented } from './bookings/ui';
 import { BlockPopup, SelectionActionMenu, type ActionMenuState, type BlockPopupState, type EditableBlockType } from './calendar/CalendarActions';
-import { BarPopover, CarHistoryDrawer, CarStatusChip, ConflictsPanel, Legend, type PopoverState } from './calendar/FleetParts';
+import { BarPopover, CarHistoryDrawer, CarStatusChip, FleetUtilizationChip, Legend, UtilizationRing, type PopoverState } from './calendar/FleetParts';
 
 /**
  * The Fleet Calendar: one row per active car, one bar per booking or block across its
@@ -43,8 +49,9 @@ const LANE_H = 30;
 const BAR_H = 26;
 const ROW_PAD = 12;
 const LEFT_W = 212;
-const LEFT_W_PHONE = 148;
-const PULSE_MS = 2400;
+const LEFT_W_PHONE = 172;
+
+const SORT_LABELS: Record<CalendarSort, string> = { model: 'Model', util_desc: 'Highest use', util_asc: 'Lowest use' };
 
 const ART: Record<CarStatus, React.ReactNode> = {
   working: <StatusImage status="working" size={56} />,
@@ -81,15 +88,17 @@ const CalendarPage: React.FC = () => {
   const days = daysInMonth(month);
   const narrow = useNarrow();
   const leftW = narrow ? LEFT_W_PHONE : LEFT_W;
+  const requestedSort = params.get('sort') as CalendarSort | null;
+  const sort: CalendarSort = requestedSort && CALENDAR_SORTS.includes(requestedSort) ? requestedSort : 'model';
 
   const [data, setData] = useState<FleetMonth | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [conflicts, setConflicts] = useState<CalendarConflict[]>([]);
+  const [utilization, setUtilization] = useState<Map<number, Utilization>>(new Map());
   const [query, setQuery] = useState('');
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [historyCar, setHistoryCar] = useState<CalendarCar | null>(null);
-  const [pulse, setPulse] = useState<string | null>(null);
   const closeTimer = useRef<number | null>(null);
 
   // Picking a range of empty days, as the calendar always has.
@@ -118,18 +127,31 @@ const CalendarPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [month, reload, resetSelection]);
 
-  // The issues are live: read again on a new month, after a change, and on coming back to the tab.
+  // Conflicts (for the red outline) and utilization are live: read again on a new month,
+  // after a change, and on coming back to the tab. Neither stops the calendar if it fails.
   useEffect(() => {
     let cancelled = false;
-    const read = () => fetchConflicts(month)
-      .then((rows) => { if (!cancelled) setConflicts(rows); })
-      .catch(() => { if (!cancelled) setConflicts([]); });
+    setUtilization(new Map());
+    const read = () => {
+      fetchConflicts(month)
+        .then((rows) => { if (!cancelled) setConflicts(rows); })
+        .catch(() => { if (!cancelled) setConflicts([]); });
+      fetchUtilization(month)
+        .then((rows) => { if (!cancelled) setUtilization(rows); })
+        .catch(() => { if (!cancelled) setUtilization(new Map()); });
+    };
     read();
     window.addEventListener('focus', read);
     return () => { cancelled = true; window.removeEventListener('focus', read); };
   }, [month, reload]);
 
   const refresh = useCallback(() => setReload((value) => value + 1), []);
+
+  const setSort = (next: CalendarSort) => {
+    const updated = new URLSearchParams(params);
+    if (next === 'model') updated.delete('sort'); else updated.set('sort', next);
+    setParams(updated);
+  };
 
   const setMonth = (next: string) => {
     const updated = new URLSearchParams(params);
@@ -145,9 +167,10 @@ const CalendarPage: React.FC = () => {
   const counts = useMemo(() => statusCounts(data?.cars ?? []), [data]);
   const flagged = useMemo(() => highSeverityBars(conflicts, data?.bars ?? []), [conflicts, data]);
   const visible = useMemo(
-    () => (data?.cars ?? []).filter((car) => (filter === 'all' || car.status === filter) && matchesCalendarSearch(car, barsByCar.get(car.id) ?? [], query)),
-    [data, filter, query, barsByCar],
+    () => sortCars((data?.cars ?? []).filter((car) => (filter === 'all' || car.status === filter) && matchesCalendarSearch(car, barsByCar.get(car.id) ?? [], query)), utilization, sort),
+    [data, filter, query, barsByCar, utilization, sort],
   );
+  const fleetRate = useMemo(() => fleetUtilization(utilization), [utilization]);
 
   const dayMeta = useMemo(() => Array.from({ length: days }, (_, index) => {
     const date = `${month}-${pad(index + 1)}`;
@@ -207,23 +230,6 @@ const CalendarPage: React.FC = () => {
       y: popover.rect.bottom,
     });
   };
-
-  // ── Issues ───────────────────────────────────────────────────────────────
-  const pickConflict = (conflict: CalendarConflict) => {
-    clear();
-    setQuery('');
-    const key = conflict.bookingId !== null ? `booking-${conflict.bookingId}` : null;
-    window.requestAnimationFrame(() => {
-      const target = (key && document.getElementById(`cal-bar-${key}`)) || document.getElementById(`cal-row-${conflict.carId}`);
-      target?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
-    });
-    if (key) setPulse(key);
-  };
-  useEffect(() => {
-    if (!pulse) return undefined;
-    const timer = window.setTimeout(() => setPulse(null), PULSE_MS);
-    return () => window.clearTimeout(timer);
-  }, [pulse]);
 
   // ── Picking days ─────────────────────────────────────────────────────────
   const pickDay = (car: CalendarCar, day: number) => {
@@ -293,17 +299,14 @@ const CalendarPage: React.FC = () => {
 
   return (
     <div className="media-scope mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
-      <style>{`
-        @keyframes cal-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); } 35% { box-shadow: 0 0 0 5px rgba(220,38,38,0.35); } }
-        .cal-pulse { animation: cal-pulse 0.8s ease-in-out 3; }
-      `}</style>
       <MediaToaster />
       <PageHeader
         eyebrow="Fleet"
         title="Fleet Calendar"
         subtitle={data ? `${data.cars.length} ${data.cars.length === 1 ? 'car' : 'cars'} · ${monthLabel}` : monthLabel}
         action={(
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <FleetUtilizationChip rate={fleetRate} />
             <MonthNav label={monthLabel} justify="flex-end" onPrev={() => setMonth(shiftCalendarMonth(month, -1))} onNext={() => setMonth(shiftCalendarMonth(month, 1))} />
             {month !== thisMonth && <Button variant="outline" size="lg" className="!h-11 px-3 md:!h-9" onClick={() => setMonth(thisMonth)}>Today</Button>}
           </div>
@@ -319,8 +322,6 @@ const CalendarPage: React.FC = () => {
         </>
       ) : data && (
         <>
-          <ConflictsPanel conflicts={conflicts} onPick={pickConflict} />
-
           <FilterTileRow columns={7} label="Filter the cars">
             <FilterTile mono tone="blue" bareIcon icon={<StatusImage status="fleet" size={56} />} label="All" value={String(data.cars.length)} sub="active cars" active={filter === 'all'} onClick={clear} />
             {CAR_STATUSES.map((status) => {
@@ -331,8 +332,11 @@ const CalendarPage: React.FC = () => {
             })}
           </FilterTileRow>
 
-          <div className="mb-3 mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <SearchField value={query} onChange={setQuery} placeholder="Search plate, model or customer" className="w-full sm:max-w-[340px]" />
+          <div className="mb-3 mt-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <SearchField value={query} onChange={setQuery} placeholder="Search plate, model or customer" className="w-full sm:w-[340px]" />
+              <Segmented ariaLabel="Sort cars" value={sort} onChange={setSort} options={CALENDAR_SORTS.map((value) => ({ value, label: SORT_LABELS[value] }))} />
+            </div>
             <Legend />
           </div>
 
@@ -369,12 +373,15 @@ const CalendarPage: React.FC = () => {
                         type="button"
                         onClick={() => openHistory(car)}
                         aria-label={`History of ${car.plate}`}
-                        className="sticky left-0 z-20 flex shrink-0 flex-col items-start justify-center gap-1 border-r border-subtle bg-surface px-3 py-2 text-start transition-colors hover:bg-[#F7F9FC] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-[#6EA4E7]/35"
+                        className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r border-subtle bg-surface px-3 py-2 text-start transition-colors hover:bg-[#F7F9FC] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-[#6EA4E7]/35"
                         style={{ width: leftW }}
                       >
-                        <LicensePlate plate={car.plate} />
-                        <span className="w-full truncate text-[12.5px] text-black/55">{car.model}</span>
-                        <CarStatusChip status={car.status} />
+                        <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                          <LicensePlate plate={car.plate} />
+                          <span className="w-full truncate text-[12.5px] text-black/55">{car.model}</span>
+                          <CarStatusChip status={car.status} />
+                        </span>
+                        <UtilizationRing value={utilization.get(car.id)} />
                       </button>
                       <div className="relative shrink-0" style={{ width: gridW, height }}>
                         {dayMeta.map((meta, index) => {
@@ -407,7 +414,6 @@ const CalendarPage: React.FC = () => {
                               onClick={(event) => showBar(bar, car, event.currentTarget, true)}
                               className={cn(
                                 'absolute z-10 flex items-center overflow-hidden whitespace-nowrap px-2 text-start text-[12px] font-medium shadow-[0_1px_2px_rgba(16,24,40,0.06)] transition-[filter] hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/50',
-                                pulse === bar.key && 'cal-pulse',
                               )}
                               style={{
                                 left: from * COL_W,
