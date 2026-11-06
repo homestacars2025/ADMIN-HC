@@ -49,8 +49,8 @@ describe('amounts', () => {
     expect(parseAmount('1,250.50')).toBe(1250.5);
     expect(parseAmount('1.250')).toBe(1250);
     expect(parseAmount('₺ 75')).toBe(75);
-    expect(parseAmount('١٢٫٥')).toBe(12.5);
-    expect(latinDigits('۴۵')).toBe('45');
+    expect(parseAmount('\u0661\u0662\u066B\u0665')).toBe(12.5);
+    expect(latinDigits('\u06F4\u06F5')).toBe('45');
   });
 
   it('refuse what is not a positive amount', () => {
