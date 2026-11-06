@@ -6,6 +6,10 @@ import {
   defaultTarget,
   formatWalletMoney,
   friendlyMoveError,
+  groupInvoiceEntries,
+  hgsCount,
+  hgsGroupSummary,
+  hgsLineInfo,
   isEditableLine,
   matchesWalletSearch,
   lineKind,
@@ -215,4 +219,72 @@ test('a recorded payment and a transfer half are not edited on their own', () =>
   expect(isEditableLine({ type: 'transfer', pay_method: null })).toBe(false);
   expect(isEditableLine({ type: 'payment', pay_method: null })).toBe(true);
   expect(isEditableLine({ type: 'hgs' })).toBe(true);
+});
+
+describe('HGS lines', () => {
+  it('read the sync line: date, route, and a time or toll when it has them', () => {
+    expect(hgsLineInfo({ description: '[AUTO-HGS] 05-11-2026 ISPARTAKULE → AVCILAR', created_at: '2026-11-06T06:05:57Z' }))
+      .toEqual({ pass: true, day: '2026-11-05', time: null, route: 'ISPARTAKULE → AVCILAR', toll: null });
+    expect(hgsLineInfo({ description: '[AUTO-HGS] 05-11-2026 9:04 MAHMUTBEY → AVCILAR · KMO AVRUPA', created_at: null }))
+      .toEqual({ pass: true, day: '2026-11-05', time: '09:04', route: 'MAHMUTBEY → AVCILAR', toll: 'KMO AVRUPA' });
+  });
+
+  it('show only the exit for an unknown entry, and one gate once', () => {
+    expect(hgsLineInfo({ description: '[AUTO-HGS] 31-10-2026 ? → FSM KÖPRÜSÜ', created_at: null }).route).toBe('FSM KÖPRÜSÜ');
+    expect(hgsLineInfo({ description: '[AUTO-HGS] 31-10-2026 * → FSM KÖPRÜSÜ', created_at: null }).route).toBe('FSM KÖPRÜSÜ');
+    expect(hgsLineInfo({ description: '[AUTO-HGS] 05-11-2026 ÇAMLIK → ÇAMLIK', created_at: null }).route).toBe('ÇAMLIK');
+  });
+
+  it('take a typed line as an entry, dated by when it was entered in Istanbul', () => {
+    expect(hgsLineInfo({ description: 'HGS TO 07/10/2026', created_at: '2026-10-07T22:30:00Z' }))
+      .toEqual({ pass: false, day: '2026-10-08', time: null, route: 'HGS TO 07/10/2026', toll: null });
+    expect(hgsLineInfo({ description: null, created_at: '2026-10-07T09:00:00Z' }).route).toBeNull();
+  });
+
+  it('count passes and entries apart', () => {
+    const pass = { hgs: { pass: true } };
+    const entry = { hgs: { pass: false } };
+    expect(hgsCount([pass, pass])).toBe('2 passes');
+    expect(hgsCount([pass])).toBe('1 pass');
+    expect(hgsCount([entry, entry, entry])).toBe('3 entries');
+    expect(hgsCount([pass, pass, entry])).toBe('2 passes + 1 entry');
+    expect(hgsGroupSummary({ first: '2026-09-28', last: '2026-10-22', lines: [pass, pass] })).toBe('from 28/09 to 22/10 · 2 passes');
+    expect(hgsGroupSummary({ first: '2026-09-28', last: '2026-09-28', lines: [pass] })).toBe('on 28/09 · 1 pass');
+  });
+
+  it('fold into one entry where the newest was, with the same balance', () => {
+    const data: WalletData = {
+      customer: { id: 'c1', first_name: 'Omar', last_name: 'Ali' },
+      bookings: [booking({})],
+      lines: [
+        line({ id: 'r', type: 'rental', amount: 5000, created_at: '2026-10-01T09:00:00Z' }),
+        line({ id: 'h1', type: 'hgs', amount: 40, description: '[AUTO-HGS] 28-09-2026 MAHMUTBEY → AVCILAR', created_at: '2026-10-02T09:00:00Z' }),
+        line({ id: 'p', type: 'payment', amount: 3000, direction: 'IN', created_at: '2026-10-03T09:00:00Z' }),
+        line({ id: 'h2', type: 'HGS', amount: 60, description: '[AUTO-HGS] 22-10-2026 AVCILAR → MAHMUTBEY', created_at: '2026-10-04T09:00:00Z' }),
+        line({ id: 'h3', type: 'hgs', amount: 10, direction: 'IN', description: 'refund', created_at: '2026-10-05T09:00:00Z' }),
+      ],
+      replacements: [],
+      plates,
+    };
+    const card = buildWallet(data).cards[0];
+    expect(card.balance).toBe(-5000 - 40 + 3000 - 60 + 10);
+    expect(card.entries.map((entry) => (entry.kind === 'hgs' ? 'HGS' : entry.line.id))).toEqual(['HGS', 'p', 'r']);
+    const group = card.entries[0].kind === 'hgs' ? card.entries[0].group : null;
+    expect(group).toMatchObject({ net: -90, first: '2026-09-28', last: '2026-10-22' });
+    expect(group?.lines.map((item) => item.id)).toEqual(['h2', 'h3', 'h1']);
+    expect(hgsGroupSummary(group!)).toBe('from 28/09 to 22/10 · 2 passes + 1 entry');
+  });
+
+  it('print as one row with its passes behind it, totals untouched', () => {
+    const entries = [
+      { type: 'rental', description: null, direction: 'OUT', amount: 5000, created_at: '2026-10-01' },
+      { type: 'hgs', description: '[AUTO-HGS] 28-09-2026 MAHMUTBEY → AVCILAR', direction: 'OUT', amount: 40, created_at: '2026-10-02' },
+      { type: 'hgs', description: 'HGS TO 22/10/2026', direction: 'OUT', amount: 1127, created_at: '2026-10-22T09:00:00Z' },
+    ];
+    const rows = groupInvoiceEntries(entries);
+    expect(rows.map((row) => row.kind)).toEqual(['line', 'hgs']);
+    expect(rows[1]).toMatchObject({ kind: 'hgs', net: -1167, first: '2026-09-28', last: '2026-10-22', summary: 'from 28/09 to 22/10 · 1 pass + 1 entry' });
+    expect(rows[1].kind === 'hgs' && rows[1].passes.map((pass) => pass.entry.amount)).toEqual([1127, 40]);
+    expect(groupInvoiceEntries([entries[0]])).toEqual([{ kind: 'line', entry: entries[0] }]);
+  });
 });

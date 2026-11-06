@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { Button } from '../../components/media/MediaUI';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
 import { useCurrency } from '../../lib/CurrencyContext';
+import { groupInvoiceEntries } from '../../lib/customerWallet';
 import { envelopeReceipt, equivalentLabel, NEW_PAYMENT, paymentProblem, recordCustomerPayment, showEnvelopes, type PaymentChoice } from '../../lib/payments';
 import { standaloneFontCss } from '../../lib/standaloneFonts';
 import { supabase } from '../../lib/supabase';
@@ -59,20 +60,47 @@ export interface InvoiceCar {
   model_name: string;
 }
 
-export function printLedgerInvoice(cust: InvoiceCustomer, car: InvoiceCar | null, fmt: (amount: number) => string): void {
+/** `hgsDetails` prints the HGS passes under their one line, as they were open in the wallet. */
+export function printLedgerInvoice(cust: InvoiceCustomer, car: InvoiceCar | null, fmt: (amount: number) => string, options: { hgsDetails?: boolean } = {}): void {
   const invNum = `HC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
   const today  = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
   const totalCharged = cust.totalOut;
   const totalPaid    = cust.totalIn;
   const balance      = totalCharged - totalPaid;
-  const rows = cust.entries.map(e => `
+  const esc = (value: string) => value.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+  const badge = (inbound: boolean) => `<span class="${inbound ? 'badge-in' : 'badge-out'}">${inbound ? '↓ IN' : '↑ OUT'}</span>`;
+  // HGS prints as one line, its passes underneath behind "Show HGS details".
+  const grouped = groupInvoiceEntries(cust.entries);
+  const hasHgs = grouped.some((row) => row.kind === 'hgs');
+  const rows = grouped.map((row) => {
+    if (row.kind === 'line') {
+      const e = row.entry;
+      return `
     <tr>
-      <td>${e.created_at.slice(0, 10)}</td>
-      <td>${e.type ?? '—'}</td>
-      <td style="color:#6b7280;max-width:200px">${e.description ?? '—'}</td>
-      <td><span class="${e.direction?.toUpperCase() === 'IN' ? 'badge-in' : 'badge-out'}">${e.direction?.toUpperCase() === 'IN' ? '↓ IN' : '↑ OUT'}</span></td>
+      <td>${esc((e.created_at ?? '').slice(0, 10))}</td>
+      <td>${esc(e.type ?? '—')}</td>
+      <td style="color:#6b7280;max-width:200px">${esc(e.description ?? '—')}</td>
+      <td>${badge(e.direction?.toUpperCase() === 'IN')}</td>
       <td>${fmt(e.amount)}</td>
+    </tr>`;
+    }
+    const passes = row.passes.map(({ entry, info }) => `
+    <tr class="hgs-detail">
+      <td class="hgs-indent">${esc([info.day ?? '', info.time ?? ''].filter(Boolean).join(' '))}</td>
+      <td></td>
+      <td class="hgs-indent">${esc([info.route ?? 'HGS', info.toll].filter(Boolean).join(' · '))}</td>
+      <td>${badge(entry.direction?.toUpperCase() === 'IN')}</td>
+      <td>${fmt(entry.amount)}</td>
     </tr>`).join('');
+    return `
+    <tr class="hgs-sum">
+      <td>${esc(row.first ?? '—')}</td>
+      <td>hgs</td>
+      <td style="color:#6b7280;max-width:200px">HGS · ${esc(row.summary)}</td>
+      <td>${badge(row.net > 0)}</td>
+      <td>${fmt(Math.abs(row.net))}</td>
+    </tr>${passes}`;
+  }).join('');
   const html = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8">
@@ -120,11 +148,18 @@ td:last-child{text-align:right;font-weight:600;color:#0f1117;font-family:var(--f
 .footer{padding:22px 48px;background:#f8f9fb;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f0f0f0}
 .footer-brand{font-size:14px;font-weight:600;color:#0f1117}
 .footer-info{font-size:11px;color:#9ca3af;line-height:1.9;text-align:right}
+.hgs-toggle{display:inline-flex;align-items:center;gap:8px;margin-left:16px;font-size:13px;color:#374151;cursor:pointer;vertical-align:middle}
+.hgs-toggle input{width:16px;height:16px;accent-color:#4ba6ea}
+.hgs-detail{display:none}
+.show-hgs .hgs-detail{display:table-row}
+.hgs-detail td{padding-top:6px;padding-bottom:6px;font-size:11px;color:#6b7280;background:#fafbfc}
+.hgs-detail td:last-child{font-weight:500;color:#374151}
+.hgs-indent{padding-left:28px!important}
 @media print{body{background:#fff}.page{box-shadow:none;border-radius:0;margin:0;max-width:100%}.print-bar{display:none}}
 </style>
 </head>
-<body>
-<div class="print-bar"><button class="print-btn" onclick="window.print()">🖨&nbsp; Print Invoice</button></div>
+<body${hasHgs && options.hgsDetails ? ' class="show-hgs"' : ''}>
+<div class="print-bar"><button class="print-btn" onclick="window.print()">🖨&nbsp; Print Invoice</button>${hasHgs ? `<label class="hgs-toggle"><input type="checkbox"${options.hgsDetails ? ' checked' : ''} onchange="document.body.classList.toggle('show-hgs', this.checked)"> Show HGS details</label>` : ''}</div>
 <div class="page">
 <div class="hdr">
   <div>

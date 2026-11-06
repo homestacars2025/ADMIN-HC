@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Lock, Pencil, Plus, Trash2 } from '../../components/media/MediaIcons';
+import { ArrowDown, ArrowUp, ChevronRight, Lock, Pencil, Plus, Trash2 } from '../../components/media/MediaIcons';
 import { Button } from '../../components/media/MediaUI';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
 import { useCurrency } from '../../lib/CurrencyContext';
@@ -12,11 +12,13 @@ import {
   deleteLedgerLine,
   fetchWallet,
   formatWalletMoney,
+  hgsGroupSummary,
   moveBookingBalance,
   moveTargets,
   roundMoney,
   signedMoveAmount,
   walletTone,
+  type HgsGroup,
   type LineKind,
   type Wallet,
   type WalletCard,
@@ -89,21 +91,34 @@ interface LineActions {
   onDelete: (line: WalletCardLine) => Promise<void>;
 }
 
-const LineRow: React.FC<LineActions & { line: WalletCardLine }> = ({ line, onEdit, onDelete }) => {
+/** An HGS pass reads by its route, dated with its time and toll when the line has them. */
+function lineText(line: WalletCardLine): { title: React.ReactNode; detail: string } {
+  if (line.hgs) {
+    const when = [formatDate(line.hgs.day), line.hgs.time].filter(Boolean).join(' ');
+    return { title: line.hgs.route ?? 'HGS', detail: [when, line.hgs.toll].filter(Boolean).join(' · ') };
+  }
+  const detail = line.kind === 'transfer' ? line.note : line.description;
+  return { title: line.label, detail: [formatDate(line.created_at), detail].filter(Boolean).join(' · ') };
+}
+
+const signedMoney = (amount: number, received: boolean) => `${received ? '+' : '−'}${formatWalletMoney(amount)}`;
+
+const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }> = ({ line, nested, onEdit, onDelete }) => {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const received = line.direction === 'IN';
   const transfer = line.kind === 'transfer';
   const peer = line.peer;
-  const detail = transfer ? line.note : line.description;
+  const text = lineText(line);
   const remove = async () => {
     setBusy(true);
     try { await onDelete(line); } finally { setBusy(false); setConfirming(false); }
   };
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5">
+    <li className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5', nested && 'ps-4 sm:ps-11')}>
       <span className={cn(
-        'grid h-8 w-8 shrink-0 place-items-center rounded-full',
+        'grid shrink-0 place-items-center rounded-full',
+        nested ? 'h-6 w-6' : 'h-8 w-8',
         transfer ? 'bg-[#6EA4E7]/[0.14] text-brand-strong' : received ? 'bg-[#16A34A]/10 text-[#15803D]' : 'bg-[#DC2626]/[0.08] text-[#B91C1C]',
       )}>
         {KIND_ICON[line.kind]}
@@ -123,14 +138,12 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine }> = ({ line, onEdi
                 </button>
               ) : <span className="font-mono">{peer.bookingNumber}</span>}
             </>
-          ) : line.label}
+          ) : text.title}
         </div>
-        <div className="truncate text-[12px] tabular-nums text-black/50">
-          {[formatDate(line.created_at), detail].filter(Boolean).join(' · ')}
-        </div>
+        <div className="truncate text-[12px] tabular-nums text-black/50">{text.detail}</div>
       </div>
       <div className={cn('shrink-0 text-[13.5px] font-medium tabular-nums', received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
-        {received ? '+' : '−'}{formatWalletMoney(line.amount)}
+        {signedMoney(line.amount, received)}
       </div>
       <div className="flex shrink-0 items-center">
         {confirming ? (
@@ -157,6 +170,39 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine }> = ({ line, onEdi
   );
 };
 
+/** Every HGS line of a booking as one row, its passes underneath on demand. */
+const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void }> = ({ group, open, onToggle, onEdit, onDelete }) => {
+  const received = group.net > 0;
+  return (
+    <li className="py-0.5">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={open ? group.key : undefined}
+        onClick={onToggle}
+        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl py-2 text-start transition-colors hover:bg-black/[0.02] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35"
+      >
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#DC2626]/[0.08] text-[#B91C1C]">{KIND_ICON.hgs}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13.5px] font-medium text-foreground">HGS</span>
+          <span className="block text-[12px] tabular-nums text-black/50 sm:truncate">{hgsGroupSummary(group)}</span>
+        </span>
+        <span className={cn('shrink-0 text-[13.5px] font-medium tabular-nums', group.net === 0 ? 'text-black/45' : received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
+          {group.net === 0 ? formatWalletMoney(0) : signedMoney(Math.abs(group.net), received)}
+        </span>
+        <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center text-black/40 md:h-8 md:w-[72px] md:justify-items-end md:pe-2">
+          <ChevronRight size={15} strokeWidth={2} className={cn('transition-transform duration-200', open && 'rotate-90')} />
+        </span>
+      </button>
+      {open && (
+        <ul id={group.key} aria-label="HGS passes" className="mb-1 divide-y divide-black/[0.04] rounded-xl bg-black/[0.018]">
+          {group.lines.map((line) => <LineRow key={line.id} nested line={line} onEdit={onEdit} onDelete={onDelete} />)}
+        </ul>
+      )}
+    </li>
+  );
+};
+
 const LINES_SHOWN = 6;
 
 // ── A booking ────────────────────────────────────────────────────────────────
@@ -168,11 +214,13 @@ const BookingCard: React.FC<LineActions & {
   canMove: boolean;
   onMove: () => void;
   onAdd: () => void;
-  onPrint: () => void;
+  /** With the HGS passes when they're open on screen. */
+  onPrint: (hgsDetails: boolean) => void;
 }> = ({ card, canMove, onMove, onAdd, onPrint, onEdit, onDelete }) => {
   const [all, setAll] = useState(false);
+  const [hgsOpen, setHgsOpen] = useState(false);
   const tone = walletTone(card.balance);
-  const lines = all ? card.lines : card.lines.slice(0, LINES_SHOWN);
+  const entries = all ? card.entries : card.entries.slice(0, LINES_SHOWN);
   return (
     <li className="relative ps-6">
       <span aria-hidden="true" className={cn('absolute start-0 top-[22px] h-3 w-3 rounded-full ring-4 ring-[var(--surface)]', TONE_DOT[tone])} />
@@ -203,16 +251,18 @@ const BookingCard: React.FC<LineActions & {
           <p className="mt-3 rounded-xl bg-black/[0.025] px-3 py-3 text-[12.5px] text-black/45">No money recorded on this booking yet.</p>
         ) : (
           <ul className="mt-2 divide-y divide-black/[0.05]">
-            {lines.map((line) => <LineRow key={line.id} line={line} onEdit={onEdit} onDelete={onDelete} />)}
+            {entries.map((entry) => (entry.kind === 'hgs'
+              ? <HgsGroupRow key={entry.group.key} group={entry.group} open={hgsOpen} onToggle={() => setHgsOpen((value) => !value)} onEdit={onEdit} onDelete={onDelete} />
+              : <LineRow key={entry.line.id} line={entry.line} onEdit={onEdit} onDelete={onDelete} />))}
           </ul>
         )}
-        {card.lines.length > LINES_SHOWN && (
+        {card.entries.length > LINES_SHOWN && (
           <button
             type="button"
             onClick={() => setAll((value) => !value)}
             className="mt-1 min-h-[44px] text-[12.5px] font-medium text-brand-strong hover:underline md:min-h-[32px]"
           >
-            {all ? 'Show fewer entries' : `Show all ${card.lines.length} entries`}
+            {all ? 'Show fewer entries' : `Show all ${card.entries.length} entries`}
           </button>
         )}
 
@@ -237,7 +287,7 @@ const BookingCard: React.FC<LineActions & {
             <Plus size={14} /> Add Transaction
           </Button>
           {card.lines.length > 0 && (
-            <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={onPrint}>
+            <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={() => onPrint(hgsOpen)}>
               <PrinterIcon /> Print invoice
             </Button>
           )}
@@ -371,7 +421,7 @@ export const CustomerWalletView: React.FC<{
   if (!wallet) return <WalletSkeleton />;
 
   const [firstName, ...lastNames] = wallet.name.split(' ');
-  const print = (card: WalletCard) => printLedgerInvoice({
+  const print = (card: WalletCard, hgsDetails: boolean) => printLedgerInvoice({
     bookingNumber: card.bookingNumber,
     first_name: wallet.customer.first_name ?? firstName,
     last_name: wallet.customer.last_name ?? lastNames.join(' '),
@@ -381,7 +431,7 @@ export const CustomerWalletView: React.FC<{
     entries: card.lines.map((line) => ({ ...line, created_at: line.created_at ?? '' })),
     totalIn: card.lines.filter((line) => line.direction === 'IN').reduce((sum, line) => sum + line.amount, 0),
     totalOut: card.lines.filter((line) => line.direction === 'OUT').reduce((sum, line) => sum + line.amount, 0),
-  }, { plate_number: card.plate ?? '—', model_name: card.model ?? '—' }, fmt);
+  }, { plate_number: card.plate ?? '—', model_name: card.model ?? '—' }, fmt, { hgsDetails });
 
   return (
     <div className="flex flex-col gap-4">
@@ -403,7 +453,7 @@ export const CustomerWalletView: React.FC<{
               canMove={walletTone(card.balance) !== 'settled' && moveTargets(wallet, card.id).length > 0}
               onMove={() => setMoving(card)}
               onAdd={() => setAdding(card)}
-              onPrint={() => print(card)}
+              onPrint={(hgsDetails) => print(card, hgsDetails)}
               onEdit={setEditing}
               onDelete={deleteLine}
             />

@@ -166,3 +166,36 @@ test('each booking adds a transaction through the old form and prints its own in
   expect(invoice.entries).toHaveLength(3);
   expect(car).toEqual({ plate_number: '34ABC10', model_name: 'Fiat Egea' });
 });
+
+test('HGS lines fold into one row, closed, and open onto passes that keep Edit and Delete', async () => {
+  const withHgs = data();
+  withHgs.lines.push(
+    { id: 'h1', booking_id: 2, car_id: 20, type: 'hgs', description: '[AUTO-HGS] 02-11-2026 MAHMUTBEY → AVCILAR', amount: 40, direction: 'OUT', created_at: '2026-11-02T09:00:00Z', payment_ref: null },
+    { id: 'h2', booking_id: 2, car_id: 20, type: 'hgs', description: '[AUTO-HGS] 04-11-2026 08:15 AVCILAR → MAHMUTBEY · KMO AVRUPA', amount: 60, direction: 'OUT', created_at: '2026-11-04T09:00:00Z', payment_ref: null },
+  );
+  wallet = buildWallet(withHgs);
+  render(<CustomerWalletView customerId="c1" notify={jest.fn()} onChanged={jest.fn()} />);
+  const card = within(await screen.findByRole('article', { name: 'HOM-11-26-002' }));
+  const row = card.getByRole('button', { name: /^HGS/ });
+  expect(row).toHaveAttribute('aria-expanded', 'false');
+  expect(row).toHaveTextContent('from 02/11 to 04/11 · 2 passes');
+  expect(row).toHaveTextContent('−₺100');
+  expect(card.queryByText('MAHMUTBEY → AVCILAR')).not.toBeInTheDocument();
+
+  await userEvent.click(card.getByRole('button', { name: /Print invoice/ }));
+  expect(mockPrint.mock.calls[0][3]).toEqual({ hgsDetails: false });
+
+  await userEvent.click(row);
+  expect(row).toHaveAttribute('aria-expanded', 'true');
+  await userEvent.click(card.getByRole('button', { name: /Print invoice/ }));
+  expect(mockPrint.mock.calls[1][3]).toEqual({ hgsDetails: true });
+  const passes = within(card.getByRole('list', { name: 'HGS passes' }));
+  expect(passes.getAllByRole('listitem')).toHaveLength(2);
+  expect(passes.getByText('AVCILAR → MAHMUTBEY')).toBeInTheDocument();
+  expect(passes.getByText(/08:15 · KMO AVRUPA/)).toBeInTheDocument();
+  expect(passes.getAllByRole('button', { name: 'Edit transaction' })).toHaveLength(2);
+
+  await userEvent.click(passes.getAllByRole('button', { name: 'Delete transaction' })[1]);
+  await userEvent.click(passes.getByRole('button', { name: 'Yes' }));
+  expect(mockDelete).toHaveBeenCalledWith('h1');
+});

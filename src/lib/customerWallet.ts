@@ -125,6 +125,135 @@ export function lineLabel(line: Pick<WalletLine, 'type' | 'direction'>): string 
   }
 }
 
+// ─── HGS ──────────────────────────────────────────────────────────────────────
+
+/** What an HGS line says about its pass. Only what the line itself carries. */
+export interface HgsLineInfo {
+  /** One pass from the sync. A typed HGS line is an entry, often a lump for many passes. */
+  pass: boolean;
+  /** The pass's Istanbul day, YYYY-MM-DD. */
+  day: string | null;
+  /** HH:MM, when the line has one. */
+  time: string | null;
+  /** "ENTRY → EXIT", the exit alone, or a typed line's own text. */
+  route: string | null;
+  toll: string | null;
+}
+
+const ISTANBUL_DAY = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Istanbul' });
+
+function istanbulDay(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : ISTANBUL_DAY.format(date);
+}
+
+/** An unknown station is written `?` or `*`. */
+const knownStation = (value: string) => (value === '?' || value === '*' ? '' : value);
+
+/**
+ * The sync writes `[AUTO-HGS] DD-MM-YYYY ENTRY → EXIT`, and may add a time after the
+ * date and ` · TOLL` at the end. A typed line is free text dated by when it was entered.
+ */
+export function hgsLineInfo(line: Pick<WalletLine, 'description' | 'created_at'>): HgsLineInfo {
+  const text = (line.description ?? '').trim();
+  const auto = text.match(/^\[AUTO-HGS\]\s*(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{1,2}:\d{2}))?\s*(.*)$/);
+  if (!auto) return { pass: false, day: istanbulDay(line.created_at), time: null, route: text || null, toll: null };
+  const [, dd, mm, yyyy, time, rest] = auto;
+  const [where, ...tollParts] = rest.split(' · ');
+  const toll = tollParts.join(' · ').trim() || null;
+  let route: string | null = where.trim() || null;
+  if (route && route.includes('→')) {
+    const [entry, exit] = route.split('→').map((part) => knownStation(part.trim()));
+    route = entry && exit && entry !== exit ? `${entry} → ${exit}` : exit || entry || null;
+  }
+  return { pass: true, day: `${yyyy}-${mm}-${dd}`, time: time ? time.padStart(5, '0') : null, route, toll };
+}
+
+export interface HgsGroup {
+  key: string;
+  /** Newest pass first. */
+  lines: WalletCardLine[];
+  /** IN − OUT, as every balance here. */
+  net: number;
+  first: string | null;
+  last: string | null;
+}
+
+export type WalletEntry = { kind: 'line'; line: WalletCardLine } | { kind: 'hgs'; group: HgsGroup };
+
+/** Every HGS line of a booking folds into one entry, where its newest line would be. */
+export function groupWalletLines(lines: WalletCardLine[], bookingId: number): WalletEntry[] {
+  const hgs = lines.filter((line) => line.kind === 'hgs');
+  if (hgs.length === 0) return lines.map((line) => ({ kind: 'line', line }));
+  const days = hgs.map((line) => line.hgs?.day).filter((day): day is string => Boolean(day)).sort();
+  const group: HgsGroup = {
+    key: `hgs-${bookingId}`,
+    lines: hgs.slice().sort((a, b) => (b.hgs?.day ?? '').localeCompare(a.hgs?.day ?? '') || (b.hgs?.time ?? '').localeCompare(a.hgs?.time ?? '')),
+    net: walletBalance(hgs),
+    first: days[0] ?? null,
+    last: days[days.length - 1] ?? null,
+  };
+  const entries: WalletEntry[] = [];
+  lines.forEach((line) => {
+    if (line.kind !== 'hgs') entries.push({ kind: 'line', line });
+    else if (line === hgs[0]) entries.push({ kind: 'hgs', group });
+  });
+  return entries;
+}
+
+/** "28/09". */
+export const dayMonth = (day: string | null): string => (day ? `${day.slice(8, 10)}/${day.slice(5, 7)}` : '—');
+
+const counted = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/** "42 passes", "3 entries" or "40 passes + 2 entries". */
+export function hgsCount(lines: Array<{ hgs: Pick<HgsLineInfo, 'pass'> | null }>): string {
+  const passes = lines.filter((line) => line.hgs?.pass).length;
+  const entries = lines.length - passes;
+  if (!entries) return counted(passes, 'pass', 'passes');
+  if (!passes) return counted(entries, 'entry', 'entries');
+  return `${counted(passes, 'pass', 'passes')} + ${counted(entries, 'entry', 'entries')}`;
+}
+
+/** "from 28/09 to 22/10 · 42 passes", or "on 28/09 · 1 pass". */
+export function hgsGroupSummary(group: Pick<HgsGroup, 'first' | 'last'> & { lines: Array<{ hgs: Pick<HgsLineInfo, 'pass'> | null }> }): string {
+  const passes = hgsCount(group.lines);
+  if (!group.first || !group.last) return passes;
+  const when = group.first === group.last ? `on ${dayMonth(group.first)}` : `from ${dayMonth(group.first)} to ${dayMonth(group.last)}`;
+  return `${when} · ${passes}`;
+}
+
+/** The car customer sheet prints its own rows, which are looser than the wallet's. */
+type PrintedLine = { type: string | null; description: string | null; direction: string; amount: number; created_at: string | null };
+
+const isHgs = (entry: Pick<PrintedLine, 'type'>) => lineKind(entry.type ?? '') === 'hgs';
+
+export type InvoiceRow<E extends PrintedLine> =
+  | { kind: 'line'; entry: E }
+  | { kind: 'hgs'; summary: string; net: number; first: string | null; last: string | null; passes: Array<{ entry: E; info: HgsLineInfo }> };
+
+/** The printed invoice folds HGS the same way: one row where the first HGS line was. */
+export function groupInvoiceEntries<E extends PrintedLine>(entries: E[]): InvoiceRow<E>[] {
+  const hgs = entries.filter(isHgs);
+  if (hgs.length === 0) return entries.map((entry) => ({ kind: 'line', entry }));
+  const passes = hgs
+    .map((entry) => ({ entry, info: hgsLineInfo(entry) }))
+    .sort((a, b) => (b.info.day ?? '').localeCompare(a.info.day ?? '') || (b.info.time ?? '').localeCompare(a.info.time ?? ''));
+  const days = passes.map((pass) => pass.info.day).filter((day): day is string => Boolean(day)).sort();
+  const first = days[0] ?? null;
+  const last = days[days.length - 1] ?? null;
+  const summary = hgsGroupSummary({ first, last, lines: passes.map((pass) => ({ hgs: pass.info })) });
+  const net = roundMoney(hgs.reduce((sum, entry) => sum + (entry.direction.toUpperCase() === 'IN' ? 1 : -1) * Number(entry.amount), 0));
+  const row: InvoiceRow<E> = { kind: 'hgs', summary, net, first, last, passes };
+  const rows: InvoiceRow<E>[] = [];
+  entries.forEach((entry) => {
+    if (!isHgs(entry)) rows.push({ kind: 'line', entry });
+    else if (entry === hgs[0]) rows.push(row);
+  });
+  return rows;
+}
+
 export interface TransferPeer {
   direction: 'to' | 'from';
   bookingNumber: string | null;
@@ -224,6 +353,8 @@ export interface WalletCardLine extends WalletLine {
   note: string | null;
   /** A recorded payment belongs to its envelope and a transfer to its other half, so neither changes alone. */
   editable: boolean;
+  /** Set on HGS lines. */
+  hgs: HgsLineInfo | null;
 }
 
 export const isEditableLine = (line: Pick<WalletLine, 'type' | 'pay_method'>): boolean =>
@@ -242,6 +373,8 @@ export interface WalletCard {
   balance: number;
   /** Newest first. */
   lines: WalletCardLine[];
+  /** The lines as shown: newest first, HGS folded into one. */
+  entries: WalletEntry[];
   carNotes: CarNote[];
 }
 
@@ -269,6 +402,22 @@ export function buildWallet(data: WalletData): Wallet {
   const cards = listed.slice().sort(newestFirst).map((booking): WalletCard => {
     const car = one(booking.cars);
     const own = data.lines.filter((line) => line.booking_id === booking.id);
+    const lines = own
+      .slice()
+      .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '') || b.id.localeCompare(a.id))
+      .map((line): WalletCardLine => {
+        const kind = lineKind(line.type);
+        return {
+          ...line,
+          amount: Number(line.amount),
+          kind,
+          label: lineLabel(line),
+          peer: kind === 'transfer' ? transferPeer(line, data.lines, bookingsByNumber, numbersById) : null,
+          note: kind === 'transfer' ? transferNote(line.description) : null,
+          editable: isEditableLine(line),
+          hgs: kind === 'hgs' ? hgsLineInfo(line) : null,
+        };
+      });
     return {
       id: booking.id,
       carId: booking.car_id,
@@ -280,21 +429,8 @@ export function buildWallet(data: WalletData): Wallet {
       status: booking.status,
       active: Boolean(booking.is_currently_active),
       balance: walletBalance(own),
-      lines: own
-        .slice()
-        .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '') || b.id.localeCompare(a.id))
-        .map((line) => {
-          const kind = lineKind(line.type);
-          return {
-            ...line,
-            amount: Number(line.amount),
-            kind,
-            label: lineLabel(line),
-            peer: kind === 'transfer' ? transferPeer(line, data.lines, bookingsByNumber, numbersById) : null,
-            note: kind === 'transfer' ? transferNote(line.description) : null,
-            editable: isEditableLine(line),
-          };
-        }),
+      lines,
+      entries: groupWalletLines(lines, booking.id),
       carNotes: carNotes(booking, data.lines, data.replacements, data.plates),
     };
   });
