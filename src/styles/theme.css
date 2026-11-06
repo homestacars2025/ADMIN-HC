@@ -569,3 +569,5 @@ b, strong, th {
 .tile-amber { --tile-from: #FEF6E7; --tile-to: #FBE8C4; --tile-ink: #92400E; --tile-chip: #F59E0B; }
 .tile-slate { --tile-from: #F3F5F9; --tile-to: #E3E8F0; --tile-ink: #334155; --tile-chip: #64748B; }
 .tile-neutral { --tile-from: #FFFFFF; --tile-to: #F3F4F6; --tile-ink: #374151; --tile-chip: #9CA3AF; }
+.tile-yellow { --tile-from: #FEFBE8; --tile-to: #FDF2B3; --tile-ink: #854D0E; --tile-chip: #EAB308; }
+.tile-coral { --tile-from: #FFF1EE; --tile-to: #FFD9D0; --tile-ink: #9A3412; --tile-chip: #F97362; }

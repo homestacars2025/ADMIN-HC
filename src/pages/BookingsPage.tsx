@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Button, Select } from '../components/media/MediaUI';
 import { ComplianceTriangle } from '../components/shared/ComplianceBits';
 import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
+import { FLEET_STATUS } from '../lib/fleetStatus';
 import { Icon3D } from '../components/shared/Icon3D';
 import MonthNav from '../components/shared/MonthNav';
 import { LoadError, SearchField, SkeletonRows } from '../components/shared/PageBits';
@@ -472,9 +473,9 @@ const BookingsPage: React.FC = () => {
           {tab === 'bookings' && (
             <>
               <FilterTile split mono tone="blue" bareIcon icon={<Icon3D name="total" />} label="Total" value={String(bookingTiles.total)} sub="starting this month" active={filter === 'all'} onClick={clear} />
-              <FilterTile split mono tone="green" bareIcon icon={<Icon3D name="confirmed" />} label="Confirmed" value={String(bookingTiles.confirmed)} sub={`${bookingTiles.activeNow} active now`} active={filter === 'confirmed'} onClick={() => toggle('confirmed')} />
-              <FilterTile split mono tone="amber" bareIcon icon={<Icon3D name="pending" />} label="Pending" value={String(bookingTiles.pending)} sub="waiting" active={filter === 'pending'} onClick={() => toggle('pending')} />
-              <FilterTile split mono tone="slate" bareIcon icon={<Icon3D name="completed" />} label="Completed" value={String(bookingTiles.completed)} sub="returned" active={filter === 'completed'} onClick={() => toggle('completed')} />
+              <FilterTile split mono tone={FLEET_STATUS.booked.tile} bareIcon icon={<Icon3D name="confirmed" />} label="Confirmed" value={String(bookingTiles.confirmed)} sub={`${bookingTiles.activeNow} active now`} active={filter === 'confirmed'} onClick={() => toggle('confirmed')} />
+              <FilterTile split mono tone={FLEET_STATUS.pending.tile} bareIcon icon={<Icon3D name="pending" />} label="Pending" value={String(bookingTiles.pending)} sub="waiting" active={filter === 'pending'} onClick={() => toggle('pending')} />
+              <FilterTile split mono tone={FLEET_STATUS.completed.tile} bareIcon icon={<Icon3D name="completed" />} label="Completed" value={String(bookingTiles.completed)} sub="returned" active={filter === 'completed'} onClick={() => toggle('completed')} />
             </>
           )}
           {tab === 'extensions' && (

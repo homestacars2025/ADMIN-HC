@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '../../lib/media/badgeColor';
 import { Check } from '../media/MediaIcons';
 
-export type FilterTileTone = 'blue' | 'teal' | 'red' | 'green' | 'violet' | 'amber' | 'slate' | 'neutral';
+export type FilterTileTone = 'blue' | 'teal' | 'red' | 'green' | 'violet' | 'amber' | 'slate' | 'neutral' | 'yellow' | 'coral';
 
 /**
  * Columns follow the room the page really has, which the sidebar changes. `split` is the
