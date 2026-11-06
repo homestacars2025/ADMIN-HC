@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { fetchMyCustodyBalance } from '../../lib/myCustody';
+import { fetchMyWalletBalance } from '../../lib/myWallet';
+import { formatTry } from '../../lib/payroll';
 import { endSession } from '../../lib/session';
 import type { CurrentProfile } from '../../hooks/useCurrentProfile';
 import StaffAvatar from '../shared/StaffAvatar';
@@ -10,10 +13,28 @@ const ITEM_CLASS =
 
 const CHIP_CLASS = 'inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium';
 
+const Balance: React.FC<{ value: number | null }> = ({ value }) => (value === null ? null : (
+  <span className={`ms-auto font-mono text-[12.5px] font-semibold tabular-nums ${value < 0 ? 'text-red-600' : 'text-black/55'}`}>
+    {value < 0 ? '−' : ''}{formatTry(Math.abs(value))}
+  </span>
+));
+
 export const UserMenu: React.FC<{ profile: CurrentProfile | null }> = ({ profile }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [custodyBalance, setCustodyBalance] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const userId = profile?.id ?? null;
+
+  // Read on each open: a new entry from accounting shows without a reload.
+  useEffect(() => {
+    if (!open || !userId) return undefined;
+    let cancelled = false;
+    fetchMyWalletBalance(userId).then((value) => { if (!cancelled) setWalletBalance(value); }).catch(() => { if (!cancelled) setWalletBalance(null); });
+    fetchMyCustodyBalance(userId).then((value) => { if (!cancelled) setCustodyBalance(value); }).catch(() => { if (!cancelled) setCustodyBalance(null); });
+    return () => { cancelled = true; };
+  }, [open, userId]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,6 +95,14 @@ export const UserMenu: React.FC<{ profile: CurrentProfile | null }> = ({ profile
           <div className="flex flex-col pt-1.5">
             <Link role="menuitem" to="/dashboard/profile" onClick={() => setOpen(false)} className={ITEM_CLASS}>
               My profile
+            </Link>
+            <Link role="menuitem" to="/dashboard/my-wallet" onClick={() => setOpen(false)} className={`${ITEM_CLASS} gap-3`}>
+              My wallet
+              <Balance value={walletBalance} />
+            </Link>
+            <Link role="menuitem" to="/dashboard/my-custody" onClick={() => setOpen(false)} className={`${ITEM_CLASS} gap-3`}>
+              My custody
+              <Balance value={custodyBalance} />
             </Link>
             <Link role="menuitem" to="/dashboard/settings" onClick={() => setOpen(false)} className={ITEM_CLASS}>
               Settings

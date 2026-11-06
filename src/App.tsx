@@ -6,6 +6,8 @@ import Layout from './components/Layout';
 import GoalsPage from './pages/GoalsPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
+import MyCustodyPage from './pages/MyCustodyPage';
+import MyWalletPage from './pages/MyWalletPage';
 import SettingsPage from './pages/SettingsPage';
 import CarsPage from './pages/CarsPage';
 import ModelGroupsPage from './pages/ModelGroupsPage';
@@ -81,6 +83,8 @@ const App: React.FC = () => {
           <Route index element={<Navigate to="home" replace />} />
           <Route path="home" element={<HomePage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="my-custody" element={<MyCustodyPage />} />
+          <Route path="my-wallet" element={<MyWalletPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="cars" element={<CarsPage />} />
           <Route path="cars/tracking" element={<CarTrackingPage />} />
