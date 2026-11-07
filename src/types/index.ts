@@ -38,27 +38,6 @@ export interface AlertRow {
   date_label: string;
 }
 
-export interface ModelGroup {
-  id: number;
-  name: string;
-  brand: string;
-  model: string;
-  category: string;
-  transmission: string;
-  fuel: string;
-  seats: number;
-  luggage: number | null;
-  daily_km: number | null;
-  monthly_km: number | null;
-  deposit: number | null;
-  min_age: number | null;
-  price: number;
-  total_cars: number;
-  image_url: string | null;
-}
-
-export type ModelGroupFormData = Omit<ModelGroup, 'id' | 'total_cars'>;
-
 export type BookingStatus = 'confirmed' | 'pending' | 'cancelled' | 'completed';
 
 export interface Booking {

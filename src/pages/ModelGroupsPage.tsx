@@ -1,890 +1,217 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useCurrency } from '../lib/CurrencyContext';
-import ReactDOM from 'react-dom';
-import { supabase } from '../lib/supabase';
-import type { ModelGroup, ModelGroupFormData } from '../types';
-import { CATEGORIES } from '../constants/categories';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ArrowDown, ArrowUp, Plus } from '../components/media/MediaIcons';
+import { MediaToaster } from '../components/media/MediaToast';
 import { Button } from '../components/media/MediaUI';
+import { CarIcon3D } from '../components/shared/Icon3D';
+import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../components/shared/FilterTile';
+import MonthNav from '../components/shared/MonthNav';
+import { LoadError, PageHeader, SearchField } from '../components/shared/PageBits';
+import { StatusImage } from '../components/shared/StatusImage';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import { useUrlSort } from '../hooks/useUrlSort';
+import { useCurrency } from '../lib/CurrencyContext';
+import { istanbulDate } from '../lib/customers';
+import { shiftCalendarMonth } from '../lib/fleetCalendar';
+import {
+  LOW_UTILIZATION,
+  MODEL_FILTERS,
+  MODEL_SORTS,
+  fetchModelGroupStats,
+  fetchModelGroups,
+  fetchPricingTiers,
+  filterCounts,
+  firstSortDirection,
+  matchesFilter,
+  matchesSearch,
+  sortGroups,
+  type ModelGroupRow,
+  type ModelGroupStats,
+  type ModelSort,
+  type PricingTier,
+} from '../lib/modelGroups';
+import { Segmented } from './bookings/ui';
+import { GroupCarsDrawer } from './modelGroups/GroupCarsDrawer';
+import { ModelGroupCard, ModelGroupCardSkeleton } from './modelGroups/ModelGroupCard';
+import { ModelGroupSheet } from './modelGroups/ModelGroupSheet';
 
-// ---------------------------------------------------------------------------
-// Constants & helpers
-// ---------------------------------------------------------------------------
+const SORT_LABELS: Record<ModelSort, string> = { utilization: 'Utilization', cars: 'Cars', price: 'Price', name: 'Name' };
 
-const EMPTY_FORM: ModelGroupFormData = {
-  name: '', brand: '', model: '',
-  category: 'Economy', transmission: 'Automatic', fuel: 'Petrol',
-  seats: 5, luggage: null, daily_km: null, monthly_km: null,
-  deposit: null, min_age: null, price: 0, image_url: null,
-};
-
-
-const CATEGORY_STYLE: Record<string, { color: string; bg: string }> = {
-  Economy: { color: '#16a34a', bg: 'rgba(22,163,74,0.10)'   },
-  Middle:  { color: '#2563eb', bg: 'rgba(37,99,235,0.10)'   },
-  Luxury:  { color: '#7c3aed', bg: 'rgba(124,58,237,0.10)'  },
-  SUV:     { color: '#d97706', bg: 'rgba(217,119,6,0.10)'   },
-  Van:     { color: '#0891b2', bg: 'rgba(8,145,178,0.10)'   },
-  Electric:{ color: '#059669', bg: 'rgba(5,150,105,0.10)'   },
-};
-
-const categoryStyle = (cat: string) =>
-  CATEGORY_STYLE[cat] ?? { color: '#6b7280', bg: '#f3f4f6' };
-
-// ---------------------------------------------------------------------------
-// Toast
-// ---------------------------------------------------------------------------
-
-interface ToastProps { message: string; type: 'success' | 'error'; }
-
-const Toast: React.FC<ToastProps> = ({ message, type }) =>
-  ReactDOM.createPortal(
-    <div style={{
-      position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
-      display: 'flex', alignItems: 'center', gap: 10,
-      background: type === 'success' ? '#0f1117' : '#ef4444',
-      color: '#fff', borderRadius: 12,
-      padding: '12px 20px', fontSize: 14, fontWeight: 500,
-      boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-      animation: 'slideUpIn 200ms ease',
-    }}>
-      {type === 'success'
-        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#4ade80" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="12" r="9" stroke="#4ade80" strokeWidth="1.8"/></svg>
-        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
-      }
-      {message}
-    </div>,
-    document.body
-  );
-
-// ---------------------------------------------------------------------------
-// Form modal
-// ---------------------------------------------------------------------------
-
-interface FormModalProps {
-  mode: 'add' | 'edit';
-  initial: ModelGroupFormData;
-  onClose: () => void;
-  onSaved: () => void;
-  editId?: number;
+interface Catalog {
+  groups: ModelGroupRow[];
+  tiers: PricingTier[];
 }
-
-const F: React.CSSProperties = {
-  width: '100%', height: 40, padding: '0 12px',
-  fontSize: 14, color: '#0f1117',
-  background: '#fff', border: '1.5px solid #e5e7eb',
-  borderRadius: 8, outline: 'none', fontFamily: 'inherit',
-  boxSizing: 'border-box', transition: 'border-color 150ms ease',
-};
-const LBL: React.CSSProperties = {
-  display: 'block', fontSize: 12, fontWeight: 600,
-  color: '#374151', marginBottom: 5, letterSpacing: '0.1px',
-};
-const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) =>
-  { (e.target as HTMLElement).style.borderColor = '#4ba6ea'; };
-const onBlur  = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) =>
-  { (e.target as HTMLElement).style.borderColor = '#e5e7eb'; };
-
-const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, editId }) => {
-  const [form, setForm]       = useState<ModelGroupFormData>(initial);
-  const [saving, setSaving]   = useState<'idle' | 'uploading' | 'saving'>('idle');
-  const [formError, setFormError] = useState<string | null>(null);
-
-  // Name auto-generate
-  const nameEditedRef = useRef(mode === 'edit' && !!initial.name);
-  const setField = (key: keyof ModelGroupFormData, value: string | number | null) =>
-    setForm(f => ({ ...f, [key]: value }));
-
-  const handleBrand = (val: string) => {
-    setField('brand', val);
-    if (!nameEditedRef.current) setForm(f => ({ ...f, brand: val, name: `${val} ${f.model}`.trim() }));
-  };
-  const handleModel = (val: string) => {
-    setField('model', val);
-    if (!nameEditedRef.current) setForm(f => ({ ...f, model: val, name: `${f.brand} ${val}`.trim() }));
-  };
-  const handleName = (val: string) => {
-    nameEditedRef.current = true;
-    setField('name', val);
-  };
-
-  // Image upload
-  const [imageFile, setImageFile]   = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(initial.image_url ?? null);
-
-  useEffect(() => {
-    if (!imageFile) return;
-    const url = URL.createObjectURL(imageFile);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [imageFile]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setFormError(null);
-
-    let imageUrl = form.image_url;
-
-    // Upload image if a new file was selected
-    if (imageFile) {
-      setSaving('uploading');
-      const fileName = `model-groups/${form.brand}-${form.model}`
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9\-]/g, '') + '.jpg';
-
-      const { error: uploadError } = await supabase.storage
-        .from('model-group')
-        .upload(fileName, imageFile, { upsert: true });
-
-      if (uploadError) {
-        setSaving('idle');
-        setFormError(`Image upload failed: ${uploadError.message}`);
-        return;
-      }
-      // The storage path is fixed per model, so the public URL alone never changes
-      // and the browser/CDN keeps serving the old file. Stamp a version on the
-      // stored image_url so every consumer of it picks up the replacement.
-      const publicUrl = supabase.storage.from('model-group').getPublicUrl(fileName).data.publicUrl;
-      imageUrl = `${publicUrl}?v=${Date.now()}`;
-    }
-
-    setSaving('saving');
-
-    const payload = {
-      ...form,
-      image_url:  imageUrl,
-      seats:      form.seats      != null ? Number(form.seats)      : null,
-      luggage:    form.luggage    != null ? Number(form.luggage)    : null,
-      daily_km:   form.daily_km   != null ? Number(form.daily_km)   : null,
-      monthly_km: form.monthly_km != null ? Number(form.monthly_km) : null,
-      deposit:    form.deposit    != null ? Number(form.deposit)    : null,
-      min_age:    form.min_age    != null ? Number(form.min_age)    : null,
-      price:      Number(form.price),
-    };
-
-    const { error } = mode === 'add'
-      ? await supabase.from('model_group').insert(payload)
-      : await supabase.from('model_group').update(payload).eq('id', editId!);
-
-    setSaving('idle');
-    if (error) { setFormError(error.message); return; }
-    onSaved();
-    onClose();
-  };
-
-  const isSaving = saving !== 'idle';
-  const saveLabel = saving === 'uploading' ? 'Uploading image…'
-                  : saving === 'saving'    ? 'Saving…'
-                  : mode === 'add'         ? 'Add Model Group'
-                  : 'Save Changes';
-
-  return ReactDOM.createPortal(
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 24, animation: 'fadeIn 150ms ease',
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: 18, width: '100%', maxWidth: 560,
-        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
-        animation: 'slideUp 180ms ease',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              {mode === 'add' ? 'Add Model Group' : 'Edit Model Group'}
-            </div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              {mode === 'add' ? 'Fill in the details to create a new model group' : 'Update the model group details'}
-            </div>
-          </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/></svg>
-          </button>
-        </div>
-
-        {/* Form body */}
-        <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
-
-            {/* Brand */}
-            <div>
-              <label style={LBL}>Brand <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="text" required value={form.brand} placeholder="e.g. Toyota"
-                onChange={e => handleBrand(e.target.value)} onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Model */}
-            <div>
-              <label style={LBL}>Model <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="text" required value={form.model} placeholder="e.g. Corolla"
-                onChange={e => handleModel(e.target.value)} onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Name — auto-generated, full width */}
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={LBL}>
-                Name <span style={{ color: '#ef4444' }}>*</span>
-                <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: 6 }}>(auto-generated)</span>
-              </label>
-              <input type="text" required value={form.name} placeholder="Auto generated (you can edit)"
-                onChange={e => handleName(e.target.value)} onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Category */}
-            <div>
-              <label style={LBL}>Category</label>
-              <select value={form.category} onChange={e => setField('category', e.target.value)}
-                onFocus={onFocus} onBlur={onBlur} style={{ ...F, cursor: 'pointer' }}>
-                {CATEGORIES.map(o => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-
-            {/* Transmission */}
-            <div>
-              <label style={LBL}>Transmission</label>
-              <select value={form.transmission} onChange={e => setField('transmission', e.target.value)}
-                onFocus={onFocus} onBlur={onBlur} style={{ ...F, cursor: 'pointer' }}>
-                {['Automatic', 'Manual'].map(o => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-
-            {/* Fuel */}
-            <div>
-              <label style={LBL}>Fuel</label>
-              <select value={form.fuel} onChange={e => setField('fuel', e.target.value)}
-                onFocus={onFocus} onBlur={onBlur} style={{ ...F, cursor: 'pointer' }}>
-                {['Petrol', 'Diesel', 'Hybrid', 'Electric', 'Other'].map(o => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-
-            {/* Seats */}
-            <div>
-              <label style={LBL}>Seats</label>
-              <input type="number" min="1" placeholder="5"
-                value={form.seats != null ? String(form.seats) : ''}
-                onChange={e => setField('seats', e.target.value === '' ? null : Number(e.target.value))}
-                onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Luggage */}
-            <div>
-              <label style={LBL}>Luggage</label>
-              <input type="number" min="0" placeholder="e.g. 2"
-                value={form.luggage != null ? String(form.luggage) : ''}
-                onChange={e => setField('luggage', e.target.value === '' ? null : Number(e.target.value))}
-                onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Daily KM */}
-            <div>
-              <label style={LBL}>Daily KM</label>
-              <input type="number" min="0" placeholder="e.g. 300"
-                value={form.daily_km != null ? String(form.daily_km) : ''}
-                onChange={e => setField('daily_km', e.target.value === '' ? null : Number(e.target.value))}
-                onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Monthly KM */}
-            <div>
-              <label style={LBL}>Monthly KM</label>
-              <input type="number" min="0" placeholder="e.g. 6000"
-                value={form.monthly_km != null ? String(form.monthly_km) : ''}
-                onChange={e => setField('monthly_km', e.target.value === '' ? null : Number(e.target.value))}
-                onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Deposit */}
-            <div>
-              <label style={LBL}>Deposit (USD)</label>
-              <input type="number" min="0" step="0.01" placeholder="e.g. 500"
-                value={form.deposit != null ? String(form.deposit) : ''}
-                onChange={e => setField('deposit', e.target.value === '' ? null : Number(e.target.value))}
-                onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Min Age */}
-            <div>
-              <label style={LBL}>Min Age</label>
-              <input type="number" min="18" max="99" placeholder="e.g. 21"
-                value={form.min_age != null ? String(form.min_age) : ''}
-                onChange={e => setField('min_age', e.target.value === '' ? null : Number(e.target.value))}
-                onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Price — full width */}
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={LBL}>Price (USD $) <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="number" min="0" step="0.01" required placeholder="e.g. 49.00"
-                value={form.price != null ? String(form.price) : ''}
-                onChange={e => setField('price', e.target.value === '' ? 0 : Number(e.target.value))}
-                onFocus={onFocus} onBlur={onBlur} style={F} />
-            </div>
-
-            {/* Image upload — full width */}
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={LBL}>Car Image</label>
-
-              {/* Preview */}
-              {previewUrl && (
-                <div style={{ position: 'relative', marginBottom: 10 }}>
-                  <img src={previewUrl} alt="Preview"
-                    style={{ width: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'block' }} />
-                  <button type="button" onClick={() => { setImageFile(null); setPreviewUrl(null); setField('image_url', null); }}
-                    style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                  </button>
-                </div>
-              )}
-
-              {/* Drop zone */}
-              <label style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                padding: '14px 12px', border: '1.5px dashed #d1d5db', borderRadius: 9,
-                cursor: 'pointer', background: '#fafafa',
-                transition: 'border-color 140ms ease, background 140ms ease',
-              }}
-                onMouseEnter={e => { const l = e.currentTarget; l.style.borderColor = '#4ba6ea'; l.style.background = 'rgba(75,166,234,0.04)'; }}
-                onMouseLeave={e => { const l = e.currentTarget; l.style.borderColor = '#d1d5db'; l.style.background = '#fafafa'; }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af' }}>
-                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.6"/>
-                  <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
-                  <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
-                  {previewUrl ? 'Click to replace image' : 'Click to upload image'}
-                </span>
-                <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WEBP</span>
-                <input type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) setImageFile(f); e.target.value = ''; }} />
-              </label>
-            </div>
-
-          </div>
-
-          {formError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              <span style={{ fontSize: 13, color: '#ef4444' }}>{formError}</span>
-            </div>
-          )}
-
-          {/* Footer */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
-            <button type="button" onClick={onClose} disabled={isSaving}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #EBEBEB', background: '#fff', fontSize: 14, fontWeight: 500, color: 'var(--foreground)', cursor: isSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
-              onMouseEnter={e => { if (!isSaving) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#EBEBEB'; }}
-            >
-              Cancel
-            </button>
-            <Button
-              type="submit"
-              disabled={isSaving}
-              style={{ padding: '9px 22px', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}
-            >
-              {isSaving && (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
-                </svg>
-              )}
-              {saveLabel}
-            </Button>
-          </div>
-        </form>
-      </div>
-
-      <style>{`
-        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-        @keyframes slideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes slideUpIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes spin    { to{transform:rotate(360deg)} }
-      `}</style>
-    </div>,
-    document.body
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Row skeleton
-// ---------------------------------------------------------------------------
-
-const SkeletonRow: React.FC = () => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '16px 20px', minHeight: 100, borderBottom: '1px solid #f5f5f5' }}>
-    <div style={{ width: 160, height: 96, borderRadius: 8, background: '#f3f4f6', flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }} />
-    <div style={{ flex: '0 0 210px' }}>
-      <div style={{ width: 130, height: 14, borderRadius: 5, background: '#f3f4f6', marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
-      <div style={{ width: 90, height: 11, borderRadius: 5, background: '#f3f4f6', marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
-      <div style={{ width: 60, height: 18, borderRadius: 20, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-    </div>
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {[50, 52, 70].map((w, i) => (
-          <div key={i} style={{ width: w, height: 20, borderRadius: 20, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-        ))}
-      </div>
-      <div style={{ width: 70, height: 13, borderRadius: 5, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-    </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-      <div style={{ width: 62, height: 24, borderRadius: 20, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-      <div style={{ width: 34, height: 34, borderRadius: 9, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-    </div>
-  </div>
-);
-
-// ---------------------------------------------------------------------------
-// Model group row
-// ---------------------------------------------------------------------------
-
-interface RowProps {
-  group: ModelGroup;
-  onEdit: () => void;
-  onImageUpdated: (id: number, newUrl: string) => void;
-  showToast: (message: string, type: 'success' | 'error') => void;
-}
-
-const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit, onImageUpdated, showToast }) => {
-  const { fmtUSD } = useCurrency();
-  const [hovered, setHovered] = useState(false);
-  const [imgHovered, setImgHovered] = useState(false);
-  const [imgError, setImgError] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(group.image_url ?? null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cat = categoryStyle(group.category);
-
-  const resolveFilename = (newFile: File): string => {
-    const newExt = newFile.name.includes('.') ? newFile.name.split('.').pop()! : 'jpg';
-    if (currentImageUrl) {
-      try {
-        const pathname = new URL(currentImageUrl.split('?')[0]).pathname;
-        const existing = pathname.split('/').pop() ?? '';
-        const base = existing.replace(/\.[^.]+$/, '');
-        if (base) return `${base}.${newExt}`;
-      } catch { /* fallthrough */ }
-    }
-    const slug = group.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    return `${slug}.${newExt}`;
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      showToast('Please select a valid image file.', 'error');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('Image must be under 5 MB.', 'error');
-      return;
-    }
-
-    setImageUploading(true);
-    const filename = resolveFilename(file);
-
-    const { error: uploadError } = await supabase.storage
-      .from('model-group')
-      .upload(`model-groups/${filename}`, file, {
-        upsert: true,
-        cacheControl: '3600',
-        contentType: file.type,
-      });
-
-    if (uploadError) {
-      setImageUploading(false);
-      showToast(`Upload failed: ${uploadError.message}`, 'error');
-      return;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('model-group')
-      .getPublicUrl(`model-groups/${filename}`);
-    const cacheBustedUrl = `${urlData.publicUrl}?v=${Date.now()}`;
-
-    const { error: dbError } = await supabase
-      .from('model_group')
-      .update({ image_url: cacheBustedUrl })
-      .eq('id', group.id);
-
-    setImageUploading(false);
-
-    if (dbError) {
-      showToast(`Failed to save: ${dbError.message}`, 'error');
-      return;
-    }
-
-    setCurrentImageUrl(cacheBustedUrl);
-    setImgError(false);
-    onImageUpdated(group.id, cacheBustedUrl);
-    showToast('Image updated', 'success');
-  };
-
-  const specs = [
-    group.seats != null ? `${group.seats} seats` : null,
-    group.fuel          ? group.fuel              : null,
-    group.transmission  ? group.transmission      : null,
-  ].filter(Boolean) as string[];
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 20,
-        padding: '16px 20px',
-        minHeight: 100,
-        background: hovered ? '#fafbfc' : '#fff',
-        borderBottom: '1px solid #f5f5f5',
-        transition: 'background 120ms ease',
-      }}
-    >
-      {/* Image — clickable upload zone */}
-      <div
-        style={{ position: 'relative', width: 160, height: 96, flexShrink: 0, cursor: 'pointer', borderRadius: 8, overflow: 'hidden' }}
-        onMouseEnter={() => setImgHovered(true)}
-        onMouseLeave={() => setImgHovered(false)}
-        onClick={() => !imageUploading && fileInputRef.current?.click()}
-        title="Click to change image"
-      >
-        {currentImageUrl && !imgError ? (
-          <img
-            src={currentImageUrl}
-            alt={group.name}
-            onError={() => setImgError(true)}
-            style={{ width: 160, height: 96, objectFit: 'contain', objectPosition: 'center', display: 'block' }}
-          />
-        ) : (
-          <div style={{ width: 160, height: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="11" width="14" height="10" rx="2" stroke="#d1d5db" strokeWidth="1.5"/>
-              <circle cx="12" cy="16" r="1" fill="#d1d5db"/>
-              <circle cx="20" cy="16" r="1" fill="#d1d5db"/>
-            </svg>
-          </div>
-        )}
-
-        {/* Hover / loading overlay */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'rgba(0,0,0,0.48)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
-          opacity: imgHovered || imageUploading ? 1 : 0,
-          transition: 'opacity 150ms ease',
-          pointerEvents: 'none',
-        }}>
-          {imageUploading ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
-              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2.5" strokeDasharray="28 56"/>
-            </svg>
-          ) : (
-            <>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="1.8"/>
-              </svg>
-              <span style={{ fontSize: 10, fontWeight: 600, color: '#fff', letterSpacing: '0.3px' }}>Change image</span>
-            </>
-          )}
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-      </div>
-
-      {/* Identity */}
-      <div style={{ flex: '0 0 210px', minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', letterSpacing: '-0.2px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {group.name}
-        </div>
-        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 7 }}>
-          {group.brand} · {group.model}
-        </div>
-        <span style={{
-          display: 'inline-block', fontSize: 10.5, fontWeight: 600,
-          color: cat.color, background: cat.bg,
-          borderRadius: 20, padding: '2px 9px', letterSpacing: '0.2px',
-        }}>
-          {group.category}
-        </span>
-      </div>
-
-      {/* Specs + price */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {specs.map((s, i) => (
-            <span key={i} style={{ fontSize: 11, fontWeight: 500, color: '#6b7280', background: '#f3f4f6', borderRadius: 20, padding: '3px 9px', whiteSpace: 'nowrap' }}>
-              {s}
-            </span>
-          ))}
-        </div>
-        <div>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#3A74C2' }}>{fmtUSD(group.price)}</span>
-          <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 2 }}>/day</span>
-        </div>
-      </div>
-
-      {/* Cars count + edit */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <span style={{
-          fontSize: 11, fontWeight: 600,
-          color: '#3A74C2', background: 'rgba(75,166,234,0.10)',
-          borderRadius: 20, padding: '4px 12px', whiteSpace: 'nowrap',
-        }}>
-          {group.total_cars ?? 0} cars
-        </span>
-        <button
-          onClick={e => { e.stopPropagation(); onEdit(); }}
-          aria-label="Edit"
-          style={{
-            width: 34, height: 34, borderRadius: 9,
-            border: '1px solid #e5e7eb',
-            background: hovered ? '#fff' : '#f9fafb',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', color: '#6b7280',
-            transition: 'all 140ms ease', flexShrink: 0,
-          }}
-          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.06)'; }}
-          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = hovered ? '#fff' : '#f9fafb'; }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 const ModelGroupsPage: React.FC = () => {
-  const [groups, setGroups]         = useState<ModelGroup[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [modal, setModal]           = useState<null | { mode: 'add'; category?: string } | { mode: 'edit'; group: ModelGroup }>(null);
-  const [toast, setToast]           = useState<null | { message: string; type: 'success' | 'error' }>(null);
-  const toastTimer                  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { rates } = useCurrency();
+  const usdRate = rates.find((rate) => rate.currency === 'USD')?.rate_to_try ?? null;
+  const [params, setParams] = useSearchParams();
+  const thisMonth = istanbulDate().slice(0, 7);
+  const requested = params.get('month');
+  const month = requested && /^\d{4}-\d{2}$/.test(requested) ? requested : thisMonth;
+  const monthLabel = new Date(`${month}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast({ message, type });
-    toastTimer.current = setTimeout(() => setToast(null), 3200);
-  };
+  const { filter, toggle, clear } = useUrlFilter(MODEL_FILTERS);
+  const sort = useUrlSort(MODEL_SORTS, { key: 'utilization', direction: 'desc' }, firstSortDirection);
+  const [query, setQuery] = useState('');
 
-  const fetchGroups = async () => {
-    setLoading(true);
-    setError(null);
-    const { data, error: fetchError } = await supabase
-      .from('model_group')
-      .select('id, name, brand, model, category, transmission, fuel, seats, luggage, daily_km, monthly_km, deposit, min_age, price, total_cars, image_url')
-      .order('name', { ascending: true });
-    setLoading(false);
-    if (fetchError) { setError(fetchError.message); return; }
-    setGroups((data ?? []) as ModelGroup[]);
-  };
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ month: string; rows: Map<number, ModelGroupStats> } | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const [editing, setEditing] = useState<{ group: ModelGroupRow | null } | null>(null);
+  const [viewing, setViewing] = useState<ModelGroupRow | null>(null);
+
+  // The groups and tiers don't depend on the month; the figures do. Both start together.
+  useEffect(() => {
+    let active = true;
+    setCatalogError(null);
+    Promise.all([fetchModelGroups(), fetchPricingTiers()])
+      .then(([groups, tiers]) => { if (active) setCatalog({ groups, tiers }); })
+      .catch((reason: unknown) => { if (active) setCatalogError(reason instanceof Error ? reason.message : String(reason)); });
+    return () => { active = false; };
+  }, [reload]);
 
   useEffect(() => {
     let active = true;
-    supabase
-      .from('model_group')
-      .select('id, name, brand, model, category, transmission, fuel, seats, luggage, daily_km, monthly_km, deposit, min_age, price, total_cars, image_url')
-      .order('name', { ascending: true })
-      .then(({ data, error: fetchError }) => {
-        if (!active) return;
-        setLoading(false);
-        if (fetchError) { setError(fetchError.message); return; }
-        setGroups((data ?? []) as ModelGroup[]);
-      });
+    setStatsError(null);
+    fetchModelGroupStats(month)
+      .then((rows) => { if (active) setStats({ month, rows }); })
+      .catch((reason: unknown) => { if (active) setStatsError(reason instanceof Error ? reason.message : String(reason)); });
     return () => { active = false; };
-  }, []);
+  }, [month, reload]);
 
-  const handleSaved = () => {
-    showToast(modal?.mode === 'add' ? 'Model group added successfully' : 'Changes saved', 'success');
-    fetchGroups();
+  const refresh = useCallback(() => setReload((value) => value + 1), []);
+
+  const setMonth = (next: string) => {
+    const updated = new URLSearchParams(params);
+    if (next === thisMonth) updated.delete('month'); else updated.set('month', next);
+    setParams(updated);
   };
 
-  const handleImageUpdated = (id: number, newUrl: string) => {
-    setGroups(prev => prev.map(g => g.id === id ? { ...g, image_url: newUrl } : g));
-  };
+  const statRows = useMemo(() => stats?.rows ?? new Map<number, ModelGroupStats>(), [stats]);
+  const statsReady = stats?.month === month;
+  const groups = useMemo(() => catalog?.groups ?? [], [catalog]);
+  const counts = useMemo(() => filterCounts(groups, statRows), [groups, statRows]);
+  const totalCars = useMemo(() => groups.reduce((sum, group) => sum + (statRows.get(group.id)?.cars_total ?? 0), 0), [groups, statRows]);
+  const visible = useMemo(
+    () => sortGroups(groups.filter((group) => matchesFilter(group, statRows.get(group.id), filter) && matchesSearch(group, query)), statRows, sort.key, sort.direction),
+    [groups, statRows, filter, query, sort.key, sort.direction],
+  );
+
+  const loading = catalog === null && !catalogError;
+  const SortArrow = sort.direction === 'asc' ? ArrowUp : ArrowDown;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 36 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Fleet</span>
+    <div className="media-scope mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+      <MediaToaster />
+      <PageHeader
+        eyebrow="Fleet"
+        title="Model Groups"
+        subtitle={catalog ? `${groups.length} ${groups.length === 1 ? 'model group' : 'model groups'} · ${totalCars} ${totalCars === 1 ? 'car' : 'cars'} · figures for ${monthLabel}` : `Figures for ${monthLabel}`}
+        action={(
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <MonthNav label={monthLabel} justify="flex-end" onPrev={() => setMonth(shiftCalendarMonth(month, -1))} onNext={() => setMonth(shiftCalendarMonth(month, 1))} />
+            {month !== thisMonth && <Button variant="outline" size="lg" className="!h-11 px-3 md:!h-9" onClick={() => setMonth(thisMonth)}>This month</Button>}
+            <Button size="lg" className="!h-11 px-4 md:!h-9" onClick={() => setEditing({ group: null })}>
+              <Plus size={15} /> New model group
+            </Button>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
-            Model Groups
-          </h1>
-          <p style={{ fontSize: 15, color: '#6b7280' }}>
-            {loading ? 'Loading…' : `${groups.length} model group${groups.length !== 1 ? 's' : ''}`}
-          </p>
-        </div>
-        <Button
-          onClick={() => setModal({ mode: 'add' })}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 20px', fontSize: 14, fontFamily: 'inherit' }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
-          </svg>
-          Add Model Group
-        </Button>
-      </div>
+        )}
+      />
 
-      {/* Error */}
-      {error && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid rgba(239,68,68,0.2)', borderLeft: '4px solid #ef4444', borderRadius: 12, padding: '14px 18px', marginBottom: 28, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
-            <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 2 }}>Failed to load model groups</div>
-            <div style={{ fontSize: 13, color: '#6b7280' }}>{error}</div>
+      {catalogError ? (
+        <LoadError message={`Couldn't load the model groups: ${catalogError}`} onRetry={refresh} />
+      ) : loading ? (
+        <>
+          <FilterTileSkeleton count={4} />
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }, (_, index) => <ModelGroupCardSkeleton key={index} />)}
           </div>
-        </div>
-      )}
+        </>
+      ) : (
+        <>
+          <FilterTileRow label="Filter the model groups">
+            <FilterTile mono tone="blue" bareIcon icon={<StatusImage status="fleet" size={56} />} label="All models" value={String(groups.length)} sub={`${totalCars} ${totalCars === 1 ? 'car' : 'cars'}`} active={filter === 'all'} onClick={clear} />
+            <FilterTile mono tone="green" bareIcon icon={<StatusImage status="working" size={56} />} label="Fully rented now" value={statsReady || stats ? String(counts.rented) : '…'} sub="every active car out" active={filter === 'rented'} onClick={() => toggle('rented')} />
+            <FilterTile mono tone="amber" bareIcon icon={<StatusImage status="parking" size={56} />} label="Low utilization" value={statsReady ? String(counts.low) : '…'} sub={`below ${LOW_UTILIZATION}% in ${monthLabel.split(' ')[0]}`} active={filter === 'low'} onClick={() => toggle('low')} />
+            <FilterTile mono tone="slate" bareIcon icon={<CarIcon3D name="photos" size={52} />} label="No image" value={String(counts.noimage)} sub={counts.noimage === 1 ? 'group to finish' : 'groups to finish'} active={filter === 'noimage'} onClick={() => toggle('noimage')} />
+          </FilterTileRow>
 
-      {/* Row list — grouped by category */}
-      {loading && (
-        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
-        </div>
-      )}
-
-      {!loading && !error && CATEGORIES.map(category => {
-        const section = groups
-          .filter(g => g.category === category)
-          .sort((a, b) => a.name.localeCompare(b.name));
-        const isEmpty = section.length === 0;
-        const cat = categoryStyle(category);
-        return (
-          <div key={category} style={{ marginBottom: 28 }}>
-            {/* Sticky section header */}
-            <div style={{
-              position: 'sticky', top: 0, zIndex: 10,
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 0 10px',
-              background: 'var(--surface)',
-            }}>
-              <span style={{
-                fontSize: 11.5, fontWeight: 600,
-                color: cat.color, background: cat.bg,
-                borderRadius: 20, padding: '4px 12px',
-                letterSpacing: '0.3px',
-              }}>
-                {category}
-              </span>
-              <span style={{ fontSize: 12.5, color: isEmpty ? '#d1d5db' : '#c0c4cc' }}>
-                {section.length} model{section.length !== 1 ? 's' : ''}
-              </span>
-              <div style={{ flex: 1, height: 1, background: '#ebebeb' }} />
+          {statsError && (
+            <div className="mt-4">
+              <LoadError message={`Couldn't load the figures for ${monthLabel}: ${statsError}`} onRetry={refresh} />
             </div>
+          )}
 
-            {isEmpty ? (
-              /* Empty state */
-              <div style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: 10, padding: '32px 20px',
-                border: '1.5px dashed #e5e7eb', borderRadius: 16,
-                background: 'var(--surface)',
-              }}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                  <rect x="2" y="7" width="20" height="14" rx="2" stroke="#d1d5db" strokeWidth="1.6"/>
-                  <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#d1d5db" strokeWidth="1.6" strokeLinecap="round"/>
-                  <path d="M12 12v4M10 14h4" stroke="#d1d5db" strokeWidth="1.6" strokeLinecap="round"/>
-                </svg>
-                <span style={{ fontSize: 13, color: '#9ca3af' }}>No models in this category yet</span>
-                <button
-                  onClick={() => setModal({ mode: 'add', category })}
-                  style={{
-                    marginTop: 2, padding: '6px 16px',
-                    fontSize: 12.5, fontWeight: 600, color: '#3A74C2',
-                    background: 'rgba(75,166,234,0.08)', border: '1px solid rgba(75,166,234,0.25)',
-                    borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-                    transition: 'background 140ms ease, border-color 140ms ease',
-                  }}
-                  onMouseEnter={e => { const b = e.currentTarget; b.style.background = 'rgba(75,166,234,0.14)'; b.style.borderColor = 'rgba(75,166,234,0.5)'; }}
-                  onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'rgba(75,166,234,0.08)'; b.style.borderColor = 'rgba(75,166,234,0.25)'; }}
-                >
-                  + Add a model
-                </button>
-              </div>
-            ) : (
-              /* Rows container */
-              <div style={{
-                background: 'var(--surface)',
-                borderRadius: 16,
-                border: '1px solid var(--border-subtle)',
-                overflow: 'hidden',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-              }}>
-                {section.map((group, idx) => (
-                  <div key={group.id} style={{ borderBottom: idx < section.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
-                    <ModelGroupRow
-                      group={group}
-                      onEdit={() => setModal({ mode: 'edit', group })}
-                      onImageUpdated={handleImageUpdated}
-                      showToast={showToast}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="mb-4 mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <SearchField value={query} onChange={setQuery} placeholder="Search name or brand" className="w-full sm:w-[320px]" />
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <span className="shrink-0 text-[12.5px] text-black/45">Sort</span>
+              <Segmented
+                ariaLabel="Sort model groups"
+                value={sort.key}
+                onChange={sort.sortBy}
+                options={MODEL_SORTS.map((value) => ({ value, label: SORT_LABELS[value] }))}
+              />
+              <button
+                type="button"
+                onClick={sort.reverse}
+                aria-label={sort.direction === 'asc' ? 'Ascending, click for descending' : 'Descending, click for ascending'}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-black/50 hover:bg-black/[0.05] md:h-9 md:w-9"
+              >
+                <SortArrow size={15} />
+              </button>
+            </div>
           </div>
-        );
-      })}
 
-      {/* Modals */}
-      {modal && (
-        <FormModal
-          mode={modal.mode}
-          initial={modal.mode === 'edit' ? { ...modal.group } : { ...EMPTY_FORM, ...(modal.category ? { category: modal.category } : {}) }}
-          editId={modal.mode === 'edit' ? modal.group.id : undefined}
-          onClose={() => setModal(null)}
-          onSaved={handleSaved}
+          {visible.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-black/[0.12] px-6 py-14 text-center">
+              <StatusImage status="parking" size={96} />
+              <p className="text-[15px] font-medium text-foreground">{groups.length === 0 ? 'No model groups yet' : 'No model group matches'}</p>
+              <p className="max-w-[340px] text-[13px] text-black/50">
+                {groups.length === 0 ? 'Add the first one to start grouping cars by model.' : 'Try another search, or clear the filter.'}
+              </p>
+              {groups.length === 0 ? (
+                <Button size="lg" className="mt-2 !h-11 px-4 md:!h-9" onClick={() => setEditing({ group: null })}><Plus size={15} /> New model group</Button>
+              ) : (
+                <Button variant="outline" size="lg" className="mt-2 !h-11 px-4 md:!h-9" onClick={() => { setQuery(''); clear(); }}>Show all</Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {visible.map((group) => (
+                <ModelGroupCard
+                  key={group.id}
+                  group={group}
+                  stats={statRows.get(group.id)}
+                  statsReady={statsReady}
+                  tiers={catalog?.tiers ?? []}
+                  usdRate={usdRate}
+                  monthLabel={monthLabel}
+                  onEdit={() => setEditing({ group })}
+                  onViewCars={() => setViewing(group)}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {editing && catalog && (
+        <ModelGroupSheet
+          key={editing.group?.id ?? 'new'}
+          group={editing.group}
+          tiers={catalog.tiers}
+          usdRate={usdRate}
+          onClose={() => setEditing(null)}
+          onSaved={refresh}
         />
       )}
-
-      {toast && <Toast message={toast.message} type={toast.type} />}
-
-      <style>{`
-        @keyframes pulse      { 0%,100%{opacity:1} 50%{opacity:0.45} }
-        @keyframes fadeIn     { from{opacity:0} to{opacity:1} }
-        @keyframes slideUp    { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes slideUpIn  { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
-      `}</style>
+      {viewing && (
+        <GroupCarsDrawer group={viewing} stats={statRows.get(viewing.id)} month={month} monthLabel={monthLabel} onClose={() => setViewing(null)} />
+      )}
     </div>
   );
 };
