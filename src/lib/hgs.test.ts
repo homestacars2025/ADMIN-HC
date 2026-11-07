@@ -245,13 +245,13 @@ describe('the export', () => {
     bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null, ...over,
   });
 
-  it('writes Date, Time, Entry, Exit, Toll, Amount in Istanbul time, quoting what needs it', () => {
+  it('writes Date, Time, Entry, Exit, Toll road, Amount oldest first, in Istanbul time, quoting what needs it', () => {
     const csv = hgsCsv([row({}), row({ id: 2, day: '2026-11-02', at: '2026-11-01T22:30:00+00:00', entry: null, exit: 'FENERTEPE', road: 'KCO, GECIS', amount: 96 })]);
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     expect(csv.slice(1).split('\r\n')).toEqual([
-      'Date,Time,Entry,Exit,Toll,Amount',
-      '2026-11-03,14:04,ORHANLI,KURTKÖY SGS,İSTANBUL-ANKARA OTOYOLU,148.50',
+      'Date,Time,Entry,Exit,Toll road,Amount (TRY)',
       '2026-11-02,01:30,,FENERTEPE,"KCO, GECIS",96.00',
+      '2026-11-03,14:04,ORHANLI,KURTKÖY SGS,İSTANBUL-ANKARA OTOYOLU,148.50',
       '',
     ]);
   });

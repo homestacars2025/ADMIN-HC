@@ -513,14 +513,17 @@ function csvCell(value: string): string {
 }
 
 /**
- * One car's transits in the order the page lists them: Date, Time (Istanbul), Entry, Exit,
- * Toll, Amount. A single gate has only an exit, as on the page.
+ * One car's transits, oldest first as on a statement: Date, Time (Istanbul), Entry, Exit,
+ * Toll road, Amount. A single gate has only an exit, as on the page. Team writes the same.
  */
 export function hgsCsv(rows: HgsTransitDetail[]): string {
-  const lines = rows.map((transit) => [transit.day, formatTime(transit.at), transit.entry ?? '', transit.exit ?? '', transit.road ?? '']
-    .map(csvCell).concat(transit.amount.toFixed(2)).join(','));
+  const stamp = (transit: HgsTransitDetail) => (transit.at ? Date.parse(transit.at) || 0 : 0);
+  const lines = [...rows]
+    .sort((a, b) => a.day.localeCompare(b.day) || stamp(a) - stamp(b) || a.id - b.id)
+    .map((transit) => [transit.day, formatTime(transit.at), transit.entry ?? '', transit.exit ?? '', transit.road ?? '']
+      .map(csvCell).concat(transit.amount.toFixed(2)).join(','));
   // The byte-order mark makes Excel read the Turkish letters as UTF-8.
-  return `﻿${['Date,Time,Entry,Exit,Toll,Amount', ...lines].join('\r\n')}\r\n`;
+  return `\uFEFF${['Date,Time,Entry,Exit,Toll road,Amount (TRY)', ...lines].join('\r\n')}\r\n`;
 }
 
 export function hgsCsvName(plate: string, window: HgsWindow): string {

@@ -279,7 +279,7 @@ describe('ranges of days', () => {
       reader.onload = () => resolve(String(reader.result));
       reader.readAsText(created[0]);
     });
-    expect(text).toContain('Date,Time,Entry,Exit,Toll,Amount');
+    expect(text).toContain('Date,Time,Entry,Exit,Toll road,Amount (TRY)');
     expect(text).toContain(`${month}-03,14:04,,FENERTEPE,KCO GECIS UCRET,96.00`);
     click.mockRestore();
   });
