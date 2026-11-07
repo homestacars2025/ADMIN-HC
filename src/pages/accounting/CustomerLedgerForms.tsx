@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Button } from '../../components/media/MediaUI';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
+import { brandImgHtml, writeBrandedDocument } from '../../lib/brand';
 import { useCurrency } from '../../lib/CurrencyContext';
 import { groupInvoiceEntries } from '../../lib/customerWallet';
 import { envelopeReceipt, equivalentLabel, NEW_PAYMENT, paymentProblem, recordCustomerPayment, showEnvelopes, type PaymentChoice } from '../../lib/payments';
@@ -104,7 +105,7 @@ export function printLedgerInvoice(cust: InvoiceCustomer, car: InvoiceCar | null
   const html = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8">
-<title>Invoice ${invNum} — HomestaCars</title>
+<title>Invoice ${invNum} — Homesta Cars</title>
 <style>
 ${standaloneFontCss()}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -113,14 +114,12 @@ body{font-family:var(--font-sans);background:#f0f2f5;color:#0f1117;-webkit-print
 .print-btn{padding:11px 32px;background:#4ba6ea;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;box-shadow:0 4px 12px rgba(75,166,234,.35)}
 .print-btn:hover{background:#3a95d9}
 .page{max-width:800px;margin:0 auto 48px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.10)}
-.hdr{background:linear-gradient(135deg,#0d1117 0%,#1c2a3a 100%);padding:40px 48px;display:flex;justify-content:space-between;align-items:flex-start}
-.brand-name{font-size:24px;font-weight:600;color:#fff;letter-spacing:-.5px}
-.brand-dot{color:#4ba6ea}
-.brand-tag{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:2px;margin-top:5px}
+.hdr{background:#fff;padding:36px 48px 32px;display:flex;justify-content:space-between;align-items:flex-start}
+.brand-tag{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;padding-left:7px}
 .inv-meta{text-align:right}
 .inv-label{font-size:10px;font-weight:600;color:#4ba6ea;text-transform:uppercase;letter-spacing:2px}
-.inv-number{font-size:28px;font-weight:600;color:#fff;margin-top:4px;letter-spacing:-.5px}
-.inv-date{font-size:12px;color:rgba(255,255,255,.45);margin-top:5px}
+.inv-number{font-size:28px;font-weight:600;color:#0f1117;margin-top:4px;letter-spacing:-.5px}
+.inv-date{font-size:12px;color:#6b7280;margin-top:5px}
 .accent{height:3px;background:linear-gradient(90deg,#4ba6ea 0%,#93d2ff 100%)}
 .body{padding:40px 48px}
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:36px}
@@ -146,7 +145,6 @@ td:last-child{text-align:right;font-weight:600;color:#0f1117;font-family:var(--f
 .t-row.balance .t-lbl{font-weight:600;font-size:14px;color:#0f1117}
 .t-row.balance .t-val{font-weight:600;font-size:16px;color:#4ba6ea}
 .footer{padding:22px 48px;background:#f8f9fb;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f0f0f0}
-.footer-brand{font-size:14px;font-weight:600;color:#0f1117}
 .footer-info{font-size:11px;color:#9ca3af;line-height:1.9;text-align:right}
 .hgs-toggle{display:inline-flex;align-items:center;gap:8px;margin-left:16px;font-size:13px;color:#374151;cursor:pointer;vertical-align:middle}
 .hgs-toggle input{width:16px;height:16px;accent-color:#4ba6ea}
@@ -163,7 +161,7 @@ td:last-child{text-align:right;font-weight:600;color:#0f1117;font-family:var(--f
 <div class="page">
 <div class="hdr">
   <div>
-    <div class="brand-name">Homesta<span class="brand-dot">Cars</span></div>
+    ${brandImgHtml('wordmarkLight', '36px')}
     <div class="brand-tag">Premium Car Rental · Istanbul</div>
   </div>
   <div class="inv-meta">
@@ -204,7 +202,7 @@ td:last-child{text-align:right;font-weight:600;color:#0f1117;font-family:var(--f
   </div>
 </div>
 <div class="footer">
-  <div class="footer-brand">HomestaCars</div>
+  ${brandImgHtml('icon', '28px')}
   <div class="footer-info">
     Şişli &amp; Kayaşehir, Istanbul, Turkey<br>
     Premium Car Rental Since 2025<br>
@@ -213,8 +211,9 @@ td:last-child{text-align:right;font-weight:600;color:#0f1117;font-family:var(--f
 </div>
 </div>
 </body></html>`;
+  // Opened inside the click, before the logo is embedded, or the browser blocks it.
   const win = window.open('', '_blank', 'width=920,height=780');
-  if (win) { win.document.write(html); win.document.close(); }
+  if (win) void writeBrandedDocument(win, html);
 }
 
 const TX_TYPE_PRESETS = ['deposit', 'rental', 'payment', 'hgs', 'delivery'] as const;

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { brandImgHtml, writeBrandedDocument } from '../lib/brand';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
@@ -449,7 +450,8 @@ const KGMPage: React.FC = () => {
       <div style="font-size:22px;font-weight:600;color:#0f1117;letter-spacing:-0.5px">KGM Daily Report</div>
       <div style="font-size:12px;color:#6b7280;margin-top:4px">Generated: ${generatedAt}</div>
     </div>
-    <div style="text-align:right">
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      ${brandImgHtml('wordmarkLight', '30px')}
       <div style="font-size:16px;font-weight:600;color:#0f1117">${formatDate(selectedDate)}</div>
     </div>
   </div>
@@ -487,8 +489,9 @@ const KGMPage: React.FC = () => {
       </tr>
     </tfoot>
   </table>
-  <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;color:#9ca3af">
-    Homesta Cars - KGM Toll Management System
+  <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#9ca3af">
+    ${brandImgHtml('icon', '18px')}
+    <span>Homesta Cars · KGM Toll Management System</span>
   </div>
   <script>
     window.onload = function() {
@@ -501,10 +504,10 @@ const KGMPage: React.FC = () => {
 </body>
 </html>`;
 
+    // Opened inside the click, before the logo is embedded, or the browser blocks it.
     const win = window.open('', '_blank', 'width=1100,height=800');
     if (!win) return;
-    win.document.write(html);
-    win.document.close();
+    void writeBrandedDocument(win, html);
   };
 
   return (

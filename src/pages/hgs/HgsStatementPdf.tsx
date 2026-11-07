@@ -1,5 +1,6 @@
 import React from 'react';
-import { Document, Font, Page, Path, StyleSheet, Svg, Text, View, pdf } from '@react-pdf/renderer';
+import { Document, Font, Image, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer';
+import { WORDMARK_RATIO, brandDataUrl, brandSrc, type BrandAsset } from '../../lib/brand';
 import { statementCount, statementDay, statementMoney, type StatementInput, type StatementLine } from '../../lib/hgsStatement';
 import { isRtl, STATEMENT_TEXT, type StatementText } from '../../lib/hgsStatementText';
 
@@ -77,18 +78,14 @@ const columnStyle = (key: ColumnKey) => {
   return 'grow' in column ? { flexGrow: 1, flexBasis: 0 } : { width: column.width };
 };
 
-/** The Homesta arch and wordmark, always left to right. */
-const Logo: React.FC = () => (
-  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-    <Svg viewBox="0 0 120 120" width={30} height={30}>
-      <Path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100" stroke={BRAND} strokeWidth={14} strokeLinecap="round" fill="none" />
-    </Svg>
-    <View style={{ marginLeft: 8 }}>
-      <Text style={{ fontSize: 15, fontWeight: 500, letterSpacing: -0.6, lineHeight: 0.95, color: INK }}>homesta</Text>
-      <Text style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: -0.35, color: BRAND, marginTop: 1 }}>cars</Text>
-    </View>
-  </View>
-);
+/** The official logo files, embedded as base64 PNG data URLs. */
+export interface StatementBrand {
+  wordmark: string;
+  icon: string;
+}
+
+const WORDMARK_HEIGHT = 30;
+const FOOTER_ICON = 16;
 
 /** A Turkish plate: the blue TR band, then the number. */
 const Plate: React.FC<{ plate: string }> = ({ plate }) => (
@@ -100,7 +97,7 @@ const Plate: React.FC<{ plate: string }> = ({ plate }) => (
   </View>
 );
 
-const Statement: React.FC<{ input: StatementInput }> = ({ input }) => {
+const Statement: React.FC<{ input: StatementInput; logos: StatementBrand }> = ({ input, logos }) => {
   const t: StatementText = STATEMENT_TEXT[input.lang];
   const rtl = isRtl(input.lang);
   const row = rtl ? 'row-reverse' : 'row';
@@ -147,7 +144,7 @@ const Statement: React.FC<{ input: StatementInput }> = ({ input }) => {
         <View fixed style={styles.strip} />
 
         <View style={{ flexDirection: row, justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Logo />
+          <Image src={logos.wordmark} style={{ height: WORDMARK_HEIGHT, width: WORDMARK_HEIGHT * WORDMARK_RATIO }} />
           <View style={{ alignItems: rtl ? 'flex-start' : 'flex-end' }}>
             <Text style={[{ fontSize: 17, fontWeight: 700, letterSpacing: -0.2, color: INK }, { direction: rtl ? 'rtl' : 'ltr', textAlign: end }]}>{t.title}</Text>
             <View style={{ flexDirection: row, marginTop: 6 }}>
@@ -228,7 +225,10 @@ const Statement: React.FC<{ input: StatementInput }> = ({ input }) => {
         </View>
 
         <View fixed style={{ position: 'absolute', bottom: 26, left: 40, right: 40, flexDirection: row, justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: LINE, paddingTop: 8 }}>
-          <Text style={{ fontSize: 7.5, color: MUTED, direction: 'ltr' }}>{`Homesta Cars · homestacars.com · ${input.number}`}</Text>
+          <View style={{ flexDirection: row, alignItems: 'center' }}>
+            <Image src={logos.icon} style={{ width: FOOTER_ICON, height: FOOTER_ICON }} />
+            <Text style={{ fontSize: 7.5, color: MUTED, direction: 'ltr', marginHorizontal: 6 }}>{`Homesta Cars · homestacars.com · ${input.number}`}</Text>
+          </View>
           <Text
             // The page count is only known once laid out, so its width is set aside up front.
             style={[{ fontSize: 7.5, color: MUTED, width: 110 }, { direction: rtl ? 'rtl' : 'ltr', textAlign: end }]}
@@ -243,7 +243,17 @@ const Statement: React.FC<{ input: StatementInput }> = ({ input }) => {
 /** The statement as a PDF file. `base` is where /fonts/pdf is served from. */
 export async function renderStatementPdf(input: StatementInput, base: string = window.location.origin): Promise<Blob> {
   registerFonts(base);
-  return pdf(<Statement input={input} />).toBlob();
+  const [wordmark, icon] = await Promise.all([embedded('wordmarkLight', base), embedded('icon', base)]);
+  return pdf(<Statement input={input} logos={{ wordmark, icon }} />).toBlob();
+}
+
+/** The logo as base64, so the PDF carries it; react-pdf fetches the file itself if that fails. */
+async function embedded(asset: BrandAsset, base: string): Promise<string> {
+  try {
+    return await brandDataUrl(asset);
+  } catch {
+    return new URL(brandSrc(asset), base).href;
+  }
 }
 
 export default Statement;

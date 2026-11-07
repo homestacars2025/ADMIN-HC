@@ -1,3 +1,4 @@
+import { brandImgHtml } from './brand';
 import { csvCell, formatMoney, type Currency } from './money';
 import { PAY_METHODS, type PayMethod } from './payments';
 import { supabase } from './supabase';
@@ -321,6 +322,8 @@ th.n{text-align:right}
 td{padding:5px 6px;border-bottom:1px solid #eef0f3;vertical-align:top}
 .n{text-align:right;white-space:nowrap}
 tfoot td{font-weight:700;border-top:1.5px solid #d1d5db;border-bottom:none}
-</style></head><body><h1>${escapeHtml(title)}</h1><p>${escapeHtml(status)} · ${rows.length} ${rows.length === 1 ? 'row' : 'rows'}</p>
-<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="4">Total</td>${[totals.revenue, totals.collected, totals.deposits, totals.outstanding].map((value) => cell(formatMoney(value), true)).join('')}<td colspan="3"></td></tr></tfoot></table></body></html>`;
+.doc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:4px}
+.doc-foot{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;padding-top:6px;border-top:1px solid #eef0f3;color:#9ca3af;font-size:9px}
+</style></head><body><div class="doc-head"><div><h1>${escapeHtml(title)}</h1><p>${escapeHtml(status)} · ${rows.length} ${rows.length === 1 ? 'row' : 'rows'}</p></div>${brandImgHtml('wordmarkLight', '30px')}</div>
+<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="4">Total</td>${[totals.revenue, totals.collected, totals.deposits, totals.outstanding].map((value) => cell(formatMoney(value), true)).join('')}<td colspan="3"></td></tr></tfoot></table><div class="doc-foot">${brandImgHtml('icon', '18px')}<span>Homesta Cars</span></div></body></html>`;
 }

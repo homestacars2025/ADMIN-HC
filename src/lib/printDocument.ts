@@ -10,6 +10,8 @@
  *   which also offers Save as PDF, and goes back to the app.
  */
 
+import { hasBrandAssets, inlineBrandAssets } from './brand';
+
 export type PrintMode = 'frame' | 'page';
 
 const FRAME_ID = 'hc-print-frame';
@@ -122,10 +124,15 @@ function printInFrame(html: string): Promise<void> {
   });
 }
 
-export function printDocument(html: string): Promise<void> {
+function printNow(html: string): Promise<void> {
   if (printMode() === 'page') {
     openInThisTab(html);
     return Promise.resolve();
   }
   return printInFrame(html);
+}
+
+/** The logo is embedded first, so it prints from the frame and survives Save as PDF or a blob: tab. */
+export function printDocument(html: string): Promise<void> {
+  return hasBrandAssets(html) ? inlineBrandAssets(html).then(printNow) : printNow(html);
 }

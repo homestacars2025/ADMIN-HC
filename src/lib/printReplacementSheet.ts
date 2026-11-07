@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { brandImgHtml } from './brand';
 import { printDocument } from './printDocument';
 import { standaloneFontCss } from './standaloneFonts';
 import { formatFuelRange } from './fuelRange';
@@ -175,21 +176,15 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     border-bottom: 3px double #1a2942;
     margin-bottom: 10px;
   }
-  .brand-name {
-    font-size: 20px;
-    font-weight: 600;
-    color: #1a2942;
-    letter-spacing: 1.5px;
-    line-height: 1;
-  }
   .brand-sub {
     font-size: 8px;
     color: #4ba6ea;
     font-weight: 600;
     letter-spacing: 2.5px;
     text-transform: uppercase;
-    margin-top: 3px;
+    padding-left: 6px; /* the wordmark file's own left clear space at 30px */
   }
+  .footer-brand { display: flex; align-items: center; justify-content: center; gap: 6px; }
   .company-info {
     text-align: right;
     font-size: 8.5px;
@@ -485,7 +480,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   <!-- Header -->
   <div class="doc-header">
     <div class="brand-block">
-      <div class="brand-name">HOMESTA CARS</div>
+      ${brandImgHtml('wordmarkLight', '30px')}
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="company-info">
@@ -618,12 +613,13 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     </div>
   </div>
 
-  <div class="footer-note">
-    HOMESTA CARS &nbsp;&middot;&nbsp; Ba&scedil;ak&scedil;ehir, &#304;stanbul
+  <div class="footer-note footer-brand">
+    ${brandImgHtml('icon', '18px')}
+    <span>Homesta Cars &nbsp;&middot;&nbsp; Ba&scedil;ak&scedil;ehir, &#304;stanbul
     &nbsp;&middot;&nbsp;
     Bu tutanak elektronik ortamda olu&scedil;turulmu&scedil;tur / This record was generated electronically.
     &nbsp;&middot;&nbsp;
-    Sheet: ${safe(sheet.sheet_number)} &nbsp;&middot;&nbsp; ${today}
+    Sheet: ${safe(sheet.sheet_number)} &nbsp;&middot;&nbsp; ${today}</span>
   </div>
 
 </div>

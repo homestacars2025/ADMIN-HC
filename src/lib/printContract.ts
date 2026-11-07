@@ -1,5 +1,6 @@
 import { formatFuelRange } from './fuelRange';
 import { supabase } from './supabase';
+import { brandImgHtml } from './brand';
 import { printDocument } from './printDocument';
 import { standaloneFontCss } from './standaloneFonts';
 
@@ -302,21 +303,15 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     margin-bottom: 10px;
   }
   .brand-block {}
-  .brand-name {
-    font-size: 20px;
-    font-weight: 600;
-    color: #1a2942;
-    letter-spacing: 1.5px;
-    line-height: 1;
-  }
   .brand-sub {
     font-size: 8px;
     color: #4ba6ea;
     font-weight: 600;
     letter-spacing: 2.5px;
     text-transform: uppercase;
-    margin-top: 3px;
+    padding-left: 6px; /* the wordmark file's own left clear space at 30px */
   }
+  .footer-brand { display: flex; align-items: center; justify-content: center; gap: 6px; }
   .company-info {
     text-align: right;
     font-size: 8.5px;
@@ -825,7 +820,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   <!-- Header -->
   <div class="doc-header">
     <div class="brand-block">
-      <div class="brand-name">HOMESTA CARS</div>
+      ${brandImgHtml('wordmarkLight', '30px')}
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="company-info">
@@ -992,8 +987,8 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   <!-- Mini header -->
   <div class="terms-header">
     <div class="brand-block">
-      <div class="brand-name" style="font-size:15px">HOMESTA CARS</div>
-      <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
+      ${brandImgHtml('wordmarkLight', '24px')}
+      <div class="brand-sub" style="padding-left:5px">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="terms-header-ref">
       <strong>S&ouml;zle&scedil;me No:</strong> <span class="mono">${booking.booking_number}</span><br/>
@@ -1054,12 +1049,13 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     </div>
   </div>
 
-  <div class="footer-note">
-    HOMESTA CARS &nbsp;&middot;&nbsp; Ba&scedil;ak&scedil;ehir, &#304;stanbul
+  <div class="footer-note footer-brand">
+    ${brandImgHtml('icon', '18px')}
+    <span>Homesta Cars &nbsp;&middot;&nbsp; Ba&scedil;ak&scedil;ehir, &#304;stanbul
     &nbsp;&middot;&nbsp;
     Bu s&ouml;zle&scedil;me elektronik ortamda olu&scedil;turulmu&scedil;tur / This contract was generated electronically.
     &nbsp;&middot;&nbsp;
-    Booking: <span class="mono">${booking.booking_number}</span> &nbsp;&middot;&nbsp; ${today}
+    Booking: <span class="mono">${booking.booking_number}</span> &nbsp;&middot;&nbsp; ${today}</span>
   </div>
 
 </div>

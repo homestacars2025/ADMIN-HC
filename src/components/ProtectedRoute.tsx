@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 import { checkAdminAccess } from '../lib/adminAccess';
 import { endSession } from '../lib/session';
 import { supabase } from '../lib/supabase';
@@ -13,13 +14,16 @@ interface ProtectedRouteProps {
 const RETRY_MS = 10_000;
 
 const Spinner: React.FC = () => (
-  <div style={{
+  <div role="status" aria-label="Loading" style={{
     height: '100vh',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 20,
     background: 'var(--surface)',
   }}>
+    <BrandLogo variant="icon" size={72} />
     <div style={{
       width: 32,
       height: 32,

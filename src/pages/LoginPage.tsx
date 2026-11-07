@@ -4,7 +4,7 @@ import { ACCESS_MESSAGES, checkAdminAccess, signInAsAdmin } from '../lib/adminAc
 import { resetComplianceAlert } from '../lib/complianceStore';
 import { endSession } from '../lib/session';
 import { supabase } from '../lib/supabase';
-import Logo from '../components/shared/Logo';
+import BrandLogo from '../components/BrandLogo';
 import { Button } from '../components/media/MediaUI';
 
 const LoginPage: React.FC = () => {
@@ -112,8 +112,7 @@ const LoginPage: React.FC = () => {
           pointerEvents: 'none',
         }} />
 
-        {/* Logo */}
-        <Logo size={38} wordmark onDark />
+        <BrandLogo variant="wordmark" theme="dark" size={40} />
 
         {/* Middle content */}
         <div>
@@ -185,7 +184,7 @@ const LoginPage: React.FC = () => {
           style={{ display: 'flex', justifyContent: 'center', marginBottom: 48 }}
           className="login-mobile-logo"
         >
-          <Logo size={40} wordmark />
+          <BrandLogo variant="wordmark" theme="light" size={40} />
         </div>
 
         <div style={{ marginBottom: 36 }}>

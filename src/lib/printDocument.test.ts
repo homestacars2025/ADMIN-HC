@@ -1,3 +1,4 @@
+import { brandImgHtml } from './brand';
 import { asTabPage, pageNavigation, printDocument, printMode } from './printDocument';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
@@ -48,6 +49,30 @@ describe('on a phone', () => {
     expect(assign).toHaveBeenCalledWith('blob:https://admin.homestacars.com/1');
     expect(open).not.toHaveBeenCalled();
     expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('embeds the logo before the document opens', async () => {
+    setUserAgent(IPHONE);
+    const png = new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' });
+    const realFetch = global.fetch;
+    global.fetch = jest.fn(async () => ({ ok: true, status: 200, blob: async () => png })) as unknown as typeof fetch;
+    jest.spyOn(pageNavigation, 'assign').mockImplementation(() => undefined);
+    let opened: Blob | null = null;
+    Object.defineProperty(URL, 'createObjectURL', { value: (blob: Blob) => { opened = blob; return 'blob:x'; }, configurable: true });
+
+    try {
+      await printDocument(HTML.replace('<div class="page">', `<div class="page">${brandImgHtml('wordmarkLight', '30px')}`));
+    } finally {
+      global.fetch = realFetch;
+    }
+
+    const text = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(opened as unknown as Blob);
+    });
+    expect(text).toContain('src="data:image/png;base64,');
+    expect(text).not.toContain('/brand/homesta-wordmark-light.png');
   });
 
   it('adds a Back button and fits the page to the screen', () => {

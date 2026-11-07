@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useComplianceCars, useUnpaidFines } from '../lib/complianceStore';
 import { ComplianceTriangle } from './shared/ComplianceBits';
 import { NavLink, useLocation } from 'react-router-dom';
-import Logo from './shared/Logo';
+import BrandLogo from './BrandLogo';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
 
 // ─── Navigation model ────────────────────────────────────────────────────────
@@ -900,11 +900,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
         flexShrink: 0,
         position: 'relative',
       }}>
-        {/* Logo */}
         {collapsed ? (
-          <Logo size={34} />
+          <BrandLogo variant="icon" size={40} />
         ) : (
-          <Logo size={34} wordmark />
+          <BrandLogo variant="wordmark" theme="light" size={34} />
         )}
       </div>
 

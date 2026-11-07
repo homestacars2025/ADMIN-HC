@@ -1,37 +1,41 @@
 /**
- * Generates all favicon PNG sizes + favicon.ico from public/favicon.svg.
- * Run once: node scripts/generate-favicons.mjs
+ * Builds every favicon and app icon from the official mark, public/brand/homesta-icon.png.
+ *   node scripts/generate-favicons.mjs [publicDir]
+ * publicDir defaults to this app's public/. Team has no sharp, so it is built from
+ * here: node scripts/generate-favicons.mjs ../HC.TEAM/public
+ *
+ * The mark is never redrawn or recolored: each icon is a centered square cut of the
+ * official PNG (white ground, blue arch), scaled down. Small icons cut closer so the
+ * arch still reads at 16px; large ones keep more of the file's clear space.
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PUBLIC   = resolve(__dirname, '..', 'public');
-const SVG_PATH = resolve(PUBLIC, 'favicon.svg');
+const PUBLIC = resolve(process.argv[2] ?? resolve(__dirname, '..', 'public'));
+const ICON = resolve(PUBLIC, 'brand', 'homesta-icon.png');
 
-const svgBuf = readFileSync(SVG_PATH);
+/** Share of the 1080px source each size keeps: the arch is about 43% of the file's width. */
+const TIGHT = 0.6;
+const ROOMY = 0.78;
 
-// Size → output filename
 const PNG_TARGETS = [
-  { size: 16,  out: 'favicon-16x16.png'          },
-  { size: 32,  out: 'favicon-32x32.png'           },
-  { size: 48,  out: null /* ico only */           },
-  { size: 180, out: 'apple-touch-icon.png'        },
-  { size: 192, out: 'android-chrome-192x192.png'  },
-  { size: 512, out: 'android-chrome-512x512.png'  },
+  { size: 16, crop: TIGHT, out: 'favicon-16x16.png' },
+  { size: 32, crop: TIGHT, out: 'favicon-32x32.png' },
+  { size: 48, crop: TIGHT, out: null /* ico only */ },
+  { size: 180, crop: ROOMY, out: 'apple-touch-icon.png' },
+  { size: 192, crop: ROOMY, out: 'android-chrome-192x192.png' },
+  { size: 512, crop: ROOMY, out: 'android-chrome-512x512.png' },
 ];
 
-// Minimal ICO encoder — embeds PNG chunks directly (supported by all modern OS).
+// Minimal ICO encoder: embeds the PNGs directly (supported by every modern OS).
 function buildIco(entries) {
-  // entries: [{ size, buf }]
-  const count  = entries.length;
-  const hdrSz  = 6;
-  const entrySz = 16;
-
-  let dataOffset = hdrSz + entrySz * count;
+  const header = 6;
+  const entrySize = 16;
+  let dataOffset = header + entrySize * entries.length;
   const meta = entries.map(e => {
     const off = dataOffset;
     dataOffset += e.buf.length;
@@ -39,58 +43,51 @@ function buildIco(entries) {
   });
 
   const ico = Buffer.alloc(dataOffset);
+  ico.writeUInt16LE(0, 0);
+  ico.writeUInt16LE(1, 2);
+  ico.writeUInt16LE(entries.length, 4);
 
-  // ICONDIR
-  ico.writeUInt16LE(0, 0); // reserved
-  ico.writeUInt16LE(1, 2); // type: ICO
-  ico.writeUInt16LE(count, 4);
-
-  // ICONDIRENTRY per image
-  let pos = 6;
+  let pos = header;
   for (const m of meta) {
     ico.writeUInt8(m.size >= 256 ? 0 : m.size, pos);
     ico.writeUInt8(m.size >= 256 ? 0 : m.size, pos + 1);
-    ico.writeUInt8(0, pos + 2);       // color count (0 = true color)
-    ico.writeUInt8(0, pos + 3);       // reserved
-    ico.writeUInt16LE(1, pos + 4);    // color planes
-    ico.writeUInt16LE(32, pos + 6);   // bits per pixel
+    ico.writeUInt8(0, pos + 2);
+    ico.writeUInt8(0, pos + 3);
+    ico.writeUInt16LE(1, pos + 4);
+    ico.writeUInt16LE(32, pos + 6);
     ico.writeUInt32LE(m.buf.length, pos + 8);
     ico.writeUInt32LE(m.off, pos + 12);
-    pos += 16;
+    pos += entrySize;
   }
-
-  // Image data
   for (const m of meta) m.buf.copy(ico, m.off);
-
   return ico;
+}
+
+async function render(size, crop) {
+  const { width, height } = await sharp(ICON).metadata();
+  const side = Math.round(Math.min(width, height) * crop);
+  return sharp(ICON)
+    .extract({ left: Math.round((width - side) / 2), top: Math.round((height - side) / 2), width: side, height: side })
+    .resize(size, size, { kernel: 'lanczos3' })
+    .png()
+    .toBuffer();
 }
 
 async function main() {
   const pngs = {};
-
-  for (const { size } of PNG_TARGETS) {
-    if (pngs[size]) continue;
-    pngs[size] = await sharp(svgBuf)
-      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-      .png()
-      .toBuffer();
+  for (const { size, crop, out } of PNG_TARGETS) {
+    pngs[size] = await render(size, crop);
+    if (out) {
+      writeFileSync(resolve(PUBLIC, out), pngs[size]);
+      console.log(`  ✓  ${out}  (${size}×${size})`);
+    }
   }
-
-  // Write named PNGs
-  for (const { size, out } of PNG_TARGETS) {
-    if (!out) continue;
-    const dest = resolve(PUBLIC, out);
-    writeFileSync(dest, pngs[size]);
-    console.log(`  ✓  ${out}  (${size}×${size})`);
-  }
-
-  // Write favicon.ico  (16, 32, 48)
-  const icoEntries = [16, 32, 48].map(size => ({ size, buf: pngs[size] }));
-  const icoBuf = buildIco(icoEntries);
-  writeFileSync(resolve(PUBLIC, 'favicon.ico'), icoBuf);
+  writeFileSync(resolve(PUBLIC, 'favicon.ico'), buildIco([16, 32, 48].map(size => ({ size, buf: pngs[size] }))));
   console.log('  ✓  favicon.ico  (16 + 32 + 48)');
-
-  console.log('\nAll favicon files written to public/');
+  console.log(`\nAll icons written to ${PUBLIC}`);
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

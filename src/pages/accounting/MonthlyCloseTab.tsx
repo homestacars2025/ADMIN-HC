@@ -12,6 +12,7 @@ import StaffAvatar from '../../components/shared/StaffAvatar';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
 import { useUrlFilter } from '../../hooks/useUrlFilter';
 import { useUrlSort } from '../../hooks/useUrlSort';
+import { writeBrandedDocument } from '../../lib/brand';
 import { cn } from '../../lib/media/badgeColor';
 import { formatMoney } from '../../lib/money';
 import {
@@ -265,10 +266,9 @@ export const MonthlyCloseTab: React.FC = () => {
   const print = () => {
     const page = window.open('', '_blank', 'width=1100,height=780');
     if (!page) { toast.error('Your browser blocked the print window. Allow pop-ups and try again.'); return; }
-    page.document.write(monthClosePrintHtml(sortCloseRows(rows, sort.key, sort.direction), `Monthly close · ${monthLabel(`${month}-01`)}`, status, name));
-    page.document.close();
-    page.focus();
-    page.print();
+    const html = monthClosePrintHtml(sortCloseRows(rows, sort.key, sort.direction), `Monthly close · ${monthLabel(`${month}-01`)}`, status, name);
+    // Prints once the embedded logo has loaded.
+    void writeBrandedDocument(page, html, (ready) => { ready.focus(); ready.print(); });
   };
 
   const pick = (id: number, on: boolean) => setSelected((current) => {
