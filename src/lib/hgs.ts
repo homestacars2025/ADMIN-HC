@@ -237,13 +237,14 @@ export function rangeSentence(range: DayRange, today: string): string {
 /** Midnight in Istanbul at the start of a day. Turkey has kept UTC+3 all year since 2016. */
 const dayStart = (day: string) => `${day}T00:00:00+03:00`;
 
-interface BookingOnCar {
+export interface BookingOnCar {
   id: number;
   number: string | null;
   start: string;
   end: string;
   customerId: string | null;
   customerName: string | null;
+  customerLanguage: string | null;
 }
 
 /** The booking that had the car that day. On a handover day the one that started it wins. */
@@ -257,7 +258,7 @@ export function bookingOnDay<T extends Pick<BookingOnCar, 'start' | 'end'>>(book
 async function fetchCarBookings(carId: number, period: HgsWindow): Promise<BookingOnCar[]> {
   let query = supabase
     .from('bookings')
-    .select('id, booking_number, start_date, end_date, customer_id, customer:customer_id(first_name, last_name)')
+    .select('id, booking_number, start_date, end_date, customer_id, customer:customer_id(first_name, last_name, language)')
     .eq('car_id', carId)
     .neq('status', 'cancelled')
     .not('start_date', 'is', null)
@@ -267,7 +268,7 @@ async function fetchCarBookings(carId: number, period: HgsWindow): Promise<Booki
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map((raw) => {
-    const customer = one(raw.customer as Joined<{ first_name: string | null; last_name: string | null }>);
+    const customer = one(raw.customer as Joined<{ first_name: string | null; last_name: string | null; language: string | null }>);
     return {
       id: num(raw.id),
       number: text(raw.booking_number),
@@ -275,8 +276,15 @@ async function fetchCarBookings(carId: number, period: HgsWindow): Promise<Booki
       end: (text(raw.end_date) ?? '').slice(0, 10),
       customerId: text(raw.customer_id),
       customerName: [customer?.first_name, customer?.last_name].map(text).filter(Boolean).join(' ') || null,
+      customerLanguage: text(customer?.language),
     };
   });
+}
+
+/** The car's bookings that meet the range, newest first, for a toll statement. */
+export async function fetchStatementBookings(carId: number, range: DayRange): Promise<BookingOnCar[]> {
+  const bookings = await fetchCarBookings(carId, range);
+  return bookings.filter((booking) => booking.start && booking.end).sort((a, b) => b.start.localeCompare(a.start));
 }
 
 /** One car's transits in the period, newest first, each with the booking on the car that day. */
@@ -502,33 +510,6 @@ export function inHgsFilter(row: HgsRow, filter: HgsFilter | 'all'): boolean {
   if (filter === 'used') return row.transits > 0;
   if (filter === 'idle') return row.transits === 0;
   return true;
-}
-
-// ── Export ────────────────────────────────────────────────────────────────────
-
-/** Quoted when it holds a comma, quote or line break; a leading = + - @ can't start a formula. */
-function csvCell(value: string): string {
-  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
-  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
-
-/**
- * One car's transits, oldest first as on a statement: Date, Time (Istanbul), Entry, Exit,
- * Toll road, Amount. A single gate has only an exit, as on the page. Team writes the same.
- */
-export function hgsCsv(rows: HgsTransitDetail[]): string {
-  const stamp = (transit: HgsTransitDetail) => (transit.at ? Date.parse(transit.at) || 0 : 0);
-  const lines = [...rows]
-    .sort((a, b) => a.day.localeCompare(b.day) || stamp(a) - stamp(b) || a.id - b.id)
-    .map((transit) => [transit.day, formatTime(transit.at), transit.entry ?? '', transit.exit ?? '', transit.road ?? '']
-      .map(csvCell).concat(transit.amount.toFixed(2)).join(','));
-  // The byte-order mark makes Excel read the Turkish letters as UTF-8.
-  return `\uFEFF${['Date,Time,Entry,Exit,Toll road,Amount (TRY)', ...lines].join('\r\n')}\r\n`;
-}
-
-export function hgsCsvName(plate: string, window: HgsWindow): string {
-  const days = windowDays(window);
-  return `hgs-${plate.replace(/\s+/g, '')}-${days ? `${days.from}_${days.to}` : 'all'}.csv`;
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────

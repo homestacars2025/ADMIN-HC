@@ -17,6 +17,7 @@ const ARABIC = /\p{Script=Arabic}/u;
 const ALLOWED = {
   'src/lib/printContract.ts': 'Printed rental contract, trilingual for the customer to sign',
   'src/lib/printReplacementSheet.ts': 'Printed replacement sheet, trilingual for the customer to sign',
+  'src/lib/hgsStatementText.ts': 'HGS toll statement PDF, printed in the customer\'s language',
   'src/lib/customerInsights.test.ts': 'Test input: a customer name, which is data',
   'src/lib/staffAccess.test.ts': 'Test input: an Arabic label that must not match a department',
   'src/pages/marketing/MarketingApprovalsPage.tsx': 'Sample marketing copy written for Arabic audiences',

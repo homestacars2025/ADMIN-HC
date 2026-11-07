@@ -2,8 +2,6 @@ import {
   bookingOnDay,
   carsWithoutTransits,
   fetchCarTransits,
-  hgsCsv,
-  hgsCsvName,
   parseDayRange,
   presetOf,
   presetRange,
@@ -23,7 +21,6 @@ import {
   sortHgsRows,
   syncedAgo,
   type HgsCarInfo,
-  type HgsTransitDetail,
   type HgsTransitLite,
 } from './hgs';
 import { supabase } from './supabase';
@@ -236,29 +233,5 @@ describe('a range of days', () => {
       ['lte', ['start_date', '2026-11-06']],
       ['gte', ['end_date', '2026-11-01']],
     ]));
-  });
-});
-
-describe('the export', () => {
-  const row = (over: Partial<HgsTransitDetail>): HgsTransitDetail => ({
-    id: 1, day: '2026-11-03', at: '2026-11-03T11:04:00+00:00', entry: 'ORHANLI', exit: 'KURTKÖY SGS', road: 'İSTANBUL-ANKARA OTOYOLU', roadType: 'public', amount: 148.5,
-    bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null, ...over,
-  });
-
-  it('writes Date, Time, Entry, Exit, Toll road, Amount oldest first, in Istanbul time, quoting what needs it', () => {
-    const csv = hgsCsv([row({}), row({ id: 2, day: '2026-11-02', at: '2026-11-01T22:30:00+00:00', entry: null, exit: 'FENERTEPE', road: 'KCO, GECIS', amount: 96 })]);
-    expect(csv.charCodeAt(0)).toBe(0xfeff);
-    expect(csv.slice(1).split('\r\n')).toEqual([
-      'Date,Time,Entry,Exit,Toll road,Amount (TRY)',
-      '2026-11-02,01:30,,FENERTEPE,"KCO, GECIS",96.00',
-      '2026-11-03,14:04,ORHANLI,KURTKÖY SGS,İSTANBUL-ANKARA OTOYOLU,148.50',
-      '',
-    ]);
-  });
-
-  it('is named after the plate and the days it covers', () => {
-    expect(hgsCsvName('06 FHN 975', { from: '2026-11-01', to: '2026-11-06' })).toBe('hgs-06FHN975-2026-11-01_2026-11-06.csv');
-    expect(hgsCsvName('06FHN975', '2026-02')).toBe('hgs-06FHN975-2026-02-01_2026-02-28.csv');
-    expect(hgsCsvName('06FHN975', 'all')).toBe('hgs-06FHN975-all.csv');
   });
 });

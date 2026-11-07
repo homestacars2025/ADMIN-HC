@@ -160,8 +160,8 @@ export const HgsCarRow: React.FC<{
   onRetry: (row: HgsRow) => void;
   onAddBarcode: (row: HgsRow) => void;
   onRange: (row: HgsRow, range: DayRange | null) => void;
-  onExport: (row: HgsRow, transits: HgsTransitDetail[]) => void;
-}> = ({ row, expanded, history, periodLabel, ownRange, fallback, today, onToggle, onRetry, onAddBarcode, onRange, onExport }) => {
+  onStatement: (row: HgsRow) => void;
+}> = ({ row, expanded, history, periodLabel, ownRange, fallback, today, onToggle, onRetry, onAddBarcode, onRange, onStatement }) => {
   // A car with no transit opens too, to say so and to reach its barcode.
   const openable = row.transits > 0 || row.carId !== null;
   const panelId = `hgs-${row.key.replace(/[^a-z0-9]/gi, '-')}`;
@@ -273,7 +273,7 @@ export const HgsCarRow: React.FC<{
               <Button variant="outline" size="lg" className="!h-11 md:!h-9" onClick={() => onRetry(row)}>Try again</Button>
             </div>
           )}
-          {row.transits > 0 && history?.status === 'ready' && <TransitList rows={history.rows} periodLabel={periodLabel} onExport={() => onExport(row, history.rows)} />}
+          {row.transits > 0 && history?.status === 'ready' && <TransitList rows={history.rows} periodLabel={periodLabel} onStatement={() => onStatement(row)} />}
         </div>
       )}
     </li>
@@ -296,13 +296,13 @@ const RoadBadge: React.FC<{ type: HgsRoad | null }> = ({ type }) => {
 
 const TRANSIT_GRID = 'sm:grid-cols-[150px_minmax(0,1.4fr)_minmax(0,1fr)_100px]';
 
-const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string; onExport: () => void }> = ({ rows, periodLabel, onExport }) => {
+const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string; onStatement: () => void }> = ({ rows, periodLabel, onStatement }) => {
   if (rows.length === 0) return <p className="py-3 text-center text-[13px] text-black/45">No transits {periodLabel}.</p>;
   return (
     <>
     <div className="mb-2 flex items-center justify-between gap-2">
       <span className="text-[12.5px] text-black/50">{formatCount(rows.length)} {rows.length === 1 ? 'transit' : 'transits'} {periodLabel}</span>
-      <Button variant="outline" size="lg" className="!h-11 shrink-0 px-3 md:!h-8" onClick={onExport}>Export CSV</Button>
+      <Button variant="outline" size="lg" className="!h-11 shrink-0 px-3 md:!h-8" onClick={onStatement}>Export PDF</Button>
     </div>
     <div className="overflow-hidden rounded-xl border border-[#EBEBEB] bg-white">
       <div className={cn('hidden gap-x-3 border-b border-[#EBEBEB] px-3 py-2 text-[11.5px] font-medium text-black/45 sm:grid', TRANSIT_GRID)}>

@@ -10,6 +10,8 @@ jest.mock('../lib/supabase', () => ({ supabase: {} }));
 const mockFetchHgsData = jest.fn();
 const mockFetchCarTransits = jest.fn();
 const mockSaveHgsBarcode = jest.fn();
+const mockFetchStatementBookings = jest.fn();
+const mockRenderStatementPdf = jest.fn();
 
 jest.mock('../lib/hgs', () => {
   const actual = jest.requireActual('../lib/hgs');
@@ -18,8 +20,10 @@ jest.mock('../lib/hgs', () => {
     fetchHgsData: (...a: unknown[]) => mockFetchHgsData(...a),
     fetchCarTransits: (...a: unknown[]) => mockFetchCarTransits(...a),
     saveHgsBarcode: (...a: unknown[]) => mockSaveHgsBarcode(...a),
+    fetchStatementBookings: (...a: unknown[]) => mockFetchStatementBookings(...a),
   };
 });
+jest.mock('./hgs/HgsStatementPdf', () => ({ renderStatementPdf: (...a: unknown[]) => mockRenderStatementPdf(...a) }));
 
 const month = currentMonth().slice(0, 7);
 const lastMonth = shiftMonth(`${month}-01`, -1).slice(0, 7);
@@ -53,6 +57,8 @@ beforeEach(() => {
     { id: 1, day: `${month}-02`, at: `${month}-02T08:00:00+00:00`, entry: 'ORHANLI', exit: 'KURTKÖY SGS', road: 'İSTANBUL-ANKARA OTOYOLU', roadType: 'public', amount: 148.5, bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null },
   ]);
   mockSaveHgsBarcode.mockReset();
+  mockFetchStatementBookings.mockReset().mockResolvedValue([]);
+  mockRenderStatementPdf.mockReset().mockResolvedValue(new Blob(['%PDF'], { type: 'application/pdf' }));
 });
 
 test('warns about the active cars with no transits this month, barcode or not', async () => {
@@ -262,25 +268,69 @@ describe('ranges of days', () => {
     await waitFor(() => expect(mockFetchCarTransits).toHaveBeenLastCalledWith(expect.anything(), month));
   });
 
-  test("a shared link opens that car over its range, and its CSV is named after it", async () => {
+  test('a shared link opens that car over its range', async () => {
+    renderPage(`/dashboard/hgs?car=39&cfrom=${month}-01&cto=${month}-06`);
+    expect(await screen.findByText(`01.${mm} → 06.${mm}`)).toBeInTheDocument();
+    expect(await within(carRow(39)).findByRole('button', { expanded: true })).toHaveFocus();
+    expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
+    expect(within(carRow(39)).queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument();
+  });
+});
+
+describe('the PDF statement', () => {
+  const mm = month.slice(5, 7);
+  const BOOKINGS = [
+    { id: 7, number: 'HOM-11-26-007', start: `${month}-03`, end: `${month}-20`, customerId: 'c1', customerName: 'Ali Veli', customerLanguage: 'tr' },
+  ];
+
+  test("starts from the car's range in Arabic; a booking switches to its customer's language and its days", async () => {
+    mockFetchStatementBookings.mockResolvedValue(BOOKINGS);
     const created: Blob[] = [];
     URL.createObjectURL = jest.fn((blob: Blob) => { created.push(blob); return 'blob:hgs'; });
     URL.revokeObjectURL = jest.fn();
     const names: string[] = [];
     const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { names.push(this.download); });
+
     renderPage(`/dashboard/hgs?car=39&cfrom=${month}-01&cto=${month}-06`);
-    expect(await screen.findByText(`01.${mm} → 06.${mm}`)).toBeInTheDocument();
-    expect(await within(carRow(39)).findByRole('button', { expanded: true })).toHaveFocus();
-    expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
-    await userEvent.click(await within(carRow(39)).findByRole('button', { name: 'Export CSV' }));
-    expect(names).toEqual([`hgs-06FHN975-${month}-01_${month}-06.csv`]);
-    const text = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.readAsText(created[0]);
-    });
-    expect(text).toContain('Date,Time,Entry,Exit,Toll road,Amount (TRY)');
-    expect(text).toContain(`${month}-03,14:04,,FENERTEPE,KCO GECIS UCRET,96.00`);
+    const row = await screen.findByText(`01.${mm} → 06.${mm}`);
+    await userEvent.click(await within(row.closest('li') as HTMLElement).findByRole('button', { name: 'Export PDF' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'HGS statement for 06FHN975' }));
+    expect(sheet.getByLabelText('From')).toHaveValue(`${month}-01`);
+    expect(sheet.getByLabelText('To')).toHaveValue(`${month}-06`);
+    expect(sheet.getByRole('button', { name: 'Arabic' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(mockFetchStatementBookings).toHaveBeenCalledWith(39, { from: `${month}-01`, to: `${month}-06` }));
+
+    await userEvent.click(await sheet.findByRole('radio', { name: /HOM-11-26-007/ }));
+    expect(sheet.getByRole('button', { name: 'Turkish' })).toHaveAttribute('aria-pressed', 'true');
+    expect(sheet.getByText(`03.${mm} → 06.${mm}`)).toBeInTheDocument();
+    expect(sheet.getByRole('switch', { name: 'Include private roads' })).toHaveAttribute('aria-checked', 'true');
+    mockFetchCarTransits.mockClear();
+    await userEvent.click(sheet.getByRole('button', { name: 'Download PDF' }));
+
+    await waitFor(() => expect(names).toEqual([`HGS-06FHN975-${month}-03_${month}-06-tr.pdf`]));
+    expect(mockFetchCarTransits).toHaveBeenCalledWith({ carId: 39, plate: '06FHN975' }, { from: `${month}-03`, to: `${month}-06` });
+    const input = mockRenderStatementPdf.mock.calls[0][0];
+    expect(input).toMatchObject({ lang: 'tr', plate: '06FHN975', customer: 'Ali Veli', booking: 'HOM-11-26-007', includePrivate: true, totals: { amount: 96, passes: 1, days: 1 } });
+    expect(input.number).toMatch(/^HGS-\d{6}-06FHN975$/);
+    // The 2nd is before the booking began.
+    expect(input.lines.map((line: { id: number }) => line.id)).toEqual([2]);
+    expect(created).toHaveLength(1);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     click.mockRestore();
+  });
+
+  test('a language picked by hand stays, and a failure keeps the sheet open with the reason', async () => {
+    mockFetchStatementBookings.mockResolvedValue(BOOKINGS);
+    mockRenderStatementPdf.mockRejectedValue(new Error('font failed to load'));
+    renderPage(`/dashboard/hgs?car=39&cfrom=${month}-01&cto=${month}-06`);
+    const row = await screen.findByText(`01.${mm} → 06.${mm}`);
+    await userEvent.click(await within(row.closest('li') as HTMLElement).findByRole('button', { name: 'Export PDF' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'HGS statement for 06FHN975' }));
+    await userEvent.click(sheet.getByRole('button', { name: 'French' }));
+    await userEvent.click(await sheet.findByRole('radio', { name: /HOM-11-26-007/ }));
+    expect(sheet.getByRole('button', { name: 'French' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(sheet.getByRole('button', { name: 'Download PDF' }));
+    expect(await sheet.findByRole('alert')).toHaveTextContent('font failed to load');
+    expect(sheet.getByRole('button', { name: 'Download PDF' })).toBeEnabled();
   });
 });

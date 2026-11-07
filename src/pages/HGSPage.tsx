@@ -19,8 +19,6 @@ import {
   formatCount,
   HGS_FILTERS,
   HGS_SORTS,
-  hgsCsv,
-  hgsCsvName,
   hgsRows,
   hgsSummary,
   istanbulDay,
@@ -40,7 +38,6 @@ import {
   type HgsPeriod,
   type HgsRow,
   type HgsSort,
-  type HgsTransitDetail,
   type HgsWindow,
 } from '../lib/hgs';
 import { cn } from '../lib/media/badgeColor';
@@ -50,6 +47,7 @@ import { Segmented } from './bookings/ui';
 import { WalletIcon } from './customers/ui';
 import { BarcodeSheet, HgsCarRow, HgsListHeader, NoTransitsBanner, hgsRowId, type HistoryState } from './hgs/HgsParts';
 import { DatesIcon, RangePicker } from './hgs/RangePicker';
+import { StatementSheet } from './hgs/StatementSheet';
 
 /**
  * HGS tolls, from the portal files finance uploads per car. Every transit loads once,
@@ -62,15 +60,6 @@ import { DatesIcon, RangePicker } from './hgs/RangePicker';
  */
 
 const SORT_LABELS: Record<HgsSort, string> = { amount: 'Amount', transits: 'Transits', last: 'Last' };
-
-function downloadCsv(name: string, csv: string): void {
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 const CalendarIcon: React.FC = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -107,6 +96,7 @@ const HGSPage: React.FC = () => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [histories, setHistories] = useState<Record<string, HistoryState>>({});
   const [editing, setEditing] = useState<HgsCarInfo | null>(null);
+  const [statementFor, setStatementFor] = useState<HgsRow | null>(null);
   const [scrollTo, setScrollTo] = useState<string | null>(null);
   const [linkedCar, setLinkedCar] = useState(carValue);
 
@@ -192,7 +182,13 @@ const HGSPage: React.FC = () => {
 
   const toggleRow = (row: HgsRow) => setExpanded(expanded === row.key ? null : row.key);
 
-  const exportRow = (row: HgsRow, transits: HgsTransitDetail[]) => downloadCsv(hgsCsvName(row.plate, rowWindow(row)), hgsCsv(transits));
+  // A statement starts from the row's days; for all time, from its first to its last transit.
+  const statementRange = (row: HgsRow): DayRange => {
+    const days = windowDays(rowWindow(row));
+    if (days) return days;
+    const listed = (histories[historyKey(row)]?.rows ?? []).map((transit) => transit.day).filter(Boolean).sort();
+    return listed.length > 0 ? { from: listed[0], to: listed[listed.length - 1] } : { from: today, to: today };
+  };
 
   // A shared link with a car's range opens that car, once the list is there.
   useEffect(() => {
@@ -350,7 +346,7 @@ const HGSPage: React.FC = () => {
                   onRetry={(target) => void loadHistory(target, rowWindow(target), historyKey(target))}
                   onAddBarcode={addBarcode}
                   onRange={setCarRange}
-                  onExport={exportRow}
+                  onStatement={setStatementFor}
                 />
               ))}
             </ul>
@@ -358,6 +354,7 @@ const HGSPage: React.FC = () => {
         )}
       </div>
 
+      {statementFor && <StatementSheet row={statementFor} range={statementRange(statementFor)} today={today} onClose={() => setStatementFor(null)} />}
       {editing && <BarcodeSheet car={editing} onClose={() => setEditing(null)} onSaved={barcodeSaved} />}
     </div>
   );
