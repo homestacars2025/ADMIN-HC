@@ -38,7 +38,7 @@ const km = (amount: number) => amount.toLocaleString('en-US');
  * won't load. The photos are tall, the car across the width a little below the middle
  * on their own light backdrop, so the photo fills the frame and is cropped to the car.
  */
-export const GroupImage: React.FC<{ src: string | null; alt: string; className?: string; children?: React.ReactNode }> = ({ src, alt, className, children }) => {
+export const GroupImage: React.FC<{ src: string | null; alt: string; className?: string; children?: React.ReactNode; /** A smaller placeholder with no caption, for short frames. */ compact?: boolean }> = ({ src, alt, className, children, compact }) => {
   const [failed, setFailed] = useState<string | null>(null);
   const usable = src && src !== failed;
   return (
@@ -57,8 +57,8 @@ export const GroupImage: React.FC<{ src: string | null; alt: string; className?:
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
           <div aria-hidden="true" className="absolute inset-x-[22%] bottom-[16%] h-[9%] rounded-[50%] bg-[#0F172A]/[0.06] blur-md" />
-          <StatusImage status="fleet" size={112} className="relative opacity-90" />
-          <span className="relative text-[12px] font-medium text-black/40">No photo yet</span>
+          <StatusImage status="fleet" size={compact ? 64 : 112} className="relative opacity-90" />
+          {!compact && <span className="relative text-[12px] font-medium text-black/40">No photo yet</span>}
         </div>
       )}
       {children}
