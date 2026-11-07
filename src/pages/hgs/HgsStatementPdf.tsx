@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Font, Image, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer';
-import { WORDMARK_RATIO, brandDataUrl, brandSrc, type BrandAsset } from '../../lib/brand';
+import { LOCKUP_GAP, WORDMARK_RATIO, brandDataUrl, brandSrc, type BrandAsset } from '../../lib/brand';
 import { statementCount, statementDay, statementMoney, type StatementInput, type StatementLine } from '../../lib/hgsStatement';
 import { isRtl, STATEMENT_TEXT, type StatementText } from '../../lib/hgsStatementText';
 
@@ -84,7 +84,9 @@ export interface StatementBrand {
   icon: string;
 }
 
-const WORDMARK_HEIGHT = 30;
+/** The header lockup: icon, then the wordmark matched to it, as on Team's statement. */
+const LOCKUP_ICON = 24;
+const LOCKUP_WORDMARK = 16.5;
 const FOOTER_ICON = 16;
 
 /** A Turkish plate: the blue TR band, then the number. */
@@ -144,7 +146,11 @@ const Statement: React.FC<{ input: StatementInput; logos: StatementBrand }> = ({
         <View fixed style={styles.strip} />
 
         <View style={{ flexDirection: row, justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Image src={logos.wordmark} style={{ height: WORDMARK_HEIGHT, width: WORDMARK_HEIGHT * WORDMARK_RATIO }} />
+          {/* The lockup follows the statement's direction: in Arabic the icon sits on the right. */}
+          <View style={{ flexDirection: row, alignItems: 'center', gap: LOCKUP_GAP }}>
+            <Image src={logos.icon} style={{ width: LOCKUP_ICON, height: LOCKUP_ICON }} />
+            <Image src={logos.wordmark} style={{ height: LOCKUP_WORDMARK, width: LOCKUP_WORDMARK * WORDMARK_RATIO }} />
+          </View>
           <View style={{ alignItems: rtl ? 'flex-start' : 'flex-end' }}>
             <Text style={[{ fontSize: 17, fontWeight: 700, letterSpacing: -0.2, color: INK }, { direction: rtl ? 'rtl' : 'ltr', textAlign: end }]}>{t.title}</Text>
             <View style={{ flexDirection: row, marginTop: 6 }}>

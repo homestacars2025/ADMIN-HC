@@ -1,6 +1,6 @@
 import { formatFuelRange } from './fuelRange';
 import { supabase } from './supabase';
-import { brandImgHtml } from './brand';
+import { brandImgHtml, brandLockupHtml } from './brand';
 import { printDocument } from './printDocument';
 import { standaloneFontCss } from './standaloneFonts';
 
@@ -309,7 +309,8 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
     font-weight: 600;
     letter-spacing: 2.5px;
     text-transform: uppercase;
-    padding-left: 6px; /* the wordmark file's own left clear space at 30px */
+    padding-left: 9px; /* lines up with the arch: the icon file's own left clear space at 32px */
+    margin-top: 2px;
   }
   .footer-brand { display: flex; align-items: center; justify-content: center; gap: 6px; }
   .company-info {
@@ -820,7 +821,7 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   <!-- Header -->
   <div class="doc-header">
     <div class="brand-block">
-      ${brandImgHtml('wordmarkLight', '30px')}
+      ${brandLockupHtml(32)}
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="company-info">
@@ -987,8 +988,8 @@ function buildHTML(booking: ContractBooking, cust: CustomerData): string {
   <!-- Mini header -->
   <div class="terms-header">
     <div class="brand-block">
-      ${brandImgHtml('wordmarkLight', '24px')}
-      <div class="brand-sub" style="padding-left:5px">Premium Car Rental &middot; Istanbul</div>
+      ${brandLockupHtml(24)}
+      <div class="brand-sub" style="padding-left:7px">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="terms-header-ref">
       <strong>S&ouml;zle&scedil;me No:</strong> <span class="mono">${booking.booking_number}</span><br/>

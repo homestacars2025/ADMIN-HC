@@ -112,7 +112,7 @@ const LoginPage: React.FC = () => {
           pointerEvents: 'none',
         }} />
 
-        <BrandLogo variant="wordmark" theme="dark" size={40} />
+        <BrandLogo variant="lockup" theme="dark" size={40} />
 
         {/* Middle content */}
         <div>
@@ -184,7 +184,7 @@ const LoginPage: React.FC = () => {
           style={{ display: 'flex', justifyContent: 'center', marginBottom: 48 }}
           className="login-mobile-logo"
         >
-          <BrandLogo variant="wordmark" theme="light" size={40} />
+          <BrandLogo variant="lockup" orientation="column" theme="light" size={48} />
         </div>
 
         <div style={{ marginBottom: 36 }}>

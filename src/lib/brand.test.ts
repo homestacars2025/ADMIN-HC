@@ -1,4 +1,4 @@
-import { BRAND_ALT, brandImgHtml, brandSrc, inlineBrandAssets } from './brand';
+import { BRAND_ALT, brandImgHtml, brandLockupHtml, brandSrc, inlineBrandAssets, lockupWordmarkHeight } from './brand';
 
 const realFetch = global.fetch;
 
@@ -21,6 +21,22 @@ describe('the official logo files', () => {
     expect(img).toContain('height:30px;width:auto');
     expect(img).toContain('filter:none');
     expect(img).toContain('box-shadow:none');
+  });
+});
+
+describe('the icon + wordmark lockup', () => {
+  it('matches the wordmark to the icon: 32px icon, 22px wordmark', () => {
+    expect(lockupWordmarkHeight(32)).toBe(22);
+  });
+
+  it('puts the icon first, then the wordmark, side by side and named once', () => {
+    const html = brandLockupHtml(32);
+    expect(html).toContain('display:inline-flex;align-items:center;gap:10px');
+    expect(html).toContain(`aria-label="${BRAND_ALT}"`);
+    expect(html.indexOf(brandSrc('icon'))).toBeLessThan(html.indexOf(brandSrc('wordmarkLight')));
+    expect(html).toContain('height:32px;width:auto');
+    expect(html).toContain('height:22px;width:auto');
+    expect(html.match(/alt=""/g)).toHaveLength(2);
   });
 });
 

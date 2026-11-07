@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { brandImgHtml, writeBrandedDocument } from '../lib/brand';
+import { brandImgHtml, brandLockupHtml, writeBrandedDocument } from '../lib/brand';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { standaloneFontCss } from '../lib/standaloneFonts';
@@ -451,7 +451,7 @@ const KGMPage: React.FC = () => {
       <div style="font-size:12px;color:#6b7280;margin-top:4px">Generated: ${generatedAt}</div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-      ${brandImgHtml('wordmarkLight', '30px')}
+      ${brandLockupHtml(32)}
       <div style="font-size:16px;font-weight:600;color:#0f1117">${formatDate(selectedDate)}</div>
     </div>
   </div>

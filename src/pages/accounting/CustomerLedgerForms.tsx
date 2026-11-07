@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Button } from '../../components/media/MediaUI';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
-import { brandImgHtml, writeBrandedDocument } from '../../lib/brand';
+import { brandImgHtml, brandLockupHtml, writeBrandedDocument } from '../../lib/brand';
 import { useCurrency } from '../../lib/CurrencyContext';
 import { groupInvoiceEntries } from '../../lib/customerWallet';
 import { envelopeReceipt, equivalentLabel, NEW_PAYMENT, paymentProblem, recordCustomerPayment, showEnvelopes, type PaymentChoice } from '../../lib/payments';
@@ -115,7 +115,7 @@ body{font-family:var(--font-sans);background:#f0f2f5;color:#0f1117;-webkit-print
 .print-btn:hover{background:#3a95d9}
 .page{max-width:800px;margin:0 auto 48px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.10)}
 .hdr{background:#fff;padding:36px 48px 32px;display:flex;justify-content:space-between;align-items:flex-start}
-.brand-tag{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;padding-left:7px}
+.brand-tag{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;padding-left:10px;margin-top:4px}
 .inv-meta{text-align:right}
 .inv-label{font-size:10px;font-weight:600;color:#4ba6ea;text-transform:uppercase;letter-spacing:2px}
 .inv-number{font-size:28px;font-weight:600;color:#0f1117;margin-top:4px;letter-spacing:-.5px}
@@ -161,7 +161,7 @@ td:last-child{text-align:right;font-weight:600;color:#0f1117;font-family:var(--f
 <div class="page">
 <div class="hdr">
   <div>
-    ${brandImgHtml('wordmarkLight', '36px')}
+    ${brandLockupHtml(36)}
     <div class="brand-tag">Premium Car Rental · Istanbul</div>
   </div>
   <div class="inv-meta">

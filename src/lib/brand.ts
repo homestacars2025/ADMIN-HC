@@ -15,6 +15,16 @@ export const BRAND_ALT = 'Homesta Cars';
 /** Width over height of both wordmark files (4000 × 1086). The icon is square. */
 export const WORDMARK_RATIO = 4000 / 1086;
 
+/** In the icon + wordmark lockup the wordmark is this share of the icon's height (32px icon → 22px wordmark). */
+export const LOCKUP_WORDMARK_SCALE = 0.69;
+
+/** Space between the icon and the wordmark in the lockup, in px. */
+export const LOCKUP_GAP = 10;
+
+export function lockupWordmarkHeight(iconHeight: number): number {
+  return Math.round(iconHeight * LOCKUP_WORDMARK_SCALE);
+}
+
 const FILES: Record<BrandAsset, string> = {
   icon: 'homesta-icon.png',
   wordmarkLight: 'homesta-wordmark-light.png', // black text, for light surfaces
@@ -123,6 +133,19 @@ export async function inlineBrandAssets(html: string): Promise<string> {
 export function brandImgHtml(asset: BrandAsset, height: string, className = ''): string {
   const classAttr = className ? ` class="${className}"` : '';
   return `<img src="${brandSrc(asset)}" alt="${BRAND_ALT}"${classAttr} style="display:block;height:${height};width:auto;max-width:none;object-fit:contain;border-radius:0;box-shadow:none;filter:none" draggable="false">`;
+}
+
+/**
+ * The icon + wordmark lockup for a standalone HTML document's header: the icon
+ * `iconHeight` px high, the wordmark matched to it, side by side and vertically
+ * centered. A flex row, so an RTL document puts the icon on the right.
+ */
+export function brandLockupHtml(iconHeight: number, theme: 'light' | 'dark' = 'light'): string {
+  const wordmark: BrandAsset = theme === 'dark' ? 'wordmarkDark' : 'wordmarkLight';
+  return `<div class="brand-lockup" role="img" aria-label="${BRAND_ALT}" style="display:inline-flex;align-items:center;gap:${LOCKUP_GAP}px">`
+    + brandImgHtml('icon', `${iconHeight}px`).replace(`alt="${BRAND_ALT}"`, 'alt=""')
+    + brandImgHtml(wordmark, `${lockupWordmarkHeight(iconHeight)}px`).replace(`alt="${BRAND_ALT}"`, 'alt=""')
+    + '</div>';
 }
 
 /**

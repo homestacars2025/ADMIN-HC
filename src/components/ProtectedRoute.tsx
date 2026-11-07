@@ -23,7 +23,7 @@ const Spinner: React.FC = () => (
     gap: 20,
     background: 'var(--surface)',
   }}>
-    <BrandLogo variant="icon" size={72} />
+    <BrandLogo variant="lockup" orientation="column" size={56} />
     <div style={{
       width: 32,
       height: 32,

@@ -901,9 +901,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
         position: 'relative',
       }}>
         {collapsed ? (
-          <BrandLogo variant="icon" size={40} />
+          <BrandLogo variant="icon" size={32} />
         ) : (
-          <BrandLogo variant="wordmark" theme="light" size={34} />
+          <BrandLogo variant="lockup" theme="light" size={32} />
         )}
       </div>
 
