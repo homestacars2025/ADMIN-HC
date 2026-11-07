@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Sheet, SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Spinner } from '../../components/media/MediaUI';
-import { ChevronDown } from '../../components/media/MediaIcons';
+import { ChevronDown, X } from '../../components/media/MediaIcons';
 import { CarThumb } from '../../components/shared/CarThumb';
 import { ComplianceTriangle, TONE_CLASSES } from '../../components/shared/ComplianceBits';
-import { formatCount, formatDay, formatTime, saveHgsBarcode, type HgsCarInfo, type HgsRoad, type HgsRow, type HgsTransitDetail } from '../../lib/hgs';
+import { formatCount, formatDay, formatTime, rangeChip, saveHgsBarcode, type DayRange, type HgsCarInfo, type HgsRoad, type HgsRow, type HgsTransitDetail } from '../../lib/hgs';
 import { cn } from '../../lib/media/badgeColor';
 import { formatMoney } from '../../lib/money';
 import { LicensePlate } from '../bookings/ui';
+import { DatesIcon, RangePicker } from './RangePicker';
 
 // ── Cars with no HGS data ─────────────────────────────────────────────────────
 
@@ -125,7 +126,8 @@ export interface HistoryState {
 const ROW_GRID = 'lg:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_92px_116px_minmax(150px,1fr)]';
 
 export const HgsListHeader: React.FC = () => (
-  <div className={cn('hidden gap-x-4 px-4 pb-1.5 ps-11 text-[11.5px] font-medium text-black/45 lg:grid', ROW_GRID)}>
+  // The end padding stands in for each row's Dates button.
+  <div className={cn('hidden gap-x-4 px-4 pb-1.5 ps-11 pe-[104px] text-[11.5px] font-medium text-black/45 lg:grid', ROW_GRID)}>
     <span>Car</span>
     <span>Barcode</span>
     <span className="text-end">Transits</span>
@@ -149,62 +151,103 @@ export const HgsCarRow: React.FC<{
   expanded: boolean;
   history?: HistoryState;
   periodLabel: string;
+  /** The car's own range, when it has one. */
+  ownRange: DayRange | null;
+  /** The days the row covers now, where a Custom range starts. */
+  fallback: DayRange;
+  today: string;
   onToggle: (row: HgsRow) => void;
   onRetry: (row: HgsRow) => void;
   onAddBarcode: (row: HgsRow) => void;
-}> = ({ row, expanded, history, periodLabel, onToggle, onRetry, onAddBarcode }) => {
+  onRange: (row: HgsRow, range: DayRange | null) => void;
+  onExport: (row: HgsRow, transits: HgsTransitDetail[]) => void;
+}> = ({ row, expanded, history, periodLabel, ownRange, fallback, today, onToggle, onRetry, onAddBarcode, onRange, onExport }) => {
   // A car with no transit opens too, to say so and to reach its barcode.
   const openable = row.transits > 0 || row.carId !== null;
   const panelId = `hgs-${row.key.replace(/[^a-z0-9]/gi, '-')}`;
   return (
     <li id={hgsRowId(row.key)} className={cn('scroll-mt-24 overflow-hidden rounded-2xl border bg-white transition-[border-color,box-shadow]', expanded ? 'border-[#6EA4E7]/45 shadow-[0_2px_10px_rgb(15_23_42/0.06)]' : 'border-[#EBEBEB] hover:border-black/[0.14]')}>
-      <button
-        type="button"
-        disabled={!openable}
-        onClick={() => onToggle(row)}
-        aria-expanded={openable ? expanded : undefined}
-        aria-controls={openable && expanded ? panelId : undefined}
-        className={cn(
-          'flex w-full items-center gap-3 px-3 py-3 text-start sm:px-4',
-          'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-[#6EA4E7]/35',
-          openable ? 'cursor-pointer hover:bg-black/[0.012]' : 'cursor-default',
-        )}
-      >
-        <ChevronDown size={15} strokeWidth={2} className={cn('shrink-0 transition-transform duration-200', !openable && 'invisible', expanded ? 'rotate-180 text-[#3A74C2]' : 'text-black/30')} />
-        <span className={cn('grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5', ROW_GRID)}>
-          <span className="flex min-w-0 items-center gap-2.5">
-            <CarThumb src={row.image} width={56} height={36} />
-            <span className="min-w-0">
-              <LicensePlate plate={row.plate} />
-              <span className="mt-0.5 block truncate text-[12.5px] text-black/55">{row.model ?? '—'}</span>
+      <div className="flex items-center">
+        <button
+          type="button"
+          disabled={!openable}
+          onClick={() => onToggle(row)}
+          aria-expanded={openable ? expanded : undefined}
+          aria-controls={openable && expanded ? panelId : undefined}
+          className={cn(
+            'flex min-w-0 flex-1 items-center gap-3 py-3 pe-2 ps-3 text-start sm:ps-4',
+            'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-[#6EA4E7]/35',
+            openable ? 'cursor-pointer hover:bg-black/[0.012]' : 'cursor-default',
+          )}
+        >
+          <ChevronDown size={15} strokeWidth={2} className={cn('shrink-0 transition-transform duration-200', !openable && 'invisible', expanded ? 'rotate-180 text-[#3A74C2]' : 'text-black/30')} />
+          <span className={cn('grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5', ROW_GRID)}>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <CarThumb src={row.image} width={56} height={36} />
+              <span className="min-w-0">
+                <LicensePlate plate={row.plate} />
+                <span className="mt-0.5 block truncate text-[12.5px] text-black/55">{row.model ?? '—'}</span>
+              </span>
+            </span>
+
+            <span className="col-start-2 row-start-1 text-end lg:hidden">
+              <span className={cn('block font-mono text-[15px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{formatMoney(row.amount)}</span>
+              <span className="block text-[11.5px] tabular-nums text-black/45">{sharePercent(row.share)} of spend</span>
+            </span>
+
+            <span className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-black/50 lg:contents">
+              <span className="truncate font-mono tabular-nums text-black/40 lg:text-[12.5px]">{row.barcode ?? 'No barcode'}</span>
+              <span className="tabular-nums lg:flex lg:flex-col lg:items-end lg:gap-0.5 lg:text-[13px] lg:text-black/70">
+                <span>{formatCount(row.transits)}<span className="lg:hidden"> {row.transits === 1 ? 'transit' : 'transits'}</span></span>
+                {row.privateRoad > 0 && <span className="ms-1.5 whitespace-nowrap rounded-full bg-[#7C3AED]/10 px-1.5 py-px text-[11px] font-medium text-[#5B21B6] lg:ms-0">{formatCount(row.privateRoad)} private</span>}
+              </span>
+              <span className="tabular-nums lg:text-end lg:text-[13px] lg:text-black/60"><span className="lg:hidden">Last </span>{formatDay(row.last)}</span>
+            </span>
+
+            <span className="col-span-2 lg:hidden"><ShareBar share={row.share} /></span>
+
+            <span className="hidden min-w-0 lg:block">
+              <span className="flex items-baseline justify-end gap-2">
+                <span className="text-[11.5px] tabular-nums text-black/40">{sharePercent(row.share)}</span>
+                <span className={cn('font-mono text-[14.5px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{formatMoney(row.amount)}</span>
+              </span>
+              <span className="mt-1.5 block"><ShareBar share={row.share} /></span>
             </span>
           </span>
-
-          <span className="col-start-2 row-start-1 text-end lg:hidden">
-            <span className={cn('block font-mono text-[15px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{formatMoney(row.amount)}</span>
-            <span className="block text-[11.5px] tabular-nums text-black/45">{sharePercent(row.share)} of spend</span>
-          </span>
-
-          <span className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-black/50 lg:contents">
-            <span className="truncate font-mono tabular-nums text-black/40 lg:text-[12.5px]">{row.barcode ?? 'No barcode'}</span>
-            <span className="tabular-nums lg:flex lg:flex-col lg:items-end lg:gap-0.5 lg:text-[13px] lg:text-black/70">
-              <span>{formatCount(row.transits)}<span className="lg:hidden"> {row.transits === 1 ? 'transit' : 'transits'}</span></span>
-              {row.privateRoad > 0 && <span className="ms-1.5 whitespace-nowrap rounded-full bg-[#7C3AED]/10 px-1.5 py-px text-[11px] font-medium text-[#5B21B6] lg:ms-0">{formatCount(row.privateRoad)} private</span>}
-            </span>
-            <span className="tabular-nums lg:text-end lg:text-[13px] lg:text-black/60"><span className="lg:hidden">Last </span>{formatDay(row.last)}</span>
-          </span>
-
-          <span className="col-span-2 lg:hidden"><ShareBar share={row.share} /></span>
-
-          <span className="hidden min-w-0 lg:block">
-            <span className="flex items-baseline justify-end gap-2">
-              <span className="text-[11.5px] tabular-nums text-black/40">{sharePercent(row.share)}</span>
-              <span className={cn('font-mono text-[14.5px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{formatMoney(row.amount)}</span>
-            </span>
-            <span className="mt-1.5 block"><ShareBar share={row.share} /></span>
-          </span>
+        </button>
+        <span className="flex shrink-0 items-center pe-2.5 sm:pe-3">
+          <RangePicker
+            label={`Dates for ${row.plate}`}
+            value={ownRange}
+            fallback={fallback}
+            today={today}
+            onChange={(range) => onRange(row, range)}
+            className={cn(
+              'inline-flex h-11 min-w-[44px] items-center justify-center gap-1.5 rounded-[10px] border px-2 text-[12.5px] font-medium transition-colors sm:px-2.5 md:h-8 lg:w-[84px]',
+              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35',
+              ownRange ? 'border-[#6EA4E7]/50 bg-[#6EA4E7]/10 text-[#3A74C2]' : 'border-[#E5E7EB] bg-white text-black/55 hover:border-black/20 hover:text-black/75',
+            )}
+          >
+            <DatesIcon />
+            <span className="hidden sm:inline">Dates</span>
+          </RangePicker>
         </span>
-      </button>
+      </div>
+      {ownRange && (
+        <div className="-mt-1.5 flex pb-2.5 pe-3 ps-[35px] sm:ps-[39px]">
+          <button
+            type="button"
+            aria-label={`Clear dates for ${row.plate}`}
+            onClick={() => onRange(row, null)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-1 text-[12px] font-medium tabular-nums text-[#3A74C2] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35 md:min-h-0"
+          >
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#6EA4E7]/[0.12] py-1 pe-1.5 ps-2.5 hover:bg-[#6EA4E7]/20">
+              {rangeChip(ownRange, today)}
+              <X size={12} strokeWidth={2.4} />
+            </span>
+          </button>
+        </div>
+      )}
 
       {expanded && openable && (
         <div id={panelId} className="border-t border-[#EBEBEB] bg-[#FAFAFA] px-3 py-3 sm:px-4">
@@ -230,7 +273,7 @@ export const HgsCarRow: React.FC<{
               <Button variant="outline" size="lg" className="!h-11 md:!h-9" onClick={() => onRetry(row)}>Try again</Button>
             </div>
           )}
-          {row.transits > 0 && history?.status === 'ready' && <TransitList rows={history.rows} periodLabel={periodLabel} />}
+          {row.transits > 0 && history?.status === 'ready' && <TransitList rows={history.rows} periodLabel={periodLabel} onExport={() => onExport(row, history.rows)} />}
         </div>
       )}
     </li>
@@ -253,9 +296,14 @@ const RoadBadge: React.FC<{ type: HgsRoad | null }> = ({ type }) => {
 
 const TRANSIT_GRID = 'sm:grid-cols-[150px_minmax(0,1.4fr)_minmax(0,1fr)_100px]';
 
-const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string }> = ({ rows, periodLabel }) => {
+const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string; onExport: () => void }> = ({ rows, periodLabel, onExport }) => {
   if (rows.length === 0) return <p className="py-3 text-center text-[13px] text-black/45">No transits {periodLabel}.</p>;
   return (
+    <>
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <span className="text-[12.5px] text-black/50">{formatCount(rows.length)} {rows.length === 1 ? 'transit' : 'transits'} {periodLabel}</span>
+      <Button variant="outline" size="lg" className="!h-11 shrink-0 px-3 md:!h-8" onClick={onExport}>Export CSV</Button>
+    </div>
     <div className="overflow-hidden rounded-xl border border-[#EBEBEB] bg-white">
       <div className={cn('hidden gap-x-3 border-b border-[#EBEBEB] px-3 py-2 text-[11.5px] font-medium text-black/45 sm:grid', TRANSIT_GRID)}>
         <span>Date</span>
@@ -294,5 +342,6 @@ const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string }> =
         ))}
       </ul>
     </div>
+    </>
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import HGSPage from './HGSPage';
@@ -208,4 +208,79 @@ test('surfaces a load failure with a retry', async () => {
   expect(await screen.findByText("Couldn't load HGS: network down")).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByText('06FHN975')).toBeInTheDocument();
+});
+
+describe('ranges of days', () => {
+  const mm = month.slice(5, 7);
+  const carRow = (id: number) => document.getElementById(`hgs-row-car-${id}`) as HTMLElement;
+
+  test('a page range from the URL counts every row and tile over it, and its ✕ goes back to the month', async () => {
+    renderPage(`/dashboard/hgs?from=${month}-02&to=${month}-02`);
+    expect(await screen.findByRole('button', { name: /Total spend/ })).toHaveTextContent(`₺148,50from 02.${mm} to 02.${mm}`.replace(`from 02.${mm} to 02.${mm}`, `on 02.${mm}`));
+    expect(screen.getByRole('alert')).toHaveTextContent(`2 cars have no HGS transits on 02.${mm} — check their HGS`);
+    expect(screen.getByRole('button', { name: 'Date range' })).toHaveTextContent(`02.${mm}`);
+    expect(within(carRow(39)).getByText('₺148,50', { selector: '.lg\\:hidden *' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Clear date range' }));
+    expect(screen.getByTestId('where')).not.toHaveTextContent('from=');
+    expect(screen.getByRole('button', { name: /Total spend/ })).toHaveTextContent('₺244,50');
+  });
+
+  test('a preset sets the page range, and the month switcher takes over again', async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Date range' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Date range' })).getByRole('button', { name: 'Last month' }));
+    expect(screen.getByTestId('where')).toHaveTextContent(`from=${lastMonth}-01`);
+    expect(screen.getByRole('button', { name: /Total spend/ })).toHaveTextContent('₺500,00');
+    await userEvent.click(screen.getByRole('button', { name: 'Date range' }));
+    expect(within(screen.getByRole('dialog', { name: 'Date range' })).getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(screen.getByTestId('where')).not.toHaveTextContent('from=');
+  });
+
+  test("a car's own range changes only its row and its list, and its chip clears it", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Dates for 06FHN975' }));
+    const picker = within(screen.getByRole('dialog', { name: 'Dates for 06FHN975' }));
+    await userEvent.click(picker.getByRole('button', { name: 'Custom' }));
+    // Backwards on purpose: Apply puts the ends the right way round.
+    fireEvent.change(picker.getByLabelText('From'), { target: { value: `${month}-04` } });
+    fireEvent.change(picker.getByLabelText('To'), { target: { value: `${month}-03` } });
+    await userEvent.click(picker.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByTestId('where')).toHaveTextContent(`car=39&cfrom=${month}-03&cto=${month}-04`);
+    expect(carRow(39)).toHaveTextContent('₺96,00');
+    expect(carRow(39)).toHaveTextContent('100% of spend');
+    expect(screen.getByRole('button', { name: /Total spend/ })).toHaveTextContent('₺244,50');
+
+    await userEvent.click(carRow(39).querySelector('button') as HTMLElement);
+    await waitFor(() => expect(mockFetchCarTransits).toHaveBeenCalledWith(expect.objectContaining({ carId: 39 }), { from: `${month}-03`, to: `${month}-04` }));
+    expect(await within(carRow(39)).findByText(`2 transits from 03.${mm} to 04.${mm}`)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear dates for 06FHN975' }));
+    expect(screen.getByTestId('where')).not.toHaveTextContent('car=');
+    expect(carRow(39)).toHaveTextContent('₺244,50');
+    await waitFor(() => expect(mockFetchCarTransits).toHaveBeenLastCalledWith(expect.anything(), month));
+  });
+
+  test("a shared link opens that car over its range, and its CSV is named after it", async () => {
+    const created: Blob[] = [];
+    URL.createObjectURL = jest.fn((blob: Blob) => { created.push(blob); return 'blob:hgs'; });
+    URL.revokeObjectURL = jest.fn();
+    const names: string[] = [];
+    const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { names.push(this.download); });
+    renderPage(`/dashboard/hgs?car=39&cfrom=${month}-01&cto=${month}-06`);
+    expect(await screen.findByText(`01.${mm} → 06.${mm}`)).toBeInTheDocument();
+    expect(await within(carRow(39)).findByRole('button', { expanded: true })).toHaveFocus();
+    expect(mockScrollIntoView).toHaveBeenCalledTimes(1);
+    await userEvent.click(await within(carRow(39)).findByRole('button', { name: 'Export CSV' }));
+    expect(names).toEqual([`hgs-06FHN975-${month}-01_${month}-06.csv`]);
+    const text = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(created[0]);
+    });
+    expect(text).toContain('Date,Time,Entry,Exit,Toll,Amount');
+    expect(text).toContain(`${month}-03,14:04,,FENERTEPE,KCO GECIS UCRET,96.00`);
+    click.mockRestore();
+  });
 });

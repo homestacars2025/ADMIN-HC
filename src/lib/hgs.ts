@@ -16,6 +16,15 @@ import { supabase } from './supabase';
 export type HgsPeriod = string | 'all';
 export const ALL_TIME = 'all';
 
+/** A run of Istanbul days, YYYY-MM-DD, both ends included. */
+export interface DayRange {
+  from: string;
+  to: string;
+}
+
+/** What a row or the page counts over: a month, all time, or a range of days. */
+export type HgsWindow = HgsPeriod | DayRange;
+
 export interface HgsCarInfo {
   id: number;
   plate: string;
@@ -162,13 +171,71 @@ export async function fetchHgsData(): Promise<HgsData> {
   };
 }
 
-const nextMonth = (month: string) => {
-  const [year, index] = month.split('-').map(Number);
-  return new Date(Date.UTC(year, index, 1)).toISOString().slice(0, 7);
+// ── Ranges of days ────────────────────────────────────────────────────────────
+
+const isDay = (value: string | null | undefined): value is string => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 };
 
-/** Midnight in Istanbul on the first of the month. Turkey has kept UTC+3 all year since 2016. */
-const monthStart = (month: string) => `${month}-01T00:00:00+03:00`;
+export function addDays(day: string, by: number): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + by);
+  return date.toISOString().slice(0, 10);
+}
+
+const lastOfMonth = (month: string) => new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10);
+
+/** A range from the URL or the picker. The ends are swapped when they come the wrong way round. */
+export function parseDayRange(from: string | null | undefined, to: string | null | undefined): DayRange | null {
+  if (!isDay(from) || !isDay(to)) return null;
+  return from <= to ? { from, to } : { from: to, to: from };
+}
+
+export const isDayRange = (window: HgsWindow): window is DayRange => typeof window !== 'string';
+
+/** The first and last day a window covers, or null for all time. */
+export function windowDays(window: HgsWindow): DayRange | null {
+  if (isDayRange(window)) return window;
+  if (window === ALL_TIME) return null;
+  return { from: `${window}-01`, to: lastOfMonth(window) };
+}
+
+export const windowKey = (window: HgsWindow): string => (isDayRange(window) ? `${window.from}_${window.to}` : window);
+
+export const RANGE_PRESETS = ['today', 'last7', 'this_month', 'last_month'] as const;
+export type RangePreset = typeof RANGE_PRESETS[number];
+
+export function presetRange(preset: RangePreset, today: string): DayRange {
+  if (preset === 'today') return { from: today, to: today };
+  if (preset === 'last7') return { from: addDays(today, -6), to: today };
+  if (preset === 'this_month') return { from: `${today.slice(0, 7)}-01`, to: today };
+  const previous = addDays(`${today.slice(0, 7)}-01`, -1).slice(0, 7);
+  return { from: `${previous}-01`, to: lastOfMonth(previous) };
+}
+
+export const presetOf = (range: DayRange | null, today: string): RangePreset | null =>
+  (range && RANGE_PRESETS.find((preset) => {
+    const candidate = presetRange(preset, today);
+    return candidate.from === range.from && candidate.to === range.to;
+  })) || null;
+
+/** "01.11 → 06.11", with two-digit years when the range isn't all in this year: "01.11.25 → 06.01.26". */
+export function rangeChip(range: DayRange, today: string): string {
+  const withYear = range.from.slice(0, 4) !== today.slice(0, 4) || range.to.slice(0, 4) !== today.slice(0, 4);
+  const day = (value: string) => `${value.slice(8, 10)}.${value.slice(5, 7)}${withYear ? `.${value.slice(2, 4)}` : ''}`;
+  return range.from === range.to ? day(range.from) : `${day(range.from)} → ${day(range.to)}`;
+}
+
+/** Follows "no transits": "on 06.11" or "from 01.11 to 06.11". */
+export function rangeSentence(range: DayRange, today: string): string {
+  const [from, to] = rangeChip(range, today).split(' → ');
+  return to ? `from ${from} to ${to}` : `on ${from}`;
+}
+
+/** Midnight in Istanbul at the start of a day. Turkey has kept UTC+3 all year since 2016. */
+const dayStart = (day: string) => `${day}T00:00:00+03:00`;
 
 interface BookingOnCar {
   id: number;
@@ -187,7 +254,7 @@ export function bookingOnDay<T extends Pick<BookingOnCar, 'start' | 'end'>>(book
     .sort((a, b) => b.start.localeCompare(a.start))[0] ?? null;
 }
 
-async function fetchCarBookings(carId: number, period: HgsPeriod): Promise<BookingOnCar[]> {
+async function fetchCarBookings(carId: number, period: HgsWindow): Promise<BookingOnCar[]> {
   let query = supabase
     .from('bookings')
     .select('id, booking_number, start_date, end_date, customer_id, customer:customer_id(first_name, last_name)')
@@ -195,10 +262,8 @@ async function fetchCarBookings(carId: number, period: HgsPeriod): Promise<Booki
     .neq('status', 'cancelled')
     .not('start_date', 'is', null)
     .not('end_date', 'is', null);
-  if (period !== ALL_TIME) {
-    const last = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0)).toISOString().slice(0, 10);
-    query = query.lte('start_date', last).gte('end_date', `${period}-01`);
-  }
+  const days = windowDays(period);
+  if (days) query = query.lte('start_date', days.to).gte('end_date', days.from);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map((raw) => {
@@ -215,7 +280,8 @@ async function fetchCarBookings(carId: number, period: HgsPeriod): Promise<Booki
 }
 
 /** One car's transits in the period, newest first, each with the booking on the car that day. */
-export async function fetchCarTransits(car: { carId: number | null; plate: string }, period: HgsPeriod): Promise<HgsTransitDetail[]> {
+export async function fetchCarTransits(car: { carId: number | null; plate: string }, period: HgsWindow): Promise<HgsTransitDetail[]> {
+  const days = windowDays(period);
   // A busy car passes a few hundred gates a month, so a car's all-time list can run past one page.
   const page = (from: number) => {
     let query = supabase
@@ -224,7 +290,7 @@ export async function fetchCarTransits(car: { carId: number | null; plate: strin
       .order('transit_datetime', { ascending: false })
       .order('id', { ascending: false });
     query = car.carId !== null ? query.eq('car_id', car.carId) : query.is('car_id', null).eq('plate_number', car.plate);
-    if (period !== ALL_TIME) query = query.gte('transit_datetime', monthStart(period)).lt('transit_datetime', monthStart(nextMonth(period)));
+    if (days) query = query.gte('transit_datetime', dayStart(days.from)).lt('transit_datetime', dayStart(addDays(days.to, 1)));
     return query.range(from, from + PAGE - 1);
   };
   const [transits, bookings] = await Promise.all([
@@ -289,7 +355,10 @@ export async function saveHgsBarcode(carId: number, input: string): Promise<stri
 
 export const hasBarcode = (car: Pick<HgsCarInfo, 'barcode'>): boolean => Boolean(car.barcode?.trim());
 
-export const inPeriod = (transit: Pick<HgsTransitLite, 'day'>, period: HgsPeriod): boolean => period === ALL_TIME || transit.day.slice(0, 7) === period;
+export function inPeriod(transit: Pick<HgsTransitLite, 'day'>, period: HgsWindow): boolean {
+  if (isDayRange(period)) return Boolean(transit.day) && period.from <= transit.day && transit.day <= period.to;
+  return period === ALL_TIME || transit.day.slice(0, 7) === period;
+}
 
 /** Null when last month had nothing, which is no comparison rather than +100%. */
 export function monthChange(now: number, before: number): number | null {
@@ -306,7 +375,7 @@ const previousMonth = (month: string) => {
  * Active cars with no HGS data in the period: no transit and nothing spent, barcode or
  * not. The banner, the Cars on HGS tile and its filter all use this one list.
  */
-export function carsWithoutTransits(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPeriod): HgsCarInfo[] {
+export function carsWithoutTransits(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsWindow): HgsCarInfo[] {
   const used = new Set<number>();
   data.transits.forEach((transit) => { if (transit.carId !== null && inPeriod(transit, period)) used.add(transit.carId); });
   return data.cars
@@ -324,7 +393,7 @@ export interface HgsSummary {
   thisMonth: { month: string; previous: string; spend: number; previousSpend: number; change: number | null };
 }
 
-export function hgsSummary(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPeriod, currentMonth: string): HgsSummary {
+export function hgsSummary(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsWindow, currentMonth: string): HgsSummary {
   const periodTransits = data.transits.filter((transit) => inPeriod(transit, period));
   const previous = previousMonth(currentMonth);
   const spendIn = (month: string) => data.transits.reduce((total, transit) => total + (inPeriod(transit, month) ? transit.amount : 0), 0);
@@ -356,8 +425,31 @@ export interface HgsRow {
   share: number;
 }
 
-/** Every active car, plus any other car that passed a toll in the period. */
-export function hgsRows(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsPeriod): HgsRow[] {
+/** How a row goes in the URL's `car=`: its id, or its plate without spaces when it has no car. */
+export const carParam = (row: Pick<HgsRow, 'carId' | 'plate'>): string => (row.carId !== null ? String(row.carId) : row.plate.replace(/\s+/g, ''));
+
+/** One car's own range, from `?car=&cfrom=&cto=`. */
+export interface CarRange {
+  car: string;
+  range: DayRange;
+}
+
+/**
+ * Every active car, plus any other car that passed a toll in the period. A car with its
+ * own range is counted over that range instead, its share of the whole fleet's spend in it.
+ */
+export function hgsRows(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsWindow, carRange: CarRange | null = null): HgsRow[] {
+  const rows = rowsIn(data, period);
+  if (!carRange) return rows;
+  const own = rowsIn(data, carRange.range).find((row) => carParam(row) === carRange.car);
+  const index = rows.findIndex((row) => carParam(row) === carRange.car);
+  if (index === -1) return own ? [...rows, own] : rows;
+  const next = [...rows];
+  next[index] = own ?? { ...rows[index], transits: 0, privateRoad: 0, amount: 0, last: null, share: 0 };
+  return next;
+}
+
+function rowsIn(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsWindow): HgsRow[] {
   const carsById = new Map(data.cars.map((car) => [car.id, car]));
   const rows = new Map<string, HgsRow>();
   const blank = (key: string, car: HgsCarInfo | null, plate: string, carId: number | null): HgsRow => ({
@@ -410,6 +502,30 @@ export function inHgsFilter(row: HgsRow, filter: HgsFilter | 'all'): boolean {
   if (filter === 'used') return row.transits > 0;
   if (filter === 'idle') return row.transits === 0;
   return true;
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+/** Quoted when it holds a comma, quote or line break; a leading = + - @ can't start a formula. */
+function csvCell(value: string): string {
+  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+/**
+ * One car's transits in the order the page lists them: Date, Time (Istanbul), Entry, Exit,
+ * Toll, Amount. A single gate has only an exit, as on the page.
+ */
+export function hgsCsv(rows: HgsTransitDetail[]): string {
+  const lines = rows.map((transit) => [transit.day, formatTime(transit.at), transit.entry ?? '', transit.exit ?? '', transit.road ?? '']
+    .map(csvCell).concat(transit.amount.toFixed(2)).join(','));
+  // The byte-order mark makes Excel read the Turkish letters as UTF-8.
+  return `﻿${['Date,Time,Entry,Exit,Toll,Amount', ...lines].join('\r\n')}\r\n`;
+}
+
+export function hgsCsvName(plate: string, window: HgsWindow): string {
+  const days = windowDays(window);
+  return `hgs-${plate.replace(/\s+/g, '')}-${days ? `${days.from}_${days.to}` : 'all'}.csv`;
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────

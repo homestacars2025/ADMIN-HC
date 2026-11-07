@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { X } from '../components/media/MediaIcons';
 import { useSearchParams } from 'react-router-dom';
 import '../lib/media/tokens.css';
 import { Button, Spinner } from '../components/media/MediaUI';
@@ -10,6 +11,7 @@ import { StatusImage } from '../components/shared/StatusImage';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import {
   ALL_TIME,
+  carParam,
   carsWithoutTransits,
   fetchCarTransits,
   fetchHgsData,
@@ -17,17 +19,29 @@ import {
   formatCount,
   HGS_FILTERS,
   HGS_SORTS,
+  hgsCsv,
+  hgsCsvName,
   hgsRows,
   hgsSummary,
+  istanbulDay,
   inHgsFilter,
   matchesHgsSearch,
+  parseDayRange,
+  rangeChip,
+  rangeSentence,
   sortHgsRows,
   syncedAgo,
+  windowDays,
+  windowKey,
+  type CarRange,
+  type DayRange,
   type HgsCarInfo,
   type HgsData,
   type HgsPeriod,
   type HgsRow,
   type HgsSort,
+  type HgsTransitDetail,
+  type HgsWindow,
 } from '../lib/hgs';
 import { cn } from '../lib/media/badgeColor';
 import { formatMoney } from '../lib/money';
@@ -35,15 +49,28 @@ import { currentMonth, monthLabel, shiftMonth } from '../lib/payroll';
 import { Segmented } from './bookings/ui';
 import { WalletIcon } from './customers/ui';
 import { BarcodeSheet, HgsCarRow, HgsListHeader, NoTransitsBanner, hgsRowId, type HistoryState } from './hgs/HgsParts';
+import { DatesIcon, RangePicker } from './hgs/RangePicker';
 
 /**
  * HGS tolls, from the portal files finance uploads per car. Every transit loads once,
  * so the month switcher, the tiles and the rows are worked out in memory. A car's own
  * rows, with the booking on the car that day, load when it is opened, and are kept per
  * car and period until the next refresh.
+ *
+ * A range of days (`?from=&to=`) takes the month's place for the whole page, and one car
+ * can have its own (`?car=&cfrom=&cto=`), which wins for that car only.
  */
 
 const SORT_LABELS: Record<HgsSort, string> = { amount: 'Amount', transits: 'Transits', last: 'Last' };
+
+function downloadCsv(name: string, csv: string): void {
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 const CalendarIcon: React.FC = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -59,6 +86,14 @@ const HGSPage: React.FC = () => {
   const allTime = requestedMonth === ALL_TIME;
   const month = requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) ? requestedMonth : thisMonth;
   const period: HgsPeriod = allTime ? ALL_TIME : month;
+  const [fromParam, toParam] = [params.get('from'), params.get('to')];
+  const pageRange = useMemo(() => parseDayRange(fromParam, toParam), [fromParam, toParam]);
+  const pageWindow: HgsWindow = pageRange ?? period;
+  const [carValue, carFrom, carTo] = [params.get('car'), params.get('cfrom'), params.get('cto')];
+  const carRange = useMemo<CarRange | null>(() => {
+    const range = parseDayRange(carFrom, carTo);
+    return carValue && range ? { car: carValue, range } : null;
+  }, [carValue, carFrom, carTo]);
   const requestedSort = params.get('sort') as HgsSort | null;
   const sort: HgsSort = requestedSort && HGS_SORTS.includes(requestedSort) ? requestedSort : 'amount';
   const { filter, toggle, clear } = useUrlFilter(HGS_FILTERS);
@@ -73,6 +108,7 @@ const HGSPage: React.FC = () => {
   const [histories, setHistories] = useState<Record<string, HistoryState>>({});
   const [editing, setEditing] = useState<HgsCarInfo | null>(null);
   const [scrollTo, setScrollTo] = useState<string | null>(null);
+  const [linkedCar, setLinkedCar] = useState(carValue);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,43 +136,74 @@ const HGSPage: React.FC = () => {
     setReload((value) => value + 1);
   }, []);
 
-  const setParam = (key: string, value: string | null) => {
+  const setParam = (changes: Record<string, string | null>) => {
     const updated = new URLSearchParams(params);
-    if (value === null) updated.delete(key);
-    else updated.set(key, value);
+    Object.entries(changes).forEach(([key, value]) => {
+      if (value === null) updated.delete(key);
+      else updated.set(key, value);
+    });
     setParams(updated);
   };
-  const setPeriod = (next: HgsPeriod) => { setExpanded(null); setParam('month', next === thisMonth ? null : next); };
+  // The month switcher and All time take over from a range of days.
+  const setPeriod = (next: HgsPeriod) => { setExpanded(null); setParam({ month: next === thisMonth ? null : next, from: null, to: null }); };
   const moveMonth = (by: number) => setPeriod(shiftMonth(`${month}-01`, by).slice(0, 7));
+  const setPageRange = (range: DayRange | null) => setParam(range ? { month: null, from: range.from, to: range.to } : { month: null, from: null, to: null });
+  const setCarRange = (row: HgsRow, range: DayRange | null) => setParam(range ? { car: carParam(row), cfrom: range.from, cto: range.to } : { car: null, cfrom: null, cto: null });
 
-  const idleCars = useMemo(() => (data ? carsWithoutTransits(data, period) : []), [data, period]);
-  const summary = useMemo(() => (data ? hgsSummary(data, period, thisMonth) : null), [data, period, thisMonth]);
-  const rows = useMemo(() => (data ? hgsRows(data, period) : []), [data, period]);
+  const today = istanbulDay(new Date(now).toISOString());
+  const idleCars = useMemo(() => (data ? carsWithoutTransits(data, pageWindow) : []), [data, pageWindow]);
+  const summary = useMemo(() => (data ? hgsSummary(data, pageWindow, thisMonth) : null), [data, pageWindow, thisMonth]);
+  const pageRows = useMemo(() => (data ? hgsRows(data, pageWindow) : []), [data, pageWindow]);
+  const rows = useMemo(() => (data && carRange ? hgsRows(data, pageWindow, carRange) : pageRows), [data, pageWindow, carRange, pageRows]);
   const visible = useMemo(
     () => sortHgsRows(rows.filter((row) => inHgsFilter(row, filter) && matchesHgsSearch(row, query)), sort),
     [rows, filter, query, sort],
   );
-  const usedCars = useMemo(() => rows.filter((row) => row.transits > 0).length, [rows]);
+  // The tiles count the page's period; a car's own range only changes its row.
+  const usedCars = useMemo(() => pageRows.filter((row) => row.transits > 0).length, [pageRows]);
 
-  const periodLabel = allTime ? 'all time' : `in ${monthLabel(`${month}-01`)}`;
-  const bannerWhen = allTime ? 'yet' : month === thisMonth ? 'this month' : periodLabel;
-  const historyKey = (row: HgsRow) => `${row.key}|${period}`;
+  const labelOf = useCallback((target: HgsWindow) => {
+    if (typeof target !== 'string') return rangeSentence(target, today);
+    return target === ALL_TIME ? 'all time' : `in ${monthLabel(`${target}-01`)}`;
+  }, [today]);
+  const periodLabel = labelOf(pageWindow);
+  const bannerWhen = pageRange ? periodLabel : allTime ? 'yet' : month === thisMonth ? 'this month' : periodLabel;
+  const ownRange = useCallback((row: HgsRow) => (carRange && carParam(row) === carRange.car ? carRange.range : null), [carRange]);
+  const rowWindow = useCallback((row: HgsRow): HgsWindow => ownRange(row) ?? pageWindow, [ownRange, pageWindow]);
+  const historyKey = useCallback((row: HgsRow) => `${row.key}|${windowKey(rowWindow(row))}`, [rowWindow]);
 
-  const loadHistory = useCallback(async (row: HgsRow, key: string) => {
+  const loadHistory = useCallback(async (row: HgsRow, target: HgsWindow, key: string) => {
     setHistories((current) => ({ ...current, [key]: { status: 'loading', rows: [] } }));
     try {
-      const transits = await fetchCarTransits(row, period);
+      const transits = await fetchCarTransits(row, target);
       setHistories((current) => ({ ...current, [key]: { status: 'ready', rows: transits } }));
     } catch (failure) {
       setHistories((current) => ({ ...current, [key]: { status: 'error', rows: [], message: failure instanceof Error ? failure.message : undefined } }));
     }
-  }, [period]);
+  }, []);
 
-  const toggleRow = (row: HgsRow) => {
-    const opening = expanded !== row.key;
-    setExpanded(opening ? row.key : null);
-    if (opening && row.transits > 0 && !histories[historyKey(row)]) void loadHistory(row, historyKey(row));
-  };
+  // The open car's transits load once per period, and again when its range changes.
+  const openRow = rows.find((row) => row.key === expanded) ?? null;
+  const openKey = openRow ? historyKey(openRow) : null;
+  useEffect(() => {
+    if (!openRow || !openKey || openRow.transits === 0 || histories[openKey]) return;
+    void loadHistory(openRow, rowWindow(openRow), openKey);
+  }, [openRow, openKey, histories, loadHistory, rowWindow]);
+
+  const toggleRow = (row: HgsRow) => setExpanded(expanded === row.key ? null : row.key);
+
+  const exportRow = (row: HgsRow, transits: HgsTransitDetail[]) => downloadCsv(hgsCsvName(row.plate, rowWindow(row)), hgsCsv(transits));
+
+  // A shared link with a car's range opens that car, once the list is there.
+  useEffect(() => {
+    if (!linkedCar || !data) return;
+    const row = rows.find((item) => carParam(item) === linkedCar);
+    if (row) {
+      setExpanded(row.key);
+      setScrollTo(row.key);
+    }
+    setLinkedCar(null);
+  }, [linkedCar, data, rows]);
 
   // A chip in the banner shows that car's row, open, wherever the list was.
   const showCar = (car: HgsCarInfo) => {
@@ -183,8 +250,32 @@ const HGSPage: React.FC = () => {
       />
 
       <div className="mb-4 flex max-w-[1100px] flex-wrap items-center justify-between gap-3">
-        <div className={cn(allTime && 'opacity-60')}>
-          <MonthNav label={monthLabel(`${month}-01`)} justify="flex-start" onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className={cn((allTime || pageRange) && 'opacity-60')}>
+            <MonthNav label={monthLabel(`${month}-01`)} justify="flex-start" onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} />
+          </div>
+          <span className="flex items-center gap-1">
+            <RangePicker
+              label="Date range"
+              value={pageRange}
+              fallback={windowDays(period) ?? { from: today, to: today }}
+              today={today}
+              onChange={setPageRange}
+              className={cn(
+                'inline-flex h-11 items-center gap-2 rounded-[10px] border-[1.5px] px-3 text-[13px] font-medium tabular-nums transition-colors md:h-9',
+                'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35',
+                pageRange ? 'border-[#6EA4E7]/60 bg-[#6EA4E7]/10 text-[#3A74C2]' : 'border-[#E5E7EB] bg-white text-black/60 hover:border-[#4ba6ea] hover:text-[#3A74C2]',
+              )}
+            >
+              <DatesIcon />
+              {pageRange ? rangeChip(pageRange, today) : <>From <span aria-hidden="true">→</span> To</>}
+            </RangePicker>
+            {pageRange && (
+              <button type="button" aria-label="Clear date range" onClick={() => setPageRange(null)} className="grid h-11 w-11 place-items-center rounded-[10px] text-black/45 hover:bg-black/[0.04] hover:text-black/70 md:h-9 md:w-9">
+                <X size={15} />
+              </button>
+            )}
+          </span>
         </div>
         <Button variant={allTime ? 'default' : 'outline'} size="lg" aria-pressed={allTime} className="!h-11 px-3 md:!h-10" onClick={() => setPeriod(allTime ? thisMonth : ALL_TIME)}>
           All time
@@ -225,7 +316,7 @@ const HGSPage: React.FC = () => {
         <SearchField value={query} onChange={setQuery} placeholder="Search plate, barcode or model" className="sm:max-w-[340px] sm:flex-1" />
         <div className="flex items-center gap-2 sm:ms-auto">
           <span className="text-[12.5px] text-black/45">Sort</span>
-          <Segmented ariaLabel="Sort cars" value={sort} onChange={(next) => setParam('sort', next === 'amount' ? null : next)} options={HGS_SORTS.map((key) => ({ value: key, label: SORT_LABELS[key] }))} />
+          <Segmented ariaLabel="Sort cars" value={sort} onChange={(next) => setParam({ sort: next === 'amount' ? null : next })} options={HGS_SORTS.map((key) => ({ value: key, label: SORT_LABELS[key] }))} />
         </div>
       </div>
 
@@ -251,10 +342,15 @@ const HGSPage: React.FC = () => {
                   row={row}
                   expanded={expanded === row.key}
                   history={histories[historyKey(row)]}
-                  periodLabel={periodLabel}
+                  periodLabel={labelOf(rowWindow(row))}
+                  ownRange={ownRange(row)}
+                  fallback={windowDays(rowWindow(row)) ?? { from: today, to: today }}
+                  today={today}
                   onToggle={toggleRow}
-                  onRetry={(target) => void loadHistory(target, historyKey(target))}
+                  onRetry={(target) => void loadHistory(target, rowWindow(target), historyKey(target))}
                   onAddBarcode={addBarcode}
+                  onRange={setCarRange}
+                  onExport={exportRow}
                 />
               ))}
             </ul>

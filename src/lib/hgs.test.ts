@@ -1,6 +1,15 @@
 import {
   bookingOnDay,
   carsWithoutTransits,
+  fetchCarTransits,
+  hgsCsv,
+  hgsCsvName,
+  parseDayRange,
+  presetOf,
+  presetRange,
+  rangeChip,
+  rangeSentence,
+  windowDays,
   formatDay,
   formatTime,
   istanbulDay,
@@ -14,8 +23,10 @@ import {
   sortHgsRows,
   syncedAgo,
   type HgsCarInfo,
+  type HgsTransitDetail,
   type HgsTransitLite,
 } from './hgs';
+import { supabase } from './supabase';
 
 jest.mock('./supabase', () => ({ supabase: {} }));
 
@@ -157,5 +168,97 @@ describe('last sync', () => {
     expect(syncedAgo('2026-11-04T09:00:00Z', now)).toBe('3 h ago');
     expect(syncedAgo('2026-11-02T09:00:00Z', now)).toBe('2 days ago');
     expect(syncedAgo(null, now)).toBe('never');
+  });
+});
+
+describe('a range of days', () => {
+  const today = '2026-11-07';
+
+  it('reads from the URL, ends swapped when backwards, nonsense dropped', () => {
+    expect(parseDayRange('2026-11-01', '2026-11-06')).toEqual({ from: '2026-11-01', to: '2026-11-06' });
+    expect(parseDayRange('2026-11-06', '2026-11-01')).toEqual({ from: '2026-11-01', to: '2026-11-06' });
+    expect(parseDayRange('2026-02-30', '2026-03-01')).toBeNull();
+    expect(parseDayRange('2026-11-01', null)).toBeNull();
+  });
+
+  it('has presets in Istanbul days, and knows which one it is', () => {
+    expect(presetRange('today', today)).toEqual({ from: today, to: today });
+    expect(presetRange('last7', today)).toEqual({ from: '2026-11-01', to: today });
+    expect(presetRange('this_month', today)).toEqual({ from: '2026-11-01', to: today });
+    expect(presetRange('last_month', '2026-01-15')).toEqual({ from: '2025-12-01', to: '2025-12-31' });
+    expect(presetOf({ from: '2026-10-01', to: '2026-10-31' }, today)).toBe('last_month');
+    expect(presetOf({ from: '2026-10-02', to: '2026-10-31' }, today)).toBeNull();
+  });
+
+  it('reads as a chip, with years only when it leaves this year', () => {
+    expect(rangeChip({ from: '2026-11-01', to: '2026-11-06' }, today)).toBe('01.11 → 06.11');
+    expect(rangeChip({ from: '2025-11-01', to: '2026-01-06' }, today)).toBe('01.11.25 → 06.01.26');
+    expect(rangeChip({ from: '2026-11-06', to: '2026-11-06' }, today)).toBe('06.11');
+    expect(rangeSentence({ from: '2026-11-01', to: '2026-11-06' }, today)).toBe('from 01.11 to 06.11');
+    expect(rangeSentence({ from: '2026-11-06', to: '2026-11-06' }, today)).toBe('on 06.11');
+  });
+
+  it('covers a month from its first to its last day', () => {
+    expect(windowDays('2026-02')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(windowDays('all')).toBeNull();
+  });
+
+  it('counts the page, both ends in', () => {
+    const range = { from: '2026-11-02', to: '2026-11-03' };
+    expect(hgsSummary(data, range, '2026-11')).toMatchObject({ spend: 150, transits: 2 });
+    expect(carsWithoutTransits(data, range).map((c) => c.id)).toEqual([2, 3, 4]);
+  });
+
+  it("gives one car its own numbers, its share of the fleet's spend in that range", () => {
+    const rows = hgsRows(data, '2026-11', { car: '1', range: { from: '2026-11-03', to: '2026-11-03' } });
+    expect(rows.find((row) => row.carId === 1)).toMatchObject({ transits: 1, privateRoad: 1, amount: 50, share: 1 });
+    // Everyone else keeps the month.
+    expect(rows.find((row) => row.carId === null)).toMatchObject({ amount: 25 });
+    const empty = hgsRows(data, '2026-11', { car: '1', range: { from: '2026-12-01', to: '2026-12-02' } });
+    expect(empty.find((row) => row.carId === 1)).toMatchObject({ transits: 0, amount: 0, last: null, share: 0 });
+    // A car found by its plate only is named by it, spaces dropped.
+    const plate = hgsRows(data, '2026-10', { car: '34ZZ999', range: { from: '2026-11-04', to: '2026-11-04' } });
+    expect(plate.find((row) => row.carId === null)).toMatchObject({ transits: 1, amount: 25 });
+  });
+
+  it("asks for one car's transits between Istanbul midnights", async () => {
+    const calls: [string, unknown[]][] = [];
+    const builder: Record<string, unknown> = {};
+    ['select', 'order', 'eq', 'neq', 'not', 'is', 'gte', 'lt', 'lte', 'range'].forEach((name) => {
+      builder[name] = (...args: unknown[]) => { calls.push([name, args]); return builder; };
+    });
+    builder.then = (resolve: (value: unknown) => void) => resolve({ data: [], error: null });
+    (supabase as unknown as { from: () => unknown }).from = () => builder;
+    await fetchCarTransits({ carId: 39, plate: '06FHN975' }, { from: '2026-11-01', to: '2026-11-06' });
+    expect(calls).toEqual(expect.arrayContaining([
+      ['gte', ['transit_datetime', '2026-11-01T00:00:00+03:00']],
+      ['lt', ['transit_datetime', '2026-11-07T00:00:00+03:00']],
+      ['lte', ['start_date', '2026-11-06']],
+      ['gte', ['end_date', '2026-11-01']],
+    ]));
+  });
+});
+
+describe('the export', () => {
+  const row = (over: Partial<HgsTransitDetail>): HgsTransitDetail => ({
+    id: 1, day: '2026-11-03', at: '2026-11-03T11:04:00+00:00', entry: 'ORHANLI', exit: 'KURTKÖY SGS', road: 'İSTANBUL-ANKARA OTOYOLU', roadType: 'public', amount: 148.5,
+    bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null, ...over,
+  });
+
+  it('writes Date, Time, Entry, Exit, Toll, Amount in Istanbul time, quoting what needs it', () => {
+    const csv = hgsCsv([row({}), row({ id: 2, day: '2026-11-02', at: '2026-11-01T22:30:00+00:00', entry: null, exit: 'FENERTEPE', road: 'KCO, GECIS', amount: 96 })]);
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    expect(csv.slice(1).split('\r\n')).toEqual([
+      'Date,Time,Entry,Exit,Toll,Amount',
+      '2026-11-03,14:04,ORHANLI,KURTKÖY SGS,İSTANBUL-ANKARA OTOYOLU,148.50',
+      '2026-11-02,01:30,,FENERTEPE,"KCO, GECIS",96.00',
+      '',
+    ]);
+  });
+
+  it('is named after the plate and the days it covers', () => {
+    expect(hgsCsvName('06 FHN 975', { from: '2026-11-01', to: '2026-11-06' })).toBe('hgs-06FHN975-2026-11-01_2026-11-06.csv');
+    expect(hgsCsvName('06FHN975', '2026-02')).toBe('hgs-06FHN975-2026-02-01_2026-02-28.csv');
+    expect(hgsCsvName('06FHN975', 'all')).toBe('hgs-06FHN975-all.csv');
   });
 });
