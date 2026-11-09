@@ -31,6 +31,7 @@ import { useMoney } from '../../hooks/useMoney';
 import { RateNote } from '../../components/shared/Money';
 import { deletedMessage, deleteFailedMessage } from '../../lib/cashEnvelopes';
 import { DeleteEnvelopesDialog, EnvelopeStatusChip } from '../accounting/EnvelopeDelete';
+import { AddPortalHgsSheet } from './AddPortalHgsSheet';
 import { AddCustomerTxModal, EditTxModal, printLedgerInvoice, type CustomerLedgerEntry } from '../accounting/CustomerLedgerForms';
 import { BookingSheet, Field, FOOTER_BUTTON, INPUT, LicensePlate, PrimaryButton } from '../bookings/ui';
 import { BannedBadge, CarIcon, EmptyNote, ReceiptIcon, RoadIcon, StatusPill } from './ui';
@@ -256,9 +257,11 @@ const BookingCard: React.FC<LineActions & {
   canMove: boolean;
   onMove: () => void;
   onAdd: () => void;
+  /** Charges the car's portal transits for the booking's days. */
+  onAddHgs: () => void;
   /** With the HGS passes when they're open on screen. */
   onPrint: (hgsDetails: boolean) => void;
-}> = ({ card, canMove, onMove, onAdd, onPrint, onEdit, onDelete, onDeleteEnvelope }) => {
+}> = ({ card, canMove, onMove, onAdd, onAddHgs, onPrint, onEdit, onDelete, onDeleteEnvelope }) => {
   const [all, setAll] = useState(false);
   const [hgsOpen, setHgsOpen] = useState(false);
   const tone = walletTone(card.balance);
@@ -328,6 +331,11 @@ const BookingCard: React.FC<LineActions & {
           <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={onAdd}>
             <Plus size={14} /> Add Transaction
           </Button>
+          {card.status !== 'cancelled' && (
+            <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={onAddHgs} title="HGS güncelle: charge this booking's portal transits">
+              <Plus size={14} /> Add HGS
+            </Button>
+          )}
           {card.lines.length > 0 && (
             <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={() => onPrint(hgsOpen)}>
               <PrinterIcon /> Print invoice
@@ -425,6 +433,7 @@ export const CustomerWalletView: React.FC<{
   const [adding, setAdding] = useState<WalletCard | null>(null);
   const [editing, setEditing] = useState<WalletCardLine | null>(null);
   const [envelopeLine, setEnvelopeLine] = useState<WalletCardLine | null>(null);
+  const [portalHgs, setPortalHgs] = useState<WalletCard | null>(null);
   const { profile } = useCurrentProfile();
   const isAdmin = profile?.role === 'admin';
 
@@ -443,7 +452,7 @@ export const CustomerWalletView: React.FC<{
     return () => { cancelled = true; };
   }, [customerId, refreshKey, attempt]);
 
-  const covered = moving !== null || adding !== null || editing !== null || envelopeLine !== null;
+  const covered = moving !== null || adding !== null || editing !== null || envelopeLine !== null || portalHgs !== null;
   useEffect(() => { onCoverChange?.(covered); }, [covered, onCoverChange]);
 
   const deleteLine = useCallback(async (line: WalletCardLine) => {
@@ -500,6 +509,7 @@ export const CustomerWalletView: React.FC<{
               canMove={walletTone(card.balance) !== 'settled' && moveTargets(wallet, card.id).length > 0}
               onMove={() => setMoving(card)}
               onAdd={() => setAdding(card)}
+              onAddHgs={() => setPortalHgs(card)}
               onPrint={(hgsDetails) => print(card, hgsDetails)}
               onEdit={setEditing}
               onDelete={deleteLine}
@@ -507,6 +517,14 @@ export const CustomerWalletView: React.FC<{
             />
           ))}
         </ol>
+      )}
+
+      {portalHgs && (
+        <AddPortalHgsSheet
+          card={portalHgs}
+          onClose={() => setPortalHgs(null)}
+          onPosted={(message) => { notify(message, 'success'); onChanged(); }}
+        />
       )}
 
       {envelopeLine?.envelope && (

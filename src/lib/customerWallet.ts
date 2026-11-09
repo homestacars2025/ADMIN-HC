@@ -39,6 +39,8 @@ export interface WalletLine {
   payment_ref: string | null;
   /** Set when the money came in through `record_customer_payment`, with its envelope or account. */
   pay_method?: string | null;
+  /** The USD rate the line was entered at; the amount itself is always lira. */
+  exchange_rate_at_entry?: number | null;
 }
 
 /** The envelope a recorded cash payment came in with: one per ledger line, matched on `ledger_id`. */
@@ -540,7 +542,7 @@ async function fetchAll<T>(page: (from: number, to: number) => PageResult): Prom
   }
 }
 
-const LINE_COLUMNS = 'id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref, pay_method';
+const LINE_COLUMNS = 'id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref, pay_method, exchange_rate_at_entry';
 
 /** Null when there's no such customer. Everything is read at once, with no waterfall. */
 export async function fetchWalletData(customerId: string): Promise<WalletData | null> {
