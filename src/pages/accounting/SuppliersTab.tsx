@@ -6,7 +6,8 @@ import { Button } from '../../components/media/MediaUI';
 import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../../components/shared/FilterTile';
 import { LoadError, SearchField, SkeletonRows } from '../../components/shared/PageBits';
 import { useUrlFilter } from '../../hooks/useUrlFilter';
-import { formatMoney } from '../../lib/money';
+import { formatMoney, type Currency } from '../../lib/money';
+import { useMoney } from '../../hooks/useMoney';
 import {
   CATEGORY_LABELS,
   fetchSupplierBalances,
@@ -56,6 +57,9 @@ const SupplierCard: React.FC<{ supplier: Supplier; balances: SupplierBalance[] }
 };
 
 export const SuppliersTab: React.FC = () => {
+  const { format } = useMoney();
+  // Lira bills follow the top-bar currency; dollar and euro bills are real debts in that currency.
+  const supplierMoney = (amount: number, currency: Currency) => (currency === 'TRY' ? format(amount) : formatMoney(amount, currency));
   const navigate = useNavigate();
   const { filter, toggle, clear } = useUrlFilter(SUPPLIER_FILTERS);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -104,8 +108,8 @@ export const SuppliersTab: React.FC = () => {
             tone="red"
             icon={<WalletIcon size={15} />}
             label="We owe"
-            value={owed.length > 0 ? formatMoney(owed[0].total, owed[0].currency) : formatMoney(0)}
-            sub={[`${owedCount} ${supplierWord(owedCount)}`, ...owed.slice(1).map((row) => formatMoney(row.total, row.currency))].join(' · ')}
+            value={owed.length > 0 ? supplierMoney(owed[0].total, owed[0].currency) : format(0)}
+            sub={[`${owedCount} ${supplierWord(owedCount)}`, ...owed.slice(1).map((row) => supplierMoney(row.total, row.currency))].join(' · ')}
             active={filter === 'owed'}
             onClick={() => toggle('owed')}
           />

@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { RateNote } from '../../components/shared/Money';
+import { useMoney } from '../../hooks/useMoney';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Check, ChevronRight } from '../../components/media/MediaIcons';
 import { Sheet, SheetBody, SheetDescription, SheetHeader, SheetTitle, Tooltip } from '../../components/media/MediaUI';
@@ -57,8 +59,9 @@ function useCountUp(target: number): number {
 }
 
 const Money: React.FC<{ value: number; className?: string }> = ({ value, className }) => {
+  const { format } = useMoney();
   const shown = useCountUp(value);
-  return <span aria-label={formatMoney(value)} className={cn(MONO, className)}>{formatMoney(shown)}</span>;
+  return <span aria-label={format(value)} className={cn(MONO, className)}>{format(shown)}</span>;
 };
 
 const Count: React.FC<{ value: number; className?: string }> = ({ value, className }) => {
@@ -80,6 +83,7 @@ const Delta: React.FC<{ now: number; before: number; label?: string }> = ({ now,
 };
 
 const Sparkline: React.FC<{ series: GmvPoint[]; month: string }> = ({ series, month }) => {
+  const { format } = useMoney();
   const width = 300;
   const height = 56;
   const top = Math.max(1, ...series.map((point) => point.gmv));
@@ -89,7 +93,7 @@ const Sparkline: React.FC<{ series: GmvPoint[]; month: string }> = ({ series, mo
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   if (series.length === 0) return null;
-  const summary = series.map((point) => `${point.month}: ${formatMoney(point.gmv)}`).join(', ');
+  const summary = series.map((point) => `${point.month}: ${format(point.gmv)}`).join(', ');
   return (
     <svg data-month={month} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`GMV by month. ${summary}`} className="mt-3 h-14 w-full">
       <polygon points={`0,${height} ${line((point) => point.gmv)} ${width},${height}`} fill="#6EA4E7" fillOpacity="0.12" />
@@ -135,7 +139,9 @@ const Ring: React.FC<{ rate: number | null }> = ({ rate }) => {
   );
 };
 
-const GmvTile: React.FC<{ data: AdminDashboard['investor_gmv']; month: string }> = ({ data, month }) => (
+const GmvTile: React.FC<{ data: AdminDashboard['investor_gmv']; month: string }> = ({ data, month }) => {
+  const { format } = useMoney();
+  return (
   <Link to="/dashboard/accounting?tab=investors" className={cn(CARD, CLICKABLE, 'flex min-w-0 flex-col p-5')}>
     <span className="flex items-center gap-1.5 text-[13px] font-medium text-black/55">
       GMV (Investor statements)
@@ -154,12 +160,13 @@ const GmvTile: React.FC<{ data: AdminDashboard['investor_gmv']; month: string }>
     <span className="mt-1"><Delta now={data.homesta_commission} before={data.prev_commission} /></span>
     <Sparkline series={data.series} month={month} />
     <span className="mt-auto flex flex-wrap justify-between gap-x-3 gap-y-0.5 pt-2 text-[12px] text-black/50">
-      <span>YTD GMV <span className={cn('text-foreground', MONO)}>{formatMoney(data.ytd_gmv)}</span></span>
-      <span>YTD commission <span className={cn('text-foreground', MONO)}>{formatMoney(data.ytd_commission)}</span></span>
+      <span>YTD GMV <span className={cn('text-foreground', MONO)}>{format(data.ytd_gmv)}</span></span>
+      <span>YTD commission <span className={cn('text-foreground', MONO)}>{format(data.ytd_commission)}</span></span>
       <span><span className={cn('text-foreground', MONO)}>{data.cars_with_revenue}</span> {data.cars_with_revenue === 1 ? 'car' : 'cars'} with revenue</span>
     </span>
   </Link>
 );
+};
 
 const BookingsTile: React.FC<{ data: AdminDashboard['bookings']; month: string }> = ({ data, month }) => (
   <Link to={`/dashboard/bookings?month=${month}`} className={cn(CARD, CLICKABLE, 'flex min-w-0 flex-col p-5')}>
@@ -298,6 +305,7 @@ export const Dashboard: React.FC<{ compliant: boolean }> = ({ compliant }) => {
             </div>
           </section>
 
+          <RateNote className="mt-2" />
           <section aria-label="Money" className="mt-6">
             <h2 className="mb-2 text-[15px] font-medium text-foreground">Money</h2>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import { convertAmount, effectiveCurrency, formatInCurrency } from './money';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
 interface ExchangeRate {
   currency: string;
   rate_to_try: number;
+  updated_at?: string | null;
 }
 
 interface CurrencyContextValue {
@@ -61,7 +63,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     let cancelled = false;
-    supabase.from('exchange_rates').select('currency, rate_to_try').then(({ data }) => {
+    supabase.from('exchange_rates').select('currency, rate_to_try, updated_at').then(({ data }) => {
       if (!cancelled && data) setRates(data as ExchangeRate[]);
     });
     return () => { cancelled = true; };
@@ -72,50 +74,21 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try { localStorage.setItem('hc_currency', c); } catch {}
   };
 
-  const symbol = CURRENCY_SYMBOLS[currency] ?? '₺';
+  // Until the picked currency's rate is in, amounts stay in lira rather than wear the wrong symbol.
+  const shown = effectiveCurrency(currency, rates);
+  const symbol = CURRENCY_SYMBOLS[shown] ?? '₺';
 
-  const convert = (tryAmount: number): number => {
-    if (currency === 'TRY') return tryAmount;
-    const rate = rates.find(r => r.currency === currency)?.rate_to_try;
-    if (!rate || rate === 0) return tryAmount; // fallback if rates not loaded yet
-    return tryAmount / rate;
-  };
+  const convert = (tryAmount: number): number => convertAmount(tryAmount, 'TRY', shown, rates) ?? tryAmount;
 
-  const fmt = (tryAmount: number): string => {
-    const converted = convert(Math.abs(tryAmount));
-    let formatted: string;
-    if (currency === 'TRY') {
-      formatted = converted.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else if (currency === 'LYD') {
-      formatted = converted.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-    } else {
-      formatted = converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    return symbol + formatted;
-  };
+  /** Unsigned, as callers put their own sign in front. */
+  const fmt = (tryAmount: number): string => formatInCurrency(Math.abs(convert(tryAmount)), shown);
 
   // USD-stored price → selected currency
-  const convertFromUSD = (usdAmount: number): number => {
-    if (currency === 'USD') return usdAmount;
-    const usdRate = rates.find(r => r.currency === 'USD')?.rate_to_try;
-    if (!usdRate || usdRate === 0) return usdAmount; // rates not loaded yet
-    if (currency === 'TRY') return usdAmount * usdRate;
-    const targetRate = rates.find(r => r.currency === currency)?.rate_to_try;
-    if (!targetRate || targetRate === 0) return usdAmount;
-    return usdAmount * (usdRate / targetRate);
-  };
+  const convertFromUSD = (usdAmount: number): number => convertAmount(usdAmount, 'USD', shown, rates) ?? usdAmount;
 
   const fmtUSD = (usdAmount: number): string => {
-    const converted = convertFromUSD(Math.abs(usdAmount));
-    let formatted: string;
-    if (currency === 'TRY') {
-      formatted = converted.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else if (currency === 'LYD') {
-      formatted = converted.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-    } else {
-      formatted = converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    return symbol + formatted;
+    const converted = convertAmount(Math.abs(usdAmount), 'USD', shown, rates);
+    return converted === null ? formatInCurrency(Math.abs(usdAmount), 'USD') : formatInCurrency(converted, shown);
   };
 
   return (

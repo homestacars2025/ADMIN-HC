@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RateNote } from '../components/shared/Money';
+import { useMoney } from '../hooks/useMoney';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Check } from '../components/media/MediaIcons';
 import { MediaToaster, toast } from '../components/media/MediaToast';
@@ -11,7 +13,6 @@ import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import { formatDate } from '../lib/customers';
 import { cn } from '../lib/media/badgeColor';
-import { formatMoney } from '../lib/money';
 import { currentMonth, monthLabel, shiftMonth } from '../lib/payroll';
 import {
   carLabel,
@@ -89,11 +90,12 @@ const Row: React.FC<{ label: string; children: React.ReactNode; action?: React.R
 );
 
 const WarningNote: React.FC<{ row: PendingInvoice }> = ({ row }) => {
+  const { format } = useMoney();
   const warning = invoiceWarning(row);
   if (warning?.kind === 'lines_differ') {
     return (
       <Notice tone="amber">
-        The lines add up to {formatMoney(warning.linesTotal)}, but the total is {formatMoney(row.invoice_total)}. An IN rental row is probably cancelling the charge. Check the ledger before invoicing.
+        The lines add up to {format(warning.linesTotal)}, but the total is {format(row.invoice_total)}. An IN rental row is probably cancelling the charge. Check the ledger before invoicing.
       </Notice>
     );
   }
@@ -108,6 +110,7 @@ const InvoiceSheet: React.FC<{
   onClose: () => void;
   onMark: () => void;
 }> = ({ row, busy, onClose, onMark }) => {
+  const { format } = useMoney();
   const { copied, copy } = useCopy();
   const fields = customerFields(row, formatDate);
 
@@ -158,19 +161,19 @@ const InvoiceSheet: React.FC<{
                 <span className="block break-words text-foreground">{lineLabel(line)}</span>
                 <span className={cn('block text-[11.5px] text-black/45', MONO)}>{formatDate(line.date)}</span>
               </span>
-              <span className={cn('shrink-0 text-foreground', MONO)}>{formatMoney(line.amount)}</span>
+              <span className={cn('shrink-0 text-foreground', MONO)}>{format(line.amount)}</span>
             </div>
           ))}
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 py-2 text-[13px]">
-            <dt className="text-black/55">Net</dt><dd className={cn('text-end text-foreground', MONO)}>{formatMoney(row.net_amount)}</dd>
-            <dt className="text-black/55">KDV 20%</dt><dd className={cn('text-end text-foreground', MONO)}>{formatMoney(row.vat_amount)}</dd>
-            <dt className="font-semibold text-foreground">Total</dt><dd className={cn('text-end text-[15px] font-semibold text-foreground', MONO)}>{formatMoney(row.invoice_total)}</dd>
+            <dt className="text-black/55">Net</dt><dd className={cn('text-end text-foreground', MONO)}>{format(row.net_amount)}</dd>
+            <dt className="text-black/55">KDV 20%</dt><dd className={cn('text-end text-foreground', MONO)}>{format(row.vat_amount)}</dd>
+            <dt className="font-semibold text-foreground">Total</dt><dd className={cn('text-end text-[15px] font-semibold text-foreground', MONO)}>{format(row.invoice_total)}</dd>
           </dl>
         </Block>
 
         <Block title="Paid so far">
           <Row label="Paid vs total, for information only">
-            <span className={MONO}>{formatMoney(row.paid_total)} / {formatMoney(row.invoice_total)}</span>
+            <span className={MONO}>{format(row.paid_total)} / {format(row.invoice_total)}</span>
           </Row>
         </Block>
 
@@ -199,6 +202,7 @@ const InvoiceCard: React.FC<{
   onPick: (on: boolean) => void;
   onOpen: () => void;
 }> = ({ row, picked, onPick, onOpen }) => {
+  const { format } = useMoney();
   const warning = invoiceWarning(row);
   return (
     <li className={cn('surface-depth relative min-w-0 rounded-2xl border bg-white transition-colors', picked ? 'border-[#6EA4E7]' : 'border-[#EBEBEB] hover:border-[#6EA4E7]/60')}>
@@ -218,8 +222,8 @@ const InvoiceCard: React.FC<{
           <span className="truncate">{carLabel(row)}</span>
         </span>
         <span className={cn('mt-1.5 block text-[12px] text-black/50', MONO)}>{formatDate(row.start_date)} – {formatDate(row.end_date)} · {row.days === 1 ? '1 day' : `${row.days} days`}</span>
-        <span className={cn('mt-3 block text-[22px] font-semibold leading-tight', MONO, row.invoice_total === 0 ? 'text-[#92400E]' : 'text-foreground')}>{formatMoney(row.invoice_total)}</span>
-        <span className={cn('mt-0.5 block text-[12px] text-black/50', MONO)}>Net {formatMoney(row.net_amount)} · KDV {formatMoney(row.vat_amount)}</span>
+        <span className={cn('mt-3 block text-[22px] font-semibold leading-tight', MONO, row.invoice_total === 0 ? 'text-[#92400E]' : 'text-foreground')}>{format(row.invoice_total)}</span>
+        <span className={cn('mt-0.5 block text-[12px] text-black/50', MONO)}>Net {format(row.net_amount)} · KDV {format(row.vat_amount)}</span>
         {warning && (
           <span className="mt-2 inline-block rounded-full bg-[#F59E0B]/[0.16] px-2 py-0.5 text-[12px] font-medium text-[#92400E]">
             {warning.kind === 'lines_differ' ? "Lines don't match total" : 'No rental line'}
@@ -231,6 +235,7 @@ const InvoiceCard: React.FC<{
 };
 
 const PendingInvoicesPage: React.FC = () => {
+  const { format } = useMoney();
   const [params, setParams] = useSearchParams();
   const requested = params.get('month');
   const allMonths = requested === ALL_MONTHS;
@@ -324,13 +329,16 @@ const PendingInvoicesPage: React.FC = () => {
       {error && <LoadError message={`Couldn't load pending invoices: ${error}`} onRetry={() => { setLoading(true); setReload((value) => value + 1); }} />}
 
       {!error && (loading ? <FilterTileSkeleton count={5} /> : (
+        <>
         <FilterTileRow label="Filter invoices">
           <FilterTile tone="blue" mono icon={<ReceiptIcon size={15} />} label="Pending" value={String(summary.count)} sub={summary.count === 1 ? 'booking' : 'bookings'} active={filter === 'all'} onClick={clear} />
-          <FilterTile tone="teal" mono icon={<WalletIcon size={15} />} label="Total to invoice" value={formatMoney(summary.total)} sub={`${summary.ready} with an amount`} active={filter === 'ready'} onClick={() => toggle('ready')} />
-          <FilterTile tone="neutral" mono icon={<WalletIcon size={15} />} label="Net" value={formatMoney(summary.net)} sub="excl. KDV" />
-          <FilterTile tone="neutral" mono icon={<WalletIcon size={15} />} label="KDV" value={formatMoney(summary.vat)} sub="20%" />
+          <FilterTile tone="teal" mono icon={<WalletIcon size={15} />} label="Total to invoice" value={format(summary.total)} sub={`${summary.ready} with an amount`} active={filter === 'ready'} onClick={() => toggle('ready')} />
+          <FilterTile tone="neutral" mono icon={<WalletIcon size={15} />} label="Net" value={format(summary.net)} sub="excl. KDV" />
+          <FilterTile tone="neutral" mono icon={<WalletIcon size={15} />} label="KDV" value={format(summary.vat)} sub="20%" />
           <FilterTile tone="amber" mono bareIcon icon={<ComplianceTriangle tone="amber" size={32} />} label="Missing amount" value={String(summary.missing)} sub="no rental line" active={filter === 'missing'} onClick={() => toggle('missing')} />
         </FilterTileRow>
+        <RateNote className="mt-2" />
+        </>
       ))}
 
       {!error && (

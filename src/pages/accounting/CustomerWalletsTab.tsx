@@ -4,11 +4,11 @@ import { MediaToaster, toast } from '../../components/media/MediaToast';
 import { FilterTile, FilterTileRow, FilterTileSkeleton } from '../../components/shared/FilterTile';
 import { LoadError, SearchField, SkeletonRows } from '../../components/shared/PageBits';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
+import { useMoney } from '../../hooks/useMoney';
 import { useUrlFilter } from '../../hooks/useUrlFilter';
 import {
   WALLET_FILTERS,
   fetchWalletSummaries,
-  formatWalletMoney,
   inWalletFilter,
   matchesWalletSearch,
   walletTotals,
@@ -59,6 +59,7 @@ const CustomerCard: React.FC<{ row: WalletSummary; onOpen: () => void }> = ({ ro
 
 /** Every customer with money on record. One tap opens their wallet, a second moves a balance. */
 export const CustomerWalletsTab: React.FC = () => {
+  const { format } = useMoney();
   const [params, setParams] = useSearchParams();
   const { filter, toggle, clear } = useUrlFilter<WalletFilter>(WALLET_FILTERS);
   const [rows, setRows] = useState<WalletSummary[] | null>(null);
@@ -89,6 +90,9 @@ export const CustomerWalletsTab: React.FC = () => {
   const matched = useMemo(() => (rows ?? []).filter((row) => matchesWalletSearch(row, search)), [rows, search]);
   const totals = useMemo(() => walletTotals(matched), [matched]);
   const visible = useMemo(() => matched.filter((row) => inWalletFilter(row, filter)), [matched, filter]);
+  // The net follows the search and the tile picked; Owe us and In credit follow the search only,
+  // or picking one would empty the other.
+  const net = useMemo(() => walletTotals(visible).net, [visible]);
 
   return (
     <div className="media-scope">
@@ -105,9 +109,25 @@ export const CustomerWalletsTab: React.FC = () => {
       ) : (
         <>
           <FilterTileRow split label="Filter the list">
-            <FilterTile split mono tone="blue" icon={<UsersIcon size={22} />} label="All" value={String(totals.all)} sub="with money on record" active={filter === 'all'} onClick={clear} />
-            <FilterTile split mono wide tone="red" icon={<ReceiptIcon size={22} />} label="Owe us" value={formatWalletMoney(totals.owesTotal)} sub={plural(totals.owesCount, 'customer')} active={filter === 'owes'} onClick={() => toggle('owes')} />
-            <FilterTile split mono wide tone="green" icon={<WalletIcon size={22} />} label="In credit" value={formatWalletMoney(totals.creditTotal)} sub={plural(totals.creditCount, 'customer')} active={filter === 'credit'} onClick={() => toggle('credit')} />
+            <FilterTile
+              split
+              mono
+              wide
+              tone={net > 0 ? 'red' : net < 0 ? 'green' : 'blue'}
+              icon={<UsersIcon size={22} />}
+              label={net > 0 ? 'Net receivable' : net < 0 ? 'Net payable' : 'All'}
+              value={format(Math.abs(net))}
+              sub={(
+                <>
+                  <span className="block truncate">{net > 0 ? 'Customers owe us after credits' : net < 0 ? 'We owe customers after credits' : 'Owed and credit cancel out'}</span>
+                  <span className="block truncate">{plural(totals.all, 'wallet')}</span>
+                </>
+              )}
+              active={filter === 'all'}
+              onClick={clear}
+            />
+            <FilterTile split mono wide tone="red" icon={<ReceiptIcon size={22} />} label="Owe us" value={format(totals.owesTotal)} sub={plural(totals.owesCount, 'customer')} active={filter === 'owes'} onClick={() => toggle('owes')} />
+            <FilterTile split mono wide tone="green" icon={<WalletIcon size={22} />} label="In credit" value={format(totals.creditTotal)} sub={plural(totals.creditCount, 'customer')} active={filter === 'credit'} onClick={() => toggle('credit')} />
             <FilterTile split mono tone="slate" icon={<TransferIcon size={22} />} label="Settled" value={String(totals.settledCount)} sub="nothing open" active={filter === 'settled'} onClick={() => toggle('settled')} />
           </FilterTileRow>
 

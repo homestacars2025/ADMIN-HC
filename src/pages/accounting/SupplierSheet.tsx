@@ -10,7 +10,8 @@ import { ReasonSheet } from '../../components/shared/ReasonSheet';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { formatDate, istanbulDate } from '../../lib/customers';
 import { cn } from '../../lib/media/badgeColor';
-import { formatMoney } from '../../lib/money';
+import { formatMoney, type Currency } from '../../lib/money';
+import { useMoney } from '../../hooks/useMoney';
 import {
   canVoid,
   CATEGORY_LABELS,
@@ -74,6 +75,9 @@ function downloadCsv(name: string, csv: string): void {
 }
 
 export const SupplierSheet: React.FC<{ supplierId: number }> = ({ supplierId }) => {
+  const { format } = useMoney();
+  // Lira bills follow the top-bar currency; dollar and euro bills are real debts in that currency.
+  const supplierMoney = (amount: number, currency: Currency) => (currency === 'TRY' ? format(amount) : formatMoney(amount, currency));
   const wide = useMediaQuery('(min-width: 1280px)');
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [ledger, setLedger] = useState<SupplierTx[]>([]);
@@ -170,10 +174,10 @@ export const SupplierSheet: React.FC<{ supplierId: number }> = ({ supplierId }) 
           <div key={total.currency} className="rounded-xl border border-subtle bg-surface p-3.5">
             <p className="text-[12.5px] text-black/50">{total.currency}{filtered ? ' · in this view' : ''}</p>
             <p className={cn('mt-1 text-[22px] font-semibold tabular-nums', total.balance > 0 ? 'text-[#B91C1C]' : total.balance < 0 ? 'text-[#15803D]' : 'text-foreground')}>
-              {formatMoney(Math.abs(total.balance), total.currency)}
+              {supplierMoney(Math.abs(total.balance), total.currency)}
             </p>
             <p className="text-[12.5px] text-black/50">{total.balance > 0 ? 'We owe' : total.balance < 0 ? 'Credit with them' : 'Settled'}</p>
-            <p className="mt-1.5 text-[12.5px] tabular-nums text-black/55">Bills {formatMoney(total.bills, total.currency)} · Paid {formatMoney(total.paid, total.currency)}</p>
+            <p className="mt-1.5 text-[12.5px] tabular-nums text-black/55">Bills {supplierMoney(total.bills, total.currency)} · Paid {supplierMoney(total.paid, total.currency)}</p>
           </div>
         ))}
       </section>
@@ -212,9 +216,9 @@ export const SupplierSheet: React.FC<{ supplierId: number }> = ({ supplierId }) 
                       <td className="px-3 py-2"><KindPill kind={row.kind} /></td>
                       <td className="max-w-[240px] px-3 py-2"><Details row={row} /></td>
                       <td className="px-3 py-2">{row.plate ? <LicensePlate plate={row.plate} /> : <span className="text-black/25">—</span>}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-end tabular-nums text-foreground">{row.kind === 'bill' ? formatMoney(row.amount, row.currency) : ''}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-end tabular-nums text-foreground">{row.kind === 'payment' ? formatMoney(row.amount, row.currency) : ''}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-end font-semibold tabular-nums text-foreground">{row.running === null ? '—' : formatMoney(row.running, row.currency)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-end tabular-nums text-foreground">{row.kind === 'bill' ? supplierMoney(row.amount, row.currency) : ''}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-end tabular-nums text-foreground">{row.kind === 'payment' ? supplierMoney(row.amount, row.currency) : ''}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-end font-semibold tabular-nums text-foreground">{row.running === null ? '—' : supplierMoney(row.running, row.currency)}</td>
                       <td className="px-3 py-1.5"><ReceiptButton url={row.receipt_url} onOpen={setReceipt} /></td>
                       <td className="whitespace-nowrap px-3 py-2 text-end"><VoidAction row={row} onVoid={() => setVoiding(row)} /></td>
                     </tr>
@@ -228,7 +232,7 @@ export const SupplierSheet: React.FC<{ supplierId: number }> = ({ supplierId }) 
                 <li key={row.id} className={cn('min-w-0 rounded-xl border border-subtle bg-surface p-3.5 text-[13.5px]', row.voided_at && 'opacity-60')}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2"><KindPill kind={row.kind} /><span className="text-[12.5px] tabular-nums text-black/50">{formatDate(row.tx_date)}</span></span>
-                    <span className="text-[16px] font-semibold tabular-nums text-foreground">{formatMoney(row.amount, row.currency)}</span>
+                    <span className="text-[16px] font-semibold tabular-nums text-foreground">{supplierMoney(row.amount, row.currency)}</span>
                   </div>
                   <div className="mt-1.5"><Details row={row} /></div>
                   {row.plate && <div className="mt-1.5"><LicensePlate plate={row.plate} /></div>}
@@ -237,7 +241,7 @@ export const SupplierSheet: React.FC<{ supplierId: number }> = ({ supplierId }) 
                       <ReceiptButton url={row.receipt_url} onOpen={setReceipt} />
                       <VoidAction row={row} onVoid={() => setVoiding(row)} />
                     </span>
-                    <span className="text-[12.5px] tabular-nums text-black/55">Balance {row.running === null ? '—' : formatMoney(row.running, row.currency)}</span>
+                    <span className="text-[12.5px] tabular-nums text-black/55">Balance {row.running === null ? '—' : supplierMoney(row.running, row.currency)}</span>
                   </div>
                 </li>
               ))}
@@ -263,7 +267,7 @@ export const SupplierSheet: React.FC<{ supplierId: number }> = ({ supplierId }) 
       {voiding && (
         <ReasonSheet
           title="Void this entry?"
-          description={`${voiding.kind === 'bill' ? 'Bill' : 'Payment'} of ${formatMoney(voiding.amount, voiding.currency)}. It stays on the sheet, crossed out, and stops counting.`}
+          description={`${voiding.kind === 'bill' ? 'Bill' : 'Payment'} of ${supplierMoney(voiding.amount, voiding.currency)}. It stays on the sheet, crossed out, and stops counting.`}
           label="Reason"
           confirmLabel="Void entry"
           onClose={() => setVoiding(null)}

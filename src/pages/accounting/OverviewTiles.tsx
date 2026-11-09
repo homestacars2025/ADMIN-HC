@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useMoney } from '../../hooks/useMoney';
 import { useNavigate } from 'react-router-dom';
 import { Check } from '../../components/media/MediaIcons';
 import { ComplianceTriangle } from '../../components/shared/ComplianceBits';
@@ -8,7 +9,6 @@ import { useCurrency } from '../../lib/CurrencyContext';
 import { istanbulDate } from '../../lib/customers';
 import { fetchCustodyMovements, fetchSignatures, reviewStats, signatureMap, type ReviewExpense, type Signature } from '../../lib/expenseApprovals';
 import { fetchFinanceOverview, type FinanceOverview } from '../../lib/financeOverview';
-import { formatMoney } from '../../lib/money';
 import { ClockIcon, UsersIcon } from '../customers/ui';
 
 const counted = (count: number, one: string) => `${count} ${one}${count === 1 ? '' : 's'}`;
@@ -21,6 +21,7 @@ interface Loaded {
 
 /** What needs someone's attention, under the treasury card. Each tile opens where it's dealt with. */
 export const OverviewTiles: React.FC = () => {
+  const { format } = useMoney();
   const navigate = useNavigate();
   const { fmt } = useCurrency();
   const { profile } = useCurrentProfile();
@@ -49,8 +50,8 @@ export const OverviewTiles: React.FC = () => {
   return (
     <div className="media-scope">
       <FilterTileRow label="Needs attention">
-        <FilterTile tone="amber" icon={<ClockIcon size={15} />} label="Pending approvals" value={formatMoney(stats.pending.total)} sub={counted(stats.pending.count, 'expense')} active={false} onClick={go('/dashboard/accounting?tab=custody&filter=pending')} />
-        <FilterTile tone="violet" icon={<Check size={15} strokeWidth={2.5} />} label="Unsigned by me" value={String(stats.unsigned.count)} sub={formatMoney(stats.unsigned.total)} active={false} onClick={go('/dashboard/accounting?tab=custody&filter=unsigned')} />
+        <FilterTile tone="amber" icon={<ClockIcon size={15} />} label="Pending approvals" value={format(stats.pending.total)} sub={counted(stats.pending.count, 'expense')} active={false} onClick={go('/dashboard/accounting?tab=custody&filter=pending')} />
+        <FilterTile tone="violet" icon={<Check size={15} strokeWidth={2.5} />} label="Unsigned by me" value={String(stats.unsigned.count)} sub={format(stats.unsigned.total)} active={false} onClick={go('/dashboard/accounting?tab=custody&filter=unsigned')} />
         <FilterTile tone="red" icon={<UsersIcon size={15} />} label="Customers owing" value={fmt(data.overview.customersOwing.total)} sub={counted(data.overview.customersOwing.count, 'customer')} active={false} onClick={go('/dashboard/accounting?tab=customers')} />
         <FilterTile tone="red" bareIcon icon={<ComplianceTriangle tone="red" size={32} />} label="Unpaid fines" value={fmt(data.overview.fines.total)} sub={counted(data.overview.fines.count, 'fine')} active={false} onClick={go('/dashboard/fines?filter=unpaid')} />
       </FilterTileRow>

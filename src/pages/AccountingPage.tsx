@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RateNote } from '../components/shared/Money';
 import ReactDOM from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -4487,6 +4488,9 @@ const AccountingPage: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* Amounts in the top-bar currency, except where real lira, dollars and euros are held. */}
+      {!['custody', 'wallets', 'vault'].includes(activeTab) && <RateNote className="-mt-2 mb-3" />}
 
       {/* Tab content */}
       {activeTab === 'overview'  && <OverviewTab key={refreshKey} />}

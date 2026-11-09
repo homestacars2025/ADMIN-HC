@@ -34,3 +34,62 @@ export function csvCell(value: string | number | null | undefined): string {
   const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
+
+// ─── Display in the top-bar currency ─────────────────────────────────────────
+
+/**
+ * Amounts are stored in lira (or, for supplier bills, in their own currency) and shown
+ * in the currency picked in the top bar, at the latest rate in `exchange_rates`. Only
+ * the display changes: nothing is converted on save.
+ */
+export type DisplayCurrency = 'TRY' | 'USD' | 'EUR' | 'LYD';
+
+export const DISPLAY_SYMBOLS: Record<DisplayCurrency, string> = { TRY: '₺', USD: '$', EUR: '€', LYD: 'LD' };
+
+export interface RateRow {
+  currency: string;
+  /** Lira for one unit of `currency`. */
+  rate_to_try: number;
+  updated_at?: string | null;
+}
+
+/** Lira for one unit; 1 for lira, null when there's no usable rate. */
+export function rateToTry(currency: string, rates: readonly RateRow[]): number | null {
+  if (currency === 'TRY') return 1;
+  const rate = Number(rates.find((row) => row.currency === currency)?.rate_to_try);
+  return Number.isFinite(rate) && rate > 0 ? rate : null;
+}
+
+/** `amount` in `from` as `to`, through lira. Null when either rate is missing. */
+export function convertAmount(amount: number, from: string, to: string, rates: readonly RateRow[]): number | null {
+  if (from === to) return amount;
+  const fromRate = rateToTry(from, rates);
+  const toRate = rateToTry(to, rates);
+  return fromRate === null || toRate === null ? null : (amount * fromRate) / toRate;
+}
+
+/** The currency amounts are really shown in: the picked one when its rate is known, lira otherwise. */
+export const effectiveCurrency = (picked: DisplayCurrency, rates: readonly RateRow[]): DisplayCurrency =>
+  rateToTry(picked, rates) === null ? 'TRY' : picked;
+
+/** "₺1.234,50" for lira, "$1,234.50" otherwise; "−" for negatives, "+" when asked. */
+export function formatInCurrency(amount: number, currency: DisplayCurrency, options: { signed?: boolean; decimals?: number } = {}): string {
+  const decimals = options.decimals ?? 2;
+  const digits = Math.abs(amount).toLocaleString(currency === 'TRY' ? 'tr-TR' : 'en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const sign = amount < 0 && Math.abs(amount) >= 0.5 * 10 ** -decimals ? '−' : options.signed && amount > 0 ? '+' : '';
+  return `${sign}${DISPLAY_SYMBOLS[currency]}${digits}`;
+}
+
+const rateDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Istanbul' });
+
+/** "Converted at 1 USD = 50,00 ₺ (9 Nov 2026)", or null when amounts are shown in lira. */
+export function rateNote(currency: DisplayCurrency, rates: readonly RateRow[]): string | null {
+  if (currency === 'TRY') return null;
+  const row = rates.find((item) => item.currency === currency);
+  const rate = rateToTry(currency, rates);
+  if (!row || rate === null) return null;
+  const lira = rate.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  const stamp = row.updated_at ? Date.parse(row.updated_at.endsWith('Z') || /[+-]\d\d:?\d\d$/.test(row.updated_at) ? row.updated_at : `${row.updated_at}Z`) : Number.NaN;
+  // The rate is isolated left to right, so it reads the same inside right-to-left text.
+  return `Converted at \u20661 ${currency} = ${lira} ₺\u2069${Number.isNaN(stamp) ? '' : ` (${rateDay.format(stamp)})`}`;
+}

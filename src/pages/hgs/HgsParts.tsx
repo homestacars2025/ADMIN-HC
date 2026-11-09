@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useMoney } from '../../hooks/useMoney';
 import { Link } from 'react-router-dom';
 import { Button, Sheet, SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Spinner } from '../../components/media/MediaUI';
 import { ChevronDown, X } from '../../components/media/MediaIcons';
@@ -6,7 +7,6 @@ import { CarThumb } from '../../components/shared/CarThumb';
 import { ComplianceTriangle, TONE_CLASSES } from '../../components/shared/ComplianceBits';
 import { formatCount, formatDay, formatTime, rangeChip, saveHgsBarcode, type DayRange, type HgsCarInfo, type HgsRoad, type HgsRow, type HgsTransitDetail } from '../../lib/hgs';
 import { cn } from '../../lib/media/badgeColor';
-import { formatMoney } from '../../lib/money';
 import { LicensePlate } from '../bookings/ui';
 import { DatesIcon, RangePicker } from './RangePicker';
 
@@ -162,6 +162,7 @@ export const HgsCarRow: React.FC<{
   onRange: (row: HgsRow, range: DayRange | null) => void;
   onStatement: (row: HgsRow) => void;
 }> = ({ row, expanded, history, periodLabel, ownRange, fallback, today, onToggle, onRetry, onAddBarcode, onRange, onStatement }) => {
+  const { format } = useMoney();
   // A car with no transit opens too, to say so and to reach its barcode.
   const openable = row.transits > 0 || row.carId !== null;
   const panelId = `hgs-${row.key.replace(/[^a-z0-9]/gi, '-')}`;
@@ -191,7 +192,7 @@ export const HgsCarRow: React.FC<{
             </span>
 
             <span className="col-start-2 row-start-1 text-end lg:hidden">
-              <span className={cn('block font-mono text-[15px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{formatMoney(row.amount)}</span>
+              <span className={cn('block font-mono text-[15px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{format(row.amount)}</span>
               <span className="block text-[11.5px] tabular-nums text-black/45">{sharePercent(row.share)} of spend</span>
             </span>
 
@@ -209,7 +210,7 @@ export const HgsCarRow: React.FC<{
             <span className="hidden min-w-0 lg:block">
               <span className="flex items-baseline justify-end gap-2">
                 <span className="text-[11.5px] tabular-nums text-black/40">{sharePercent(row.share)}</span>
-                <span className={cn('font-mono text-[14.5px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{formatMoney(row.amount)}</span>
+                <span className={cn('font-mono text-[14.5px] font-semibold tabular-nums', row.amount > 0 ? 'text-foreground' : 'text-black/30')}>{format(row.amount)}</span>
               </span>
               <span className="mt-1.5 block"><ShareBar share={row.share} /></span>
             </span>
@@ -297,6 +298,7 @@ const RoadBadge: React.FC<{ type: HgsRoad | null }> = ({ type }) => {
 const TRANSIT_GRID = 'sm:grid-cols-[150px_minmax(0,1.4fr)_minmax(0,1fr)_100px]';
 
 const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string; onStatement: () => void }> = ({ rows, periodLabel, onStatement }) => {
+  const { format } = useMoney();
   if (rows.length === 0) return <p className="py-3 text-center text-[13px] text-black/45">No transits {periodLabel}.</p>;
   return (
     <>
@@ -318,7 +320,7 @@ const TransitList: React.FC<{ rows: HgsTransitDetail[]; periodLabel: string; onS
               {formatDay(transit.at ?? transit.day)}
               {transit.at && <span className="ms-1.5 text-black/40">{formatTime(transit.at)}</span>}
             </span>
-            <span className="col-start-2 row-start-1 text-end font-mono text-[13px] font-semibold tabular-nums text-foreground sm:col-start-4">{formatMoney(transit.amount)}</span>
+            <span className="col-start-2 row-start-1 text-end font-mono text-[13px] font-semibold tabular-nums text-foreground sm:col-start-4">{format(transit.amount)}</span>
             <span className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
               <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-foreground">
                 <span className="min-w-0 truncate">

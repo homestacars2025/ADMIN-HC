@@ -70,7 +70,7 @@ test('shows one total, then each booking with its car, balance and lines', async
   const hero = await screen.findByRole('region', { name: 'Wallet balance' });
   expect(within(hero).getByText('Omar Ali')).toBeInTheDocument();
   expect(within(hero).getByText('Total balance')).toBeInTheDocument();
-  expect(within(hero).getByText(/^Owes .*500$/)).toBeInTheDocument();
+  expect(hero).toHaveTextContent(/Owes ₺500,00/);
   expect(within(hero).getByText('Across 2 bookings')).toBeInTheDocument();
   const older = screen.getByRole('article', { name: 'HOM-10-26-001' });
   expect(within(older).getByText('34ABC10')).toBeInTheDocument();

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { RateNote } from '../components/shared/Money';
+import { useMoney } from '../hooks/useMoney';
 import { X } from '../components/media/MediaIcons';
 import { useSearchParams } from 'react-router-dom';
 import '../lib/media/tokens.css';
@@ -41,7 +43,6 @@ import {
   type HgsWindow,
 } from '../lib/hgs';
 import { cn } from '../lib/media/badgeColor';
-import { formatMoney } from '../lib/money';
 import { currentMonth, monthLabel, shiftMonth } from '../lib/payroll';
 import { Segmented } from './bookings/ui';
 import { WalletIcon } from './customers/ui';
@@ -69,6 +70,7 @@ const CalendarIcon: React.FC = () => (
 );
 
 const HGSPage: React.FC = () => {
+  const { format } = useMoney();
   const [params, setParams] = useSearchParams();
   const thisMonth = currentMonth().slice(0, 7);
   const requestedMonth = params.get('month');
@@ -284,10 +286,11 @@ const HGSPage: React.FC = () => {
 
       {loading && <FilterTileSkeleton split count={4} />}
       {summary && (
+        <>
         <FilterTileRow split label="Filter the cars">
           <FilterTile
             split mono wide tone="blue" icon={<WalletIcon size={22} />}
-            label="Total spend" value={formatMoney(summary.spend)} sub={periodLabel}
+            label="Total spend" value={format(summary.spend)} sub={periodLabel}
             active={filter === 'all'} onClick={clear}
           />
           <FilterTile
@@ -302,10 +305,12 @@ const HGSPage: React.FC = () => {
           />
           <FilterTile
             split mono wide tone="amber" icon={<CalendarIcon />}
-            label="This month" value={formatMoney(summary.thisMonth.spend)}
+            label="This month" value={format(summary.thisMonth.spend)}
             sub={formatChange(summary.thisMonth.change, monthLabel(`${summary.thisMonth.previous}-01`).split(' ')[0])}
           />
         </FilterTileRow>
+        <RateNote className="mt-2" />
+        </>
       )}
 
       <div className="mb-3 mt-5 flex max-w-[1100px] flex-col gap-2 sm:flex-row sm:items-center">

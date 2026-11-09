@@ -188,7 +188,7 @@ test('Accounting lists only customers with lines, biggest balance first, with to
     ],
   );
   expect(rows.map((row) => [row.name, row.balance, row.bookings])).toEqual([['Bo', -800, 2], ['Ada', 100, 1], ['Cem', 0, 1]]);
-  expect(walletTotals(rows)).toEqual({ all: 3, owesCount: 1, owesTotal: 800, creditCount: 1, creditTotal: 100, settledCount: 1 });
+  expect(walletTotals(rows)).toEqual({ all: 3, owesCount: 1, owesTotal: 800, creditCount: 1, creditTotal: 100, settledCount: 1, net: 700 });
 });
 
 test('the list carries every car a customer had, newest first, and finds them by plate, name or phone', () => {
@@ -286,5 +286,16 @@ describe('HGS lines', () => {
     expect(rows[1]).toMatchObject({ kind: 'hgs', net: -1167, first: '2026-09-28', last: '2026-10-22', summary: 'from 28/09 to 22/10 · 1 pass + 1 entry' });
     expect(rows[1].kind === 'hgs' && rows[1].passes.map((pass) => pass.entry.amount)).toEqual([1127, 40]);
     expect(groupInvoiceEntries([entries[0]])).toEqual([{ kind: 'line', entry: entries[0] }]);
+  });
+});
+
+describe('the net across wallets', () => {
+  const summary = (customerId: string, balance: number) => ({ customerId, balance } as unknown as Parameters<typeof walletTotals>[0][number]);
+
+  it('is what customers owe us after the credit we hold', () => {
+    expect(walletTotals([summary('a', -250_000), summary('b', -12_037), summary('c', 70_000), summary('d', 0)])).toMatchObject({
+      all: 4, owesTotal: 262_037, creditTotal: 70_000, net: 192_037,
+    });
+    expect(walletTotals([summary('a', -1000), summary('b', 4000)]).net).toBe(-3000);
   });
 });

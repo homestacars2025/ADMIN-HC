@@ -716,13 +716,17 @@ export function summarizeWallets(
 export function walletTotals(rows: WalletSummary[]) {
   const owes = rows.filter((row) => walletTone(row.balance) === 'owes');
   const credit = rows.filter((row) => walletTone(row.balance) === 'credit');
+  const owesTotal = roundMoney(owes.reduce((sum, row) => sum - row.balance, 0));
+  const creditTotal = roundMoney(credit.reduce((sum, row) => sum + row.balance, 0));
   return {
     all: rows.length,
     owesCount: owes.length,
-    owesTotal: roundMoney(owes.reduce((sum, row) => sum - row.balance, 0)),
+    owesTotal,
     creditCount: credit.length,
-    creditTotal: roundMoney(credit.reduce((sum, row) => sum + row.balance, 0)),
+    creditTotal,
     settledCount: rows.length - owes.length - credit.length,
+    /** What customers owe us after the credit we hold: above zero is receivable, below payable. */
+    net: roundMoney(owesTotal - creditTotal),
   };
 }
 

@@ -27,6 +27,8 @@ import {
 } from '../../lib/customerWallet';
 import { cn } from '../../lib/media/badgeColor';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
+import { useMoney } from '../../hooks/useMoney';
+import { RateNote } from '../../components/shared/Money';
 import { deletedMessage, deleteFailedMessage } from '../../lib/cashEnvelopes';
 import { DeleteEnvelopesDialog, EnvelopeStatusChip } from '../accounting/EnvelopeDelete';
 import { AddCustomerTxModal, EditTxModal, printLedgerInvoice, type CustomerLedgerEntry } from '../accounting/CustomerLedgerForms';
@@ -60,11 +62,23 @@ export const TransferIcon: React.FC<{ size?: number }> = ({ size = 15 }) => (
   </svg>
 );
 
-export const WalletChip: React.FC<{ balance: number; className?: string }> = ({ balance, className }) => (
-  <span className={cn('inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-medium tabular-nums', TONE_CHIP[walletTone(balance)], className)}>
-    {balanceLabel(balance)}
-  </span>
-);
+/** "Owes $120.00" in the top-bar currency; "Settled" at zero. */
+const useBalanceLabel = () => {
+  const { format } = useMoney();
+  return (balance: number) => {
+    const tone = walletTone(balance);
+    return tone === 'settled' ? 'Settled' : `${tone === 'credit' ? 'Credit' : 'Owes'} ${format(Math.abs(balance))}`;
+  };
+};
+
+export const WalletChip: React.FC<{ balance: number; className?: string }> = ({ balance, className }) => {
+  const label = useBalanceLabel();
+  return (
+    <span className={cn('inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-[12px] font-medium tabular-nums', TONE_CHIP[walletTone(balance)], className)}>
+      {label(balance)}
+    </span>
+  );
+};
 
 const scrollToBooking = (bookingId: number) => {
   const card = document.getElementById(`wallet-booking-${bookingId}`);
@@ -106,9 +120,14 @@ function lineText(line: WalletCardLine): { title: React.ReactNode; detail: strin
   return { title: line.label, detail: [formatDate(line.created_at), detail].filter(Boolean).join(' · ') };
 }
 
-const signedMoney = (amount: number, received: boolean) => `${received ? '+' : '−'}${formatWalletMoney(amount)}`;
+/** "+$120.00" or "−$120.00": the amount's own sign comes from IN or OUT. */
+const useSignedMoney = () => {
+  const { format } = useMoney();
+  return (amount: number, received: boolean) => `${received ? '+' : '−'}${format(Math.abs(amount))}`;
+};
 
 const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }> = ({ line, nested, onEdit, onDelete, onDeleteEnvelope }) => {
+  const signedMoney = useSignedMoney();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const received = line.direction === 'IN';
@@ -147,7 +166,7 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
         </div>
         <div className="truncate text-[12px] tabular-nums text-black/50">{text.detail}</div>
       </div>
-      <div className={cn('shrink-0 text-[13.5px] font-medium tabular-nums', received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
+      <div className={cn('shrink-0 font-mono text-[13.5px] font-medium tabular-nums', received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
         {signedMoney(line.amount, received)}
       </div>
       <div className="flex shrink-0 items-center">
@@ -193,6 +212,8 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
 
 /** Every HGS line of a booking as one row, its passes underneath on demand. */
 const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void }> = ({ group, open, onToggle, onEdit, onDelete, onDeleteEnvelope }) => {
+  const signedMoney = useSignedMoney();
+  const { format } = useMoney();
   const received = group.net > 0;
   return (
     <li className="py-0.5">
@@ -208,8 +229,8 @@ const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onTo
           <span className="block truncate text-[13.5px] font-medium text-foreground">HGS</span>
           <span className="block text-[12px] tabular-nums text-black/50 sm:truncate">{hgsGroupSummary(group)}</span>
         </span>
-        <span className={cn('shrink-0 text-[13.5px] font-medium tabular-nums', group.net === 0 ? 'text-black/45' : received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
-          {group.net === 0 ? formatWalletMoney(0) : signedMoney(Math.abs(group.net), received)}
+        <span className={cn('shrink-0 font-mono text-[13.5px] font-medium tabular-nums', group.net === 0 ? 'text-black/45' : received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
+          {group.net === 0 ? format(0) : signedMoney(Math.abs(group.net), received)}
         </span>
         <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center text-black/40 md:h-8 md:w-[72px] md:justify-items-end md:pe-2">
           <ChevronRight size={15} strokeWidth={2} className={cn('transition-transform duration-200', open && 'rotate-90')} />
@@ -334,6 +355,7 @@ const WalletSkeleton: React.FC = () => (
 );
 
 export const WalletHero: React.FC<{ wallet: Wallet; action?: React.ReactNode }> = ({ wallet, action }) => {
+  const { format } = useMoney();
   const tone = walletTone(wallet.total);
   const count = wallet.cards.length;
   return (
@@ -352,8 +374,9 @@ export const WalletHero: React.FC<{ wallet: Wallet; action?: React.ReactNode }> 
         <div className="sm:text-end">
           <div className="text-[12px] text-black/45">Total balance</div>
           <div className={cn('text-[26px] font-semibold leading-tight tracking-[-0.02em] tabular-nums sm:text-[32px]', TONE_TEXT[tone])}>
-            {tone === 'settled' ? 'Settled' : <>{tone === 'credit' ? 'Credit' : 'Owes'} {formatWalletMoney(Math.abs(wallet.total))}</>}
+            {tone === 'settled' ? 'Settled' : <>{tone === 'credit' ? 'Credit' : 'Owes'} <span className="font-mono">{format(Math.abs(wallet.total))}</span></>}
           </div>
+          <RateNote className="mt-0.5" />
         </div>
         {action}
       </div>

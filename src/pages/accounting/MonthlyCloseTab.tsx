@@ -10,6 +10,7 @@ import { LoadError, SearchField, SkeletonRows } from '../../components/shared/Pa
 import { ReasonSheet } from '../../components/shared/ReasonSheet';
 import StaffAvatar from '../../components/shared/StaffAvatar';
 import { useCurrentProfile } from '../../hooks/useCurrentProfile';
+import { useMoney } from '../../hooks/useMoney';
 import { useUrlFilter } from '../../hooks/useUrlFilter';
 import { useUrlSort } from '../../hooks/useUrlSort';
 import { writeBrandedDocument } from '../../lib/brand';
@@ -76,9 +77,10 @@ const LateChip: React.FC = () => (
 const RECEIVE_BUTTON = 'inline-flex min-h-[44px] items-center whitespace-nowrap text-[12px] font-medium text-primary hover:underline xl:min-h-[24px]';
 
 const Remaining: React.FC<{ amount: number }> = ({ amount }) => {
+  const { format } = useMoney();
   if (Math.abs(amount) < 0.005) return <span role="img" aria-label="Nothing remaining" className="inline-flex text-[#15803D]"><Check size={15} strokeWidth={3} /></span>;
-  if (amount > 0) return <span className="font-semibold text-[#B91C1C]">{formatMoney(amount)}</span>;
-  return <span title="Paid more than this row's rental, usually a balance from earlier in the booking" className="text-black/55">{formatMoney(amount)}</span>;
+  if (amount > 0) return <span className="font-semibold text-[#B91C1C]">{format(amount)}</span>;
+  return <span title="Paid more than this row's rental, usually a balance from earlier in the booking" className="text-black/55">{format(amount)}</span>;
 };
 
 const LegacyChip: React.FC = () => (
@@ -91,11 +93,13 @@ const FirstPlace: React.FC<{ payment: EventPayment }> = ({ payment }) => (paymen
   </span>
 ));
 
-const PaymentRow: React.FC<{ payment: EventPayment; onReceive?: () => void }> = ({ payment, onReceive }) => (
+const PaymentRow: React.FC<{ payment: EventPayment; onReceive?: () => void }> = ({ payment, onReceive }) => {
+  const { format, currency } = useMoney();
+  return (
   <li className="grid grid-cols-[150px_110px_minmax(0,1fr)_auto_84px] items-center gap-x-3 py-1.5 text-[12.5px]">
     <span className="font-semibold tabular-nums text-foreground">
       {formatMoney(payment.amount, payment.currency)}
-      {payment.currency !== 'TRY' && <span className="ms-1 font-normal text-black/45">{formatMoney(payment.amount_try)}</span>}
+      {payment.currency !== currency && <span className="ms-1 font-normal text-black/45">{format(payment.amount_try)}</span>}
     </span>
     <span className="text-black/55"><span className="capitalize">{payment.type}</span>{payment.method && ` · ${methodLabel(payment.method)}`}</span>
     <span className="flex min-w-0 items-center gap-1.5 text-black/60" title={firstPlaceLabel(payment)}>
@@ -106,6 +110,7 @@ const PaymentRow: React.FC<{ payment: EventPayment; onReceive?: () => void }> = 
     {onReceive ? <button type="button" onClick={onReceive} className={RECEIVE_BUTTON}>I received it</button> : <span />}
   </li>
 );
+};
 
 function downloadCsv(name: string, csv: string): void {
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
@@ -116,9 +121,12 @@ function downloadCsv(name: string, csv: string): void {
   URL.revokeObjectURL(url);
 }
 
-const Money: React.FC<{ value: number; className?: string }> = ({ value, className }) => (
-  <td className={cn('whitespace-nowrap px-2 py-2 text-end tabular-nums', className)}>{formatMoney(value)}</td>
+const Money: React.FC<{ value: number; className?: string }> = ({ value, className }) => {
+  const { format } = useMoney();
+  return (
+  <td className={cn('whitespace-nowrap px-2 py-2 text-end font-mono tabular-nums', className)}>{format(value)}</td>
 );
+};
 
 const HEADERS: Array<{ columns: Array<{ key: CloseSort; label: string }>; end?: boolean }> = [
   { columns: [{ key: 'booking', label: 'Booking' }] },
@@ -136,6 +144,7 @@ const HEADERS: Array<{ columns: Array<{ key: CloseSort; label: string }>; end?: 
 const CHECKED_CELL = 'sticky end-0 bg-surface shadow-[-1px_0_0_rgba(0,0,0,0.05)]';
 
 export const MonthlyCloseTab: React.FC = () => {
+  const { format } = useMoney();
   const { profile } = useCurrentProfile();
   const isAdmin = profile?.role === 'admin';
   const [params, setParams] = useSearchParams();
@@ -347,15 +356,15 @@ export const MonthlyCloseTab: React.FC = () => {
             tone="teal"
             icon={<WalletIcon size={15} />}
             label="Revenue"
-            value={formatMoney(summary.revenue)}
-            sub={<><span className="block truncate">new {formatMoney(summary.newRevenue)}</span><span className="block truncate">extensions {formatMoney(summary.extensionRevenue)}</span></>}
+            value={format(summary.revenue)}
+            sub={<><span className="block truncate">new {format(summary.newRevenue)}</span><span className="block truncate">extensions {format(summary.extensionRevenue)}</span></>}
             active={filter === 'revenue'}
             onClick={() => toggle('revenue')}
           />
-          <FilterTile tone="green" icon={<WalletIcon size={15} />} label="Collected" value={formatMoney(summary.collected)} sub={`${rows.filter((row) => inCloseFilter(row, 'collected')).length} of ${summary.total} rows`} active={filter === 'collected'} onClick={() => toggle('collected')} />
-          <FilterTile tone="red" icon={<WalletIcon size={15} />} label="Outstanding" value={formatMoney(summary.outstanding)} sub={`${rows.filter((row) => inCloseFilter(row, 'outstanding')).length} of ${summary.total} rows`} active={filter === 'outstanding'} onClick={() => toggle('outstanding')} />
-          <FilterTile tone="violet" icon={<WalletIcon size={15} />} label="Deposits received" value={formatMoney(summary.deposits)} sub="not revenue" active={filter === 'deposits'} onClick={() => toggle('deposits')} />
-          <FilterTile tone="amber" icon={<WalletIcon size={15} />} label="Not yet with admin" value={formatMoney(summary.notWithAdmin)} sub={summary.notWithAdminCount === 1 ? '1 payment' : `${summary.notWithAdminCount} payments`} active={filter === 'not_with_admin'} onClick={() => toggle('not_with_admin')} />
+          <FilterTile tone="green" icon={<WalletIcon size={15} />} label="Collected" value={format(summary.collected)} sub={`${rows.filter((row) => inCloseFilter(row, 'collected')).length} of ${summary.total} rows`} active={filter === 'collected'} onClick={() => toggle('collected')} />
+          <FilterTile tone="red" icon={<WalletIcon size={15} />} label="Outstanding" value={format(summary.outstanding)} sub={`${rows.filter((row) => inCloseFilter(row, 'outstanding')).length} of ${summary.total} rows`} active={filter === 'outstanding'} onClick={() => toggle('outstanding')} />
+          <FilterTile tone="violet" icon={<WalletIcon size={15} />} label="Deposits received" value={format(summary.deposits)} sub="not revenue" active={filter === 'deposits'} onClick={() => toggle('deposits')} />
+          <FilterTile tone="amber" icon={<WalletIcon size={15} />} label="Not yet with admin" value={format(summary.notWithAdmin)} sub={summary.notWithAdminCount === 1 ? '1 payment' : `${summary.notWithAdminCount} payments`} active={filter === 'not_with_admin'} onClick={() => toggle('not_with_admin')} />
           <FilterTile tone="neutral" icon={<Check size={15} strokeWidth={2.5} />} label="Checked" value={`${summary.checked} / ${summary.total}`} sub={summary.left > 0 ? `show ${summary.left} left` : 'all checked'} active={filter === 'unchecked'} onClick={() => toggle('unchecked')} />
         </FilterTileRow>
       ))}
@@ -366,7 +375,7 @@ export const MonthlyCloseTab: React.FC = () => {
           <SearchField value={query} onChange={setQuery} placeholder="Search booking, customer or plate" className="mt-4 max-w-[420px]" />
           {canMark && picked.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-primary/[0.06] px-3 py-1.5 text-[13px]">
-              <span className="font-medium text-foreground">{picked.length} {picked.length === 1 ? 'row' : 'rows'} selected · {formatMoney(sumTry(pickedPayments))} unknown</span>
+              <span className="font-medium text-foreground">{picked.length} {picked.length === 1 ? 'row' : 'rows'} selected · {format(sumTry(pickedPayments))} unknown</span>
               <Button size="lg" className="!h-11 px-3 md:!h-9" onClick={() => setMarking(pickedPayments)}>Mark all received</Button>
               <button type="button" onClick={() => setSelected(new Set())} className="min-h-[44px] text-[12.5px] font-medium text-black/55 hover:underline md:min-h-[36px]">Clear</button>
             </div>
@@ -518,7 +527,7 @@ export const MonthlyCloseTab: React.FC = () => {
       {closingSheet && (
         <ReasonSheet
           title={`Close ${monthLabel(`${month}-01`)}?`}
-          description={`All ${summary.total} rows are checked. Closing locks the ticks and freezes these figures until someone reopens the month.${unknown.length > 0 ? ` ${formatMoney(sumTry(unknown))} is still Unknown and stays that way in the closed month.` : ''}${month >= currentMonth().slice(0, 7) ? " This month isn't over yet, so anything added later needs a reopen to be ticked." : ''}`}
+          description={`All ${summary.total} rows are checked. Closing locks the ticks and freezes these figures until someone reopens the month.${unknown.length > 0 ? ` ${format(sumTry(unknown))} is still Unknown and stays that way in the closed month.` : ''}${month >= currentMonth().slice(0, 7) ? " This month isn't over yet, so anything added later needs a reopen to be ticked." : ''}`}
           label="Note (optional)"
           confirmLabel="Close month"
           optional
@@ -533,8 +542,8 @@ export const MonthlyCloseTab: React.FC = () => {
       )}
       {marking && (
         <ReasonSheet
-          title={marking.length === 1 ? `Mark ${formatMoney(marking[0].amount_try)} as received?` : `Mark ${marking.length} payments as received?`}
-          description={`This records ${formatMoney(sumTry(marking))} as received by you and adds it to your account balance in Cash & Envelopes. Nothing in the ledger changes. To undo, reverse the movement in Cash & Envelopes.`}
+          title={marking.length === 1 ? `Mark ${format(marking[0].amount_try)} as received?` : `Mark ${marking.length} payments as received?`}
+          description={`This records ${format(sumTry(marking))} as received by you and adds it to your account balance in Cash & Envelopes. Nothing in the ledger changes. To undo, reverse the movement in Cash & Envelopes.`}
           label="Note (optional)"
           confirmLabel="Mark received"
           optional
