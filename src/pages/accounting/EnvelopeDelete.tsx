@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, Trash2 } from '../../components/media/MediaIcons';
 import { Button, Sheet, SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Spinner } from '../../components/media/MediaUI';
 import StaffAvatar from '../../components/shared/StaffAvatar';
-import { ageLabel, deleteEnvelopes, ENVELOPE_LABELS, totalsByCurrency, type DeleteOutcome, type Envelope } from '../../lib/cashEnvelopes';
+import { ageLabel, deleteEnvelopes, ENVELOPE_LABELS, totalsByCurrency, type DeleteOutcome, type Envelope, type EnvelopeStatus } from '../../lib/cashEnvelopes';
 import { formatDate, istanbulDate } from '../../lib/customers';
 import { formatMoney } from '../../lib/money';
 import type { ProfileOption } from '../../lib/notifications';
@@ -17,12 +17,31 @@ import { LicensePlate } from '../bookings/ui';
  */
 
 const WARNING = 'This permanently deletes the envelope, its customer payment line and its money movements. This cannot be undone.';
+/** An envelope admin already received has moved on to the safe and the admin account, so deleting it reaches further. */
+export const WITH_ADMIN_WARNING = 'This envelope was already received by admin — deleting removes the payment from the customer wallet, the safe and the admin account.';
 const FOOTER = '!h-11 md:!h-10';
 
-const personName = (people: Record<string, ProfileOption>, id: string | null) => (id ? people[id]?.full_name ?? null : null);
-const envelopeAmount = (envelope: Envelope) => formatMoney(envelope.counted_amount ?? envelope.amount, envelope.currency);
+export const ENVELOPE_STATUS_PILL: Record<EnvelopeStatus, string> = {
+  with_employee: 'bg-[#F59E0B]/[0.16] text-[#92400E]',
+  in_safe: 'bg-[#14B8A6]/15 text-[#115E59]',
+  with_admin: 'bg-[#16A34A]/10 text-[#15803D]',
+  cancelled: 'bg-black/[0.06] text-black/50',
+};
 
-export const DeleteIconButton: React.FC<{ envelope: Envelope; onClick: () => void }> = ({ envelope, onClick }) => (
+export const EnvelopeStatusChip: React.FC<{ status: EnvelopeStatus; className?: string }> = ({ status, className }) => (
+  <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium ${ENVELOPE_STATUS_PILL[status]} ${className ?? ''}`}>
+    {ENVELOPE_LABELS[status]}
+  </span>
+);
+
+/** What the confirm needs; the wallet has fewer facts than Cash & Envelopes, and the missing ones read as a dash. */
+export type DeletableEnvelope = Pick<Envelope, 'id' | 'ref' | 'status' | 'amount' | 'currency'>
+  & Partial<Pick<Envelope, 'counted_amount' | 'booking_number' | 'customer' | 'created_by' | 'created_at'>>;
+
+const personName = (people: Record<string, ProfileOption>, id: string | null | undefined) => (id ? people[id]?.full_name ?? null : null);
+const envelopeAmount = (envelope: DeletableEnvelope) => formatMoney(envelope.counted_amount ?? envelope.amount, envelope.currency);
+
+export const DeleteIconButton: React.FC<{ envelope: Pick<Envelope, 'ref'>; onClick: () => void }> = ({ envelope, onClick }) => (
   <button
     type="button"
     title="Delete"
@@ -34,7 +53,7 @@ export const DeleteIconButton: React.FC<{ envelope: Envelope; onClick: () => voi
   </button>
 );
 
-const Facts: React.FC<{ envelope: Envelope; people: Record<string, ProfileOption> }> = ({ envelope, people }) => (
+const Facts: React.FC<{ envelope: DeletableEnvelope; people: Record<string, ProfileOption> }> = ({ envelope, people }) => (
   <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12.5px]">
     <dt className="text-black/45">Booking</dt>
     <dd className="truncate font-mono text-black/75">{envelope.booking_number ?? '—'}</dd>
@@ -43,17 +62,20 @@ const Facts: React.FC<{ envelope: Envelope; people: Record<string, ProfileOption
     <dt className="text-black/45">Created by</dt>
     <dd className="truncate text-black/75">{personName(people, envelope.created_by) ?? '—'}</dd>
     <dt className="text-black/45">Date</dt>
-    <dd className="tabular-nums text-black/75">{formatDate(istanbulDate(envelope.created_at))}</dd>
+    <dd className="tabular-nums text-black/75">{envelope.created_at ? formatDate(istanbulDate(envelope.created_at)) : '—'}</dd>
+    <dt className="text-black/45">Status</dt>
+    <dd><EnvelopeStatusChip status={envelope.status} className="!text-[11.5px]" /></dd>
   </dl>
 );
 
 export const DeleteEnvelopesDialog: React.FC<{
-  envelopes: Envelope[];
-  people: Record<string, ProfileOption>;
+  envelopes: DeletableEnvelope[];
+  people?: Record<string, ProfileOption>;
   onClose: () => void;
   onDone: (outcome: DeleteOutcome) => void;
-}> = ({ envelopes, people, onClose, onDone }) => {
+}> = ({ envelopes, people = {}, onClose, onDone }) => {
   const [reason, setReason] = useState('');
+  const received = envelopes.filter((envelope) => envelope.status === 'with_admin').length;
   const [done, setDone] = useState<number | null>(null);
   const pending = done !== null;
   const single = envelopes.length === 1;
@@ -106,6 +128,16 @@ export const DeleteEnvelopesDialog: React.FC<{
           <p className="mt-2 text-end text-[12.5px] text-black/55">
             Total <span className="font-semibold tabular-nums text-foreground">{totals.map((row) => formatMoney(row.total, row.currency)).join(' · ') || formatMoney(0)}</span>
           </p>
+        )}
+
+        {received > 0 && (
+          <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-[#d4183d]/25 bg-[#d4183d]/[0.06] px-3 py-2.5 text-[13px] font-medium leading-relaxed text-[#9F1239]">
+            <AlertTriangle size={15} strokeWidth={2} className="mt-0.5 shrink-0" />
+            <span>
+              {single || received === envelopes.length ? '' : `${received} of these ${envelopes.length} envelopes ${received === 1 ? 'was' : 'were'} already received by admin. `}
+              {single ? WITH_ADMIN_WARNING : received === envelopes.length ? WITH_ADMIN_WARNING.replace('This envelope was', 'These envelopes were') : 'Deleting removes their payments from the customer wallet, the safe and the admin account.'}
+            </span>
+          </div>
         )}
 
         <p className="mt-3 text-[13px] leading-relaxed text-black/60">{WARNING}</p>

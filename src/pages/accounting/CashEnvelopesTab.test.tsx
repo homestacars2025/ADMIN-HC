@@ -131,3 +131,21 @@ test('without the admin role there is no delete anywhere', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'ENV-2611-0001' }));
   expect(within(screen.getByRole('dialog')).queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
 });
+
+test('every status can be deleted; one admin already received warns that it reaches the safe and the admin account', async () => {
+  mockFetchEnvelopes.mockResolvedValue([envelope(1), envelope(2, { status: 'with_employee' }), envelope(4, { status: 'with_admin', current_account_id: null })]);
+  renderTab();
+  for (const ref of ['ENV-2611-0001', 'ENV-2611-0002', 'ENV-2611-0004']) {
+    expect(await screen.findByRole('button', { name: `Delete ${ref}` })).toBeInTheDocument();
+  }
+
+  await userEvent.click(screen.getByRole('button', { name: 'Delete ENV-2611-0001' }));
+  expect(within(screen.getByRole('alertdialog')).queryByText(/already received by admin/)).not.toBeInTheDocument();
+  await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+
+  await userEvent.click(screen.getByRole('button', { name: 'Delete ENV-2611-0004' }));
+  const dialog = within(screen.getByRole('alertdialog', { name: 'Delete ENV-2611-0004?' }));
+  expect(dialog.getByRole('alert')).toHaveTextContent('This envelope was already received by admin — deleting removes the payment from the customer wallet, the safe and the admin account.');
+  await userEvent.click(dialog.getByRole('button', { name: 'Delete' }));
+  await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('admin_delete_envelope', { p_envelope_id: 4, p_reason: null }));
+});

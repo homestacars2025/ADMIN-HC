@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 import { customerName } from './customers';
+import type { EnvelopeStatus } from './cashEnvelopes';
+import type { Currency } from './money';
 
 // The wallet belongs to the customer and their bookings. A car is only a label on
 // a booking, so nothing here is ever split or summed by car.
@@ -39,6 +41,18 @@ export interface WalletLine {
   pay_method?: string | null;
 }
 
+/** The envelope a recorded cash payment came in with: one per ledger line, matched on `ledger_id`. */
+export interface WalletEnvelope {
+  id: number;
+  ref: string;
+  status: EnvelopeStatus;
+  amount: number;
+  counted_amount: number | null;
+  currency: Currency;
+  created_at: string;
+  created_by: string | null;
+}
+
 export interface WalletReplacement {
   id: number;
   original_booking_id: number;
@@ -64,6 +78,8 @@ export interface WalletData {
   lines: WalletLine[];
   replacements: WalletReplacement[];
   plates: Map<number, string>;
+  /** The customer's envelopes that carry a ledger line. */
+  envelopes?: Array<WalletEnvelope & { ledger_id: string }>;
 }
 
 // ─── Money ────────────────────────────────────────────────────────────────────
@@ -355,6 +371,8 @@ export interface WalletCardLine extends WalletLine {
   editable: boolean;
   /** Set on HGS lines. */
   hgs: HgsLineInfo | null;
+  /** The envelope the payment came in with, which deletes it along with its money movements. */
+  envelope: WalletEnvelope | null;
 }
 
 export const isEditableLine = (line: Pick<WalletLine, 'type' | 'pay_method'>): boolean =>
@@ -399,6 +417,7 @@ export function buildWallet(data: WalletData): Wallet {
   // A cancelled booking only shows when it still holds money.
   const withLines = new Set(data.lines.map((line) => line.booking_id));
   const listed = data.bookings.filter((booking) => booking.status !== 'cancelled' || withLines.has(booking.id));
+  const envelopeByLine = new Map((data.envelopes ?? []).map(({ ledger_id, ...envelope }) => [ledger_id, envelope]));
   const cards = listed.slice().sort(newestFirst).map((booking): WalletCard => {
     const car = one(booking.cars);
     const own = data.lines.filter((line) => line.booking_id === booking.id);
@@ -416,6 +435,7 @@ export function buildWallet(data: WalletData): Wallet {
           note: kind === 'transfer' ? transferNote(line.description) : null,
           editable: isEditableLine(line),
           hgs: kind === 'hgs' ? hgsLineInfo(line) : null,
+          envelope: envelopeByLine.get(line.id) ?? null,
         };
       });
     return {
@@ -524,7 +544,7 @@ const LINE_COLUMNS = 'id, booking_id, car_id, type, description, amount, directi
 
 /** Null when there's no such customer. Everything is read at once, with no waterfall. */
 export async function fetchWalletData(customerId: string): Promise<WalletData | null> {
-  const [customer, bookings, lines, replacements, cars] = await Promise.all([
+  const [customer, bookings, lines, replacements, cars, envelopes] = await Promise.all([
     supabase.from('customers').select('id, first_name, last_name, phone, nationality, id_number, is_banned, ban_reason').eq('id', customerId).maybeSingle(),
     supabase
       .from('bookings')
@@ -542,8 +562,13 @@ export async function fetchWalletData(customerId: string): Promise<WalletData | 
       .eq('customer_id', customerId)
       .is('deleted_at', null),
     supabase.from('cars').select('id, plate_number'),
+    supabase
+      .from('money_envelopes')
+      .select('id, ref, status, amount, counted_amount, currency, created_at, created_by, ledger_id')
+      .eq('customer_id', customerId)
+      .not('ledger_id', 'is', null),
   ]);
-  const failure = customer.error ?? bookings.error ?? replacements.error ?? cars.error;
+  const failure = customer.error ?? bookings.error ?? replacements.error ?? cars.error ?? envelopes.error;
   if (failure) throw new Error(failure.message);
   if (!customer.data) return null;
   return {
@@ -552,6 +577,17 @@ export async function fetchWalletData(customerId: string): Promise<WalletData | 
     lines,
     replacements: (replacements.data ?? []) as WalletReplacement[],
     plates: new Map(((cars.data ?? []) as Array<{ id: number; plate_number: string }>).map((car) => [car.id, car.plate_number])),
+    envelopes: ((envelopes.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      id: Number(row.id),
+      ref: String(row.ref),
+      status: row.status as EnvelopeStatus,
+      amount: Number(row.amount),
+      counted_amount: row.counted_amount === null || row.counted_amount === undefined ? null : Number(row.counted_amount),
+      currency: row.currency as Currency,
+      created_at: String(row.created_at),
+      created_by: (row.created_by as string | null) ?? null,
+      ledger_id: String(row.ledger_id),
+    })),
   };
 }
 

@@ -39,7 +39,6 @@ import {
   type CurrencyTotal,
   type DeleteOutcome,
   type Envelope,
-  type EnvelopeStatus,
   type Movement,
   type MovementType,
 } from '../../lib/cashEnvelopes';
@@ -50,16 +49,10 @@ import { getAvatarProfiles, type ProfileOption } from '../../lib/notifications';
 import { LicensePlate } from '../bookings/ui';
 import { MoreIcon, WalletIcon } from '../customers/ui';
 import { AccountsSection } from './AccountsSection';
-import { DeleteEnvelopesDialog, DeleteIconButton, EnvelopeDetailSheet } from './EnvelopeDelete';
+import { DeleteEnvelopesDialog, DeleteIconButton, ENVELOPE_STATUS_PILL, EnvelopeDetailSheet } from './EnvelopeDelete';
 import { ReceiveEnvelopeSheet, TransferSheet } from './EnvelopeSheets';
 
 const TONES: Record<AccountKind, FilterTileTone> = { safe: 'teal', pos: 'violet', bank: 'green', gateway: 'green', custody: 'neutral', other: 'neutral' };
-const STATUS_PILL: Record<EnvelopeStatus, string> = {
-  with_employee: 'bg-[#F59E0B]/[0.16] text-[#92400E]',
-  in_safe: 'bg-[#14B8A6]/15 text-[#115E59]',
-  with_admin: 'bg-[#16A34A]/10 text-[#15803D]',
-  cancelled: 'bg-black/[0.06] text-black/50',
-};
 
 const ALL = 'all';
 
@@ -93,7 +86,7 @@ const Amount: React.FC<{ row: Movement }> = ({ row }) => (
 );
 
 const EnvelopeStatusPill: React.FC<{ envelope: Envelope; now: number }> = ({ envelope, now }) => (
-  <span className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium', isOverdue(envelope, now) ? 'bg-[#DC2626]/10 text-[#B91C1C]' : STATUS_PILL[envelope.status])}>
+  <span className={cn('inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium', isOverdue(envelope, now) ? 'bg-[#DC2626]/10 text-[#B91C1C]' : ENVELOPE_STATUS_PILL[envelope.status])}>
     {ENVELOPE_LABELS[envelope.status]}
   </span>
 );

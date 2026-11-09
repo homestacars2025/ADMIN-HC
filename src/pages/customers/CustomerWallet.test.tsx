@@ -8,6 +8,8 @@ const mockMove = jest.fn();
 const mockFetchWallet = jest.fn();
 const mockDelete = jest.fn();
 const mockPrint = jest.fn();
+const mockDeleteEnvelopes = jest.fn();
+let mockRole = 'admin';
 
 jest.mock('../../lib/supabase', () => ({ supabase: {} }));
 jest.mock('../../lib/customerWallet', () => ({
@@ -15,6 +17,11 @@ jest.mock('../../lib/customerWallet', () => ({
   fetchWallet: (...args: unknown[]) => mockFetchWallet(...args),
   moveBookingBalance: (...args: unknown[]) => mockMove(...args),
   deleteLedgerLine: (...args: unknown[]) => mockDelete(...args),
+}));
+jest.mock('../../hooks/useCurrentProfile', () => ({ useCurrentProfile: () => ({ profile: { id: 'me', role: mockRole } }) }));
+jest.mock('../../lib/cashEnvelopes', () => ({
+  ...jest.requireActual('../../lib/cashEnvelopes'),
+  deleteEnvelopes: (...args: unknown[]) => mockDeleteEnvelopes(...args),
 }));
 jest.mock('../../lib/CurrencyContext', () => ({ useCurrency: () => ({ fmt: (amount: number) => `TRY ${amount}` }) }));
 jest.mock('../accounting/CustomerLedgerForms', () => ({
@@ -54,6 +61,8 @@ beforeEach(() => {
   mockFetchWallet.mockReset().mockImplementation(async () => wallet);
   mockDelete.mockReset().mockResolvedValue(undefined);
   mockPrint.mockReset();
+  mockRole = 'admin';
+  mockDeleteEnvelopes.mockReset().mockResolvedValue({ deleted: [{ ref: 'ENV-2611-0007', amount: 6500, currency: 'TRY', ledgerRowsDeleted: 1 }], failed: [] });
 });
 
 test('shows one total, then each booking with its car, balance and lines', async () => {
@@ -198,4 +207,35 @@ test('HGS lines fold into one row, closed, and open onto passes that keep Edit a
   await userEvent.click(passes.getAllByRole('button', { name: 'Delete transaction' })[1]);
   await userEvent.click(passes.getByRole('button', { name: 'Yes' }));
   expect(mockDelete).toHaveBeenCalledWith('h1');
+});
+
+test('a payment paid in with an envelope shows its ref and status, and admins can delete the envelope', async () => {
+  const notify = jest.fn();
+  const onChanged = jest.fn();
+  wallet = buildWallet({ ...data(), envelopes: [{ id: 7, ref: 'ENV-2611-0007', status: 'with_admin', amount: 6500, counted_amount: null, currency: 'TRY', created_at: '2026-10-02T09:00:00Z', created_by: 's1', ledger_id: 'b' }] });
+  render(<CustomerWalletView customerId="c1" notify={notify} onChanged={onChanged} />);
+  const older = await screen.findByRole('article', { name: 'HOM-10-26-001' });
+  const payment = within(older).getByText('Payment').closest('li') as HTMLElement;
+  expect(within(payment).getByText('ENV-2611-0007')).toBeInTheDocument();
+  expect(within(payment).getByText('With admin')).toBeInTheDocument();
+  expect(within(payment).queryByText('Recorded')).not.toBeInTheDocument();
+
+  await userEvent.click(within(payment).getByRole('button', { name: 'Delete envelope ENV-2611-0007' }));
+  const dialog = within(screen.getByRole('alertdialog', { name: 'Delete ENV-2611-0007?' }));
+  expect(dialog.getByRole('alert')).toHaveTextContent('already received by admin');
+  expect(dialog.getByText('HOM-10-26-001')).toBeInTheDocument();
+  await userEvent.click(dialog.getByRole('button', { name: 'Delete' }));
+  await waitFor(() => expect(mockDeleteEnvelopes).toHaveBeenCalledWith([expect.objectContaining({ id: 7, ref: 'ENV-2611-0007' })], null, expect.any(Function)));
+  await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  expect(notify).toHaveBeenCalledWith(expect.stringContaining('ENV-2611-0007'), 'success');
+});
+
+test('staff see the envelope but no delete', async () => {
+  mockRole = 'staff';
+  wallet = buildWallet({ ...data(), envelopes: [{ id: 7, ref: 'ENV-2611-0007', status: 'in_safe', amount: 6500, counted_amount: null, currency: 'TRY', created_at: '2026-10-02T09:00:00Z', created_by: 's1', ledger_id: 'b' }] });
+  render(<CustomerWalletView customerId="c1" notify={jest.fn()} onChanged={jest.fn()} />);
+  const older = await screen.findByRole('article', { name: 'HOM-10-26-001' });
+  const payment = within(older).getByText('Payment').closest('li') as HTMLElement;
+  expect(within(payment).getByText('In safe')).toBeInTheDocument();
+  expect(within(payment).queryByRole('button', { name: /Delete envelope/ })).not.toBeInTheDocument();
 });

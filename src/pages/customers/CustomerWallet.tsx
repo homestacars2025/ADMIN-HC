@@ -26,6 +26,9 @@ import {
   type WalletTone,
 } from '../../lib/customerWallet';
 import { cn } from '../../lib/media/badgeColor';
+import { useCurrentProfile } from '../../hooks/useCurrentProfile';
+import { deletedMessage, deleteFailedMessage } from '../../lib/cashEnvelopes';
+import { DeleteEnvelopesDialog, EnvelopeStatusChip } from '../accounting/EnvelopeDelete';
 import { AddCustomerTxModal, EditTxModal, printLedgerInvoice, type CustomerLedgerEntry } from '../accounting/CustomerLedgerForms';
 import { BookingSheet, Field, FOOTER_BUTTON, INPUT, LicensePlate, PrimaryButton } from '../bookings/ui';
 import { BannedBadge, CarIcon, EmptyNote, ReceiptIcon, RoadIcon, StatusPill } from './ui';
@@ -89,6 +92,8 @@ interface LineActions {
   onEdit: (line: WalletCardLine) => void;
   /** Asks first, on the line itself. */
   onDelete: (line: WalletCardLine) => Promise<void>;
+  /** Admins only: deletes the payment's envelope, which takes the line and its money movements with it. */
+  onDeleteEnvelope?: (line: WalletCardLine) => void;
 }
 
 /** An HGS pass reads by its route, dated with its time and toll when the line has them. */
@@ -103,7 +108,7 @@ function lineText(line: WalletCardLine): { title: React.ReactNode; detail: strin
 
 const signedMoney = (amount: number, received: boolean) => `${received ? '+' : '−'}${formatWalletMoney(amount)}`;
 
-const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }> = ({ line, nested, onEdit, onDelete }) => {
+const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }> = ({ line, nested, onEdit, onDelete, onDeleteEnvelope }) => {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const received = line.direction === 'IN';
@@ -157,9 +162,25 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
             <button type="button" className={ICON_ACTION} aria-label="Edit transaction" title="Edit" onClick={() => onEdit(line)}><Pencil size={14} /></button>
             <button type="button" className={cn(ICON_ACTION, 'hover:bg-[#DC2626]/[0.07] hover:text-[#B91C1C]')} aria-label="Delete transaction" title="Delete" onClick={() => setConfirming(true)}><Trash2 size={14} /></button>
           </>
+        ) : line.envelope ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="font-mono text-[11.5px] font-semibold text-black/60" title="Paid in with this envelope">{line.envelope.ref}</span>
+            <EnvelopeStatusChip status={line.envelope.status} className="!px-1.5 !text-[11px]" />
+            {onDeleteEnvelope && (
+              <button
+                type="button"
+                className={cn(ICON_ACTION, 'hover:bg-[#DC2626]/[0.07] hover:text-[#B91C1C]')}
+                aria-label={`Delete envelope ${line.envelope.ref}`}
+                title="Delete the envelope and this payment"
+                onClick={() => onDeleteEnvelope(line)}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </span>
         ) : (
           <span
-            title={transfer ? 'Half of a balance move. Move it back to undo it.' : 'Recorded with an envelope or account. Reverse it in Cash & Envelopes.'}
+            title={transfer ? 'Half of a balance move. Move it back to undo it.' : 'Recorded with an account. Reverse it in Cash & Envelopes.'}
             className="px-1 text-[11.5px] text-black/40"
           >
             Recorded
@@ -171,7 +192,7 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
 };
 
 /** Every HGS line of a booking as one row, its passes underneath on demand. */
-const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void }> = ({ group, open, onToggle, onEdit, onDelete }) => {
+const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void }> = ({ group, open, onToggle, onEdit, onDelete, onDeleteEnvelope }) => {
   const received = group.net > 0;
   return (
     <li className="py-0.5">
@@ -196,7 +217,7 @@ const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onTo
       </button>
       {open && (
         <ul id={group.key} aria-label="HGS passes" className="mb-1 divide-y divide-black/[0.04] rounded-xl bg-black/[0.018]">
-          {group.lines.map((line) => <LineRow key={line.id} nested line={line} onEdit={onEdit} onDelete={onDelete} />)}
+          {group.lines.map((line) => <LineRow key={line.id} nested line={line} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />)}
         </ul>
       )}
     </li>
@@ -216,7 +237,7 @@ const BookingCard: React.FC<LineActions & {
   onAdd: () => void;
   /** With the HGS passes when they're open on screen. */
   onPrint: (hgsDetails: boolean) => void;
-}> = ({ card, canMove, onMove, onAdd, onPrint, onEdit, onDelete }) => {
+}> = ({ card, canMove, onMove, onAdd, onPrint, onEdit, onDelete, onDeleteEnvelope }) => {
   const [all, setAll] = useState(false);
   const [hgsOpen, setHgsOpen] = useState(false);
   const tone = walletTone(card.balance);
@@ -252,8 +273,8 @@ const BookingCard: React.FC<LineActions & {
         ) : (
           <ul className="mt-2 divide-y divide-black/[0.05]">
             {entries.map((entry) => (entry.kind === 'hgs'
-              ? <HgsGroupRow key={entry.group.key} group={entry.group} open={hgsOpen} onToggle={() => setHgsOpen((value) => !value)} onEdit={onEdit} onDelete={onDelete} />
-              : <LineRow key={entry.line.id} line={entry.line} onEdit={onEdit} onDelete={onDelete} />))}
+              ? <HgsGroupRow key={entry.group.key} group={entry.group} open={hgsOpen} onToggle={() => setHgsOpen((value) => !value)} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />
+              : <LineRow key={entry.line.id} line={entry.line} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />))}
           </ul>
         )}
         {card.entries.length > LINES_SHOWN && (
@@ -380,6 +401,9 @@ export const CustomerWalletView: React.FC<{
   const [moving, setMoving] = useState<WalletCard | null>(null);
   const [adding, setAdding] = useState<WalletCard | null>(null);
   const [editing, setEditing] = useState<WalletCardLine | null>(null);
+  const [envelopeLine, setEnvelopeLine] = useState<WalletCardLine | null>(null);
+  const { profile } = useCurrentProfile();
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     let cancelled = false;
@@ -396,7 +420,7 @@ export const CustomerWalletView: React.FC<{
     return () => { cancelled = true; };
   }, [customerId, refreshKey, attempt]);
 
-  const covered = moving !== null || adding !== null || editing !== null;
+  const covered = moving !== null || adding !== null || editing !== null || envelopeLine !== null;
   useEffect(() => { onCoverChange?.(covered); }, [covered, onCoverChange]);
 
   const deleteLine = useCallback(async (line: WalletCardLine) => {
@@ -456,9 +480,29 @@ export const CustomerWalletView: React.FC<{
               onPrint={(hgsDetails) => print(card, hgsDetails)}
               onEdit={setEditing}
               onDelete={deleteLine}
+              onDeleteEnvelope={isAdmin ? setEnvelopeLine : undefined}
             />
           ))}
         </ol>
+      )}
+
+      {envelopeLine?.envelope && (
+        <DeleteEnvelopesDialog
+          envelopes={[{
+            ...envelopeLine.envelope,
+            booking_number: wallet.cards.find((card) => card.lines.some((line) => line.id === envelopeLine.id))?.bookingNumber ?? null,
+            customer: wallet.name,
+          }]}
+          onClose={() => setEnvelopeLine(null)}
+          onDone={(outcome) => {
+            setEnvelopeLine(null);
+            const success = deletedMessage(outcome.deleted);
+            const failure = deleteFailedMessage(outcome.failed);
+            if (success) notify(success, 'success');
+            if (failure) notify(failure, 'error');
+            if (outcome.deleted.length > 0) onChanged();
+          }}
+        />
       )}
 
       {moving && (
