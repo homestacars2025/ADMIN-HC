@@ -486,6 +486,29 @@ const marketingItems: NavItem[] = [
       }
 ];
 
+const hrItems: NavItem[] = [
+      {
+        label: 'Recruitment',
+        path: '/dashboard/hr',
+        icon: (
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+            <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M3 12h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        ),
+      },
+      {
+        label: 'Interviews',
+        path: '/dashboard/hr/interviews',
+        icon: (
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 11h6M9 14h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        ),
+      },
+];
+
 const accountItems: NavItem[] = [
   {
     label: 'My profile',
@@ -652,6 +675,13 @@ const NAV_GROUPS: NavGroup[] = [
         <path d="M11.6 16.8a3 3 0 11-5.8-1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ), items: marketingItems },
+
+  { key: 'hr', label: 'HR', icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <circle cx="9" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 11l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ), items: hrItems },
 
   { key: 'admin', label: 'Admin', icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">

@@ -11,6 +11,10 @@ import MyWalletPage from './pages/MyWalletPage';
 import SettingsPage from './pages/SettingsPage';
 import CarsPage from './pages/CarsPage';
 import ModelGroupsPage from './pages/ModelGroupsPage';
+import HrOpeningsPage from './pages/hr/HrOpeningsPage';
+import HrOpeningPage from './pages/hr/HrOpeningPage';
+import OpeningBuilderPage from './pages/hr/OpeningBuilderPage';
+import HrInterviewsPage from './pages/hr/HrInterviewsPage';
 import KGMPage from './pages/KGMPage';
 import HGSPage from './pages/HGSPage';
 import BookingsPage from './pages/BookingsPage';
@@ -118,6 +122,11 @@ const App: React.FC = () => {
           <Route path="mail" element={<MailPage />} />
           <Route path="sources" element={<SourcesPage />} />
           <Route path="sourcing" element={<SourcingPage />} />
+          <Route path="hr" element={<HrOpeningsPage />} />
+          <Route path="hr/interviews" element={<HrInterviewsPage />} />
+          <Route path="hr/openings/new" element={<OpeningBuilderPage />} />
+          <Route path="hr/openings/:id" element={<HrOpeningPage />} />
+          <Route path="hr/openings/:id/edit" element={<OpeningBuilderPage />} />
           <Route path="online-users" element={<OnlineUsersPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="staff-permissions" element={<StaffPermissionsPage />} />
