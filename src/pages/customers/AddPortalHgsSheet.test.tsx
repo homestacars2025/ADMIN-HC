@@ -4,63 +4,73 @@ import userEvent from '@testing-library/user-event';
 import { AddPortalHgsSheet } from './AddPortalHgsSheet';
 import type { WalletCard } from '../../lib/customerWallet';
 
-const mockRpc = jest.fn();
-jest.mock('../../lib/supabase', () => ({ supabase: { rpc: (...args: unknown[]) => mockRpc(...args) } }));
-jest.mock('../../lib/CurrencyContext', () => ({ useCurrency: () => ({ rates: [{ currency: 'USD', rate_to_try: 50 }] }) }));
+const mockPreview = jest.fn();
+const mockApply = jest.fn();
+jest.mock('../../lib/supabase', () => ({ supabase: {} }));
+jest.mock('../../lib/hgsPortalPosting', () => ({
+  ...jest.requireActual('../../lib/hgsPortalPosting'),
+  previewCustomerHgs: (...args: unknown[]) => mockPreview(...args),
+  applyCustomerHgs: (...args: unknown[]) => mockApply(...args),
+  fetchPortalFreshness: async () => ({ lastUpload: '2026-11-05T12:53:05Z', lastTransit: '2026-11-03' }),
+}));
 
 const card = {
   id: 710, carId: 26, bookingNumber: 'HOM-09-26-037', plate: '41AGZ890', model: 'Renault Clio', startDate: '2026-09-22', endDate: '2026-12-07',
   status: 'confirmed', active: true, balance: -272, carNotes: [], entries: [],
-  lines: [{ id: 'm1', booking_id: 710, car_id: 26, type: 'hgs', description: 'HGS to 31/09/2026', amount: 272, direction: 'OUT', created_at: '2026-10-07T00:00:00Z', payment_ref: null, exchange_rate_at_entry: 48.5, kind: 'hgs', label: 'HGS', peer: null, note: null, editable: true, hgs: { pass: false, day: '2026-10-07', time: null, route: 'HGS to 31/09/2026', toll: null }, envelope: null }],
+  lines: [{ id: 'm1', booking_id: 710, car_id: 26, type: 'hgs', description: 'HGS to 31/09/2026', amount: 272, direction: 'OUT', created_at: '2026-10-07T00:00:00Z', payment_ref: null, kind: 'hgs', label: 'HGS', peer: null, note: null, editable: true, hgs: { pass: false, day: '2026-10-07', time: null, route: 'HGS to 31/09/2026', toll: null }, envelope: null }],
 } as unknown as WalletCard;
 
-const transit = (id: number, at: string, amount: number) => ({ id, at, amount, road_type: 'public', entry_location: 'Çamlıca', exit_location: 'Kurtköy', otoyol: null });
-const preview = (transits: unknown[]) => ({ data: { from: '2026-10-01', to: '2026-12-07', last_upload: '2026-11-05T15:53', last_transit: '2026-11-03T18:20', rate_hint: 48.5, investor_count: 0, investor_total: 0, transits }, error: null });
+const transit = (id: number, day: string, amount: number) => ({ id, day, amount, roadType: 'public', note: `${day.split('-').reverse().join('-')} Çamlıca → Kurtköy` });
 
 beforeEach(() => {
-  mockRpc.mockReset().mockImplementation(async (name: string) => (
-    name === 'booking_portal_hgs_preview'
-      ? preview([transit(1, '2026-10-04 08:12', 65), transit(2, '2026-10-05 19:40', 35)])
-      : { data: { posted: 2, total: 100, from: '2026-10-01', to: '2026-12-07' }, error: null }
-  ));
+  mockPreview.mockReset().mockImplementation(async (_id: number, from: string) => (from >= '2026-10-01'
+    ? [transit(2, '2026-10-02', 65), transit(3, '2026-10-05', 35)]
+    : [transit(1, '2026-09-23', 40), transit(2, '2026-10-02', 65), transit(3, '2026-10-05', 35)]));
+  mockApply.mockReset().mockResolvedValue({ count: 2, total: 100 });
 });
 
-test('reads first: the upload banner, the typed HGS warning, the passes and their total', async () => {
+test('reads first, in lira only, with no rate field; From starts at the booking start', async () => {
   render(<AddPortalHgsSheet card={card} onClose={jest.fn()} onPosted={jest.fn()} />);
   const sheet = await screen.findByRole('dialog', { name: 'Add HGS from portal' });
   await within(sheet).findByRole('region', { name: 'Transits to add' });
-  expect(mockRpc).toHaveBeenCalledWith('booking_portal_hgs_preview', { p_booking_id: 710, p_from: '2026-10-01', p_to: '2026-12-07' });
-  expect(sheet).toHaveTextContent('Bu aracın (41AGZ890) HGS verisi en son 05.11.2026 15:53 yüklendi. Kayıttaki son geçiş: 03.11.2026.');
-  expect(sheet).toHaveTextContent('already has HGS typed by hand: HGS to 31/09/2026');
-  expect(within(sheet).getByRole('region', { name: 'Transits to add' })).toHaveTextContent('04.10.2026 08:12');
-  expect(within(sheet).getByRole('textbox', { name: 'USD rate' })).toHaveValue('48.5');
-  expect(within(sheet).getByRole('button', { name: 'Add 2 passes' })).toBeEnabled();
-  expect(mockRpc).not.toHaveBeenCalledWith('post_booking_portal_hgs', expect.anything());
+  expect(mockPreview).toHaveBeenCalledWith(710, '2026-09-22');
+  expect(sheet).toHaveTextContent('41AGZ890');
+  expect(sheet).toHaveTextContent('HOM-09-26-037');
+  expect(sheet).toHaveTextContent('Bu aracın HGS verisi en son');
+  expect(sheet).toHaveTextContent('kayıttaki son geçiş 03.11.2026');
+  expect(within(sheet).getByLabelText('From')).toHaveValue('2026-09-22');
+  expect(within(sheet).getByLabelText('To')).toHaveAttribute('readonly');
+  expect(within(sheet).queryByLabelText(/rate/i)).not.toBeInTheDocument();
+  expect(sheet).not.toHaveTextContent(/USD|\$/);
+  expect(within(sheet).getByRole('button', { name: /^Add 3 transits \(₺140,00\)$/ })).toBeEnabled();
+  expect(mockApply).not.toHaveBeenCalled();
 });
 
-test('Confirm posts the range at the chosen rate and refreshes the wallet', async () => {
+test('the hand-typed HGS warning moves From past what it covers, and the preview follows', async () => {
+  render(<AddPortalHgsSheet card={card} onClose={jest.fn()} onPosted={jest.fn()} />);
+  const sheet = await screen.findByRole('dialog', { name: 'Add HGS from portal' });
+  expect(sheet).toHaveTextContent('already has HGS typed by hand: HGS to 31/09/2026');
+  await userEvent.click(within(sheet).getByRole('button', { name: 'From 01.10.2026' }));
+  await waitFor(() => expect(mockPreview).toHaveBeenLastCalledWith(710, '2026-10-01'));
+  expect(await within(sheet).findByRole('button', { name: /^Add 2 transits \(₺100,00\)$/ })).toBeInTheDocument();
+});
+
+test('confirm applies from the chosen day, then closes and refreshes', async () => {
   const onPosted = jest.fn();
   const onClose = jest.fn();
   render(<AddPortalHgsSheet card={card} onClose={onClose} onPosted={onPosted} />);
   const sheet = await screen.findByRole('dialog', { name: 'Add HGS from portal' });
-  const add = await within(sheet).findByRole('button', { name: 'Add 2 passes' });
-  fireEvent.change(within(sheet).getByRole('textbox', { name: 'USD rate' }), { target: { value: '49,5' } });
-  await userEvent.click(add);
-  await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('post_booking_portal_hgs', { p_booking_id: 710, p_from: '2026-10-01', p_to: '2026-12-07', p_rate: 49.5 }));
-  expect(onPosted).toHaveBeenCalledWith(expect.stringMatching(/^2 HGS passes added/));
+  fireEvent.change(within(sheet).getByLabelText('From'), { target: { value: '2026-10-01' } });
+  await userEvent.click(await within(sheet).findByRole('button', { name: /^Add 2 transits/ }));
+  await waitFor(() => expect(mockApply).toHaveBeenCalledWith(710, '2026-10-01'));
+  expect(onPosted).toHaveBeenCalledWith('2 HGS transits added · ₺100,00');
   expect(onClose).toHaveBeenCalled();
 });
 
-test('a second run finds nothing new and cannot post', async () => {
-  mockRpc.mockImplementation(async () => preview([]));
+test('nothing new: the button is off and says so', async () => {
+  mockPreview.mockResolvedValue([]);
   render(<AddPortalHgsSheet card={card} onClose={jest.fn()} onPosted={jest.fn()} />);
   const sheet = await screen.findByRole('dialog', { name: 'Add HGS from portal' });
-  expect(await within(sheet).findByText(/No new portal transits for this car/)).toBeInTheDocument();
-  expect(within(sheet).getByRole('button', { name: 'Nothing to add' })).toBeDisabled();
-});
-
-test('without the database functions it says so instead of failing quietly', async () => {
-  mockRpc.mockResolvedValue({ data: null, error: { message: 'Could not find the function public.booking_portal_hgs_preview', code: 'PGRST202' } });
-  render(<AddPortalHgsSheet card={card} onClose={jest.fn()} onPosted={jest.fn()} />);
-  expect(await screen.findByText('Adding HGS from the portal is not set up in the database yet.')).toBeInTheDocument();
+  expect(await within(sheet).findByText('No new transits to add.')).toBeInTheDocument();
+  expect(within(sheet).getByRole('button', { name: 'Add transits' })).toBeDisabled();
 });

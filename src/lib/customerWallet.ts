@@ -39,8 +39,6 @@ export interface WalletLine {
   payment_ref: string | null;
   /** Set when the money came in through `record_customer_payment`, with its envelope or account. */
   pay_method?: string | null;
-  /** The USD rate the line was entered at; the amount itself is always lira. */
-  exchange_rate_at_entry?: number | null;
 }
 
 /** The envelope a recorded cash payment came in with: one per ledger line, matched on `ledger_id`. */
@@ -171,11 +169,14 @@ const knownStation = (value: string) => (value === '?' || value === '*' ? '' : v
 
 /**
  * The sync writes `[AUTO-HGS] DD-MM-YYYY ENTRY → EXIT`, and may add a time after the
- * date and ` · TOLL` at the end. A typed line is free text dated by when it was entered.
+ * date and ` · TOLL` at the end; "Add HGS from portal" writes `DD-MM-YYYY ENTRY → EXIT`.
+ * A typed line is free text dated by when it was entered.
  */
 export function hgsLineInfo(line: Pick<WalletLine, 'description' | 'created_at'>): HgsLineInfo {
   const text = (line.description ?? '').trim();
-  const auto = text.match(/^\[AUTO-HGS\]\s*(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{1,2}:\d{2}))?\s*(.*)$/);
+  // `apply_customer_hgs` writes the same "DD-MM-YYYY ENTRY → EXIT" without the prefix.
+  const auto = text.match(/^\[AUTO-HGS\]\s*(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{1,2}:\d{2}))?\s*(.*)$/)
+    ?? text.match(/^(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{1,2}:\d{2}))?\s+(.+→.*)$/);
   if (!auto) return { pass: false, day: istanbulDay(line.created_at), time: null, route: text || null, toll: null };
   const [, dd, mm, yyyy, time, rest] = auto;
   const [where, ...tollParts] = rest.split(' · ');
@@ -542,7 +543,7 @@ async function fetchAll<T>(page: (from: number, to: number) => PageResult): Prom
   }
 }
 
-const LINE_COLUMNS = 'id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref, pay_method, exchange_rate_at_entry';
+const LINE_COLUMNS = 'id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref, pay_method';
 
 /** Null when there's no such customer. Everything is read at once, with no waterfall. */
 export async function fetchWalletData(customerId: string): Promise<WalletData | null> {

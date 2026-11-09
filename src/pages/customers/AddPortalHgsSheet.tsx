@@ -1,106 +1,82 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Spinner } from '../../components/media/MediaUI';
-import { useCurrency } from '../../lib/CurrencyContext';
+import { Button, Spinner } from '../../components/media/MediaUI';
 import { formatDate } from '../../lib/customers';
 import type { WalletCard } from '../../lib/customerWallet';
 import {
+  applyCustomerHgs,
   bookingRange,
-  defaultRate,
-  fetchPortalPreview,
-  postPortalTransits,
+  fetchPortalFreshness,
+  previewCustomerHgs,
   previewTotals,
-  routeLabel,
   suggestedFrom,
-  type PortalPreviewResult,
+  type PortalFreshness,
+  type PortalTransit,
 } from '../../lib/hgsPortalPosting';
 import { cn } from '../../lib/media/badgeColor';
 import { formatInCurrency } from '../../lib/money';
 import { BookingSheet, FOOTER_BUTTON, Field, INPUT, LicensePlate, Notice, PrimaryButton } from '../bookings/ui';
-import { Button } from '../../components/media/MediaUI';
 
-/** The database sends Istanbul wall time, "YYYY-MM-DDTHH:mm", with no zone. */
-const dayOnly = (local: string) => local.slice(0, 10).split('-').reverse().join('.');
-const stamp = (local: string) => `${dayOnly(local)} ${local.slice(11, 16)}`.trim();
-/** Istanbul is UTC+3 all year. */
-const localToMs = (local: string) => Date.parse(`${local.length === 16 ? `${local}:00` : local}+03:00`);
+/** Lira only: HGS is charged and stored in TL, and this sheet never shows another currency. */
 const lira = (amount: number) => formatInCurrency(amount, 'TRY');
-const usd = (amount: number) => formatInCurrency(amount, 'USD');
+const dotted = (day: string) => day.slice(0, 10).split('-').reverse().join('.');
+const stamp = new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
 
 /** Three days without a fresh portal file and the banner asks for one first. */
 const STALE_DAYS = 3;
 
 /**
- * Charges the booking's customer the portal transits of its car on the days it was
- * theirs. Read first, write only on Confirm; the database refuses anything already
- * posted or outside the booking, so a second click finds nothing new.
+ * Charges the booking's customer its car's portal transits from "From" to the booking's
+ * end, in lira. It reads with `preview_customer_hgs` and writes only on confirm, with
+ * `apply_customer_hgs`, which marks each transit so a second run finds nothing.
  */
 export const AddPortalHgsSheet: React.FC<{
   card: WalletCard;
   onClose: () => void;
   onPosted: (message: string) => void;
 }> = ({ card, onClose, onPosted }) => {
-  const { rates } = useCurrency();
-  const todaysRate = Number(rates.find((row) => row.currency === 'USD')?.rate_to_try) || null;
   const booking = { startDate: card.startDate, endDate: card.endDate };
   const typedHgs = useMemo(() => card.lines.filter((line) => line.kind === 'hgs' && !line.hgs?.pass), [card.lines]);
-  const [from, setFrom] = useState(() => suggestedFrom(booking, typedHgs));
-  const [to, setTo] = useState(card.endDate);
-  const [rateText, setRateText] = useState(() => {
-    const rate = defaultRate(card.lines.map((line) => line.exchange_rate_at_entry ?? null), todaysRate);
-    return rate ? String(rate) : '';
-  });
-  /** Once the rate is typed, nothing replaces it. */
-  const [rateTouched, setRateTouched] = useState(false);
-  const [preview, setPreview] = useState<PortalPreviewResult | null>(null);
+  const suggestion = suggestedFrom(booking, typedHgs);
+  const [from, setFrom] = useState(card.startDate);
+  const [transits, setTransits] = useState<PortalTransit[] | null>(null);
+  const [freshness, setFreshness] = useState<PortalFreshness | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const range = bookingRange(booking, from, to);
-  const rate = Number(rateText.replace(',', '.'));
-  const rateOk = Number.isFinite(rate) && rate > 0;
-
-  // Today's rate can arrive after the sheet opens.
-  useEffect(() => {
-    if (!rateTouched && !rateText && todaysRate) setRateText(String(todaysRate));
-  }, [todaysRate, rateText, rateTouched]);
+  const range = bookingRange(booking, from, card.endDate);
 
   useEffect(() => {
     let active = true;
-    setPreview(null);
+    fetchPortalFreshness(card.carId).then((result) => { if (active) setFreshness(result); }).catch(() => { if (active) setFreshness({ lastUpload: null, lastTransit: null }); });
+    return () => { active = false; };
+  }, [card.carId]);
+
+  useEffect(() => {
+    let active = true;
+    setTransits(null);
     setError(null);
-    fetchPortalPreview(card.id, range.from, range.to)
-      .then((result) => {
-        if (!active) return;
-        setPreview(result);
-      })
+    previewCustomerHgs(card.id, range.from)
+      .then((rows) => { if (active) setTransits(rows); })
       .catch((reason: unknown) => { if (active) setError(reason instanceof Error ? reason.message : String(reason)); });
     return () => { active = false; };
-  }, [card.id, range.from, range.to]);
+  }, [card.id, range.from]);
 
-  // The booking's own newest rate, as the database reads it, beats today's until one is typed.
-  const rateHint = preview?.rateHint ?? null;
-  useEffect(() => {
-    if (!rateTouched && rateHint) setRateText(String(rateHint));
-  }, [rateHint, rateTouched]);
-
-  const totals = previewTotals(preview?.transits ?? [], rateOk ? rate : null);
-  const stale = preview?.lastUpload ? (Date.now() - localToMs(preview.lastUpload)) / 86_400_000 > STALE_DAYS : false;
-  const nothing = preview !== null && preview.transits.length === 0;
+  const totals = previewTotals(transits ?? []);
+  const nothing = transits !== null && transits.length === 0;
+  const stale = freshness?.lastUpload ? (Date.now() - Date.parse(freshness.lastUpload)) / 86_400_000 > STALE_DAYS : false;
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!preview || nothing || !rateOk || saving) return;
+    if (!transits || nothing || saving) return;
     setSaving(true);
     setError(null);
     try {
-      const result = await postPortalTransits(card.id, range.from, range.to, rate);
-      const extra = result.posted > preview.transits.length ? ` (${result.posted - preview.transits.length} arrived after the preview)` : '';
-      onPosted(result.posted > 0
-        ? `${result.posted} HGS ${result.posted === 1 ? 'pass' : 'passes'} added · ${lira(result.totalTl)}${extra}`
-        : 'Nothing new to add: these passes were already charged.');
+      const result = await applyCustomerHgs(card.id, range.from);
+      onPosted(result.count > 0
+        ? `${result.count} HGS ${result.count === 1 ? 'transit' : 'transits'} added · ${lira(result.total)}`
+        : 'No new transits to add: they were already charged.');
       onClose();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
       setSaving(false);
     }
   };
@@ -109,8 +85,7 @@ export const AddPortalHgsSheet: React.FC<{
     <BookingSheet
       label="Add HGS from portal"
       title="Add HGS from portal"
-      badge={<LicensePlate plate={card.plate} className="[&>span:last-child]:text-[13px]" />}
-      subtitle={<span className="font-mono">{card.bookingNumber}</span>}
+      badge={<><LicensePlate plate={card.plate} className="[&>span:last-child]:text-[13px]" /><span className="font-mono text-[13px] font-medium text-black/55">{card.bookingNumber}</span></>}
       narrow
       dirty={false}
       saving={saving}
@@ -119,77 +94,74 @@ export const AddPortalHgsSheet: React.FC<{
       footer={(requestClose) => (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="w-full text-center text-[12.5px] text-black/55 sm:w-auto sm:text-start">
-            {preview && !nothing ? <><span className="font-semibold tabular-nums text-foreground">{totals.count}</span> new · <span className="font-mono font-semibold text-foreground">{lira(totals.tl)}</span>{totals.usd !== null && <> · <span className="font-mono">{usd(totals.usd)}</span></>}</> : ' '}
+            {transits && !nothing ? <><span className="font-semibold tabular-nums text-foreground">{totals.count}</span> new · <span className="font-mono font-semibold text-foreground">{lira(totals.total)}</span></> : ' '}
           </span>
           <div className="ms-auto flex flex-1 justify-end gap-2 sm:flex-none">
             <Button type="button" variant="outline" size="lg" className={cn(FOOTER_BUTTON, 'flex-1 px-4 sm:flex-none')} disabled={saving} onClick={requestClose}>Cancel</Button>
-            <PrimaryButton saving={saving} disabled={!preview || nothing || !rateOk}>
-              {saving ? 'Adding…' : nothing ? 'Nothing to add' : `Add ${totals.count} ${totals.count === 1 ? 'pass' : 'passes'}`}
+            <PrimaryButton saving={saving} disabled={!transits || nothing}>
+              {saving ? 'Adding…' : nothing || !transits ? 'Add transits' : `Add ${totals.count} ${totals.count === 1 ? 'transit' : 'transits'} (${lira(totals.total)})`}
             </PrimaryButton>
           </div>
         </div>
       )}
     >
-      {preview && (
-        <Notice tone={stale ? 'amber' : 'blue'}>
-          {preview.lastUpload ? (
-            <>Bu aracın ({card.plate ?? '—'}) HGS verisi en son <strong>{stamp(preview.lastUpload)}</strong> yüklendi. Kayıttaki son geçiş: <strong>{preview.lastTransit ? dayOnly(preview.lastTransit) : '—'}</strong>.</>
+      {freshness && (
+        <Notice tone={stale || !freshness.lastUpload ? 'amber' : 'blue'}>
+          {freshness.lastUpload ? (
+            <>Bu aracın HGS verisi en son <strong>{stamp.format(Date.parse(freshness.lastUpload))}</strong> yüklendi · kayıttaki son geçiş <strong>{freshness.lastTransit ? dotted(freshness.lastTransit) : '—'}</strong>.</>
           ) : (
-            <>Bu araç ({card.plate ?? '—'}) için henüz HGS portal verisi yüklenmedi.</>
+            <>Bu araç için henüz HGS portal verisi yüklenmedi.</>
           )}
           {stale && <span className="mt-1 block">The file is over {STALE_DAYS} days old: upload a fresh one first if the car has driven since.</span>}
         </Notice>
       )}
 
-      {preview && preview.investorCount > 0 && (
-        <Notice tone="blue">
-          {preview.investorCount} {preview.investorCount === 1 ? 'pass' : 'passes'} in these days ({lira(preview.investorTotal)}) are already on the investor's sheet and aren't charged here.
-        </Notice>
-      )}
-
       {typedHgs.length > 0 && (
         <Notice tone="amber">
-          This booking already has HGS typed by hand: {typedHgs.map((line) => `${line.description?.trim() || 'HGS'} (${lira(line.amount)})`).join(', ')}. Start after the days it covers.
+          <span>This booking already has HGS typed by hand: {typedHgs.map((line) => `${line.description?.trim() || 'HGS'} (${lira(line.amount)})`).join(', ')}.</span>
+          {suggestion !== range.from && (
+            <span className="mt-1.5 flex flex-wrap items-center gap-2">
+              Start after it:
+              <button type="button" className="inline-flex h-11 items-center rounded-full bg-white px-3 text-[12.5px] font-semibold text-[#92400E] ring-1 ring-[#F59E0B]/40 hover:bg-[#FEF3C7] md:h-7" onClick={() => setFrom(suggestion)}>
+                From {dotted(suggestion)}
+              </button>
+            </span>
+          )}
         </Notice>
       )}
 
       <section className="surface-depth rounded-2xl border border-subtle bg-surface p-4 sm:p-5">
-        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
           <Field label="From" hint={`Booking starts ${formatDate(card.startDate)}`}>
-            <input aria-label="From" type="date" className={INPUT} min={card.startDate} max={card.endDate} value={range.from} onChange={(event) => setFrom(event.target.value)} />
+            <input aria-label="From" type="date" className={INPUT} min={card.startDate} max={card.endDate} value={range.from} onChange={(event) => setFrom(event.target.value || card.startDate)} />
           </Field>
-          <Field label="To" hint={`Booking ends ${formatDate(card.endDate)}`}>
-            <input aria-label="To" type="date" className={INPUT} min={card.startDate} max={card.endDate} value={range.to} onChange={(event) => setTo(event.target.value)} />
-          </Field>
-          <Field label="USD rate" required error={rateText && !rateOk ? 'Enter the rate.' : null} hint="TL stays stored; USD is for display.">
-            <input aria-label="USD rate" inputMode="decimal" className={cn(INPUT, 'tabular-nums')} value={rateText} placeholder="49,50" onChange={(event) => { setRateTouched(true); setRateText(event.target.value); }} />
+          <Field label="To" hint="The booking's last day">
+            <input aria-label="To" type="date" className={cn(INPUT, 'bg-black/[0.03] text-black/60')} value={card.endDate} readOnly />
           </Field>
         </div>
       </section>
 
       {error && <Notice tone="red">{error}</Notice>}
 
-      {!preview && !error ? (
+      {!transits && !error ? (
         <div className="flex items-center justify-center py-12" role="status" aria-label="Loading transits"><Spinner size={20} /></div>
-      ) : preview && nothing ? (
-        <p className="rounded-2xl border border-subtle bg-surface px-4 py-8 text-center text-[13.5px] text-black/55">
-          No new portal transits for this car from {formatDate(range.from)} to {formatDate(range.to)}.
-        </p>
-      ) : preview && (
+      ) : nothing ? (
+        <p className="rounded-2xl border border-subtle bg-surface px-4 py-8 text-center text-[13.5px] text-black/55">No new transits to add.</p>
+      ) : transits && (
         <section aria-label="Transits to add" className="overflow-hidden rounded-2xl border border-subtle bg-surface">
           <ul className="max-h-[46vh] divide-y divide-black/[0.05] overflow-y-auto">
-            {preview.transits.map((transit) => (
+            {transits.map((transit) => (
               <li key={transit.id} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
-                <span className="w-[112px] shrink-0 font-mono tabular-nums text-black/60">{dayOnly(transit.at)} {transit.at.slice(11, 16)}</span>
-                <span className="min-w-0 flex-1 truncate text-foreground">{routeLabel(transit)}</span>
+                <span className="w-[84px] shrink-0 font-mono tabular-nums text-black/60">{dotted(transit.day)}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{transit.note.replace(/^\d{2}-\d{2}-\d{4}\s*/, '')}</span>
                 {transit.roadType === 'private' && <span className="shrink-0 rounded-full bg-[#F1EBFD] px-1.5 text-[11px] font-medium text-[#5B21B6]">Private</span>}
                 <span className="shrink-0 font-mono font-medium tabular-nums text-[#B91C1C]">{lira(transit.amount)}</span>
               </li>
             ))}
           </ul>
           <div className="flex items-center justify-between gap-3 border-t border-subtle bg-[#F8F9FB] px-4 py-2.5 text-[13px]">
-            <span className="text-black/55">{totals.count} {totals.count === 1 ? 'pass' : 'passes'}</span>
-            <span className="font-mono font-semibold tabular-nums text-foreground">{lira(totals.tl)}{totals.usd !== null && <span className="ms-2 font-normal text-black/50">{usd(totals.usd)}</span>}</span>
+            <span className="text-black/55">{totals.count} {totals.count === 1 ? 'transit' : 'transits'}</span>
+            <span className="font-mono font-semibold tabular-nums text-foreground">{lira(totals.total)}</span>
           </div>
         </section>
       )}
