@@ -288,3 +288,9 @@ describe('editFormData', () => {
     });
   });
 });
+
+describe('a new booking', () => {
+  it('starts confirmed: staff bookings are confirmed, only website and app bookings wait as pending', () => {
+    expect(EMPTY_FORM.status).toBe('confirmed');
+  });
+});

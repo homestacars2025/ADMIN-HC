@@ -175,7 +175,8 @@ export interface BookingFormData {
 }
 
 export const EMPTY_FORM: BookingFormData = {
-  booking_number: '', status: 'pending', car_id: '',
+  // Staff bookings start confirmed. Pending stays the column default, for website and app bookings.
+  booking_number: '', status: 'confirmed', car_id: '',
   start_date: '', end_date: '', is_currently_active: false,
   pickup_location: '', pickup_location_select: '', pickup_location_custom: '',
   dropoff_location: '', dropoff_location_select: '', dropoff_location_custom: '',

@@ -556,6 +556,28 @@ export function friendlyCustomerError(message: string): CustomerWriteError {
   return { kind: 'other', text: message };
 }
 
+/** A failed customer write, keeping what the database said so the UI can link to the record it clashes with. */
+export class CustomerWriteFailure extends Error {
+  readonly detail: CustomerWriteError;
+
+  constructor(detail: CustomerWriteError) {
+    super(detail.text);
+    this.name = 'CustomerWriteFailure';
+    this.detail = detail;
+  }
+}
+
+/** A customer on their own, with no booking. Documents are uploaded after, keyed on the new id. */
+export async function createCustomer(fields: CustomerPatch): Promise<Customer> {
+  const { data, error } = await supabase
+    .from('customers')
+    .insert(fields)
+    .select(CUSTOMER_COLUMNS)
+    .single();
+  if (error) throw new CustomerWriteFailure(friendlyCustomerError(error.message));
+  return data as unknown as Customer;
+}
+
 export async function updateCustomer(id: string, patch: CustomerPatch): Promise<Customer> {
   const { data, error } = await supabase
     .from('customers')

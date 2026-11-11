@@ -267,7 +267,10 @@ const CustomersPage: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [creating, setCreating] = useState(false);
   const [banning, setBanning] = useState<Customer | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -348,10 +351,21 @@ const CustomersPage: React.FC = () => {
     toast.success('Customer saved');
   }, []);
 
+  /** In the grid straight away, then on to their profile, the same way a row opens it. */
+  const onCreated = useCallback((created: Customer) => {
+    setDirectory((current) => current && ({ ...current, customers: [created, ...current.customers] }));
+    navigate(`/dashboard/customers/${created.id}`, { state: { fromList: true, listSearch: location.search } });
+  }, [navigate, location.search]);
+
   return (
     <div className="media-scope mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
       <MediaToaster />
-      <PageHeader eyebrow="Management" title="Customers" subtitle="Browse customers, what they owe, and their rental history." />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <PageHeader eyebrow="Management" title="Customers" subtitle="Browse customers, what they owe, and their rental history." />
+        <Button size="lg" className="!h-11 w-full shrink-0 sm:w-auto md:!h-10" onClick={() => setCreating(true)}>
+          <UserPlusIcon size={15} /> New customer
+        </Button>
+      </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         {!directory && !loadError && <TileSkeleton />}
@@ -540,6 +554,7 @@ const CustomersPage: React.FC = () => {
       )}
 
       {editing && <CustomerEditSheet customer={editing} onClose={() => setEditing(null)} onSaved={onSaved} />}
+      {creating && <CustomerEditSheet onClose={() => setCreating(false)} onSaved={onCreated} />}
       <BanFlow customer={banning} onClose={() => setBanning(null)} onChanged={() => setAttempt((value) => value + 1)} />
     </div>
   );
