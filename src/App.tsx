@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { CurrencyProvider } from './lib/CurrencyContext';
 import LoginPage from './pages/LoginPage';
@@ -34,7 +34,8 @@ import OperationsPage from './pages/OperationsPage';
 import KabisManagementPage from './pages/KabisManagementPage';
 import CarIssuesPage from './pages/CarIssuesPage';
 import InboxPage from './pages/InboxPage';
-import MailPage from './pages/MailPage';
+// Mail is the only page with an HTML sanitiser and a rich editor, so it loads on its own.
+const MailPage = lazy(() => import('./pages/MailPage'));
 import SourcesPage from './pages/SourcesPage';
 import StaffPermissionsPage from './pages/StaffPermissionsPage';
 import SourcingPage from './pages/SourcingPage';
@@ -119,7 +120,7 @@ const App: React.FC = () => {
           <Route path="kabis" element={<KabisManagementPage />} />
           <Route path="car-issues" element={<CarIssuesPage />} />
           <Route path="inbox" element={<InboxPage />} />
-          <Route path="mail" element={<MailPage />} />
+          <Route path="mail" element={<Suspense fallback={<div role="status" aria-label="Loading mail" className="h-full" />}><MailPage /></Suspense>} />
           <Route path="sources" element={<SourcesPage />} />
           <Route path="sourcing" element={<SourcingPage />} />
           <Route path="hr" element={<HrOpeningsPage />} />

@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { normalizeAttachments, type MailAttachment } from './mailThreads';
 import { supabase } from './supabase';
 
 /**
@@ -77,13 +78,10 @@ export interface InboxItem {
   accountLabel: string | null;
   accountEmail: string | null;
   accountColor: string | null;
-}
-
-export interface EmailAttachment {
-  filename?: string;
-  url?: string;
-  size?: number;
-  contentType?: string;
+  /** RFC ids, for threading rows that have no thread_key. Filled by listMailbox only. */
+  messageId: string | null;
+  inReplyTo: string | null;
+  hasAttachments: boolean;
 }
 
 export interface EmailBody {
@@ -93,7 +91,7 @@ export interface EmailBody {
   ccEmails: string[];
   messageId: string | null;
   inReplyTo: string | null;
-  attachments: EmailAttachment[];
+  attachments: MailAttachment[];
   matchedBy: string | null;
 }
 
@@ -141,6 +139,9 @@ function mapItem(raw: Record<string, unknown>): InboxItem {
     accountLabel: (raw.account_label as string) ?? null,
     accountEmail: (raw.account_email as string) ?? null,
     accountColor: (raw.account_color as string) ?? null,
+    messageId: null,
+    inReplyTo: null,
+    hasAttachments: false,
   };
 }
 
@@ -225,9 +226,49 @@ export async function getBody(id: string): Promise<EmailBody> {
     ccEmails: strArray(raw.cc_emails),
     messageId: (raw.message_id as string) ?? null,
     inReplyTo: (raw.in_reply_to as string) ?? null,
-    attachments: Array.isArray(raw.attachments) ? (raw.attachments as EmailAttachment[]) : [],
+    attachments: normalizeAttachments(raw.attachments),
     matchedBy: (raw.matched_by as string) ?? null,
   };
+}
+
+/**
+ * Ids of messages whose full text matches — the list only carries the first 160
+ * characters, so a word further down needs the server.
+ */
+export async function searchMessageIds(query: string, accountIds: string[] | null): Promise<Set<string>> {
+  // PostgREST pattern characters and filter syntax are dropped, not escaped.
+  const term = query.trim().replace(/[%_,()*\\]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (term.length < 3 || (accountIds && accountIds.length === 0)) return new Set();
+  let q = supabase.from('email_messages').select('id').ilike('body_text', `%${term}%`);
+  if (accountIds) q = q.in('account_id', accountIds);
+  const { data, error } = await q.limit(MAILBOX_LIMIT);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((r) => String((r as { id: string }).id)));
+}
+
+/** Bodies for a whole conversation in one request, keyed by message id. */
+export async function getBodies(ids: string[]): Promise<Record<string, EmailBody>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase
+    .from('email_messages')
+    .select('id, body_html, body_text, cc_emails, message_id, in_reply_to, attachments, matched_by')
+    .in('id', ids);
+  if (error) throw new Error(error.message);
+  const out: Record<string, EmailBody> = {};
+  (data ?? []).forEach((r) => {
+    const raw = r as unknown as Record<string, unknown>;
+    out[String(raw.id)] = {
+      id: String(raw.id),
+      bodyHtml: (raw.body_html as string) ?? null,
+      bodyText: (raw.body_text as string) ?? null,
+      ccEmails: strArray(raw.cc_emails),
+      messageId: (raw.message_id as string) ?? null,
+      inReplyTo: (raw.in_reply_to as string) ?? null,
+      attachments: normalizeAttachments(raw.attachments),
+      matchedBy: (raw.matched_by as string) ?? null,
+    };
+  });
+  return out;
 }
 
 /** Every message sharing a thread_key, oldest first — the reading order. */
@@ -239,6 +280,48 @@ export async function getThread(threadKey: string): Promise<InboxItem[]> {
     .order('email_date', { ascending: true, nullsFirst: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapItem(r as unknown as Record<string, unknown>));
+}
+
+const MAILBOX_LIMIT = 500;
+
+/**
+ * Everything in the given mailboxes (all of them when `accountIds` is null), for
+ * the client to thread and filter. inbox_view carries the joins; the RFC ids and
+ * the attachment flag are not on it, so they come from the table alongside, in
+ * the same request round.
+ */
+export async function listMailbox(accountIds: string[] | null): Promise<InboxItem[]> {
+  if (accountIds && accountIds.length === 0) return [];
+  let view = supabase.from('inbox_view').select(VIEW_COLUMNS);
+  let meta = supabase.from('email_messages').select('id, message_id, in_reply_to, has_attachments, attachments');
+  if (accountIds) {
+    view = view.in('account_id', accountIds);
+    meta = meta.in('account_id', accountIds);
+  }
+  const [rows, extra] = await Promise.all([
+    view.order('email_date', { ascending: false, nullsFirst: false }).limit(MAILBOX_LIMIT),
+    meta.order('email_date', { ascending: false, nullsFirst: false }).limit(MAILBOX_LIMIT),
+  ]);
+  if (rows.error) throw new Error(rows.error.message);
+  if (extra.error) throw new Error(extra.error.message);
+
+  const byId = new Map<string, Record<string, unknown>>();
+  (extra.data ?? []).forEach((r) => {
+    const raw = r as unknown as Record<string, unknown>;
+    byId.set(String(raw.id), raw);
+  });
+
+  return (rows.data ?? []).map((r) => {
+    const item = mapItem(r as unknown as Record<string, unknown>);
+    const raw = byId.get(item.id);
+    if (!raw) return item;
+    return {
+      ...item,
+      messageId: (raw.message_id as string) ?? null,
+      inReplyTo: (raw.in_reply_to as string) ?? null,
+      hasAttachments: raw.has_attachments === true || normalizeAttachments(raw.attachments).length > 0,
+    };
+  });
 }
 
 export async function unreadCount(): Promise<number> {
@@ -259,6 +342,23 @@ async function patch(id: string, fields: Record<string, unknown>): Promise<void>
 }
 
 export const markRead = (id: string) => patch(id, { is_read: true });
+export const markUnread = (id: string) => patch(id, { is_read: false });
+
+async function patchMany(ids: string[], fields: Record<string, unknown>): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from('email_messages').update(fields).in('id', ids);
+  if (error) throw new Error(error.message);
+}
+
+/** A conversation is read, archived or deleted as a whole, the way a mail app does it. */
+export const setReadMany = (ids: string[], value: boolean) => patchMany(ids, { is_read: value });
+export const setArchivedMany = (ids: string[], value: boolean) => patchMany(ids, { is_archived: value });
+
+export async function deleteMessages(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from('email_messages').delete().in('id', ids);
+  if (error) throw new Error(error.message);
+}
 export const setStarred = (id: string, value: boolean) => patch(id, { is_starred: value });
 export const setArchived = (id: string, value: boolean) => patch(id, { is_archived: value });
 
@@ -355,17 +455,156 @@ export async function sendEmail(input: SendInput): Promise<string> {
 
 // ── Realtime ──────────────────────────────────────────────────────────────────
 
-/** Fires on every new row in `email_messages`. Returns an unsubscribe function. */
-export function subscribeToMail(onChange: () => void): () => void {
+export interface MailChange {
+  event: 'INSERT' | 'UPDATE' | 'DELETE';
+  /** The new row on insert and update; empty on delete. */
+  row: {
+    id?: string;
+    account_id?: string | null;
+    direction?: EmailDirection;
+    from_name?: string | null;
+    from_email?: string | null;
+    subject?: string | null;
+  };
+}
+
+let channelSeq = 0;
+
+/** Fires on every insert, update and delete in `email_messages`. Returns an unsubscribe function. */
+export function subscribeToMail(onChange: (change: MailChange) => void): () => void {
+  const handler = (payload: { eventType: string; new: unknown }) => onChange({
+    event: payload.eventType as MailChange['event'],
+    row: (payload.new ?? {}) as MailChange['row'],
+  });
+  channelSeq += 1;
   const channel: RealtimeChannel = supabase
-    .channel('mail-inbox')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'email_messages' }, onChange)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'email_messages' }, onChange)
+    .channel(`mail-inbox-${channelSeq}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'email_messages' }, handler)
     .subscribe();
 
   return () => {
     void supabase.removeChannel(channel);
   };
+}
+
+// ── Mailboxes ────────────────────────────────────────────────────────────────
+
+export interface CreatedMailbox {
+  id: string;
+  email: string;
+  slug: string;
+  label: string;
+}
+
+const CREATE_ERRORS: Record<string, string> = {
+  'admin only': 'Only admins can create mailboxes.',
+  'invalid local part': 'Use letters, numbers, dots, dashes or underscores for the address.',
+  'mailbox already exists': 'That address already exists.',
+};
+
+/** `<local>@homestacars.com`, ready to receive and send at once. */
+export async function createMailbox(input: {
+  localPart: string;
+  label: string;
+  color: string;
+  grantProfiles: string[];
+}): Promise<CreatedMailbox> {
+  const { data, error } = await supabase.rpc('create_mailbox', {
+    p_local_part: input.localPart,
+    p_label: input.label,
+    p_color: input.color,
+    p_grant_profiles: input.grantProfiles.length ? input.grantProfiles : null,
+  });
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as Record<string, unknown>;
+  if (result.ok !== true) {
+    const code = String(result.error ?? '');
+    throw new Error(CREATE_ERRORS[code] ?? (code || 'Could not create the mailbox.'));
+  }
+  return {
+    id: String(result.id),
+    email: String(result.email),
+    slug: String(result.slug),
+    label: String(result.label),
+  };
+}
+
+// ── Who sees which mailbox ───────────────────────────────────────────────────
+
+export interface TeamMember {
+  profileId: string;
+  fullName: string;
+  email: string | null;
+  avatarUrl: string | null;
+  avatarBg: string | null;
+  gender: string | null;
+  position: string | null;
+}
+
+export interface MailboxGrant {
+  accountId: string;
+  profileId: string;
+  canSend: boolean;
+}
+
+/** Active team members, by name. */
+export async function listTeamMembers(): Promise<TeamMember[]> {
+  const [members, profiles] = await Promise.all([
+    supabase.from('team_members').select('profile_id, position').eq('is_active', true),
+    supabase.from('profiles').select('id, full_name, email, avatar_url, avatar_bg, gender'),
+  ]);
+  if (members.error) throw new Error(members.error.message);
+  if (profiles.error) throw new Error(profiles.error.message);
+  const byId = new Map(((profiles.data ?? []) as Array<Record<string, unknown>>).map((p) => [String(p.id), p]));
+  return ((members.data ?? []) as Array<{ profile_id: string; position: string | null }>)
+    .map((m) => {
+      const p = byId.get(m.profile_id);
+      return {
+        profileId: m.profile_id,
+        fullName: String(p?.full_name ?? '').trim() || String(p?.email ?? 'Team member'),
+        email: (p?.email as string) ?? null,
+        avatarUrl: (p?.avatar_url as string) ?? null,
+        avatarBg: (p?.avatar_bg as string) ?? null,
+        gender: (p?.gender as string) ?? null,
+        position: m.position,
+      };
+    })
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
+export async function listMailboxGrants(): Promise<MailboxGrant[]> {
+  const { data, error } = await supabase.from('email_account_access').select('account_id, profile_id, can_send');
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{ account_id: string; profile_id: string; can_send: boolean }>).map((r) => ({
+    accountId: r.account_id,
+    profileId: r.profile_id,
+    canSend: r.can_send === true,
+  }));
+}
+
+export async function grantMailbox(accountId: string, profileId: string, canSend: boolean): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser();
+  const { error } = await supabase.from('email_account_access').insert({
+    account_id: accountId,
+    profile_id: profileId,
+    can_send: canSend,
+    granted_by: auth.user?.id ?? null,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function revokeMailbox(accountId: string, profileId: string): Promise<void> {
+  const { error } = await supabase.from('email_account_access').delete().eq('account_id', accountId).eq('profile_id', profileId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setMailboxCanSend(accountId: string, profileId: string, canSend: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('email_account_access')
+    .update({ can_send: canSend })
+    .eq('account_id', accountId)
+    .eq('profile_id', profileId);
+  if (error) throw new Error(error.message);
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────
