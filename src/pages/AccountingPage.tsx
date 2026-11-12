@@ -21,6 +21,8 @@ import { SupplierSheet } from './accounting/SupplierSheet';
 import { SuppliersTab } from './accounting/SuppliersTab';
 import { LicensePlate, Segmented } from './bookings/ui';
 import { isRecordedPayment } from '../lib/payments';
+import { LedgerActorsProvider, LedgerStamp } from '../components/shared/LedgerActors';
+import type { LedgerStamp as LedgerStampFields } from '../lib/ledgerActors';
 
 /** Scrolls the row a link pointed at into view. Pair it with `HIGHLIGHT_ROW` on that row. */
 function useScrollToRow(rowId: number | null, ready: boolean) {
@@ -2738,6 +2740,7 @@ export const CarCustomerSheetPage: React.FC = () => {
   }
 
   return (
+    <LedgerActorsProvider ids={(ledger as Array<CustomerLedgerEntry & LedgerStampFields>).flatMap((entry) => [entry.created_by, entry.updated_by])} enabled>
     <div style={{ padding: '40px 40px 60px' }}>
       <style>{`
         @keyframes pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
@@ -2874,7 +2877,7 @@ export const CarCustomerSheetPage: React.FC = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
                           <thead>
                             <tr>
-                              {['Date', 'Type', 'Description', 'Amount', ''].map((h, hi) => (
+                              {['Date', 'Type', 'Description', 'Amount', 'By', ''].map((h, hi) => (
                                 <th key={hi} style={{ padding: '9px 16px', fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: h === '' ? 'right' : 'left', borderBottom: '1px solid #f0f0f0', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
                             </tr>
@@ -2894,6 +2897,15 @@ export const CarCustomerSheetPage: React.FC = () => {
                                   <td style={{ padding: '10px 16px', fontSize: 12, color: '#6b7280', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description ?? '—'}</td>
                                   <td className="font-mono tabular-nums" style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', color: isIn ? '#16a34a' : '#dc2626' }}>
                                     {isIn ? '+' : '−'}{fmt(e.amount)}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
+                                    <LedgerStamp
+                                      ledgerId={String(e.id)}
+                                      createdBy={e.created_by}
+                                      createdAt={e.created_at}
+                                      updatedBy={(e as CustomerLedgerEntry & LedgerStampFields).updated_by}
+                                      updatedAt={(e as CustomerLedgerEntry & LedgerStampFields).updated_at}
+                                    />
                                   </td>
                                   <td style={{ padding: '7px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                                     {isPendingDelete ? (
@@ -2964,6 +2976,7 @@ export const CarCustomerSheetPage: React.FC = () => {
         />
       )}
     </div>
+    </LedgerActorsProvider>
   );
 };
 

@@ -32,6 +32,7 @@ import { RateNote } from '../../components/shared/Money';
 import { deletedMessage, deleteFailedMessage } from '../../lib/cashEnvelopes';
 import { DeleteEnvelopesDialog, EnvelopeStatusChip } from '../accounting/EnvelopeDelete';
 import { AddPortalHgsSheet } from './AddPortalHgsSheet';
+import { DeletedLedgerEntries, LedgerActorsProvider, LedgerStamp } from '../../components/shared/LedgerActors';
 import { AddCustomerTxModal, EditTxModal, printLedgerInvoice, type CustomerLedgerEntry } from '../accounting/CustomerLedgerForms';
 import { BookingSheet, Field, FOOTER_BUTTON, INPUT, LicensePlate, PrimaryButton } from '../bookings/ui';
 import { BannedBadge, CarIcon, EmptyNote, ReceiptIcon, RoadIcon, StatusPill } from './ui';
@@ -148,7 +149,7 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
       )}>
         {KIND_ICON[line.kind]}
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-3rem)]">
         <div className="truncate text-[13.5px] font-medium text-foreground">
           {transfer && peer?.bookingNumber ? (
             <>
@@ -167,7 +168,7 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
         </div>
         <div className="truncate text-[12px] tabular-nums text-black/50">{text.detail}</div>
       </div>
-      <div className={cn('shrink-0 font-mono text-[13.5px] font-medium tabular-nums', received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
+      <div className={cn('shrink-0 font-mono text-[13.5px] font-medium tabular-nums', nested ? 'max-sm:ps-9' : 'max-sm:ps-11', 'max-sm:me-auto', received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
         {signedMoney(line.amount, received)}
       </div>
       <div className="flex shrink-0 items-center">
@@ -207,6 +208,7 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
           </span>
         )}
       </div>
+      <LedgerStamp ledgerId={line.id} createdBy={line.created_by} createdAt={line.created_at} updatedBy={line.updated_by} updatedAt={line.updated_at} />
     </li>
   );
 };
@@ -490,91 +492,95 @@ export const CustomerWalletView: React.FC<{
   }, { plate_number: card.plate ?? '—', model_name: card.model ?? '—' }, fmt, { hgsDetails });
 
   return (
-    <div className="flex flex-col gap-4">
-      <WalletHero
-        wallet={wallet}
-        action={onAddPayment && (
-          <Button type="button" size="lg" className="!h-11 px-4 md:!h-10" onClick={onAddPayment}><Plus size={14} /> Add payment</Button>
+    <LedgerActorsProvider ids={wallet.cards.flatMap((card) => card.lines.flatMap((line) => [line.created_by, line.updated_by]))} enabled>
+      <div className="flex flex-col gap-4">
+        <WalletHero
+          wallet={wallet}
+          action={onAddPayment && (
+            <Button type="button" size="lg" className="!h-11 px-4 md:!h-10" onClick={onAddPayment}><Plus size={14} /> Add payment</Button>
+          )}
+        />
+
+        {wallet.cards.length === 0 ? (
+          <div className="rounded-2xl border border-subtle bg-surface"><EmptyNote>No bookings for this customer yet.</EmptyNote></div>
+        ) : (
+          <ol aria-label="Bookings, newest first" className="relative flex flex-col gap-3 before:absolute before:bottom-6 before:start-[5px] before:top-6 before:w-px before:bg-black/[0.08]">
+            {wallet.cards.map((card) => (
+              <BookingCard
+                key={card.id}
+                card={card}
+                canMove={walletTone(card.balance) !== 'settled' && moveTargets(wallet, card.id).length > 0}
+                onMove={() => setMoving(card)}
+                onAdd={() => setAdding(card)}
+                onAddHgs={() => setPortalHgs(card)}
+                onPrint={(hgsDetails) => print(card, hgsDetails)}
+                onEdit={setEditing}
+                onDelete={deleteLine}
+                onDeleteEnvelope={isAdmin ? setEnvelopeLine : undefined}
+              />
+            ))}
+          </ol>
         )}
-      />
 
-      {wallet.cards.length === 0 ? (
-        <div className="rounded-2xl border border-subtle bg-surface"><EmptyNote>No bookings for this customer yet.</EmptyNote></div>
-      ) : (
-        <ol aria-label="Bookings, newest first" className="relative flex flex-col gap-3 before:absolute before:bottom-6 before:start-[5px] before:top-6 before:w-px before:bg-black/[0.08]">
-          {wallet.cards.map((card) => (
-            <BookingCard
-              key={card.id}
-              card={card}
-              canMove={walletTone(card.balance) !== 'settled' && moveTargets(wallet, card.id).length > 0}
-              onMove={() => setMoving(card)}
-              onAdd={() => setAdding(card)}
-              onAddHgs={() => setPortalHgs(card)}
-              onPrint={(hgsDetails) => print(card, hgsDetails)}
-              onEdit={setEditing}
-              onDelete={deleteLine}
-              onDeleteEnvelope={isAdmin ? setEnvelopeLine : undefined}
-            />
-          ))}
-        </ol>
-      )}
+        <DeletedLedgerEntries customerId={wallet.customerId} refreshKey={refreshKey} />
 
-      {portalHgs && (
-        <AddPortalHgsSheet
-          card={portalHgs}
-          onClose={() => setPortalHgs(null)}
-          onPosted={(message) => { notify(message, 'success'); onChanged(); }}
-        />
-      )}
+        {portalHgs && (
+          <AddPortalHgsSheet
+            card={portalHgs}
+            onClose={() => setPortalHgs(null)}
+            onPosted={(message) => { notify(message, 'success'); onChanged(); }}
+          />
+        )}
 
-      {envelopeLine?.envelope && (
-        <DeleteEnvelopesDialog
-          envelopes={[{
-            ...envelopeLine.envelope,
-            booking_number: wallet.cards.find((card) => card.lines.some((line) => line.id === envelopeLine.id))?.bookingNumber ?? null,
-            customer: wallet.name,
-          }]}
-          onClose={() => setEnvelopeLine(null)}
-          onDone={(outcome) => {
-            setEnvelopeLine(null);
-            const success = deletedMessage(outcome.deleted);
-            const failure = deleteFailedMessage(outcome.failed);
-            if (success) notify(success, 'success');
-            if (failure) notify(failure, 'error');
-            if (outcome.deleted.length > 0) onChanged();
-          }}
-        />
-      )}
+        {envelopeLine?.envelope && (
+          <DeleteEnvelopesDialog
+            envelopes={[{
+              ...envelopeLine.envelope,
+              booking_number: wallet.cards.find((card) => card.lines.some((line) => line.id === envelopeLine.id))?.bookingNumber ?? null,
+              customer: wallet.name,
+            }]}
+            onClose={() => setEnvelopeLine(null)}
+            onDone={(outcome) => {
+              setEnvelopeLine(null);
+              const success = deletedMessage(outcome.deleted);
+              const failure = deleteFailedMessage(outcome.failed);
+              if (success) notify(success, 'success');
+              if (failure) notify(failure, 'error');
+              if (outcome.deleted.length > 0) onChanged();
+            }}
+          />
+        )}
 
-      {moving && (
-        <MoveBalanceSheet
-          from={moving}
-          targets={moveTargets(wallet, moving.id)}
-          initialTargetId={defaultTarget(moveTargets(wallet, moving.id))?.id ?? null}
-          onClose={() => setMoving(null)}
-          onMoved={(message) => { notify(message, 'success'); onChanged(); }}
-        />
-      )}
-      {adding && (
-        <AddCustomerTxModal
-          customerName={wallet.name}
-          customerId={wallet.customerId}
-          carId={adding.carId}
-          bookingId={adding.id}
-          bookingLabel={`${adding.bookingNumber} · ${formatDate(adding.startDate)} → ${formatDate(adding.endDate)}`}
-          carPlate={adding.plate ?? undefined}
-          onClose={() => setAdding(null)}
-          onSaved={() => { notify('Transaction added', 'success'); onChanged(); }}
-        />
-      )}
-      {editing && (
-        <EditTxModal
-          entry={asLedgerEntry(editing, wallet.customerId)}
-          onClose={() => setEditing(null)}
-          onSaved={() => { notify('Transaction updated', 'success'); onChanged(); }}
-        />
-      )}
-    </div>
+        {moving && (
+          <MoveBalanceSheet
+            from={moving}
+            targets={moveTargets(wallet, moving.id)}
+            initialTargetId={defaultTarget(moveTargets(wallet, moving.id))?.id ?? null}
+            onClose={() => setMoving(null)}
+            onMoved={(message) => { notify(message, 'success'); onChanged(); }}
+          />
+        )}
+        {adding && (
+          <AddCustomerTxModal
+            customerName={wallet.name}
+            customerId={wallet.customerId}
+            carId={adding.carId}
+            bookingId={adding.id}
+            bookingLabel={`${adding.bookingNumber} · ${formatDate(adding.startDate)} → ${formatDate(adding.endDate)}`}
+            carPlate={adding.plate ?? undefined}
+            onClose={() => setAdding(null)}
+            onSaved={() => { notify('Transaction added', 'success'); onChanged(); }}
+          />
+        )}
+        {editing && (
+          <EditTxModal
+            entry={asLedgerEntry(editing, wallet.customerId)}
+            onClose={() => setEditing(null)}
+            onSaved={() => { notify('Transaction updated', 'success'); onChanged(); }}
+          />
+        )}
+      </div>
+    </LedgerActorsProvider>
   );
 };
 

@@ -83,6 +83,7 @@ import {
   SummaryBar,
 } from './ui';
 import { CurrencyField, PaymentAmount, PaymentMethod, usePaymentAccounts } from './PaymentFields';
+import { currentUserId } from '../../lib/ledgerActors';
 
 const STEPS = [
   { key: 'customer', label: 'Customer' },
@@ -653,6 +654,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
       const { error: ledgerError } = await supabase.from('customer_accounting_ledger').insert({
         booking_id: bookingId, customer_id: customerId, car_id: carId, type: 'rental',
         amount: toTry(rental, form.fin_currency, usdRate), direction: 'OUT', description: 'Rental fee',
+        created_by: await currentUserId(),
       });
       if (ledgerError) showToast('Booking saved, but the rental charge failed', 'error');
     }
@@ -751,6 +753,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
     if (custError) showToast(`Booking saved, but the customer wasn't: ${friendlyCustomerError(custError.message).text}`, 'error');
 
     const ledgerOps: Array<PromiseLike<{ error: unknown }>> = [];
+    const me = await currentUserId();
     const processLedgerRow = (type: string, fieldValue: string, existing: LedgerRow | null, currency: BookingCurrency) => {
       const amount = parseFloat(fieldValue);
       const hasAmount = !Number.isNaN(amount) && amount > 0;
@@ -767,6 +770,7 @@ export const BookingFormSheet: React.FC<BookingFormSheetProps> = ({ mode, bookin
           amount: toTry(amount, currency, usdRate),
           direction: 'OUT',
           description: 'Rental fee',
+          created_by: me,
         }));
       }
     };
