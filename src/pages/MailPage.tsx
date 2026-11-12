@@ -5,513 +5,557 @@ import { cn } from '../lib/media/badgeColor';
 import {
   absoluteTime,
   assignSource,
-  getBody,
+  deleteMessages,
+  getBodies,
   getThread,
+  inboundSince,
+  latestInboundAt,
   listAccounts,
   listInbox,
-  markRead,
-  relativeTime,
-  sendEmail,
-  setArchived,
+  setArchivedMany,
+  setReadMany,
   setStarred,
-  shortAccountName,
   subscribeToMail,
   unreadByAccount,
-  PRIORITY_CLASS,
-  STATUS_CLASS,
-  STATUS_LABEL,
+  type CreatedMailbox,
   type EmailAccount,
   type EmailBody,
   type InboxFilter,
   type InboxItem,
 } from '../lib/mail';
-import { listSources, type Source } from '../lib/sources';
-import { AlertTriangle, ArrowDown, ArrowUp, Mail, SearchX, X, type IconProps } from '../components/media/MediaIcons';
-import { PageHeader } from '../components/media/MediaShared';
-import { standaloneFontCss } from '../lib/standaloneFonts';
 import {
-  Button,
-  Field,
-  Input,
-  Select,
-  Sheet,
-  SheetBody,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  Skeleton,
-  Spinner,
-  Textarea,
-} from '../components/media/MediaUI';
+  groupConversations,
+  quoteBlock,
+  replyRecipients,
+  replySubject,
+  textToHtml,
+  type Conversation,
+  type ReplyMode,
+} from '../lib/mailThreads';
+import { sanitizeOutgoingHtml } from '../lib/sanitizeEmail';
+import { listSources, type Source } from '../lib/sources';
+import { useCurrentProfile } from '../hooks/useCurrentProfile';
+import { AlertTriangle, Search, X } from '../components/media/MediaIcons';
+import { PageHeader } from '../components/media/MediaShared';
+import { Button, Select } from '../components/media/MediaUI';
+import { ConfirmDialog, type ConfirmState } from '../components/media/ConfirmDialog';
+import ConversationList from '../components/mail/ConversationList';
+import ConversationReader from '../components/mail/ConversationReader';
+import Composer, { NEW_DRAFT, type ComposeDraft } from '../components/mail/Composer';
+import NewMailboxSheet from '../components/mail/NewMailboxSheet';
+import { FOLDERS, MailSidebar, MailToolbarCompact } from '../components/mail/MailSidebar';
+import { ComposeIcon, RefreshIcon } from '../components/mail/MailIcons';
 
 /**
- * Unified email inbox — two panes with a toolbar above, per the Stay spec.
+ * Mail — a three-column mail client over `email_messages`.
  *
- * Deliberately NOT a three-pane Gmail shape: Stay keeps filters in a toolbar so
- * the whole feature stays inside one page-width grid. Unread is carried by weight
- * plus a dot and never by a row tint, because the tint means "selected".
+ * Mailboxes and folders on the left, conversations in the middle, the open
+ * thread on the right. Below `xl` the left column folds into a chip row; below
+ * `lg` the list and the reader take turns.
  *
- * The one thing worth knowing before editing: message bodies are rendered inside
- * a sandboxed iframe, never with dangerouslySetInnerHTML. `body_html` is written
- * by whoever emailed us, so it is hostile input; `sandbox=""` denies it scripts,
- * forms, popups and same-origin access, which is the whole point.
+ * Live updates: `email_messages` is not in the realtime publication today, so
+ * the page polls a tiny "anything new since…" query every 30 s while the tab is
+ * visible, and checks at once when the tab comes back. The realtime
+ * subscription stays wired, so adding the table to the publication makes new
+ * mail appear instantly with no change here.
+ *
+ * Mailbox and folder live in the URL (`?box=…&folder=unread`), so refresh and
+ * back keep them.
  */
 
-// ── Local icons (MediaIcons carries no mail-action glyphs) ────────────────────
+const POLL_MS = 30_000;
+const SOUND_KEY = 'mail.sound';
+const FOLDER_KEYS = new Set<string>(FOLDERS.map((f) => f.key));
 
-const mk = (paths: React.ReactNode): React.FC<IconProps> => ({ size = 16, strokeWidth = 1.75, className }) => (
-  <svg
-    width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
-    className={className} aria-hidden="true" focusable="false"
-  >{paths}</svg>
-);
-
-const StarIcon = mk(<path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 3z" />);
-const ArchiveIcon = mk(<><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8M10 12h4" /></>);
-const ReplyIcon = mk(<><path d="M9 17l-6-6 6-6" /><path d="M3 11h8a8 8 0 018 8v1" /></>);
-const LinkIcon = mk(<><path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7l1.7-1.7" /></>);
-
-// ── Small pieces ──────────────────────────────────────────────────────────────
-
-const StatusBadge: React.FC<{ item: InboxItem }> = ({ item }) => (
-  <span
-    className={cn(
-      'inline-flex h-[19px] shrink-0 items-center whitespace-nowrap rounded-full border px-2 text-[10.5px] font-medium leading-none',
-      STATUS_CLASS[item.sendStatus],
-    )}
-  >
-    {STATUS_LABEL[item.sendStatus]}
-  </span>
-);
-
-const SourceBadge: React.FC<{ item: InboxItem }> = ({ item }) => {
-  if (!item.sourceName) return null;
-  return (
-    <span
-      className={cn(
-        'inline-flex h-[19px] shrink-0 items-center whitespace-nowrap rounded-full border px-2 text-[10.5px] font-medium leading-none',
-        item.sourcePriority ? PRIORITY_CLASS[item.sourcePriority] : 'border-black/10 bg-black/[0.04] text-black/55',
-      )}
-      title={item.sourceSlug ?? undefined}
-    >
-      {item.sourceName}
-    </span>
-  );
+const EMPTY_HINT: Record<InboxFilter, string> = {
+  all: 'New mail appears here as soon as it arrives.',
+  unread: 'You are all caught up.',
+  starred: 'Star a conversation to keep it here.',
+  inbound: 'Nothing received yet.',
+  outbound: 'Nothing sent from here yet.',
+  archived: 'Archived conversations land here.',
 };
 
-/**
- * Which mailbox a message belongs to, as a dot in the account's own colour.
- *
- * The colour comes from the row, never from a lookup table here — a third
- * mailbox should need no change in this file.
- */
-const AccountBadge: React.FC<{ item: InboxItem }> = ({ item }) => {
-  if (!item.accountSlug && !item.accountEmail) return null;
-  const name = shortAccountName({ slug: item.accountSlug, emailAddress: item.accountEmail ?? '' });
-  return (
-    <span
-      className="inline-flex h-[19px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-black/10 bg-black/[0.02] px-2 text-[10.5px] font-medium leading-none text-black/55"
-      title={item.accountEmail ?? undefined}
-    >
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: item.accountColor ?? '#9aa5b1' }}
-      />
-      {name}
-    </span>
-  );
-};
-
-/**
- * Who the message is with — the recipient for something we sent, the sender for
- * something we received.
- *
- * Outbound rows carry no `from_email` (the sender is decided by the Edge
- * Function at send time, not stored on the row), so reading the counterparty off
- * `from_*` alone showed the wrong party for half the inbox.
- */
-function counterparty(item: InboxItem): string {
-  if (item.direction === 'outbound') return item.toEmails.join(', ') || 'Unknown';
-  return item.fromName || item.fromEmail || 'Unknown';
-}
-
-/**
- * Direction, as an arrow plus a word. Both channels carry it — colour for a
- * glance, the arrow and the label for everyone who cannot rely on colour alone.
- */
-const DirectionBadge: React.FC<{ item: InboxItem }> = ({ item }) => {
-  const out = item.direction === 'outbound';
-  const Arrow = out ? ArrowUp : ArrowDown;
-  return (
-    <span
-      className={cn(
-        'inline-flex h-[19px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 text-[10.5px] font-medium leading-none',
-        out
-          ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700'
-          : 'border-primary/25 bg-primary/[0.08] text-brand-hover',
-      )}
-      title={out ? 'Sent by us' : 'Received'}
-    >
-      <Arrow
-        size={11}
-        strokeWidth={2.6}
-        className={out ? 'text-emerald-600' : 'text-destructive'}
-      />
-      {out ? 'Sent' : 'Received'}
-    </span>
-  );
-};
-
-const StarButton: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
-  <button
-    type="button"
-    aria-label={label}
-    aria-pressed={on}
-    onClick={(e) => { e.stopPropagation(); onToggle(); }}
-    className={cn(
-      'grid h-7 w-7 shrink-0 place-items-center rounded-md transition-colors',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
-      on ? 'text-amber-500' : 'text-black/20 hover:text-black/45',
-    )}
-  >
-    <StarIcon size={15} strokeWidth={on ? 2.2 : 1.8} className={on ? 'fill-amber-500' : ''} />
-  </button>
-);
-
-/**
- * Hostile HTML goes in an iframe with an empty sandbox: no scripts, no forms,
- * no same-origin. The height is nudged to fit content where the browser allows
- * it, and falls back to a generous fixed height where it does not.
- */
-const HtmlBody: React.FC<{ html: string | null; text: string | null }> = ({ html, text }) => {
-  const ref = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(320);
-
-  const srcDoc = useMemo(() => {
-    const content = html
-      ? html
-      : `<pre style="white-space:pre-wrap;font:14px/1.6 var(--font-sans);margin:0">${
-          (text ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string))
-        }</pre>`;
-    return `<!doctype html><meta charset="utf-8"><base target="_blank">
-<style>
-  /* This is a sandboxed document of its own, so the parent's custom properties
-     do not resolve inside it: colours are literal and the fonts are copied in. */
-  ${standaloneFontCss()}
-  body{margin:0;padding:2px;font:13px/1.6 var(--font-sans);color:#121212;word-break:break-word}
-  img{max-width:100%;height:auto} table{max-width:100%}
-  a{color:#5c91d3}
-</style>${content}`;
-  }, [html, text]);
-
-  const onLoad = useCallback(() => {
-    try {
-      const doc = ref.current?.contentDocument;
-      if (doc) setHeight(Math.min(Math.max(doc.body.scrollHeight + 16, 120), 4000));
-    } catch {
-      // Cross-origin content in the frame — keep the default height.
-    }
-  }, []);
-
-  if (!html && !text) {
-    return <div className="px-1 py-6 text-[13px] text-black/35">This message has no body.</div>;
+/** A short two-note chime, generated so there is no audio file to ship. */
+function playChime(): void {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [880, 1320].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const t = ctx.currentTime + i * 0.12;
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.4);
+    });
+    window.setTimeout(() => void ctx.close(), 800);
+  } catch {
+    // Audio is a nicety; a blocked context must not break the page.
   }
-
-  return (
-    <iframe
-      ref={ref}
-      title="Message body"
-      sandbox=""
-      srcDoc={srcDoc}
-      onLoad={onLoad}
-      style={{ height }}
-      className="w-full border-0 bg-white"
-    />
-  );
-};
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-
-const FILTERS: Array<{ key: InboxFilter; label: string }> = [
-  { key: 'all', label: 'All mail' },
-  { key: 'unread', label: 'Unread' },
-  { key: 'starred', label: 'Starred' },
-  { key: 'inbound', label: 'Received' },
-  { key: 'outbound', label: 'Sent' },
-  { key: 'archived', label: 'Archived' },
-];
-
-interface ComposeState {
-  open: boolean;
-  to: string;
-  cc: string;
-  subject: string;
-  body: string;
-  threadKey: string | null;
-  inReplyTo: string | null;
-  sourceId: string | null;
-  contactId: string | null;
-  /** The mailbox this will be sent from. Null falls back to the default. */
-  accountId: string | null;
 }
 
-const EMPTY_COMPOSE: ComposeState = {
-  open: false, to: '', cc: '', subject: '', body: '',
-  threadKey: null, inReplyTo: null, sourceId: null, contactId: null, accountId: null,
-};
+interface Toast {
+  id: number;
+  text: string;
+  tone: 'ok' | 'bad' | 'mail';
+  action?: { label: string; run: () => void };
+}
 
-/** Partnerships for anything aimed at a distribution source, otherwise the default. */
-const PARTNER_SLUG = 'homestacars-partners';
-
-function pickAccount(accounts: EmailAccount[], forSource: boolean): string | null {
-  if (accounts.length === 0) return null;
-  const partner = accounts.find((a) => a.slug === PARTNER_SLUG);
-  if (forSource && partner) return partner.id;
-  return (accounts.find((a) => a.isDefault) ?? accounts[0]).id;
+function matches(m: InboxItem, q: string): boolean {
+  return [m.subject, m.fromName, m.fromEmail, m.preview, m.sourceName, m.contactName, m.accountLabel, m.accountEmail, ...m.toEmails]
+    .some((v) => (v ?? '').toLowerCase().includes(q));
 }
 
 const MailPage: React.FC = () => {
-  const [items, setItems] = useState<InboxItem[]>([]);
-  const [sources, setSources] = useState<Source[]>([]);
-  const [accounts, setAccounts] = useState<EmailAccount[]>([]);
-  const [unreadPerAccount, setUnreadPerAccount] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<InboxFilter>('all');
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
-  const [accountFilter, setAccountFilter] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { profile } = useCurrentProfile();
+  const canCreateMailbox = profile?.role === 'admin';
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const boxId = searchParams.get('box');
+  const folderParam = searchParams.get('folder') ?? 'all';
+  const folder: InboxFilter = FOLDER_KEYS.has(folderParam) ? (folderParam as InboxFilter) : 'all';
+
+  const [accounts, setAccounts] = useState<EmailAccount[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [unreadPerAccount, setUnreadPerAccount] = useState<Record<string, number>>({});
+  const [items, setItems] = useState<InboxItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  // The open conversation is remembered by one of its message ids, so it stays
+  // open across reloads even if an older message joins it.
+  const [anchorId, setAnchorId] = useState<string | null>(null);
   const [thread, setThread] = useState<InboxItem[]>([]);
   const [bodies, setBodies] = useState<Record<string, EmailBody>>({});
-  const [readerBusy, setReaderBusy] = useState(false);
+  const [readerLoading, setReaderLoading] = useState(false);
 
-  const [compose, setCompose] = useState<ComposeState>(EMPTY_COMPOSE);
-  const [sending, setSending] = useState(false);
-  const [toast, setToast] = useState<{ text: string; tone: 'ok' | 'bad' } | null>(null);
+  const [draft, setDraft] = useState<ComposeDraft | null>(null);
+  const [draftSeq, setDraftSeq] = useState(0);
+  const [newMailboxOpen, setNewMailboxOpen] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [confirmPending, setConfirmPending] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [soundOn, setSoundOn] = useState(() => {
+    try { return window.localStorage.getItem(SOUND_KEY) === '1'; } catch { return false; }
+  });
 
   const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+
+  const toastTimer = useRef<number | undefined>(undefined);
+  const showToast = useCallback((t: Omit<Toast, 'id'>) => {
+    window.clearTimeout(toastTimer.current);
+    setToast({ ...t, id: Date.now() });
+    toastTimer.current = window.setTimeout(() => mounted.current && setToast(null), t.action ? 6000 : 3500);
   }, []);
 
-  const showToast = useCallback((text: string, tone: 'ok' | 'bad') => {
-    setToast({ text, tone });
-    window.setTimeout(() => mounted.current && setToast(null), 3500);
-  }, []);
+  const setParam = useCallback((key: 'box' | 'folder', value: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value && !(key === 'folder' && value === 'all')) next.set(key, value);
+      else next.delete(key);
+      return next;
+    }, { replace: true });
+    setAnchorId(null);
+  }, [setSearchParams]);
 
-  const load = useCallback(async () => {
+  // ── Loading ──────────────────────────────────────────────────────────────
+
+  const loadSeq = useRef(0);
+  const load = useCallback(async (quiet = false) => {
+    const seq = ++loadSeq.current;
+    if (!quiet) setLoading(true);
     try {
-      // Both in flight together: the tab badges must not wait on the list.
-      const [rows, unreadMap] = await Promise.all([
-        listInbox(filter, sourceFilter, accountFilter),
-        unreadByAccount().catch(() => ({} as Record<string, number>)),
+      const [rows, unread] = await Promise.all([
+        listInbox(folder, sourceFilter, boxId),
+        unreadByAccount().catch(() => null),
       ]);
-      if (!mounted.current) return;
+      // A slower, older request must not overwrite a newer folder's rows.
+      if (!mounted.current || seq !== loadSeq.current) return;
       setItems(rows);
-      setUnreadPerAccount(unreadMap);
+      if (unread) setUnreadPerAccount(unread);
       setError(null);
     } catch (err) {
-      if (!mounted.current) return;
-      setError(err instanceof Error ? err.message : 'Could not load mail.');
+      if (mounted.current && seq === loadSeq.current) setError(err instanceof Error ? err.message : 'Could not load mail.');
     } finally {
-      if (mounted.current) setLoading(false);
+      if (mounted.current && seq === loadSeq.current) setLoading(false);
     }
-  }, [filter, sourceFilter, accountFilter]);
+  }, [folder, sourceFilter, boxId]);
 
-  useEffect(() => { setLoading(true); void load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
+
+  const loadAccounts = useCallback(async () => {
+    const list = await listAccounts();
+    if (mounted.current) setAccounts(list);
+    return list;
+  }, []);
 
   useEffect(() => {
+    loadAccounts().catch((err) => mounted.current && setError(err instanceof Error ? err.message : 'Could not load mailboxes.'));
     listSources().then((s) => mounted.current && setSources(s)).catch(() => {});
+  }, [loadAccounts]);
+
+  // ── New mail ─────────────────────────────────────────────────────────────
+
+  // Null until the database says where "new" starts.
+  const since = useRef<string | null>(null);
+  useEffect(() => {
+    latestInboundAt()
+      .then((at) => { since.current = at ?? new Date(0).toISOString(); })
+      .catch(() => { since.current = new Date().toISOString(); });
   }, []);
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  const accountsRef = useRef(accounts);
+  accountsRef.current = accounts;
+  const soundRef = useRef(soundOn);
+  soundRef.current = soundOn;
+  const openByIdRef = useRef<(id: string) => void>(() => {});
+
+  const checkForNew = useCallback(async () => {
+    if (!since.current) return;
+    try {
+      const fresh = await inboundSince(since.current);
+      if (!mounted.current || fresh.length === 0) return;
+      since.current = fresh[fresh.length - 1].createdAt;
+      const last = fresh[fresh.length - 1];
+      const box = accountsRef.current.find((a) => a.id === last.accountId);
+      const who = last.fromName || last.fromEmail || 'someone';
+      showToast({
+        tone: 'mail',
+        text: fresh.length === 1
+          ? `New mail from ${who}${box ? ` · ${box.emailAddress}` : ''}: ${last.subject || '(no subject)'}`
+          : `${fresh.length} new messages, latest from ${who}`,
+        action: { label: 'Open', run: () => openByIdRef.current(last.id) },
+      });
+      if (soundRef.current) playChime();
+      void loadRef.current(true);
+    } catch {
+      // The next tick tries again.
+    }
+  }, [showToast]);
 
   useEffect(() => {
-    listAccounts()
-      .then((a) => mounted.current && setAccounts(a))
-      .catch((err) => mounted.current && setError(err instanceof Error ? err.message : 'Could not load mailboxes.'));
-  }, []);
+    const tick = () => { if (document.visibilityState === 'visible') void checkForNew(); };
+    const timer = window.setInterval(tick, POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void checkForNew();
+      void loadRef.current(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const stop = subscribeToMail(() => { void checkForNew(); void loadRef.current(true); });
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      stop();
+    };
+  }, [checkForNew]);
 
   /**
    * Sources hands an address over as `?to=…&subject=…&account=<slug>`. It waits
-   * on the accounts because the slug in the URL has to resolve to an id before
-   * the composer can show which mailbox it is about to send from; the params are
-   * then cleared so a refresh does not reopen the sheet.
+   * for the mailboxes so the slug resolves to an id, then clears the params so
+   * a refresh does not reopen the composer.
    */
   useEffect(() => {
     if (accounts.length === 0) return;
     const to = searchParams.get('to');
     if (!to) return;
-
     const slug = searchParams.get('account');
     const matched = slug ? accounts.find((a) => a.slug === slug) : undefined;
-
-    setCompose({
-      ...EMPTY_COMPOSE,
-      open: true,
-      to,
-      subject: searchParams.get('subject') ?? '',
-      accountId: matched?.id ?? pickAccount(accounts, Boolean(slug)),
-    });
-    setSearchParams({}, { replace: true });
+    setDraft({ ...NEW_DRAFT, to: [to], subject: searchParams.get('subject') ?? '', accountId: matched?.id ?? null });
+    setDraftSeq((n) => n + 1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      ['to', 'subject', 'account'].forEach((k) => next.delete(k));
+      return next;
+    }, { replace: true });
   }, [accounts, searchParams, setSearchParams]);
 
-  // Realtime keeps the list live; the 30s poll is the fallback for when the
-  // socket cannot connect at all.
-  useEffect(() => {
-    const stop = subscribeToMail(() => { void load(); });
-    const timer = window.setInterval(() => { void load(); }, 30_000);
-    return () => { stop(); window.clearInterval(timer); };
-  }, [load]);
+  // ── Derived ──────────────────────────────────────────────────────────────
+
+  const conversations = useMemo(() => groupConversations(items), [items]);
+
+  const query = search.trim().toLowerCase();
+  const visible = useMemo(
+    () => (query ? conversations.filter((c) => c.messages.some((m) => matches(m, query))) : conversations),
+    [conversations, query],
+  );
 
   const selected = useMemo(
-    () => items.find((i) => i.id === selectedId) ?? thread.find((i) => i.id === selectedId) ?? null,
-    [items, thread, selectedId],
+    () => (anchorId ? conversations.find((c) => c.messages.some((m) => m.id === anchorId)) ?? null : null),
+    [conversations, anchorId],
   );
 
-  /** Opening a message loads its thread, every body in it, and marks it read. */
-  const open = useCallback(async (item: InboxItem) => {
-    setSelectedId(item.id);
-    setReaderBusy(true);
+  /** The reader shows the whole thread, including messages outside the current folder. */
+  const readerMessages = useMemo(() => {
+    if (!anchorId) return [];
+    const byId = new Map<string, InboxItem>();
+    thread.forEach((m) => byId.set(m.id, m));
+    selected?.messages.forEach((m) => byId.set(m.id, { ...byId.get(m.id), ...m }));
+    return Array.from(byId.values()).sort((a, b) => (Date.parse(a.emailDate ?? '') || 0) - (Date.parse(b.emailDate ?? '') || 0));
+  }, [anchorId, thread, selected]);
+
+  const ownAddresses = useMemo(() => accounts.map((a) => a.emailAddress), [accounts]);
+  const unreadInBox = boxId ? unreadPerAccount[boxId] ?? 0 : Object.values(unreadPerAccount).reduce((s, n) => s + n, 0);
+  const domain = accounts.find((a) => a.isDefault)?.emailAddress.split('@')[1] ?? accounts[0]?.emailAddress.split('@')[1] ?? 'homestacars.com';
+
+  const patchLocal = useCallback((ids: readonly string[], fields: Partial<InboxItem>) => {
+    const set = new Set(ids);
+    const apply = (m: InboxItem) => (set.has(m.id) ? { ...m, ...fields } : m);
+    setItems((prev) => prev.map(apply));
+    setThread((prev) => prev.map(apply));
+  }, []);
+
+  const refreshUnread = useCallback(() => {
+    unreadByAccount().then((u) => mounted.current && setUnreadPerAccount(u)).catch(() => {});
+  }, []);
+
+  // ── Opening ──────────────────────────────────────────────────────────────
+
+  const openConversation = useCallback(async (conversation: Conversation) => {
+    const latest = conversation.latest;
+    setAnchorId(latest.id);
+    setThread(conversation.messages);
+    setBodies({});
+    setReaderLoading(true);
     try {
-      const chain = item.threadKey ? await getThread(item.threadKey) : [item];
+      const full = latest.threadKey ? await getThread(latest.threadKey) : conversation.messages;
+      const merged = new Map<string, InboxItem>();
+      [...full, ...conversation.messages].forEach((m) => merged.set(m.id, m));
+      const all = Array.from(merged.values());
+      const loaded = await getBodies(all.map((m) => m.id));
       if (!mounted.current) return;
-      setThread(chain);
+      setThread(all);
+      setBodies(loaded);
 
-      const fetched = await Promise.all(chain.map((m) => getBody(m.id).catch(() => null)));
-      if (!mounted.current) return;
-      const next: Record<string, EmailBody> = {};
-      fetched.forEach((b, i) => { if (b) next[chain[i].id] = b; });
-      setBodies(next);
-
-      if (!item.isRead) {
-        await markRead(item.id);
-        if (!mounted.current) return;
-        setItems((prev) => prev.map((m) => (m.id === item.id ? { ...m, isRead: true } : m)));
+      const unreadIds = all.filter((m) => m.direction === 'inbound' && !m.isRead).map((m) => m.id);
+      if (unreadIds.length) {
+        patchLocal(unreadIds, { isRead: true });
+        await setReadMany(unreadIds, true);
+        refreshUnread();
       }
     } catch (err) {
-      if (mounted.current) showToast(err instanceof Error ? err.message : 'Could not open message.', 'bad');
+      if (mounted.current) showToast({ tone: 'bad', text: err instanceof Error ? err.message : 'Could not open the conversation.' });
     } finally {
-      if (mounted.current) setReaderBusy(false);
+      if (mounted.current) setReaderLoading(false);
     }
-  }, [showToast]);
+  }, [patchLocal, refreshUnread, showToast]);
 
-  const patchLocal = (id: string, fields: Partial<InboxItem>) => {
-    setItems((prev) => prev.map((m) => (m.id === id ? { ...m, ...fields } : m)));
-    setThread((prev) => prev.map((m) => (m.id === id ? { ...m, ...fields } : m)));
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+  openByIdRef.current = (id: string) => {
+    const found = conversationsRef.current.find((c) => c.messages.some((m) => m.id === id));
+    if (found) void openConversation(found);
+    else {
+      // Not in this folder or mailbox: widen to all mail first.
+      setSearchParams(new URLSearchParams(), { replace: true });
+      setSourceFilter(null);
+      setSearch('');
+      setAnchorId(id);
+    }
   };
 
-  const toggleStar = useCallback(async (item: InboxItem) => {
-    const next = !item.isStarred;
-    patchLocal(item.id, { isStarred: next });          // optimistic
-    try { await setStarred(item.id, next); }
+  // After widening to all mail, open the message the toast pointed at.
+  useEffect(() => {
+    if (!anchorId || loading || thread.length) return;
+    const found = conversations.find((c) => c.messages.some((m) => m.id === anchorId));
+    if (found) void openConversation(found);
+  }, [anchorId, loading, thread.length, conversations, openConversation]);
+
+  const closeReader = useCallback(() => { setAnchorId(null); setThread([]); setBodies({}); }, []);
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+
+  const toggleStarMessage = useCallback(async (m: InboxItem) => {
+    const next = !m.isStarred;
+    patchLocal([m.id], { isStarred: next });
+    try { await setStarred(m.id, next); }
     catch (err) {
-      patchLocal(item.id, { isStarred: item.isStarred });
-      showToast(err instanceof Error ? err.message : 'Could not update.', 'bad');
+      patchLocal([m.id], { isStarred: m.isStarred });
+      showToast({ tone: 'bad', text: err instanceof Error ? err.message : 'Could not update.' });
     }
-  }, [showToast]);
+  }, [patchLocal, showToast]);
 
-  const toggleArchive = useCallback(async (item: InboxItem) => {
-    const next = !item.isArchived;
+  /** A conversation's star: clears every star in it, or stars its newest message. */
+  const toggleStarConversation = useCallback(async (c: Conversation) => {
+    const ids = c.starred ? c.messages.filter((m) => m.isStarred).map((m) => m.id) : [c.latest.id];
+    patchLocal(ids, { isStarred: !c.starred });
+    try { await Promise.all(ids.map((id) => setStarred(id, !c.starred))); }
+    catch (err) {
+      patchLocal(ids, { isStarred: c.starred });
+      showToast({ tone: 'bad', text: err instanceof Error ? err.message : 'Could not update.' });
+    }
+  }, [patchLocal, showToast]);
+
+  const archive = useCallback(async () => {
+    const ids = readerMessages.map((m) => m.id);
+    if (!ids.length) return;
+    const next = !readerMessages.every((m) => m.isArchived);
     try {
-      await setArchived(item.id, next);
-      showToast(next ? 'Archived.' : 'Moved back to the inbox.', 'ok');
-      if (selectedId === item.id) { setSelectedId(null); setThread([]); }
-      void load();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Could not archive.', 'bad');
-    }
-  }, [load, selectedId, showToast]);
-
-  const linkSource = useCallback(async (item: InboxItem, sourceId: string) => {
-    try {
-      await assignSource(item.id, sourceId);
-      const s = sources.find((x) => x.id === sourceId);
-      patchLocal(item.id, { sourceId, sourceName: s?.name ?? null, sourcePriority: s?.priority ?? null });
-      showToast(`Linked to ${s?.name ?? 'source'}.`, 'ok');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Could not link.', 'bad');
-    }
-  }, [sources, showToast]);
-
-  const startReply = useCallback((item: InboxItem) => {
-    const body = bodies[item.id];
-    setCompose({
-      open: true,
-      to: item.direction === 'inbound' ? (item.fromEmail ?? '') : item.toEmails.join(', '),
-      cc: '',
-      subject: item.subject ? (/^re:/i.test(item.subject) ? item.subject : `Re: ${item.subject}`) : 'Re:',
-      body: '',
-      threadKey: item.threadKey,
-      inReplyTo: body?.messageId ?? null,
-      sourceId: item.sourceId,
-      contactId: item.contactId,
-      // A reply always leaves from the mailbox the conversation lives in, so the
-      // next reply comes back to the same place.
-      accountId: item.accountId ?? pickAccount(accounts, Boolean(item.sourceId)),
-    });
-  }, [bodies, accounts]);
-
-  /** The mailbox the composer will send from — falls back to the default. */
-  const composeAccount = useMemo(
-    () => accounts.find((a) => a.id === compose.accountId) ?? accounts.find((a) => a.isDefault) ?? null,
-    [accounts, compose.accountId],
-  );
-
-  const submitCompose = useCallback(async () => {
-    if (!compose.to.trim() || !compose.subject.trim() || !compose.body.trim()) {
-      showToast('Recipient, subject and message are all required.', 'bad');
-      return;
-    }
-    setSending(true);
-    try {
-      await sendEmail({
-        to: compose.to,
-        cc: compose.cc,
-        subject: compose.subject,
-        // Plain-text composer: newlines become paragraphs, and the text is
-        // escaped so a stray "<" cannot inject markup into our own outbound mail.
-        bodyHtml: compose.body
-          .split(/\n{2,}/)
-          .map((p) => `<p>${p.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string)).replace(/\n/g, '<br/>')}</p>`)
-          .join(''),
-        threadKey: compose.threadKey,
-        inReplyTo: compose.inReplyTo,
-        sourceId: compose.sourceId,
-        contactId: compose.contactId,
-        accountId: composeAccount?.id ?? null,
-        accountSlug: composeAccount?.slug ?? null,
+      await setArchivedMany(ids, next);
+      closeReader();
+      void load(true);
+      showToast({
+        tone: 'ok',
+        text: next ? 'Conversation archived.' : 'Moved back to the inbox.',
+        action: {
+          label: 'Undo',
+          run: () => { void setArchivedMany(ids, !next).then(() => load(true)); },
+        },
       });
-      if (!mounted.current) return;
-      setCompose(EMPTY_COMPOSE);
-      showToast('Message handed to the sender.', 'ok');
-      void load();
     } catch (err) {
-      if (mounted.current) showToast(err instanceof Error ? err.message : 'Could not send.', 'bad');
-    } finally {
-      if (mounted.current) setSending(false);
+      showToast({ tone: 'bad', text: err instanceof Error ? err.message : 'Could not archive.' });
     }
-  }, [compose, composeAccount, load, showToast]);
+  }, [readerMessages, closeReader, load, showToast]);
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((m) =>
-      (m.subject ?? '').toLowerCase().includes(q) ||
-      (m.fromName ?? '').toLowerCase().includes(q) ||
-      (m.fromEmail ?? '').toLowerCase().includes(q) ||
-      // Recipients are now the displayed identity on sent mail, so searching the
-      // name the row shows has to find it.
-      m.toEmails.some((t) => t.toLowerCase().includes(q)) ||
-      (m.preview ?? '').toLowerCase().includes(q) ||
-      (m.sourceName ?? '').toLowerCase().includes(q));
-  }, [items, search]);
+  const askDelete = useCallback(() => {
+    const ids = readerMessages.map((m) => m.id);
+    if (!ids.length) return;
+    setConfirm({
+      title: 'Delete this conversation?',
+      description: ids.length === 1
+        ? 'The message is deleted permanently. Archive it instead if you may need it later.'
+        : `All ${ids.length} messages in it are deleted permanently. Archive it instead if you may need it later.`,
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        await deleteMessages(ids);
+        closeReader();
+        void load(true);
+        refreshUnread();
+        showToast({ tone: 'ok', text: ids.length === 1 ? 'Message deleted.' : 'Conversation deleted.' });
+      },
+    });
+  }, [readerMessages, closeReader, load, refreshUnread, showToast]);
 
-  const unread = useMemo(() => items.filter((m) => !m.isRead && m.direction === 'inbound').length, [items]);
+  const runConfirm = useCallback(async () => {
+    if (!confirm) return;
+    setConfirmPending(true);
+    try {
+      await confirm.onConfirm();
+      setConfirm(null);
+    } catch (err) {
+      showToast({ tone: 'bad', text: err instanceof Error ? err.message : 'Could not delete.' });
+    } finally {
+      setConfirmPending(false);
+    }
+  }, [confirm, showToast]);
+
+  const markUnread = useCallback(async () => {
+    const target = [...readerMessages].reverse().find((m) => m.direction === 'inbound');
+    if (!target) { showToast({ tone: 'bad', text: 'Only received mail can be marked unread.' }); return; }
+    try {
+      await setReadMany([target.id], false);
+      patchLocal([target.id], { isRead: false });
+      closeReader();
+      refreshUnread();
+    } catch (err) {
+      showToast({ tone: 'bad', text: err instanceof Error ? err.message : 'Could not update.' });
+    }
+  }, [readerMessages, patchLocal, closeReader, refreshUnread, showToast]);
+
+  const linkSource = useCallback(async (sourceId: string) => {
+    const s = sources.find((x) => x.id === sourceId);
+    try {
+      await Promise.all(readerMessages.map((m) => assignSource(m.id, sourceId)));
+      patchLocal(readerMessages.map((m) => m.id), { sourceId, sourceName: s?.name ?? null, sourcePriority: s?.priority ?? null });
+      showToast({ tone: 'ok', text: `Linked to ${s?.name ?? 'source'}.` });
+    } catch (err) {
+      showToast({ tone: 'bad', text: err instanceof Error ? err.message : 'Could not link.' });
+    }
+  }, [readerMessages, sources, patchLocal, showToast]);
+
+  // ── Composing ────────────────────────────────────────────────────────────
+
+  const openDraft = useCallback((d: ComposeDraft) => { setDraft(d); setDraftSeq((n) => n + 1); }, []);
+
+  const startNew = useCallback(() => {
+    openDraft({ ...NEW_DRAFT, accountId: boxId });
+  }, [boxId, openDraft]);
+
+  const startReply = useCallback((m: InboxItem, mode: ReplyMode) => {
+    const body = bodies[m.id];
+    const original = body?.bodyHtml
+      ? sanitizeOutgoingHtml(body.bodyHtml)
+      : textToHtml(body?.bodyText ?? m.preview ?? '');
+    const { to, cc } = replyRecipients(m, body?.ccEmails ?? [], ownAddresses, mode);
+    openDraft({
+      mode,
+      to,
+      cc,
+      subject: replySubject(m.subject, mode),
+      // A reply leaves from the mailbox the conversation lives in.
+      accountId: m.accountId ?? boxId,
+      quotedHtml: quoteBlock(m, original, mode, absoluteTime(m.emailDate)),
+      threadKey: mode === 'forward' ? null : m.threadKey,
+      inReplyTo: mode === 'forward' ? null : (body?.messageId ?? m.messageId),
+      sourceId: m.sourceId,
+      contactId: mode === 'forward' ? null : m.contactId,
+      droppedAttachments: mode === 'forward' ? body?.attachments.length ?? 0 : 0,
+    });
+  }, [bodies, ownAddresses, boxId, openDraft]);
+
+  const onSent = useCallback((message: string) => {
+    setDraft(null);
+    showToast({ tone: 'ok', text: message });
+    void load(true);
+    const key = readerMessages[readerMessages.length - 1]?.threadKey;
+    if (key) getThread(key).then((t) => mounted.current && setThread(t)).catch(() => {});
+  }, [load, readerMessages, showToast]);
+
+  const onMailboxCreated = useCallback(async (mb: CreatedMailbox) => {
+    setNewMailboxOpen(false);
+    showToast({ tone: 'ok', text: `${mb.email} is ready. It receives and sends right away.` });
+    try { await loadAccounts(); } catch { /* the toast already confirmed creation */ }
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('box', mb.id);
+      next.delete('folder');
+      return next;
+    }, { replace: true });
+    setAnchorId(null);
+    refreshUnread();
+  }, [loadAccounts, refreshUnread, setSearchParams, showToast]);
+
+  const toggleSound = useCallback(() => {
+    setSoundOn((on) => {
+      const next = !on;
+      try { window.localStorage.setItem(SOUND_KEY, next ? '1' : '0'); } catch { /* private mode */ }
+      if (next) playChime();
+      return next;
+    });
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([load(true), checkForNew()]);
+    if (mounted.current) setRefreshing(false);
+  }, [load, checkForNew]);
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  const sidebarProps = {
+    accounts, boxId, folder, unreadPerAccount, unreadInBox, canCreateMailbox, soundOn,
+    onSelectBox: (id: string | null) => setParam('box', id),
+    onSelectFolder: (f: InboxFilter) => setParam('folder', f),
+    onCompose: startNew,
+    onNewMailbox: () => setNewMailboxOpen(true),
+    onToggleSound: toggleSound,
+  };
+
+  const box = accounts.find((a) => a.id === boxId) ?? null;
+  const folderLabel = FOLDERS.find((f) => f.key === folder)?.label ?? 'All mail';
+  const reading = anchorId !== null;
 
   const sourceOptions = useMemo(
     () => [{ value: '', label: 'All sources' }, ...sources.map((s) => ({ value: s.id, label: s.name }))],
@@ -519,358 +563,137 @@ const MailPage: React.FC = () => {
   );
 
   return (
-    <div className="media-scope flex min-h-full flex-col bg-white">
-      <div className="border-b border-black/[0.06] px-5 py-5 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <PageHeader
-            eyebrow="Communication"
-            title="Mail"
-            subtitle="Every message to and from the distribution sources, in one place."
-          />
-          <Button
-            variant="default"
-            size="sm"
-            className="self-start"
-            onClick={() => setCompose({
-              ...EMPTY_COMPOSE,
-              open: true,
-              // Composing while a source is filtered is B2B by definition.
-              accountId: accountFilter ?? pickAccount(accounts, Boolean(sourceFilter)),
-            })}
-          >
-            New message
-          </Button>
+    <div className="media-scope flex h-full min-h-[560px] flex-col bg-white">
+      {/* While reading on a narrow screen, the message gets the whole height. */}
+      <div className={cn('flex-col gap-3 border-b border-black/[0.06] px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6 lg:flex', reading ? 'hidden' : 'flex')}>
+        <PageHeader eyebrow="Communication" title="Mail" subtitle="Every mailbox, every conversation, in one place." />
+        <div className="flex items-center gap-2 xl:hidden">
+          <Button variant="default" size="lg" onClick={startNew}><ComposeIcon size={15} />New message</Button>
         </div>
       </div>
 
       {error && (
-        <div className="mx-5 mt-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/[0.05] p-3 sm:mx-6 lg:mx-8">
+        <div role="alert" className="mx-4 mt-3 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/[0.05] p-3 sm:mx-6">
           <AlertTriangle size={15} className="mt-px text-destructive" />
           <span className="text-[12.5px] text-destructive">{error}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={() => { setLoading(true); void load(); }}>
-            Retry
-          </Button>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>Retry</Button>
         </div>
       )}
 
-      {/* Mailbox switcher — the primary axis, so it sits above the filters and
-          not among them. Scrolls rather than wraps on a phone. */}
-      {accounts.length > 1 && (
-        <div className="flex items-center gap-2 border-b border-black/[0.06] px-5 py-2.5 sm:px-6 lg:px-8">
-          <div
-            role="tablist"
-            aria-label="Mailbox"
-            className="flex items-center gap-0.5 overflow-x-auto rounded-full border border-black/[0.06] bg-black/[0.02] p-1"
-          >
-            {[null, ...accounts].map((account) => {
-              const id = account?.id ?? null;
-              const active = accountFilter === id;
-              const unreadHere = account
-                ? unreadPerAccount[account.id] ?? 0
-                : Object.values(unreadPerAccount).reduce((sum, n) => sum + n, 0);
+      <div className={cn('xl:hidden', reading && 'hidden lg:block')}><MailToolbarCompact {...sidebarProps} /></div>
 
-              return (
-                <button
-                  key={id ?? 'all'}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  title={account?.emailAddress}
-                  onClick={() => { setAccountFilter(id); setSelectedId(null); setThread([]); }}
-                  className={cn(
-                    'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] tracking-[-0.008em] transition-colors',
-                    active
-                      ? 'bg-white font-semibold text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.07)] ring-1 ring-black/[0.05]'
-                      : 'font-medium text-black/55 hover:text-black/80',
-                  )}
-                >
-                  {account && (
-                    <span
-                      aria-hidden="true"
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: account.color ?? '#9aa5b1' }}
-                    />
-                  )}
-                  {account ? shortAccountName(account) : 'All'}
-                  {unreadHere > 0 && (
-                    <span className="rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-white">
-                      {unreadHere}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <span className="hidden truncate text-[11.5px] text-black/35 sm:inline">
-            {accountFilter
-              ? accounts.find((a) => a.id === accountFilter)?.emailAddress
-              : accounts.map((a) => a.emailAddress).join(' · ')}
-          </span>
-        </div>
-      )}
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)] xl:grid-cols-[236px_minmax(320px,400px)_minmax(0,1fr)]">
+        <aside className="hidden min-h-0 border-r border-black/[0.06] bg-[#fbfbfc] xl:block">
+          <MailSidebar {...sidebarProps} />
+        </aside>
 
-      {/* Toolbar — filters live here, not in a rail. */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.06] px-5 py-3 sm:px-6 lg:px-8">
-        <div className="min-w-[180px] flex-1 sm:max-w-[260px]">
-          <Input value={search} onChange={(e) => setSearch(e.target.value)}
-                 placeholder="Search subject, sender, source…" aria-label="Search mail" className="h-9 text-[13px]" />
-        </div>
-        <div className="flex items-center gap-0.5 overflow-x-auto rounded-full border border-black/[0.06] bg-black/[0.02] p-1">
-          {FILTERS.map((f) => {
-            const active = filter === f.key;
-            return (
-              <button key={f.key} type="button"
-                onClick={() => { setFilter(f.key); setSelectedId(null); setThread([]); }}
-                className={cn(
-                  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] tracking-[-0.008em] transition-colors',
-                  active
-                    ? 'bg-white font-semibold text-primary shadow-[0_1px_2px_rgb(0_0_0/0.07)] ring-1 ring-black/[0.05]'
-                    : 'font-medium text-black/55 hover:text-black/80',
-                )}>
-                {f.label}
-                {f.key === 'unread' && unread > 0 && (
-                  <span className="rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-white">{unread}</span>
-                )}
+        <section aria-label="Conversations" className={cn('min-h-0 flex-col border-black/[0.06] lg:flex lg:border-r', reading ? 'hidden' : 'flex')}>
+          <div className="flex flex-col gap-2 border-b border-black/[0.06] px-3 py-3 sm:px-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="truncate text-[15px] font-semibold tracking-[-0.015em] text-foreground">{folderLabel}</h2>
+                <p className="truncate text-[11.5px] text-black/40">
+                  {box ? box.emailAddress : 'All mailboxes'} · {visible.length} conversation{visible.length === 1 ? '' : 's'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                aria-label="Check for new mail"
+                title="Check for new mail"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-black/45 hover:bg-black/[0.05] hover:text-black/80"
+              >
+                <RefreshIcon size={16} className={refreshing ? 'animate-spin' : ''} />
               </button>
-            );
-          })}
-        </div>
-        <div className="w-[170px]">
-          <Select value={sourceFilter ?? ''} options={sourceOptions}
-                  onChange={(v) => { setSourceFilter(v || null); setSelectedId(null); }}
-                  ariaLabel="Filter by source" size="sm" />
-        </div>
-        <span className="ml-auto text-[11.5px] tabular-nums text-black/35">{visible.length} shown</span>
-      </div>
-
-      {/* Two panes, each scrolling independently at the house max-h-[72vh]. */}
-      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
-        {/* ── Message list ─────────────────────────────────────────────── */}
-        <section className={cn(
-          'border-black/[0.06] lg:max-h-[72vh] lg:overflow-y-auto lg:border-r',
-          selectedId ? 'hidden lg:block' : 'block',
-        )}>
-          <div className="divide-y divide-black/[0.04]">
-            {loading ? (
-              Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="m-3 h-16 rounded-lg" />)
-            ) : visible.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
-                <SearchX size={22} strokeWidth={1.6} className="text-black/25" />
-                <div className="text-[13.5px] font-medium text-black/60">No messages here</div>
-                <div className="max-w-[260px] text-[12.5px] text-black/40">
-                  {search ? 'Nothing matches that search.' : 'New mail appears here as soon as it arrives.'}
-                </div>
-              </div>
-            ) : (
-              visible.map((m) => {
-                const active = m.id === selectedId;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => void open(m)}
-                    className={cn(
-                      'flex w-full min-h-[64px] items-start gap-2 px-3 py-2.5 text-left transition-colors',
-                      active ? 'bg-primary/[0.05]' : 'hover:bg-black/[0.02]',
-                    )}
-                  >
-                    <StarButton on={m.isStarred} onToggle={() => void toggleStar(m)} label="Star message" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span dir="auto" className={cn('flex min-w-0 items-center gap-1.5 text-[13px] tracking-[-0.008em]', m.isRead ? 'font-medium text-black/70' : 'font-semibold text-black/90')}>
-                          {m.direction === 'outbound'
-                            ? <ArrowUp size={12} strokeWidth={2.6} className="shrink-0 text-emerald-600" />
-                            : <ArrowDown size={12} strokeWidth={2.6} className="shrink-0 text-destructive" />}
-                          <span className="shrink-0 font-normal text-black/40">
-                            {m.direction === 'outbound' ? 'To:' : 'From:'}
-                          </span>
-                          <span className="truncate">{counterparty(m)}</span>
-                        </span>
-                        <span className="shrink-0 text-[11px] tabular-nums text-black/40">{relativeTime(m.emailDate)}</span>
-                      </div>
-                      <div dir="auto" className={cn('truncate text-[12.5px]', m.isRead ? 'text-black/60' : 'font-medium text-black/80')}>
-                        {m.subject || '(no subject)'}
-                      </div>
-                      <p dir="auto" className="line-clamp-1 text-[12px] leading-relaxed text-black/40">{m.preview || '—'}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <DirectionBadge item={m} />
-                        <AccountBadge item={m} />
-                        <SourceBadge item={m} />
-                        {m.direction === 'outbound' && <StatusBadge item={m} />}
-                        {!m.sourceId && (
-                          <span className="inline-flex h-[19px] items-center rounded-full border border-black/10 bg-black/[0.03] px-2 text-[10.5px] text-black/45">
-                            Unlinked
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        {/* ── Reader ───────────────────────────────────────────────────── */}
-        <section className={cn('min-w-0 lg:max-h-[72vh] lg:overflow-y-auto', selectedId ? 'block' : 'hidden lg:block')}>
-          {!selected ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-20 text-center">
-              <Mail size={26} strokeWidth={1.5} className="text-black/20" />
-              <div className="text-[13.5px] font-medium text-black/50">Pick a message to read it</div>
             </div>
-          ) : (
-            <div className="flex h-full flex-col">
-              <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.06] px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => { setSelectedId(null); setThread([]); }}
-                  className="grid h-7 w-7 place-items-center rounded-md text-black/45 hover:bg-black/[0.04] lg:hidden"
-                  aria-label="Back to list"
-                >
-                  <X size={15} />
-                </button>
-                <h2 className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-foreground">
-                  {selected.subject || '(no subject)'}
-                </h2>
-                <StarButton on={selected.isStarred} onToggle={() => void toggleStar(selected)} label="Star message" />
-                <Button variant="outline" size="sm" onClick={() => void toggleArchive(selected)}>
-                  <ArchiveIcon size={14} />
-                  {selected.isArchived ? 'Unarchive' : 'Archive'}
-                </Button>
-                <Button variant="default" size="sm" onClick={() => startReply(selected)}>
-                  <ReplyIcon size={14} />
-                  Reply
-                </Button>
-              </div>
-
-              {!selected.sourceId && (
-                <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.06] bg-amber-500/[0.06] px-4 py-2.5">
-                  <LinkIcon size={14} className="text-amber-700" />
-                  <span className="text-[12.5px] text-amber-700">Not linked to a source.</span>
-                  <div className="ml-auto w-[220px]">
-                    <Select
-                      value=""
-                      options={[{ value: '', label: 'Link to a source…' }, ...sources.map((s) => ({ value: s.id, label: s.name }))]}
-                      onChange={(v) => v && void linkSource(selected, v)}
-                      ariaLabel="Link this message to a source"
-                      size="sm"
-                    />
-                  </div>
+            <div className="flex items-center gap-2">
+              <label className="relative min-w-0 flex-1">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/35" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search subject, people, text, source"
+                  aria-label="Search mail"
+                  className="h-9 w-full rounded-lg border border-border bg-black/[0.02] pl-9 pr-8 text-[13px] text-foreground outline-none transition-colors placeholder:text-black/35 focus:border-primary focus:bg-white focus:ring-[3px] focus:ring-primary/15 [&::-webkit-search-cancel-button]:hidden"
+                />
+                {search && (
+                  <button type="button" onClick={() => setSearch('')} aria-label="Clear search" className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md text-black/40 hover:text-black/75">
+                    <X size={13} />
+                  </button>
+                )}
+              </label>
+              {sources.length > 0 && (
+                <div className="w-[132px] shrink-0">
+                  <Select value={sourceFilter ?? ''} options={sourceOptions} onChange={(v) => { setSourceFilter(v || null); setAnchorId(null); }} ariaLabel="Filter by source" size="lg" />
                 </div>
               )}
-
-              <div className="flex-1 overflow-y-auto px-4 py-4">
-                {readerBusy ? (
-                  <div className="flex items-center gap-2 py-8 text-[12.5px] text-black/45">
-                    <Spinner size={13} /> Loading conversation…
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    {(thread.length ? thread : [selected]).map((m) => {
-                      const body = bodies[m.id];
-                      return (
-                        <article key={m.id} className="rounded-xl border border-black/[0.07] bg-white">
-                          <header className="flex flex-wrap items-start gap-x-3 gap-y-1 border-b border-black/[0.05] px-3.5 py-2.5">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-foreground">
-                                {m.direction === 'outbound'
-                                  ? <ArrowUp size={12} strokeWidth={2.6} className="shrink-0 text-emerald-600" />
-                                  : <ArrowDown size={12} strokeWidth={2.6} className="shrink-0 text-destructive" />}
-                                <span className="shrink-0 font-normal text-black/40">
-                                  {m.direction === 'outbound' ? 'To:' : 'From:'}
-                                </span>
-                                <span className="truncate">{counterparty(m)}</span>
-                                {m.direction === 'inbound' && m.fromName && m.fromEmail && (
-                                  <span className="truncate font-normal text-black/40">&lt;{m.fromEmail}&gt;</span>
-                                )}
-                              </div>
-                              <div className="truncate text-[11.5px] text-black/45">
-                                to {m.toEmails.join(', ') || '—'}
-                                {body?.ccEmails.length ? ` · cc ${body.ccEmails.join(', ')}` : ''}
-                              </div>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1.5">
-                              <DirectionBadge item={m} />
-                              <AccountBadge item={m} />
-                              {m.direction === 'outbound' && <StatusBadge item={m} />}
-                              <span className="text-[11px] tabular-nums text-black/40">{absoluteTime(m.emailDate)}</span>
-                            </div>
-                          </header>
-                          <div className="px-3.5 py-2">
-                            <HtmlBody html={body?.bodyHtml ?? null} text={body?.bodyText ?? null} />
-                          </div>
-                          {body && body.attachments.length > 0 && (
-                            <footer className="flex flex-wrap gap-2 border-t border-black/[0.05] px-3.5 py-2">
-                              {body.attachments.map((a, i) => (
-                                <span key={i} className="inline-flex h-[22px] items-center rounded-full border border-black/10 bg-black/[0.03] px-2.5 text-[11.5px] text-black/60">
-                                  {a.filename ?? `Attachment ${i + 1}`}
-                                </span>
-                              ))}
-                            </footer>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
-          )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ConversationList
+              conversations={visible}
+              loading={loading}
+              selectedKey={selected?.key ?? null}
+              searching={Boolean(query)}
+              emptyHint={EMPTY_HINT[folder]}
+              onOpen={openConversation}
+              onToggleStar={toggleStarConversation}
+            />
+          </div>
+        </section>
+
+        <section aria-label="Conversation" className={cn('min-h-0 min-w-0 lg:block', reading ? 'block' : 'hidden')}>
+          <ConversationReader
+            messages={readerMessages}
+            bodies={bodies}
+            loading={readerLoading}
+            sources={sources}
+            ownAddresses={ownAddresses}
+            onBack={closeReader}
+            onReply={startReply}
+            onToggleStar={(m) => void toggleStarMessage(m)}
+            onArchive={() => void archive()}
+            onDelete={askDelete}
+            onMarkUnread={() => void markUnread()}
+            onLinkSource={(id) => void linkSource(id)}
+          />
         </section>
       </div>
 
-      {/* ── Compose ────────────────────────────────────────────────────── */}
-      <Sheet open={compose.open} onClose={() => setCompose(EMPTY_COMPOSE)} ariaLabel="Compose message" maxWidthClass="sm:max-w-[560px]">
-        <SheetHeader>
-          <SheetTitle>{compose.threadKey ? 'Reply' : 'New message'}</SheetTitle>
-        </SheetHeader>
-        <SheetBody>
-          <div className="flex flex-col gap-3">
-            {accounts.length > 1 && (
-              <Field label="From">
-                <Select
-                  value={composeAccount?.id ?? ''}
-                  options={accounts.map((a) => ({
-                    value: a.id,
-                    label: `${shortAccountName(a)} — ${a.emailAddress}`,
-                    color: a.color,
-                  }))}
-                  onChange={(v) => setCompose((c) => ({ ...c, accountId: v || null }))}
-                  ariaLabel="Send from which mailbox"
-                  size="lg"
-                />
-              </Field>
-            )}
-            <Field label="To"><Input value={compose.to} onChange={(e) => setCompose((c) => ({ ...c, to: e.target.value }))} placeholder="name@example.com, other@example.com" /></Field>
-            <Field label="Cc"><Input value={compose.cc} onChange={(e) => setCompose((c) => ({ ...c, cc: e.target.value }))} placeholder="Optional" /></Field>
-            <Field label="Subject"><Input value={compose.subject} onChange={(e) => setCompose((c) => ({ ...c, subject: e.target.value }))} /></Field>
-            <Field label="Message">
-              <Textarea rows={12} value={compose.body} onChange={(e) => setCompose((c) => ({ ...c, body: e.target.value }))} placeholder="Write your message…" />
-            </Field>
-          </div>
-        </SheetBody>
-        <SheetFooter>
-          <Button variant="outline" size="sm" onClick={() => setCompose(EMPTY_COMPOSE)} disabled={sending}>Cancel</Button>
-          <Button variant="default" size="sm" onClick={() => void submitCompose()} disabled={sending}>
-            {sending ? <Spinner size={12} /> : null}
-            {sending ? 'Sending…' : 'Send'}
-          </Button>
-        </SheetFooter>
-      </Sheet>
+      {draft && (
+        <Composer key={draftSeq} draft={draft} accounts={accounts} onClose={() => setDraft(null)} onSent={onSent} />
+      )}
+
+      <NewMailboxSheet open={newMailboxOpen} domain={domain} onClose={() => setNewMailboxOpen(false)} onCreated={(mb) => void onMailboxCreated(mb)} />
+
+      <ConfirmDialog state={confirm} pending={confirmPending} onCancel={() => setConfirm(null)} onConfirm={() => void runConfirm()} />
 
       {toast && (
         <div
+          key={toast.id}
           role="status"
+          aria-live="polite"
           className={cn(
-            'fixed bottom-5 left-1/2 z-[1200] -translate-x-1/2 rounded-full border px-4 py-2 text-[12.5px] shadow-[0_6px_24px_rgb(0_0_0/0.12)]',
-            toast.tone === 'ok' ? 'border-black/10 bg-white text-foreground' : 'border-destructive/25 bg-destructive text-destructive',
+            'fixed bottom-5 left-1/2 z-[1200] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border py-2.5 pl-4 pr-2 text-[13px] shadow-[0_10px_30px_rgb(0_0_0/0.14)]',
+            toast.tone === 'bad' ? 'border-destructive/25 bg-white text-destructive' : 'border-black/[0.08] bg-[#111418] text-white',
           )}
+          style={{ animation: 'm-fade-in 160ms ease-out' }}
         >
-          {toast.text}
+          {toast.tone === 'mail' && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+          <span className="min-w-0 truncate">{toast.text}</span>
+          {toast.action && (
+            <button
+              type="button"
+              onClick={() => { toast.action?.run(); setToast(null); }}
+              className={cn('shrink-0 rounded-lg px-2.5 py-1 text-[12.5px] font-semibold', toast.tone === 'bad' ? 'text-destructive hover:bg-destructive/10' : 'text-[#9cc3f2] hover:bg-white/10')}
+            >
+              {toast.action.label}
+            </button>
+          )}
+          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss" className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-lg', toast.tone === 'bad' ? 'hover:bg-destructive/10' : 'text-white/60 hover:bg-white/10 hover:text-white')}>
+            <X size={13} />
+          </button>
         </div>
       )}
     </div>

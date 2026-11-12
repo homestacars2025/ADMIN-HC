@@ -77,13 +77,37 @@ export interface InboxItem {
   accountLabel: string | null;
   accountEmail: string | null;
   accountColor: string | null;
+  /**
+   * Not in `inbox_view`; read from `email_messages` alongside it (see
+   * `withMeta`). They drive the paperclip and conversation grouping.
+   */
+  hasAttachments: boolean;
+  messageId: string | null;
+  inReplyTo: string | null;
 }
 
+/** Attachment metadata as stored; the content itself is not kept. */
 export interface EmailAttachment {
-  filename?: string;
-  url?: string;
-  size?: number;
-  contentType?: string;
+  name: string;
+  type: string | null;
+  size: number | null;
+  url: string | null;
+}
+
+/** Rows were written by more than one sender over time, so both spellings occur. */
+function mapAttachment(raw: unknown, index: number): EmailAttachment {
+  const a = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const str = (...keys: string[]) => {
+    for (const k of keys) if (typeof a[k] === 'string' && a[k]) return a[k] as string;
+    return null;
+  };
+  const size = [a.size, a.bytes, a.size_bytes].find((v) => typeof v === 'number') as number | undefined;
+  return {
+    name: str('name', 'filename', 'file_name') ?? `Attachment ${index + 1}`,
+    type: str('type', 'contentType', 'content_type', 'mime_type'),
+    size: size ?? null,
+    url: str('url', 'download_url'),
+  };
 }
 
 export interface EmailBody {
@@ -141,6 +165,9 @@ function mapItem(raw: Record<string, unknown>): InboxItem {
     accountLabel: (raw.account_label as string) ?? null,
     accountEmail: (raw.account_email as string) ?? null,
     accountColor: (raw.account_color as string) ?? null,
+    hasAttachments: false,
+    messageId: null,
+    inReplyTo: null,
   };
 }
 
@@ -183,6 +210,9 @@ export async function unreadByAccount(): Promise<Record<string, number>> {
 
 // ── Reads ─────────────────────────────────────────────────────────────────────
 
+const LIST_LIMIT = 500;
+const META_COLUMNS = 'id, has_attachments, attachments, message_id, in_reply_to';
+
 /**
  * The archived filter is the only one that *shows* archived mail; every other
  * filter hides it, which is what makes archiving useful at all.
@@ -192,32 +222,68 @@ export async function listInbox(
   sourceId?: string | null,
   accountId?: string | null,
 ): Promise<InboxItem[]> {
-  let q = supabase.from('inbox_view').select(VIEW_COLUMNS);
+  // The same filters go on the view and on the table, so the two reads return
+  // the same rows and can run side by side instead of one after the other.
+  const conditions: Array<[string, unknown]> = [['is_archived', filter === 'archived']];
+  if (filter === 'unread') conditions.push(['is_read', false]);
+  if (filter === 'starred') conditions.push(['is_starred', true]);
+  if (filter === 'inbound') conditions.push(['direction', 'inbound']);
+  if (filter === 'outbound') conditions.push(['direction', 'outbound']);
+  if (sourceId) conditions.push(['source_id', sourceId]);
+  if (accountId) conditions.push(['account_id', accountId]);
 
-  if (filter === 'archived') q = q.eq('is_archived', true);
-  else q = q.eq('is_archived', false);
+  let viewQuery = supabase.from('inbox_view').select(VIEW_COLUMNS);
+  let metaQuery = supabase.from('email_messages').select(META_COLUMNS);
+  for (const [column, value] of conditions) {
+    viewQuery = viewQuery.eq(column, value);
+    metaQuery = metaQuery.eq(column, value);
+  }
 
-  if (filter === 'unread') q = q.eq('is_read', false);
-  if (filter === 'starred') q = q.eq('is_starred', true);
-  if (filter === 'inbound') q = q.eq('direction', 'inbound');
-  if (filter === 'outbound') q = q.eq('direction', 'outbound');
-  if (sourceId) q = q.eq('source_id', sourceId);
-  if (accountId) q = q.eq('account_id', accountId);
+  const [view, meta] = await Promise.all([
+    viewQuery
+      .order('email_date', { ascending: false, nullsFirst: false })
+      .limit(LIST_LIMIT),
+    metaQuery
+      .order('email_date', { ascending: false, nullsFirst: false })
+      .limit(LIST_LIMIT),
+  ]);
+  if (view.error) throw new Error(view.error.message);
+  return withMeta(view.data ?? [], meta.data ?? []);
+}
 
-  const { data, error } = await q.order('email_date', { ascending: false, nullsFirst: false }).limit(500);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapItem(r as unknown as Record<string, unknown>));
+/**
+ * Merges the header fields onto the view rows. A failed meta read only costs
+ * the paperclip and header-based grouping, never the list itself.
+ */
+function withMeta(viewRows: readonly unknown[], metaRows: readonly unknown[]): InboxItem[] {
+  const meta = new Map<string, Record<string, unknown>>();
+  for (const r of metaRows) {
+    const raw = r as Record<string, unknown>;
+    meta.set(String(raw.id), raw);
+  }
+  return viewRows.map((r) => {
+    const item = mapItem(r as Record<string, unknown>);
+    const m = meta.get(item.id);
+    if (!m) return item;
+    const attachments = Array.isArray(m.attachments) ? m.attachments.length : 0;
+    return {
+      ...item,
+      hasAttachments: m.has_attachments === true || attachments > 0,
+      messageId: (m.message_id as string) ?? null,
+      inReplyTo: (m.in_reply_to as string) ?? null,
+    };
+  });
 }
 
 export async function getBody(id: string): Promise<EmailBody> {
-  const { data, error } = await supabase
-    .from('email_messages')
-    .select('id, body_html, body_text, cc_emails, message_id, in_reply_to, attachments, matched_by')
-    .eq('id', id)
-    .single();
+  const { data, error } = await supabase.from('email_messages').select(BODY_COLUMNS).eq('id', id).single();
   if (error) throw new Error(error.message);
+  return mapBody((data ?? {}) as Record<string, unknown>);
+}
 
-  const raw = (data ?? {}) as Record<string, unknown>;
+const BODY_COLUMNS = 'id, body_html, body_text, cc_emails, message_id, in_reply_to, attachments, matched_by';
+
+function mapBody(raw: Record<string, unknown>): EmailBody {
   return {
     id: String(raw.id),
     bodyHtml: (raw.body_html as string) ?? null,
@@ -225,20 +291,81 @@ export async function getBody(id: string): Promise<EmailBody> {
     ccEmails: strArray(raw.cc_emails),
     messageId: (raw.message_id as string) ?? null,
     inReplyTo: (raw.in_reply_to as string) ?? null,
-    attachments: Array.isArray(raw.attachments) ? (raw.attachments as EmailAttachment[]) : [],
+    attachments: Array.isArray(raw.attachments) ? raw.attachments.map(mapAttachment) : [],
     matchedBy: (raw.matched_by as string) ?? null,
   };
 }
 
+/** Every body of a conversation in one request, keyed by message id. */
+export async function getBodies(ids: readonly string[]): Promise<Record<string, EmailBody>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase.from('email_messages').select(BODY_COLUMNS).in('id', [...ids]);
+  if (error) throw new Error(error.message);
+  const out: Record<string, EmailBody> = {};
+  for (const r of data ?? []) {
+    const body = mapBody(r as unknown as Record<string, unknown>);
+    out[body.id] = body;
+  }
+  return out;
+}
+
+/**
+ * When the newest inbound message was stored, by the database's clock. The
+ * new-mail check counts from here rather than from the browser's clock, which
+ * may be minutes off.
+ */
+export async function latestInboundAt(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('email_messages')
+    .select('created_at')
+    .eq('direction', 'inbound')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { created_at?: string } | null)?.created_at ?? null;
+}
+
+/**
+ * Inbound mail that arrived after `sinceIso`, newest last. This is what the
+ * page polls to announce new mail: a few columns, usually zero rows.
+ */
+export async function inboundSince(sinceIso: string): Promise<Array<{
+  id: string; createdAt: string; fromName: string | null; fromEmail: string | null; subject: string | null; accountId: string | null;
+}>> {
+  const { data, error } = await supabase
+    .from('email_messages')
+    .select('id, created_at, from_name, from_email, subject, account_id')
+    .eq('direction', 'inbound')
+    .gt('created_at', sinceIso)
+    .order('created_at', { ascending: true })
+    .limit(20);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => {
+    const raw = r as unknown as Record<string, unknown>;
+    return {
+      id: String(raw.id),
+      createdAt: String(raw.created_at),
+      fromName: (raw.from_name as string) ?? null,
+      fromEmail: (raw.from_email as string) ?? null,
+      subject: (raw.subject as string) ?? null,
+      accountId: (raw.account_id as string) ?? null,
+    };
+  });
+}
+
 /** Every message sharing a thread_key, oldest first — the reading order. */
 export async function getThread(threadKey: string): Promise<InboxItem[]> {
-  const { data, error } = await supabase
-    .from('inbox_view')
-    .select(VIEW_COLUMNS)
-    .eq('thread_key', threadKey)
-    .order('email_date', { ascending: true, nullsFirst: true });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapItem(r as unknown as Record<string, unknown>));
+  const [view, meta] = await Promise.all([
+    supabase
+      .from('inbox_view')
+      .select(VIEW_COLUMNS)
+      .eq('thread_key', threadKey)
+      .order('email_date', { ascending: true, nullsFirst: true }),
+    supabase.from('email_messages').select(META_COLUMNS).eq('thread_key', threadKey),
+  ]);
+  if (view.error) throw new Error(view.error.message);
+  return withMeta(view.data ?? [], meta.data ?? []);
 }
 
 export async function unreadCount(): Promise<number> {
@@ -261,6 +388,26 @@ async function patch(id: string, fields: Record<string, unknown>): Promise<void>
 export const markRead = (id: string) => patch(id, { is_read: true });
 export const setStarred = (id: string, value: boolean) => patch(id, { is_starred: value });
 export const setArchived = (id: string, value: boolean) => patch(id, { is_archived: value });
+
+async function patchMany(ids: readonly string[], fields: Record<string, unknown>): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from('email_messages').update(fields).in('id', [...ids]);
+  if (error) throw new Error(error.message);
+}
+
+/** One request for a whole conversation, not one per message. */
+export const setReadMany = (ids: readonly string[], value: boolean) => patchMany(ids, { is_read: value });
+export const setArchivedMany = (ids: readonly string[], value: boolean) => patchMany(ids, { is_archived: value });
+
+/**
+ * Permanent: `email_messages` has no trash column, so a deleted message is gone.
+ * The page asks first, and offers Archive as the reversible choice.
+ */
+export async function deleteMessages(ids: readonly string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from('email_messages').delete().in('id', [...ids]);
+  if (error) throw new Error(error.message);
+}
 
 /** Manual source assignment for mail the matcher could not place. */
 export const assignSource = (id: string, sourceId: string) =>
@@ -351,6 +498,89 @@ export async function sendEmail(input: SendInput): Promise<string> {
   }
 
   return rowId;
+}
+
+// ── Mailboxes ─────────────────────────────────────────────────────────────────
+
+export interface CreateMailboxInput {
+  localPart: string;
+  label: string;
+  color: string;
+  /** Profiles to give access straight away. */
+  grantProfiles: string[];
+}
+
+export interface CreatedMailbox {
+  id: string;
+  email: string;
+  slug: string;
+  label: string;
+}
+
+const MAILBOX_ERRORS: Record<string, string> = {
+  'admin only': 'Only an admin can create a mailbox.',
+  'invalid local part': 'Use letters, numbers, dots, dashes or underscores for the address.',
+  'mailbox already exists': 'That address already exists.',
+};
+
+/**
+ * `create_mailbox` checks the admin role itself, cleans the local part and
+ * refuses duplicates; it answers `{ ok: false, error }` rather than raising, so
+ * both paths are turned into an Error here.
+ */
+export async function createMailbox(input: CreateMailboxInput): Promise<CreatedMailbox> {
+  const { data, error } = await supabase.rpc('create_mailbox', {
+    p_local_part: input.localPart,
+    p_label: input.label,
+    p_color: input.color,
+    p_grant_profiles: input.grantProfiles.length ? input.grantProfiles : null,
+  });
+  if (error) throw new Error(error.message);
+
+  const result = (data ?? {}) as Record<string, unknown>;
+  if (result.ok !== true) {
+    const code = typeof result.error === 'string' ? result.error : '';
+    throw new Error(MAILBOX_ERRORS[code] ?? (code || 'Could not create the mailbox.'));
+  }
+  return {
+    id: String(result.id),
+    email: String(result.email ?? ''),
+    slug: String(result.slug ?? ''),
+    label: String(result.label ?? ''),
+  };
+}
+
+export interface TeamMemberOption {
+  profileId: string;
+  name: string;
+  email: string | null;
+  position: string | null;
+  avatarUrl: string | null;
+}
+
+/** Active team members, for granting mailbox access. */
+export async function listTeamMembers(): Promise<TeamMemberOption[]> {
+  const { data, error } = await supabase
+    .from('team_members')
+    .select('profile_id, position, profile:profiles(full_name, email, avatar_url)')
+    .eq('is_active', true);
+  if (error) throw new Error(error.message);
+
+  return (data ?? [])
+    .map((r) => {
+      const raw = r as unknown as Record<string, unknown>;
+      const embedded = raw.profile;
+      const p = (Array.isArray(embedded) ? embedded[0] : embedded) as Record<string, unknown> | null;
+      const email = (p?.email as string) ?? null;
+      return {
+        profileId: String(raw.profile_id),
+        name: (p?.full_name as string) || email || 'Team member',
+        email,
+        position: (raw.position as string) ?? null,
+        avatarUrl: (p?.avatar_url as string) ?? null,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // ── Realtime ──────────────────────────────────────────────────────────────────
