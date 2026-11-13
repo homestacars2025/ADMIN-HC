@@ -275,6 +275,40 @@ describe('HGS lines', () => {
     expect(hgsGroupSummary(group!)).toBe('from 28/09 to 22/10 · 2 passes + 1 entry');
   });
 
+  it('keep each portal batch, and what was typed by hand, as its own line', () => {
+    const data: WalletData = {
+      customer: { id: 'c1', first_name: 'Omar', last_name: 'Ali' },
+      bookings: [booking({})],
+      lines: [
+        line({ id: 'typed', type: 'hgs', amount: 1127, description: 'HGS to 31/09/2026', created_at: '2026-10-01T09:00:00Z' }),
+        line({ id: 'a1', type: 'hgs', amount: 65, description: '02-10-2026 ÇAMLICA → KURTKÖY', event_no: 2, created_at: '2026-11-09T10:00:00Z' }),
+        line({ id: 'a2', type: 'hgs', amount: 35, description: '14-10-2026 MAHMUTBEY → AVCILAR', event_no: 2, created_at: '2026-11-09T10:00:00Z' }),
+        line({ id: 'p', type: 'payment', amount: 3000, direction: 'IN', created_at: '2026-11-10T09:00:00Z' }),
+        line({ id: 'b1', type: 'hgs', amount: 40, description: '05-11-2026 AVCILAR → MAHMUTBEY', event_no: 3, created_at: '2026-12-01T10:00:00Z' }),
+      ],
+      replacements: [],
+      plates,
+    };
+    const card = buildWallet(data).cards[0];
+    expect(card.balance).toBe(-1127 - 65 - 35 + 3000 - 40);
+    const groups = card.entries.flatMap((entry) => (entry.kind === 'hgs' ? [entry.group] : []));
+    expect(card.entries.map((entry) => (entry.kind === 'hgs' ? entry.group.key : entry.line.id))).toEqual(['hgs-1-3', 'p', 'hgs-1-2', 'hgs-1-typed']);
+    expect(groups.map((group) => group.lines.map((item) => item.id))).toEqual([['b1'], ['a2', 'a1'], ['typed']]);
+    expect(groups.map((group) => group.net)).toEqual([-40, -100, -1127]);
+    expect(hgsGroupSummary(groups[1])).toBe('from 02/10 to 14/10 · 2 passes');
+
+    const rows = groupInvoiceEntries(card.lines.map((item) => ({ ...item })));
+    expect(rows.map((row) => (row.kind === 'hgs' ? row.net : row.entry.type))).toEqual([-40, 'payment', -100, -1127]);
+  });
+
+  it('print each booking\'s batch apart, even with the same event number', () => {
+    const entries = [
+      { type: 'hgs', description: '02-10-2026 A → B', direction: 'OUT', amount: 10, created_at: '2026-10-05', booking_id: 1, event_no: 2 },
+      { type: 'hgs', description: '03-10-2026 A → B', direction: 'OUT', amount: 20, created_at: '2026-10-05', booking_id: 9, event_no: 2 },
+    ];
+    expect(groupInvoiceEntries(entries).map((row) => row.kind === 'hgs' && row.net)).toEqual([-10, -20]);
+  });
+
   it('print as one row with its passes behind it, totals untouched', () => {
     const entries = [
       { type: 'rental', description: null, direction: 'OUT', amount: 5000, created_at: '2026-10-01' },

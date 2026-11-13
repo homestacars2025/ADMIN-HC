@@ -213,7 +213,7 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
   );
 };
 
-/** Every HGS line of a booking as one row, its passes underneath on demand. */
+/** One HGS batch of a booking as one row, its passes underneath on demand. */
 const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void }> = ({ group, open, onToggle, onEdit, onDelete, onDeleteEnvelope }) => {
   const signedMoney = useSignedMoney();
   const { format } = useMoney();
@@ -265,7 +265,12 @@ const BookingCard: React.FC<LineActions & {
   onPrint: (hgsDetails: boolean) => void;
 }> = ({ card, canMove, onMove, onAdd, onAddHgs, onPrint, onEdit, onDelete, onDeleteEnvelope }) => {
   const [all, setAll] = useState(false);
-  const [hgsOpen, setHgsOpen] = useState(false);
+  const [hgsOpen, setHgsOpen] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleHgs = (key: string) => setHgsOpen((open) => {
+    const next = new Set(open);
+    if (!next.delete(key)) next.add(key);
+    return next;
+  });
   const tone = walletTone(card.balance);
   const entries = all ? card.entries : card.entries.slice(0, LINES_SHOWN);
   return (
@@ -299,7 +304,7 @@ const BookingCard: React.FC<LineActions & {
         ) : (
           <ul className="mt-2 divide-y divide-black/[0.05]">
             {entries.map((entry) => (entry.kind === 'hgs'
-              ? <HgsGroupRow key={entry.group.key} group={entry.group} open={hgsOpen} onToggle={() => setHgsOpen((value) => !value)} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />
+              ? <HgsGroupRow key={entry.group.key} group={entry.group} open={hgsOpen.has(entry.group.key)} onToggle={() => toggleHgs(entry.group.key)} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />
               : <LineRow key={entry.line.id} line={entry.line} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />))}
           </ul>
         )}
@@ -339,7 +344,7 @@ const BookingCard: React.FC<LineActions & {
             </Button>
           )}
           {card.lines.length > 0 && (
-            <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={() => onPrint(hgsOpen)}>
+            <Button type="button" variant="secondary" size="lg" className={SOFT_BUTTON} onClick={() => onPrint(hgsOpen.size > 0)}>
               <PrinterIcon /> Print invoice
             </Button>
           )}

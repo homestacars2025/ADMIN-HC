@@ -1,4 +1,4 @@
-import { applyCustomerHgs, bookingRange, coveredUntil, fetchPortalFreshness, previewCustomerHgs, previewTotals, suggestedFrom } from './hgsPortalPosting';
+import { applyCustomerHgs, coveredUntil, fetchPortalFreshness, outsideTotals, previewCustomerHgs, previewTotals, suggestedFrom } from './hgsPortalPosting';
 import { hgsLineInfo } from './customerWallet';
 
 const mockRpc = jest.fn();
@@ -23,25 +23,27 @@ describe('where charging starts', () => {
     expect(suggestedFrom(BOOKING, [])).toBe('2026-09-22');
     expect(suggestedFrom(BOOKING, [{ description: 'HGS to 20/12/2026' }])).toBe('2026-12-07');
   });
-
-  it('keeps From inside the booking', () => {
-    expect(bookingRange(BOOKING, '2026-09-01', BOOKING.endDate)).toEqual({ from: '2026-09-22', to: '2026-12-07' });
-  });
 });
 
 describe('the database calls', () => {
-  it('always sends p_from_date, so PostgREST picks the two-argument function', async () => {
-    mockRpc.mockResolvedValue({ data: [{ portal_id: 7, tdate: '2026-10-02', amount: '65', road_type: 'private', note: '02-10-2026 Çamlıca → Kurtköy' }], error: null });
-    expect(await previewCustomerHgs(710, '2026-10-01')).toEqual([{ id: 7, day: '2026-10-02', amount: 65, roadType: 'private', note: '02-10-2026 Çamlıca → Kurtköy' }]);
-    expect(mockRpc).toHaveBeenCalledWith('preview_customer_hgs', { p_booking_id: 710, p_from_date: '2026-10-01' });
-    await previewCustomerHgs(710, null);
-    expect(mockRpc).toHaveBeenLastCalledWith('preview_customer_hgs', { p_booking_id: 710, p_from_date: null });
+  it('sends From and To as typed, unclamped, null when empty', async () => {
+    mockRpc.mockResolvedValue({ data: [
+      { portal_id: 7, tdate: '2026-10-02', amount: '65', road_type: 'private', note: '02-10-2026 Çamlıca → Kurtköy', outside_booking: false, other_booking: null },
+      { portal_id: 8, tdate: '2026-12-20', amount: '35', road_type: 'public', note: '20-12-2026 Çamlıca → Kurtköy', outside_booking: true, other_booking: 'HOM-12-26-004' },
+    ], error: null });
+    expect(await previewCustomerHgs(710, '2026-10-01', '2026-12-31')).toEqual([
+      { id: 7, day: '2026-10-02', amount: 65, roadType: 'private', note: '02-10-2026 Çamlıca → Kurtköy', outsideBooking: false, otherBooking: null },
+      { id: 8, day: '2026-12-20', amount: 35, roadType: 'public', note: '20-12-2026 Çamlıca → Kurtköy', outsideBooking: true, otherBooking: 'HOM-12-26-004' },
+    ]);
+    expect(mockRpc).toHaveBeenCalledWith('preview_customer_hgs', { p_booking_id: 710, p_from_date: '2026-10-01', p_to_date: '2026-12-31' });
+    await previewCustomerHgs(710, null, '');
+    expect(mockRpc).toHaveBeenLastCalledWith('preview_customer_hgs', { p_booking_id: 710, p_from_date: null, p_to_date: null });
   });
 
   it('applies and reads back the count and the lira total, with no rate anywhere', async () => {
-    mockRpc.mockResolvedValue({ data: [{ inserted_count: 25, inserted_total: '1903' }], error: null });
-    expect(await applyCustomerHgs(710, '2026-10-01')).toEqual({ count: 25, total: 1903 });
-    expect(mockRpc).toHaveBeenCalledWith('apply_customer_hgs', { p_booking_id: 710, p_from_date: '2026-10-01' });
+    mockRpc.mockResolvedValue({ data: [{ inserted_count: 25, inserted_total: '1903', batch_event_no: 3 }], error: null });
+    expect(await applyCustomerHgs(710, '2026-10-01', '2026-12-07')).toEqual({ count: 25, total: 1903, eventNo: 3 });
+    expect(mockRpc).toHaveBeenCalledWith('apply_customer_hgs', { p_booking_id: 710, p_from_date: '2026-10-01', p_to_date: '2026-12-07' });
     expect(JSON.stringify(mockRpc.mock.calls)).not.toMatch(/rate/);
   });
 
@@ -59,8 +61,11 @@ describe('the database calls', () => {
     expect(uploads.not).toHaveBeenCalledWith('source_file', 'like', '%test%');
   });
 
-  it('totals in lira', () => {
-    expect(previewTotals([{ id: 1, day: '', amount: 1215.5, roadType: null, note: '' }, { id: 2, day: '', amount: 687.5, roadType: null, note: '' }])).toEqual({ count: 2, total: 1903 });
+  it('totals in lira, and the part outside the booking on its own', () => {
+    const row = { day: '', roadType: null, note: '', otherBooking: null };
+    const rows = [{ ...row, id: 1, amount: 1215.5, outsideBooking: false }, { ...row, id: 2, amount: 687.5, outsideBooking: true }];
+    expect(previewTotals(rows)).toEqual({ count: 2, total: 1903 });
+    expect(outsideTotals(rows)).toEqual({ count: 1, total: 687.5 });
   });
 });
 

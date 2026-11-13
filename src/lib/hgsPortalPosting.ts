@@ -1,9 +1,11 @@
 /**
  * "Add HGS from portal" in the customer wallet: the booking's car's portal transits
- * (`hgs_portal_transits`) on the booking's days, charged to the customer as one ledger
- * line each, in lira. The database reads and writes them: `preview_customer_hgs` lists
- * what would be charged and `apply_customer_hgs` charges it and marks each transit with
- * the booking, so a second run finds nothing. No exchange rate is read, asked or stored.
+ * (`hgs_portal_transits`), charged to the customer as one ledger line each, in lira.
+ * The database reads and writes them: `preview_customer_hgs` lists what would be
+ * charged and `apply_customer_hgs` charges it and marks each transit with the booking,
+ * so a second run finds nothing. From and To are free: whatever falls in the range is
+ * charged, and each row says if it is outside this booking or on another booking's days,
+ * so the sheet can warn before charging. No exchange rate is read, asked or stored.
  */
 
 import { supabase } from './supabase';
@@ -17,6 +19,10 @@ export interface PortalTransit {
   roadType: string | null;
   /** "DD-MM-YYYY ENTRY → EXIT", as the ledger line will read. */
   note: string;
+  /** The day is not one of this booking's days. */
+  outsideBooking: boolean;
+  /** The number of the car's other booking that day falls in, if any. */
+  otherBooking: string | null;
 }
 
 export interface PortalFreshness {
@@ -30,6 +36,8 @@ export interface ApplyResult {
   count: number;
   /** Lira. */
   total: number;
+  /** The `event_no` the batch's lines share: the wallet shows it as its own HGS line. */
+  eventNo: number | null;
 }
 
 // ─── Dates ───────────────────────────────────────────────────────────────────
@@ -76,31 +84,26 @@ export function suggestedFrom(booking: { startDate: string; endDate: string }, t
   return last ? clamp(addDays(last, 1), booking.startDate, booking.endDate) : booking.startDate;
 }
 
-/** The range asked for, kept inside the booking: a transit outside it is never the customer's. */
-export function bookingRange(booking: { startDate: string; endDate: string }, from: string, to: string): { from: string; to: string } {
-  const start = clamp(from || booking.startDate, booking.startDate, booking.endDate);
-  const end = clamp(to || booking.endDate, booking.startDate, booking.endDate);
-  return start <= end ? { from: start, to: end } : { from: end, to: start };
-}
-
 // ─── Totals ──────────────────────────────────────────────────────────────────
 
 export function previewTotals(transits: PortalTransit[]): { count: number; total: number } {
   return { count: transits.length, total: Math.round(transits.reduce((sum, transit) => sum + transit.amount, 0) * 100) / 100 };
 }
 
+/** The rows outside the booking, which the sheet asks about before charging. */
+export function outsideTotals(transits: PortalTransit[]): { count: number; total: number } {
+  return previewTotals(transits.filter((transit) => transit.outsideBooking));
+}
+
 // ─── The database ────────────────────────────────────────────────────────────
 
 const num = (value: unknown): number => Number(value) || 0;
 
-/**
- * Each function has a one-argument and a two-argument version, so `p_from_date` is always
- * sent, null when there's none, or PostgREST can't tell them apart.
- */
-const args = (bookingId: number, from: string | null) => ({ p_booking_id: bookingId, p_from_date: from || null });
+/** Null From is the booking's start and null To its end. Both are always sent. */
+const args = (bookingId: number, from: string | null, to: string | null) => ({ p_booking_id: bookingId, p_from_date: from || null, p_to_date: to || null });
 
-export async function previewCustomerHgs(bookingId: number, from: string | null): Promise<PortalTransit[]> {
-  const { data, error } = await supabase.rpc('preview_customer_hgs', args(bookingId, from));
+export async function previewCustomerHgs(bookingId: number, from: string | null, to: string | null): Promise<PortalTransit[]> {
+  const { data, error } = await supabase.rpc('preview_customer_hgs', args(bookingId, from, to));
   if (error) throw new Error(error.message);
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
     id: num(row.portal_id),
@@ -108,14 +111,16 @@ export async function previewCustomerHgs(bookingId: number, from: string | null)
     amount: num(row.amount),
     roadType: row.road_type ? String(row.road_type) : null,
     note: String(row.note ?? ''),
+    outsideBooking: row.outside_booking === true,
+    otherBooking: row.other_booking ? String(row.other_booking) : null,
   }));
 }
 
-export async function applyCustomerHgs(bookingId: number, from: string | null): Promise<ApplyResult> {
-  const { data, error } = await supabase.rpc('apply_customer_hgs', args(bookingId, from));
+export async function applyCustomerHgs(bookingId: number, from: string | null, to: string | null): Promise<ApplyResult> {
+  const { data, error } = await supabase.rpc('apply_customer_hgs', args(bookingId, from, to));
   if (error) throw new Error(error.message);
   const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
-  return { count: num(row?.inserted_count), total: num(row?.inserted_total) };
+  return { count: num(row?.inserted_count), total: num(row?.inserted_total), eventNo: row?.batch_event_no == null ? null : num(row.batch_event_no) };
 }
 
 /** The newest upload and transit for the car, test files left out. */

@@ -40,6 +40,8 @@ export interface WalletLine {
   payment_ref: string | null;
   /** Set when the money came in through `record_customer_payment`, with its envelope or account. */
   pay_method?: string | null;
+  /** The booking event the line belongs to. On HGS, one Apply from the portal: its batch. */
+  event_no?: number | null;
   /** Who recorded it (null: the system did), and who last edited it. */
   created_by?: string | null;
   updated_by?: string | null;
@@ -206,24 +208,61 @@ export interface HgsGroup {
 
 export type WalletEntry = { kind: 'line'; line: WalletCardLine } | { kind: 'hgs'; group: HgsGroup };
 
-/** Every HGS line of a booking folds into one entry, where its newest line would be. */
-export function groupWalletLines(lines: WalletCardLine[], bookingId: number): WalletEntry[] {
-  const hgs = lines.filter((line) => line.kind === 'hgs');
-  if (hgs.length === 0) return lines.map((line) => ({ kind: 'line', line }));
-  const days = hgs.map((line) => line.hgs?.day).filter((day): day is string => Boolean(day)).sort();
-  const group: HgsGroup = {
-    key: `hgs-${bookingId}`,
-    lines: hgs.slice().sort((a, b) => (b.hgs?.day ?? '').localeCompare(a.hgs?.day ?? '') || (b.hgs?.time ?? '').localeCompare(a.hgs?.time ?? '')),
-    net: walletBalance(hgs),
-    first: days[0] ?? null,
-    last: days[days.length - 1] ?? null,
-  };
-  const entries: WalletEntry[] = [];
+/**
+ * The HGS batch a line belongs to. Each Apply of "Add HGS from portal" stamps its lines
+ * with one fresh `event_no`, so every batch stays its own line. Lines without one (typed
+ * by hand, or older) are one batch of their own. The booking is part of the key because
+ * `event_no` only counts within a booking, and a car's invoice spans several.
+ */
+export const hgsBatchKey = (line: { booking_id?: number | null; event_no?: number | null }): string =>
+  `${line.booking_id ?? '-'}:${line.event_no ?? '-'}`;
+
+/** Lines in order, HGS lines folded per batch where the batch's first line was. */
+function foldHgsBatches<L, R>(lines: L[], isHgsLine: (line: L) => boolean, keyOf: (line: L) => string, asLine: (line: L) => R, asBatch: (batch: L[]) => R): R[] {
+  const batches = new Map<string, L[]>();
   lines.forEach((line) => {
-    if (line.kind !== 'hgs') entries.push({ kind: 'line', line });
-    else if (line === hgs[0]) entries.push({ kind: 'hgs', group });
+    if (!isHgsLine(line)) return;
+    const key = keyOf(line);
+    const batch = batches.get(key);
+    if (batch) batch.push(line);
+    else batches.set(key, [line]);
   });
-  return entries;
+  const placed = new Set<string>();
+  const rows: R[] = [];
+  lines.forEach((line) => {
+    if (!isHgsLine(line)) { rows.push(asLine(line)); return; }
+    const key = keyOf(line);
+    if (placed.has(key)) return;
+    placed.add(key);
+    rows.push(asBatch(batches.get(key) ?? [line]));
+  });
+  return rows;
+}
+
+const newestPassFirst = (a: { day: string | null; time: string | null } | null, b: { day: string | null; time: string | null } | null) =>
+  (b?.day ?? '').localeCompare(a?.day ?? '') || (b?.time ?? '').localeCompare(a?.time ?? '');
+
+/** Each HGS batch of a booking folds into one entry, where its newest line would be. */
+export function groupWalletLines(lines: WalletCardLine[], bookingId: number): WalletEntry[] {
+  return foldHgsBatches<WalletCardLine, WalletEntry>(
+    lines,
+    (line) => line.kind === 'hgs',
+    hgsBatchKey,
+    (line) => ({ kind: 'line', line }),
+    (batch) => {
+      const days = batch.map((line) => line.hgs?.day).filter((day): day is string => Boolean(day)).sort();
+      return {
+        kind: 'hgs',
+        group: {
+          key: `hgs-${bookingId}-${batch[0].event_no ?? 'typed'}`,
+          lines: batch.slice().sort((a, b) => newestPassFirst(a.hgs, b.hgs)),
+          net: walletBalance(batch),
+          first: days[0] ?? null,
+          last: days[days.length - 1] ?? null,
+        },
+      };
+    },
+  );
 }
 
 /** "28/09". */
@@ -249,7 +288,15 @@ export function hgsGroupSummary(group: Pick<HgsGroup, 'first' | 'last'> & { line
 }
 
 /** The car customer sheet prints its own rows, which are looser than the wallet's. */
-type PrintedLine = { type: string | null; description: string | null; direction: string; amount: number; created_at: string | null };
+type PrintedLine = {
+  type: string | null;
+  description: string | null;
+  direction: string;
+  amount: number;
+  created_at: string | null;
+  booking_id?: number | null;
+  event_no?: number | null;
+};
 
 const isHgs = (entry: Pick<PrintedLine, 'type'>) => lineKind(entry.type ?? '') === 'hgs';
 
@@ -257,25 +304,25 @@ export type InvoiceRow<E extends PrintedLine> =
   | { kind: 'line'; entry: E }
   | { kind: 'hgs'; summary: string; net: number; first: string | null; last: string | null; passes: Array<{ entry: E; info: HgsLineInfo }> };
 
-/** The printed invoice folds HGS the same way: one row where the first HGS line was. */
+/** The printed invoice folds HGS the same way: one row per batch, where its first line was. */
 export function groupInvoiceEntries<E extends PrintedLine>(entries: E[]): InvoiceRow<E>[] {
-  const hgs = entries.filter(isHgs);
-  if (hgs.length === 0) return entries.map((entry) => ({ kind: 'line', entry }));
-  const passes = hgs
-    .map((entry) => ({ entry, info: hgsLineInfo(entry) }))
-    .sort((a, b) => (b.info.day ?? '').localeCompare(a.info.day ?? '') || (b.info.time ?? '').localeCompare(a.info.time ?? ''));
-  const days = passes.map((pass) => pass.info.day).filter((day): day is string => Boolean(day)).sort();
-  const first = days[0] ?? null;
-  const last = days[days.length - 1] ?? null;
-  const summary = hgsGroupSummary({ first, last, lines: passes.map((pass) => ({ hgs: pass.info })) });
-  const net = roundMoney(hgs.reduce((sum, entry) => sum + (entry.direction.toUpperCase() === 'IN' ? 1 : -1) * Number(entry.amount), 0));
-  const row: InvoiceRow<E> = { kind: 'hgs', summary, net, first, last, passes };
-  const rows: InvoiceRow<E>[] = [];
-  entries.forEach((entry) => {
-    if (!isHgs(entry)) rows.push({ kind: 'line', entry });
-    else if (entry === hgs[0]) rows.push(row);
-  });
-  return rows;
+  return foldHgsBatches<E, InvoiceRow<E>>(
+    entries,
+    isHgs,
+    hgsBatchKey,
+    (entry) => ({ kind: 'line', entry }),
+    (batch) => {
+      const passes = batch
+        .map((entry) => ({ entry, info: hgsLineInfo(entry) }))
+        .sort((a, b) => newestPassFirst(a.info, b.info));
+      const days = passes.map((pass) => pass.info.day).filter((day): day is string => Boolean(day)).sort();
+      const first = days[0] ?? null;
+      const last = days[days.length - 1] ?? null;
+      const summary = hgsGroupSummary({ first, last, lines: passes.map((pass) => ({ hgs: pass.info })) });
+      const net = roundMoney(batch.reduce((sum, entry) => sum + (entry.direction.toUpperCase() === 'IN' ? 1 : -1) * Number(entry.amount), 0));
+      return { kind: 'hgs', summary, net, first, last, passes };
+    },
+  );
 }
 
 export interface TransferPeer {
@@ -399,7 +446,7 @@ export interface WalletCard {
   balance: number;
   /** Newest first. */
   lines: WalletCardLine[];
-  /** The lines as shown: newest first, HGS folded into one. */
+  /** The lines as shown: newest first, each HGS batch folded into one. */
   entries: WalletEntry[];
   carNotes: CarNote[];
 }
@@ -548,7 +595,7 @@ async function fetchAll<T>(page: (from: number, to: number) => PageResult): Prom
   }
 }
 
-const LINE_COLUMNS = `id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref, pay_method, ${LEDGER_STAMP_COLUMNS}`;
+const LINE_COLUMNS = `id, booking_id, car_id, type, description, amount, direction, created_at, payment_ref, pay_method, event_no, ${LEDGER_STAMP_COLUMNS}`;
 
 /** Null when there's no such customer. Everything is read at once, with no waterfall. */
 export async function fetchWalletData(customerId: string): Promise<WalletData | null> {

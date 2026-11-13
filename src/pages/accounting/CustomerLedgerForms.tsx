@@ -26,6 +26,8 @@ export interface CustomerLedgerEntry {
   created_by: string | null;
   transaction_type: string | null;
   pay_method?: string | null;
+  /** On HGS, the portal batch it came in with. */
+  event_no?: number | null;
   // joined via FK
   customers: {
     id: string;
