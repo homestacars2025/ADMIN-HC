@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { Button } from '../components/media/MediaUI';
+import { Button, Tooltip } from '../components/media/MediaUI';
+import StaffAvatar from '../components/shared/StaffAvatar';
+import type { AvatarProfile } from '../lib/staffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type KabisStatus = 'pending' | 'checked_in' | 'checked_out';
 type KabisAction = 'delivery' | 'pickup';
 
-interface ProfileJoin { full_name: string | null; }
+interface ProfileJoin extends AvatarProfile { full_name: string | null; }
 
 interface KabisRow {
   id:              number;
@@ -34,14 +36,25 @@ interface KabisRow {
 interface KabisEntry extends Omit<KabisRow, 'profiles' | 'km'> {
   km:              number | null;
   entered_by_name: string | null;
+  /** Photo, gender and color for the avatar beside the name. */
+  entered_by_profile: AvatarProfile | null;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
+/**
+ * Two meanings, two colors: anything check-in is green, anything check-out is red,
+ * the type pill and the status pill alike. A soft tint with darker text, as in the
+ * rest of the app. Pending is neither, so it stays neutral grey.
+ */
+const CHECK_IN  = { color: '#166534', bg: 'rgba(34,197,94,0.13)' };
+const CHECK_OUT = { color: '#991B1B', bg: 'rgba(220,38,38,0.10)' };
+const NEUTRAL   = { color: '#4B5563', bg: 'rgba(107,114,128,0.12)' };
+
 const STATUS_CONFIG: Record<KabisStatus, { label: string; color: string; bg: string }> = {
-  pending:     { label: 'Pending',     color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
-  checked_in:  { label: 'Checked in',  color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
-  checked_out: { label: 'Checked out', color: '#2563eb', bg: 'rgba(37,99,235,0.12)'  },
+  pending:     { label: 'Pending',     ...NEUTRAL   },
+  checked_in:  { label: 'Checked in',  ...CHECK_IN  },
+  checked_out: { label: 'Checked out', ...CHECK_OUT },
 };
 
 // A delivery can only ever end up checked in, a pickup only checked out — the
@@ -54,10 +67,9 @@ const DONE_STATUS: Record<KabisAction, KabisStatus> = {
 
 // The enum values stay delivery/pickup; the labels follow the government
 // system's wording, where a handover is a Check-in and a return a Check-out.
-// Colours mirror the Operations page's Delivery/Pickup palette.
 const ACTION_CONFIG: Record<KabisAction, { label: string; color: string; bg: string }> = {
-  delivery: { label: 'Check-in',  color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
-  pickup:   { label: 'Check-out', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  delivery: { label: 'Check-in',  ...CHECK_IN  },
+  pickup:   { label: 'Check-out', ...CHECK_OUT },
 };
 
 const KABIS_SELECT = `
@@ -65,7 +77,7 @@ const KABIS_SELECT = `
   customer_name, booking_number, plate_number, operation_date,
   km, customer_id_number,
   action_type, status, entered_by, entered_at, note,
-  profiles!kabis_entries_entered_by_fkey(full_name)
+  profiles!kabis_entries_entered_by_fkey(full_name, avatar_url, avatar_bg, gender)
 `;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -104,6 +116,7 @@ function resolveEntry(row: KabisRow): KabisEntry {
     ...rest,
     km: km === null || km === undefined ? null : Number(km),
     entered_by_name: prof?.full_name ?? null,
+    entered_by_profile: prof ?? null,
   };
 }
 
@@ -145,6 +158,16 @@ const Badge: React.FC<{ label: string; color: string; bg: string }> = ({ label, 
   }}>
     {label}
   </span>
+);
+
+/** The same avatar as the Team list, then the name; the full name on hover, as long ones are cut. */
+const EnteredBy: React.FC<{ name: string; profile: AvatarProfile | null }> = ({ name, profile }) => (
+  <Tooltip content={name}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, maxWidth: 170 }}>
+      <StaffAvatar profile={profile} size={24} />
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500 }}>{name}</span>
+    </span>
+  </Tooltip>
 );
 
 const Th: React.FC<{ children: React.ReactNode; align?: 'left' | 'right' | 'center' }> = ({ children, align = 'left' }) => (
@@ -689,7 +712,7 @@ const KabisManagementPage: React.FC = () => {
                       <Badge {...STATUS_CONFIG[r.status]} />
                     </td>
                     <td style={{ padding: '11px 14px', whiteSpace: 'nowrap', fontSize: 13, color: '#374151' }}>
-                      {dash(r.entered_by_name)}
+                      {r.entered_by_name ? <EnteredBy name={r.entered_by_name} profile={r.entered_by_profile} /> : '—'}
                     </td>
                     <td style={{ padding: '11px 14px', whiteSpace: 'nowrap', fontSize: 12.5, color: '#6b7280' }}>
                       {formatDateTime(r.entered_at)}

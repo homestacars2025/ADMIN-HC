@@ -4,9 +4,8 @@ import { Tooltip } from '../media/MediaUI';
 import { Pencil } from '../media/MediaIcons';
 import { useMoney } from '../../hooks/useMoney';
 import { cn } from '../../lib/media/badgeColor';
-import { avatarBgGradient, toAvatarBg } from '../../lib/staffAvatar';
+import StaffAvatar from './StaffAvatar';
 import {
-  actorInitials,
   auditActorIds,
   changedFields,
   fetchDeletedLedgerEntries,
@@ -28,10 +27,12 @@ import {
 
 interface LedgerActorsValue {
   enabled: boolean;
+  /** The list's people are still on their way. */
+  loading: boolean;
   actors: Map<string, LedgerActor>;
 }
 
-const LedgerActorsContext = createContext<LedgerActorsValue>({ enabled: false, actors: new Map() });
+const LedgerActorsContext = createContext<LedgerActorsValue>({ enabled: false, loading: false, actors: new Map() });
 
 /** Loads everyone on a list in one call. `enabled` is the finance check; the RPC is the backstop. */
 export const LedgerActorsProvider: React.FC<{
@@ -39,8 +40,8 @@ export const LedgerActorsProvider: React.FC<{
   enabled: boolean;
   children: React.ReactNode;
 }> = ({ ids, enabled, children }) => {
-  const { actors, error } = useLedgerActors(ids, enabled);
-  const value = useMemo(() => ({ enabled: enabled && !error, actors }), [enabled, error, actors]);
+  const { actors, loading, error } = useLedgerActors(ids, enabled);
+  const value = useMemo(() => ({ enabled: enabled && !error, loading, actors }), [enabled, loading, error, actors]);
   return <LedgerActorsContext.Provider value={value}>{children}</LedgerActorsContext.Provider>;
 };
 
@@ -92,14 +93,18 @@ const SystemGlyph: React.FC<{ size: number }> = ({ size }) => (
   </svg>
 );
 
-/** A photo when there is one, otherwise initials on the person's own colour. No `actor` and no `system`: still loading. */
+/**
+ * The same picture as the Team list: `StaffAvatar`, so a photo, or the 3D character
+ * on the person's color. Never letters. A grey robot for automatic entries, and
+ * a placeholder only while the list's people are still loading.
+ */
 export const ActorAvatar: React.FC<{
   actor?: LedgerActor | null;
   system?: boolean;
   size?: number;
   className?: string;
 }> = ({ actor, system, size = 24, className }) => {
-  const [failed, setFailed] = useState<string | null>(null);
+  const { loading } = useContext(LedgerActorsContext);
   const base = cn('relative grid shrink-0 place-items-center overflow-hidden rounded-full ring-2 ring-[var(--surface,#fff)]', className);
   const box: React.CSSProperties = { width: size, height: size };
   if (system) {
@@ -109,21 +114,13 @@ export const ActorAvatar: React.FC<{
       </span>
     );
   }
-  if (!actor) return <span className={cn(base, 'animate-pulse bg-black/[0.07]')} style={box} aria-hidden="true" />;
-  if (actor.avatarUrl && failed !== actor.avatarUrl) {
-    return (
-      <span className={base} style={box} aria-hidden="true">
-        <img src={actor.avatarUrl} alt="" loading="lazy" onError={() => setFailed(actor.avatarUrl)} className="h-full w-full object-cover object-top" />
-      </span>
-    );
-  }
+  if (!actor && loading) return <span className={cn(base, 'animate-pulse bg-black/[0.07]')} style={box} aria-hidden="true" />;
   return (
-    <span
-      className={cn(base, 'font-semibold tracking-[-0.02em] text-[#33465c]')}
-      style={{ ...box, background: avatarBgGradient(toAvatarBg(actor.avatarBg)), fontSize: Math.max(8, Math.round(size * 0.4)) }}
-      aria-hidden="true"
-    >
-      {actorInitials(actor.fullName)}
+    <span className={cn(base, 'bg-[var(--surface,#fff)]')} style={box} aria-hidden="true" data-testid="actor-avatar">
+      <StaffAvatar
+        profile={actor ? { id: actor.id, avatar_url: actor.avatarUrl, avatar_bg: actor.avatarBg, gender: actor.gender } : null}
+        size={size}
+      />
     </span>
   );
 };

@@ -13,6 +13,7 @@ jest.mock('../../lib/supabase', () => {
     cars: [{ id: 4, plate_number: '34 ABC 12' }, { id: 7, plate_number: '34 XYZ 99' }],
     bookings: [{ id: 9, booking_number: 'HOM-09' }],
     cash_accounts: [],
+    profiles: [{ id: 'u-lina', gender: 'female' }, { id: 'u-kerem', gender: 'male' }],
   };
   const from = (table: string) => {
     const chain: Record<string, unknown> = {};
@@ -52,9 +53,10 @@ it('loads everyone in one call and names the creator, the editor and the system'
   expect(screen.getByRole('button', { name: 'Automatic entry (HGS, fines, system). Show history' })).toBeInTheDocument();
   expect(mockRpc).toHaveBeenCalledTimes(1);
   expect(mockRpc).toHaveBeenCalledWith('ledger_actor_cards', { p_ids: ['u-kerem', 'u-lina'] });
-  // Initials on the person's colour when there's no photo; the photo when there is.
-  expect(within(edited).getByText('LA')).toBeInTheDocument();
-  expect(edited.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example/kerem.jpg');
+  // The Team list's avatar: the 3D character for her gender without a photo, his photo when there is one. Never initials.
+  const sources = Array.from(edited.querySelectorAll('img')).map((img) => img.getAttribute('src'));
+  expect(sources).toEqual([expect.stringMatching(/\/avatars\/staff-female\.webp$/), 'https://cdn.example/kerem.jpg']);
+  expect(within(edited).queryByText('LA')).not.toBeInTheDocument();
 });
 
 it('renders nothing for someone who is not finance', () => {
