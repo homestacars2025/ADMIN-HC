@@ -9,6 +9,7 @@ const mockFetchWallet = jest.fn();
 const mockDelete = jest.fn();
 const mockPrint = jest.fn();
 const mockDeleteEnvelopes = jest.fn();
+const mockDeleteHgs = jest.fn();
 let mockRole = 'admin';
 
 jest.mock('../../lib/supabase', () => ({ supabase: {} }));
@@ -17,6 +18,7 @@ jest.mock('../../lib/customerWallet', () => ({
   fetchWallet: (...args: unknown[]) => mockFetchWallet(...args),
   moveBookingBalance: (...args: unknown[]) => mockMove(...args),
   deleteLedgerLine: (...args: unknown[]) => mockDelete(...args),
+  deleteHgsBatch: (...args: unknown[]) => mockDeleteHgs(...args),
 }));
 jest.mock('../../hooks/useCurrentProfile', () => ({ useCurrentProfile: () => ({ profile: { id: 'me', role: mockRole } }) }));
 jest.mock('../../lib/cashEnvelopes', () => ({
@@ -62,6 +64,7 @@ beforeEach(() => {
   mockDelete.mockReset().mockResolvedValue(undefined);
   mockPrint.mockReset();
   mockRole = 'admin';
+  mockDeleteHgs.mockReset().mockResolvedValue({ deleted: 3, total: 1140, releasedTransits: 2 });
   mockDeleteEnvelopes.mockReset().mockResolvedValue({ deleted: [{ ref: 'ENV-2611-0007', amount: 6500, currency: 'TRY', ledgerRowsDeleted: 1 }], failed: [] });
 });
 
@@ -238,4 +241,86 @@ test('staff see the envelope but no delete', async () => {
   const payment = within(older).getByText('Payment').closest('li') as HTMLElement;
   expect(within(payment).getByText('In safe')).toBeInTheDocument();
   expect(within(payment).queryByRole('button', { name: /Delete envelope/ })).not.toBeInTheDocument();
+});
+
+describe('deleting HGS in one go', () => {
+  /** Booking 2: two portal batches and a line typed by hand. */
+  const withBatches = () => {
+    const rows = data();
+    rows.lines.push(
+      { id: 'typed', booking_id: 2, car_id: 20, type: 'hgs', description: 'HGS to 03/11/2026', amount: 1000, direction: 'OUT', created_at: '2026-11-03T09:00:00Z', payment_ref: null, event_no: null },
+      { id: 'b5a', booking_id: 2, car_id: 20, type: 'hgs', description: '02-11-2026 MAHMUTBEY → AVCILAR', amount: 40, direction: 'OUT', created_at: '2026-11-05T09:00:00Z', payment_ref: null, event_no: 5 },
+      { id: 'b5b', booking_id: 2, car_id: 20, type: 'hgs', description: '04-11-2026 AVCILAR → MAHMUTBEY', amount: 60, direction: 'OUT', created_at: '2026-11-05T09:00:00Z', payment_ref: null, event_no: 5 },
+      { id: 'b7a', booking_id: 2, car_id: 20, type: 'hgs', description: '07-11-2026 HASDAL → HASDAL', amount: 40, direction: 'OUT', created_at: '2026-11-08T09:00:00Z', payment_ref: null, event_no: 7 },
+    );
+    wallet = buildWallet(rows);
+  };
+
+  test('the row\'s trash deletes every HGS charge of the booking, after showing how many, how much and when', async () => {
+    withBatches();
+    const notify = jest.fn();
+    const onChanged = jest.fn();
+    render(<CustomerWalletView customerId="c1" notify={notify} onChanged={onChanged} />);
+    const card = within(await screen.findByRole('article', { name: 'HOM-11-26-002' }));
+    expect(card.getByRole('button', { name: /^HGS/ })).toHaveTextContent('from 02/11 to 07/11 · 3 passes + 1 entry');
+    await userEvent.click(card.getByRole('button', { name: 'Delete all HGS entries of this booking' }));
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete all HGS entries of this booking?' });
+    expect(dialog).toHaveTextContent('Entries4');
+    expect(dialog).toHaveTextContent('Total₺1.140,00');
+    expect(dialog).toHaveTextContent('Dates02.11.2026 → 07.11.2026');
+    await userEvent.type(within(dialog).getByLabelText(/Reason/), 'wrong booking');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete 4 entries' }));
+
+    await waitFor(() => expect(mockDeleteHgs).toHaveBeenCalledWith(2, null, 'wrong booking'));
+    expect(notify).toHaveBeenCalledWith('Deleted 3 HGS entries · ₺1.140,00', 'success');
+    expect(onChanged).toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  test('open, each portal batch has its own header and trash; what was typed by hand has none', async () => {
+    withBatches();
+    render(<CustomerWalletView customerId="c1" notify={jest.fn()} onChanged={jest.fn()} />);
+    const card = within(await screen.findByRole('article', { name: 'HOM-11-26-002' }));
+    await userEvent.click(card.getByRole('button', { name: /^HGS/ }));
+    const batches = within(card.getByRole('list', { name: 'HGS batches' }));
+    expect(batches.getByText('From portal · added 08.11.2026')).toBeInTheDocument();
+    expect(batches.getByText('From portal · added 05.11.2026')).toBeInTheDocument();
+    expect(batches.getByText('Typed by hand')).toBeInTheDocument();
+    const trashes = batches.getAllByRole('button', { name: /^Delete this HGS batch/ });
+    expect(trashes).toHaveLength(2);
+
+    await userEvent.click(batches.getByRole('button', { name: 'Delete this HGS batch: From portal · added 05.11.2026' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this HGS batch?' });
+    expect(dialog).toHaveTextContent('Entries2');
+    expect(dialog).toHaveTextContent('Total₺100,00');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete 2 entries' }));
+    await waitFor(() => expect(mockDeleteHgs).toHaveBeenCalledWith(2, 5, ''));
+  });
+
+  test('Escape closes only the dialog, and a refusal stays open with the reason', async () => {
+    withBatches();
+    mockDeleteHgs.mockRejectedValueOnce(new Error('forbidden'));
+    const notify = jest.fn();
+    render(<CustomerWalletView customerId="c1" notify={notify} onChanged={jest.fn()} />);
+    const card = within(await screen.findByRole('article', { name: 'HOM-11-26-002' }));
+    await userEvent.click(card.getByRole('button', { name: 'Delete all HGS entries of this booking' }));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(card.getByRole('button', { name: /^HGS/ })).toBeInTheDocument();
+
+    await userEvent.click(card.getByRole('button', { name: 'Delete all HGS entries of this booking' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete 4 entries' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('forbidden');
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  test('anyone but finance gets no trash', async () => {
+    withBatches();
+    mockRole = 'staff';
+    render(<CustomerWalletView customerId="c1" notify={jest.fn()} onChanged={jest.fn()} />);
+    const card = within(await screen.findByRole('article', { name: 'HOM-11-26-002' }));
+    await userEvent.click(card.getByRole('button', { name: /^HGS/ }));
+    expect(card.queryByRole('button', { name: /Delete all HGS|Delete this HGS batch/ })).not.toBeInTheDocument();
+  });
 });

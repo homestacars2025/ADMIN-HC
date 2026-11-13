@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronRight, Lock, Pencil, Plus, Trash2 } from '..
 import { Button } from '../../components/media/MediaUI';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
 import { useCurrency } from '../../lib/CurrencyContext';
+import { formatInCurrency } from '../../lib/money';
 import { formatDate } from '../../lib/customers';
 import {
   balanceLabel,
@@ -12,12 +13,14 @@ import {
   deleteLedgerLine,
   fetchWallet,
   formatWalletMoney,
+  hgsDeleteScope,
   hgsGroupSummary,
   moveBookingBalance,
   moveTargets,
   roundMoney,
   signedMoveAmount,
   walletTone,
+  type HgsBatch,
   type HgsGroup,
   type LineKind,
   type Wallet,
@@ -32,6 +35,7 @@ import { RateNote } from '../../components/shared/Money';
 import { deletedMessage, deleteFailedMessage } from '../../lib/cashEnvelopes';
 import { DeleteEnvelopesDialog, EnvelopeStatusChip } from '../accounting/EnvelopeDelete';
 import { AddPortalHgsSheet } from './AddPortalHgsSheet';
+import { DeleteHgsDialog } from './DeleteHgsDialog';
 import { DeletedLedgerEntries, LedgerActorsProvider, LedgerStamp } from '../../components/shared/LedgerActors';
 import { AddCustomerTxModal, EditTxModal, printLedgerInvoice, type CustomerLedgerEntry } from '../accounting/CustomerLedgerForms';
 import { BookingSheet, Field, FOOTER_BUTTON, INPUT, LicensePlate, PrimaryButton } from '../bookings/ui';
@@ -213,36 +217,94 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
   );
 };
 
-/** One HGS batch of a booking as one row, its passes underneath on demand. */
-const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void }> = ({ group, open, onToggle, onEdit, onDelete, onDeleteEnvelope }) => {
+/** Finance only: deletes the booking's HGS charges, all of them (null) or one batch's. */
+type DeleteHgs = (batch: HgsBatch | null) => void;
+
+const DELETE_ACTION = cn(ICON_ACTION, 'hover:bg-[#DC2626]/[0.07] hover:text-[#B91C1C]');
+
+/** A batch inside the open HGS row: when it came and what it holds, then its passes. */
+const HgsBatchBlock: React.FC<LineActions & { batch: HgsBatch; onDeleteHgs?: DeleteHgs }> = ({ batch, onDeleteHgs, onEdit, onDelete, onDeleteEnvelope }) => {
+  const signedMoney = useSignedMoney();
+  const { format } = useMoney();
+  const received = batch.net > 0;
+  const title = batch.eventNo == null ? 'Typed by hand' : `From portal${batch.addedAt ? ` · added ${formatDate(batch.addedAt)}` : ''}`;
+  // Only a numbered batch can be deleted alone: the RPC's null means every HGS line.
+  const deletable = onDeleteHgs && batch.eventNo != null && hgsDeleteScope(batch.lines).count > 0;
+  return (
+    <li>
+      <div className="flex items-center gap-3 border-b border-black/[0.04] py-1.5 pe-0 ps-4 sm:ps-11">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[12px] font-semibold text-black/70">{title}</div>
+          <div className="truncate text-[11.5px] tabular-nums text-black/45">{hgsGroupSummary(batch)}</div>
+        </div>
+        <span className={cn('shrink-0 font-mono text-[12.5px] font-medium tabular-nums', batch.net === 0 ? 'text-black/45' : received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
+          {batch.net === 0 ? format(0) : signedMoney(Math.abs(batch.net), received)}
+        </span>
+        {deletable ? (
+          <button type="button" className={DELETE_ACTION} aria-label={`Delete this HGS batch: ${title}`} title="Delete this batch" onClick={() => onDeleteHgs(batch)}>
+            <Trash2 size={14} />
+          </button>
+        ) : <span aria-hidden="true" className="hidden w-8 shrink-0 md:block" />}
+        <span aria-hidden="true" className="hidden w-[72px] shrink-0 md:block" />
+      </div>
+      <ul aria-label={title} className="divide-y divide-black/[0.04]">
+        {batch.lines.map((line) => <LineRow key={line.id} nested line={line} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />)}
+      </ul>
+    </li>
+  );
+};
+
+/**
+ * Every HGS line of a booking as one row, its passes underneath on demand. With two or
+ * more batches they're split by batch, each under its own header (one batch: the row
+ * already says it all). Finance gets a trash on the row for all of it, and on each batch.
+ */
+const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void; onDeleteHgs?: DeleteHgs }> = ({ group, open, onToggle, onDeleteHgs, onEdit, onDelete, onDeleteEnvelope }) => {
   const signedMoney = useSignedMoney();
   const { format } = useMoney();
   const received = group.net > 0;
+  const byBatch = group.batches.length > 1;
+  const deletable = onDeleteHgs && hgsDeleteScope(group.lines).count > 0;
   return (
     <li className="py-0.5">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={open ? group.key : undefined}
-        onClick={onToggle}
-        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl py-2 text-start transition-colors hover:bg-black/[0.02] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35"
-      >
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#DC2626]/[0.08] text-[#B91C1C]">{KIND_ICON.hgs}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13.5px] font-medium text-foreground">HGS</span>
-          <span className="block text-[12px] tabular-nums text-black/50 sm:truncate">{hgsGroupSummary(group)}</span>
-        </span>
-        <span className={cn('shrink-0 font-mono text-[13.5px] font-medium tabular-nums', group.net === 0 ? 'text-black/45' : received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
-          {group.net === 0 ? format(0) : signedMoney(Math.abs(group.net), received)}
-        </span>
-        <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center text-black/40 md:h-8 md:w-[72px] md:justify-items-end md:pe-2">
-          <ChevronRight size={15} strokeWidth={2} className={cn('transition-transform duration-200', open && 'rotate-90')} />
-        </span>
-      </button>
+      <div className="flex items-center">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={open ? group.key : undefined}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl py-2 text-start transition-colors hover:bg-black/[0.02] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35"
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#DC2626]/[0.08] text-[#B91C1C]">{KIND_ICON.hgs}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13.5px] font-medium text-foreground">HGS</span>
+            <span className="block text-[12px] tabular-nums text-black/50 sm:truncate">{hgsGroupSummary(group)}</span>
+          </span>
+          <span className={cn('shrink-0 font-mono text-[13.5px] font-medium tabular-nums', group.net === 0 ? 'text-black/45' : received ? 'text-[#15803D]' : 'text-[#B91C1C]')}>
+            {group.net === 0 ? format(0) : signedMoney(Math.abs(group.net), received)}
+          </span>
+          <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center text-black/40 md:h-8 md:w-8">
+            <ChevronRight size={15} strokeWidth={2} className={cn('transition-transform duration-200', open && 'rotate-90')} />
+          </span>
+        </button>
+        {deletable ? (
+          <button type="button" className={DELETE_ACTION} aria-label="Delete all HGS entries of this booking" title="Delete all HGS" onClick={() => onDeleteHgs(null)}>
+            <Trash2 size={14} />
+          </button>
+        ) : <span aria-hidden="true" className="hidden w-8 shrink-0 md:block" />}
+        {/* Under the lines' who-recorded column, so the amounts line up on wide screens. */}
+        <span aria-hidden="true" className="hidden w-10 shrink-0 md:block" />
+      </div>
       {open && (
-        <ul id={group.key} aria-label="HGS passes" className="mb-1 divide-y divide-black/[0.04] rounded-xl bg-black/[0.018]">
-          {group.lines.map((line) => <LineRow key={line.id} nested line={line} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />)}
-        </ul>
+        byBatch ? (
+          <ul id={group.key} aria-label="HGS batches" className="mb-1 rounded-xl bg-black/[0.018]">
+            {group.batches.map((batch) => <HgsBatchBlock key={batch.key} batch={batch} onDeleteHgs={onDeleteHgs} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />)}
+          </ul>
+        ) : (
+          <ul id={group.key} aria-label="HGS passes" className="mb-1 divide-y divide-black/[0.04] rounded-xl bg-black/[0.018]">
+            {group.lines.map((line) => <LineRow key={line.id} nested line={line} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />)}
+          </ul>
+        )
       )}
     </li>
   );
@@ -263,7 +325,9 @@ const BookingCard: React.FC<LineActions & {
   onAddHgs: () => void;
   /** With the HGS passes when they're open on screen. */
   onPrint: (hgsDetails: boolean) => void;
-}> = ({ card, canMove, onMove, onAdd, onAddHgs, onPrint, onEdit, onDelete, onDeleteEnvelope }) => {
+  /** Finance only. */
+  onDeleteHgs?: DeleteHgs;
+}> = ({ card, canMove, onMove, onAdd, onAddHgs, onPrint, onDeleteHgs, onEdit, onDelete, onDeleteEnvelope }) => {
   const [all, setAll] = useState(false);
   const [hgsOpen, setHgsOpen] = useState<ReadonlySet<string>>(() => new Set());
   const toggleHgs = (key: string) => setHgsOpen((open) => {
@@ -304,7 +368,7 @@ const BookingCard: React.FC<LineActions & {
         ) : (
           <ul className="mt-2 divide-y divide-black/[0.05]">
             {entries.map((entry) => (entry.kind === 'hgs'
-              ? <HgsGroupRow key={entry.group.key} group={entry.group} open={hgsOpen.has(entry.group.key)} onToggle={() => toggleHgs(entry.group.key)} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />
+              ? <HgsGroupRow key={entry.group.key} group={entry.group} open={hgsOpen.has(entry.group.key)} onToggle={() => toggleHgs(entry.group.key)} onDeleteHgs={onDeleteHgs} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />
               : <LineRow key={entry.line.id} line={entry.line} onEdit={onEdit} onDelete={onDelete} onDeleteEnvelope={onDeleteEnvelope} />))}
           </ul>
         )}
@@ -441,6 +505,7 @@ export const CustomerWalletView: React.FC<{
   const [editing, setEditing] = useState<WalletCardLine | null>(null);
   const [envelopeLine, setEnvelopeLine] = useState<WalletCardLine | null>(null);
   const [portalHgs, setPortalHgs] = useState<WalletCard | null>(null);
+  const [hgsDeleting, setHgsDeleting] = useState<{ card: WalletCard; batch: HgsBatch | null } | null>(null);
   const { profile } = useCurrentProfile();
   const isAdmin = profile?.role === 'admin';
 
@@ -459,7 +524,7 @@ export const CustomerWalletView: React.FC<{
     return () => { cancelled = true; };
   }, [customerId, refreshKey, attempt]);
 
-  const covered = moving !== null || adding !== null || editing !== null || envelopeLine !== null || portalHgs !== null;
+  const covered = moving !== null || adding !== null || editing !== null || envelopeLine !== null || portalHgs !== null || hgsDeleting !== null;
   useEffect(() => { onCoverChange?.(covered); }, [covered, onCoverChange]);
 
   const deleteLine = useCallback(async (line: WalletCardLine) => {
@@ -519,6 +584,7 @@ export const CustomerWalletView: React.FC<{
                 onAdd={() => setAdding(card)}
                 onAddHgs={() => setPortalHgs(card)}
                 onPrint={(hgsDetails) => print(card, hgsDetails)}
+                onDeleteHgs={isAdmin ? (batch) => setHgsDeleting({ card, batch }) : undefined}
                 onEdit={setEditing}
                 onDelete={deleteLine}
                 onDeleteEnvelope={isAdmin ? setEnvelopeLine : undefined}
@@ -534,6 +600,22 @@ export const CustomerWalletView: React.FC<{
             card={portalHgs}
             onClose={() => setPortalHgs(null)}
             onPosted={(message) => { notify(message, 'success'); onChanged(); }}
+          />
+        )}
+
+        {hgsDeleting && (
+          <DeleteHgsDialog
+            bookingId={hgsDeleting.card.id}
+            bookingNumber={hgsDeleting.card.bookingNumber}
+            eventNo={hgsDeleting.batch?.eventNo ?? null}
+            addedAt={hgsDeleting.batch?.addedAt}
+            lines={hgsDeleting.batch?.lines ?? hgsDeleting.card.lines.filter((line) => line.kind === 'hgs')}
+            onClose={() => setHgsDeleting(null)}
+            onDeleted={(result) => {
+              setHgsDeleting(null);
+              notify(`Deleted ${result.deleted} HGS ${result.deleted === 1 ? 'entry' : 'entries'} · ${formatInCurrency(result.total, 'TRY')}`, 'success');
+              onChanged();
+            }}
           />
         )}
 

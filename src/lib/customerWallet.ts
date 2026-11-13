@@ -196,7 +196,8 @@ export function hgsLineInfo(line: Pick<WalletLine, 'description' | 'created_at'>
   return { pass: true, day: `${yyyy}-${mm}-${dd}`, time: time ? time.padStart(5, '0') : null, route, toll };
 }
 
-export interface HgsGroup {
+/** Some HGS lines, summed: a booking's all, or one batch's. */
+export interface HgsSlice {
   key: string;
   /** Newest pass first. */
   lines: WalletCardLine[];
@@ -204,6 +205,19 @@ export interface HgsGroup {
   net: number;
   first: string | null;
   last: string | null;
+}
+
+/** One Apply of "Add HGS from portal", or everything typed by hand (`eventNo` null). */
+export interface HgsBatch extends HgsSlice {
+  eventNo: number | null;
+  /** When its first line was recorded. */
+  addedAt: string | null;
+}
+
+/** Every HGS line of a booking as one row, with its batches inside. */
+export interface HgsGroup extends HgsSlice {
+  /** The newest batch first. */
+  batches: HgsBatch[];
 }
 
 export type WalletEntry = { kind: 'line'; line: WalletCardLine } | { kind: 'hgs'; group: HgsGroup };
@@ -242,27 +256,56 @@ function foldHgsBatches<L, R>(lines: L[], isHgsLine: (line: L) => boolean, keyOf
 const newestPassFirst = (a: { day: string | null; time: string | null } | null, b: { day: string | null; time: string | null } | null) =>
   (b?.day ?? '').localeCompare(a?.day ?? '') || (b?.time ?? '').localeCompare(a?.time ?? '');
 
-/** Each HGS batch of a booking folds into one entry, where its newest line would be. */
+function hgsSlice(lines: WalletCardLine[], key: string): HgsSlice {
+  const days = lines.map((line) => line.hgs?.day).filter((day): day is string => Boolean(day)).sort();
+  return {
+    key,
+    lines: lines.slice().sort((a, b) => newestPassFirst(a.hgs, b.hgs)),
+    net: walletBalance(lines),
+    first: days[0] ?? null,
+    last: days[days.length - 1] ?? null,
+  };
+}
+
+/**
+ * Every HGS line of a booking folds into one entry, where its newest line would be. Inside,
+ * the lines are split by batch (`event_no`), so a batch can be read, and deleted, on its
+ * own. The printed invoice folds by batch instead: see `groupInvoiceEntries`.
+ */
 export function groupWalletLines(lines: WalletCardLine[], bookingId: number): WalletEntry[] {
+  const key = `hgs-${bookingId}`;
   return foldHgsBatches<WalletCardLine, WalletEntry>(
     lines,
     (line) => line.kind === 'hgs',
-    hgsBatchKey,
+    () => key,
     (line) => ({ kind: 'line', line }),
-    (batch) => {
-      const days = batch.map((line) => line.hgs?.day).filter((day): day is string => Boolean(day)).sort();
-      return {
-        kind: 'hgs',
-        group: {
-          key: `hgs-${bookingId}-${batch[0].event_no ?? 'typed'}`,
-          lines: batch.slice().sort((a, b) => newestPassFirst(a.hgs, b.hgs)),
-          net: walletBalance(batch),
-          first: days[0] ?? null,
-          last: days[days.length - 1] ?? null,
-        },
-      };
+    (all) => {
+      // A Map keeps the order each batch first appears in: the newest batch first.
+      const byBatch = new Map<string, WalletCardLine[]>();
+      all.forEach((line) => byBatch.set(hgsBatchKey(line), [...(byBatch.get(hgsBatchKey(line)) ?? []), line]));
+      const batches: HgsBatch[] = Array.from(byBatch.values(), (batch) => ({
+        ...hgsSlice(batch, `${key}-${batch[0].event_no ?? 'typed'}`),
+        eventNo: batch[0].event_no ?? null,
+        addedAt: batch.map((line) => line.created_at).filter((at): at is string => Boolean(at)).sort()[0] ?? null,
+      }));
+      return { kind: 'hgs', group: { ...hgsSlice(all, key), batches } };
     },
   );
+}
+
+/**
+ * What `delete_customer_hgs_batch` removes, to show before it does: the HGS charges (OUT)
+ * of the booking, or of one batch. A refund line stays.
+ */
+export function hgsDeleteScope(lines: WalletCardLine[]): { count: number; total: number; first: string | null; last: string | null } {
+  const charges = lines.filter((line) => line.kind === 'hgs' && line.direction === 'OUT');
+  const days = charges.map((line) => line.hgs?.day).filter((day): day is string => Boolean(day)).sort();
+  return {
+    count: charges.length,
+    total: roundMoney(charges.reduce((sum, line) => sum + line.amount, 0)),
+    first: days[0] ?? null,
+    last: days[days.length - 1] ?? null,
+  };
 }
 
 /** "28/09". */
@@ -672,6 +715,33 @@ export async function fetchBookingCarNotes(bookingId: number, carId: number): Pr
 export async function deleteLedgerLine(lineId: string): Promise<void> {
   const { error } = await supabase.from('customer_accounting_ledger').delete().eq('id', lineId);
   if (error) throw new Error(error.message);
+}
+
+export interface HgsDeleteResult {
+  deleted: number;
+  /** Lira. */
+  total: number;
+  /** Portal transits freed for "Add HGS from portal" again. */
+  releasedTransits: number;
+}
+
+/**
+ * Deletes a booking's HGS charges in one go: one batch (`eventNo`), or all of them (null).
+ * The database checks finance, frees the portal transits and writes each line to the audit.
+ */
+export async function deleteHgsBatch(bookingId: number, eventNo: number | null, reason: string): Promise<HgsDeleteResult> {
+  const { data, error } = await supabase.rpc('delete_customer_hgs_batch', {
+    p_booking_id: bookingId,
+    p_event_no: eventNo,
+    p_reason: reason.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+  const result = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+  return {
+    deleted: Number(result?.deleted) || 0,
+    total: roundMoney(Number(result?.total) || 0),
+    releasedTransits: Number(result?.released_transits) || 0,
+  };
 }
 
 export async function fetchWallet(customerId: string): Promise<Wallet | null> {

@@ -8,6 +8,7 @@ import {
   friendlyMoveError,
   groupInvoiceEntries,
   hgsCount,
+  hgsDeleteScope,
   hgsGroupSummary,
   hgsLineInfo,
   isEditableLine,
@@ -275,7 +276,7 @@ describe('HGS lines', () => {
     expect(hgsGroupSummary(group!)).toBe('from 28/09 to 22/10 · 2 passes + 1 entry');
   });
 
-  it('keep each portal batch, and what was typed by hand, as its own line', () => {
+  it('fold into one row per booking, split inside by portal batch and what was typed by hand', () => {
     const data: WalletData = {
       customer: { id: 'c1', first_name: 'Omar', last_name: 'Ali' },
       bookings: [booking({})],
@@ -291,11 +292,19 @@ describe('HGS lines', () => {
     };
     const card = buildWallet(data).cards[0];
     expect(card.balance).toBe(-1127 - 65 - 35 + 3000 - 40);
-    const groups = card.entries.flatMap((entry) => (entry.kind === 'hgs' ? [entry.group] : []));
-    expect(card.entries.map((entry) => (entry.kind === 'hgs' ? entry.group.key : entry.line.id))).toEqual(['hgs-1-3', 'p', 'hgs-1-2', 'hgs-1-typed']);
-    expect(groups.map((group) => group.lines.map((item) => item.id))).toEqual([['b1'], ['a2', 'a1'], ['typed']]);
-    expect(groups.map((group) => group.net)).toEqual([-40, -100, -1127]);
-    expect(hgsGroupSummary(groups[1])).toBe('from 02/10 to 14/10 · 2 passes');
+    expect(card.entries.map((entry) => (entry.kind === 'hgs' ? entry.group.key : entry.line.id))).toEqual(['hgs-1', 'p']);
+    const group = card.entries[0].kind === 'hgs' ? card.entries[0].group : null;
+    expect(group?.net).toBe(-1127 - 100 - 40);
+    expect(group?.batches.map((batch) => [batch.key, batch.eventNo, batch.lines.map((item) => item.id), batch.net, batch.addedAt])).toEqual([
+      ['hgs-1-3', 3, ['b1'], -40, '2026-12-01T10:00:00Z'],
+      ['hgs-1-2', 2, ['a2', 'a1'], -100, '2026-11-09T10:00:00Z'],
+      ['hgs-1-typed', null, ['typed'], -1127, '2026-10-01T09:00:00Z'],
+    ]);
+    expect(hgsGroupSummary(group!.batches[1])).toBe('from 02/10 to 14/10 · 2 passes');
+
+    // What the delete RPC removes: the charges, of everything or of one batch.
+    expect(hgsDeleteScope(group!.lines)).toEqual({ count: 4, total: 1267, first: '2026-10-01', last: '2026-11-05' });
+    expect(hgsDeleteScope(group!.batches[1].lines)).toEqual({ count: 2, total: 100, first: '2026-10-02', last: '2026-10-14' });
 
     const rows = groupInvoiceEntries(card.lines.map((item) => ({ ...item })));
     expect(rows.map((row) => (row.kind === 'hgs' ? row.net : row.entry.type))).toEqual([-40, 'payment', -100, -1127]);
