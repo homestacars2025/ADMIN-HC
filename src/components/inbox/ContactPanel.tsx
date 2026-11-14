@@ -5,10 +5,10 @@ import {
   type ConversationStatus,
   channelLabel,
   contactLabel,
-  initials,
   relativeShort,
 } from '../../lib/inbox';
 import { Button } from '../media/MediaUI';
+import { ContactAvatar } from './InboxParts';
 
 export interface AdminOption { id: string; full_name: string | null; }
 
@@ -76,12 +76,10 @@ const ContactPanel: React.FC<{
       <div style={{ flex: 1, overflowY: 'auto', padding: 16, minHeight: 0 }}>
         {/* Identity */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 600, margin: '0 auto 10px', overflow: 'hidden' }}>
-            {conversation.contact?.avatar_url
-              ? <img src={conversation.contact.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initials(name)}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+            <ContactAvatar conversation={conversation} size={60} />
           </div>
-          <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117', wordBreak: 'break-word' }}>{name}</div>
+          <div dir="auto" style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117', wordBreak: 'break-word' }}>{name}</div>
           <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{conversation.contact?.identifier ?? '—'}</div>
         </div>
 

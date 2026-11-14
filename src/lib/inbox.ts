@@ -245,6 +245,118 @@ export function previewFallback(contentType: string | null): string {
   }
 }
 
+// ─── Design helpers ───────────────────────────────────────────────────────────
+
+const PASTELS: Array<{ bg: string; fg: string }> = [
+  { bg: '#E3F0FC', fg: '#2F6DB5' },
+  { bg: '#E6F6EC', fg: '#1E7B45' },
+  { bg: '#FDEDE3', fg: '#B4532A' },
+  { bg: '#EFE9FC', fg: '#6342C2' },
+  { bg: '#FCE8F0', fg: '#B23A6E' },
+  { bg: '#FFF4D6', fg: '#8F6400' },
+  { bg: '#E2F5F5', fg: '#17807F' },
+  { bg: '#ECEFF3', fg: '#4B5563' },
+];
+
+/** The same soft color for a name every time, so a person is recognisable at a glance. */
+export function avatarTint(seed: string): { bg: string; fg: string } {
+  let hash = 0;
+  for (const ch of seed) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
+  return PASTELS[hash % PASTELS.length];
+}
+
+export type PreviewKind = 'audio' | 'image' | 'video' | 'document' | 'location' | 'sticker';
+
+const PREVIEW_KINDS: Array<{ kind: PreviewKind; label: string; match: RegExp }> = [
+  { kind: 'audio', label: 'Voice message', match: /^(?:🎵|🎙️?|🎤)?\s*(?:audio|voice(?: message)?|ptt)$/i },
+  { kind: 'image', label: 'Photo', match: /^(?:📷|🖼️?)?\s*(?:image|photo|picture)$/i },
+  { kind: 'video', label: 'Video', match: /^(?:🎥|📹)?\s*video$/i },
+  { kind: 'document', label: 'Document', match: /^(?:📄|📎)?\s*(?:document|file)$/i },
+  { kind: 'location', label: 'Location', match: /^(?:📍)?\s*location$/i },
+  { kind: 'sticker', label: 'Sticker', match: /^(?:🏷️?|💟)?\s*sticker$/i },
+];
+
+/**
+ * The list's last-message line. The webhook writes media as "🎵 Audio", "📷 Image" and
+ * so on; those become a kind (shown as a small icon) and a plain word.
+ */
+export function previewParts(preview: string | null | undefined): { kind: PreviewKind | null; text: string } {
+  const text = (preview ?? '').trim();
+  if (!text) return { kind: null, text: 'No messages yet' };
+  const hit = PREVIEW_KINDS.find((entry) => entry.match.test(text));
+  return hit ? { kind: hit.kind, text: hit.label } : { kind: null, text: text.replace(/\s+/g, ' ') };
+}
+
+/** List time: "13:38" today, "Yesterday", a weekday this week, else "17 Aug". */
+export function listTime(date: string | null | undefined): string {
+  if (!date) return '';
+  const then = new Date(date);
+  if (Number.isNaN(then.getTime())) return '';
+  const now = new Date();
+  const days = Math.round((startOfDay(now) - startOfDay(then)) / DAY_MS);
+  if (days <= 0) return then.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return then.toLocaleDateString('en-GB', { weekday: 'short' });
+  return then.getFullYear() === now.getFullYear()
+    ? then.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : then.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** "WhatsApp · HomestaCars": the channel's kind, then its account name without the kind repeated. */
+export function channelLine(channel: ChatChannel | null): string {
+  if (!channel) return 'Direct';
+  const kind = CHANNEL_NAMES[channel.type] ?? channel.type;
+  const account = (channel.display_name ?? '').replace(new RegExp(`\\b${kind}\\b`, 'i'), '').replace(/\s+/g, ' ').trim();
+  return account && account.toLowerCase() !== kind.toLowerCase() ? `${kind} · ${account}` : kind;
+}
+
+/** Messages within this long of each other, from the same side, read as one run. */
+const RUN_GAP_MS = 5 * 60_000;
+
+/** Whether `next` continues `prev`'s run: same side, same day, close together. */
+export function continuesRun(prev: Pick<ChatMessage, 'direction' | 'created_at'> | undefined, next: Pick<ChatMessage, 'direction' | 'created_at'> | undefined): boolean {
+  if (!prev || !next || prev.direction !== next.direction) return false;
+  if (dayKey(prev.created_at) !== dayKey(next.created_at)) return false;
+  return Math.abs(new Date(next.created_at).getTime() - new Date(prev.created_at).getTime()) <= RUN_GAP_MS;
+}
+
+export type TextPart = { kind: 'text' | 'url' | 'phone'; value: string };
+
+const LINKABLE = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"»”])|(\+?\d[\d\s().-]{6,}\d)/g;
+
+/** Text split into plain runs, links and phone numbers, so the last two can be tapped. */
+export function linkify(text: string): TextPart[] {
+  const parts: TextPart[] = [];
+  let last = 0;
+  for (const match of text.matchAll(LINKABLE)) {
+    const start = match.index ?? 0;
+    const value = match[0];
+    const isUrl = Boolean(match[1]);
+    // A phone needs 8+ digits: dates, prices and plates stay text.
+    if (!isUrl && value.replace(/\D/g, '').length < 8) continue;
+    if (start > last) parts.push({ kind: 'text', value: text.slice(last, start) });
+    parts.push({ kind: isUrl ? 'url' : 'phone', value });
+    last = start + value.length;
+  }
+  if (last < text.length) parts.push({ kind: 'text', value: text.slice(last) });
+  return parts;
+}
+
+/** "0:23", "12:05". */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
+
+/** A file's extension, upper-case, for the document card: "PDF". */
+export function fileExtension(name: string | null | undefined, mime?: string | null): string {
+  const dot = (name ?? '').lastIndexOf('.');
+  if (name && dot !== -1 && dot < name.length - 1) return name.slice(dot + 1).toUpperCase().slice(0, 4);
+  const fromMime = mime ? MIME_EXT[mime] : undefined;
+  return (fromMime ?? 'FILE').toUpperCase();
+}
+
 // ─── Media helpers ────────────────────────────────────────────────────────────
 
 export const MAX_FILE_BYTES = 100 * 1024 * 1024; // 100 MB

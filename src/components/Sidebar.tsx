@@ -4,6 +4,7 @@ import { ComplianceTriangle } from './shared/ComplianceBits';
 import { NavLink, useLocation } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
 import { useNotificationCounts } from '../hooks/useNotificationCounts';
+import { useInboxUnread } from '../hooks/useInboxUnread';
 
 // ─── Navigation model ────────────────────────────────────────────────────────
 //
@@ -20,6 +21,8 @@ export interface NavItem {
   alertCount?: number;
   /** Unpaid fines, shown as a solid red count. */
   fineCount?: number;
+  /** Inbox conversations with unread messages, the same red count. */
+  unreadCount?: number;
 }
 
 export interface NavGroup {
@@ -758,12 +761,32 @@ const FineCount: React.FC<{ count: number; rail?: boolean }> = ({ count, rail })
   </span>
 );
 
+const INBOX_PATH = '/dashboard/inbox';
+
+/** Unread Inbox conversations: Fines' red count, at 11/600. */
+const UnreadCount: React.FC<{ count: number; rail?: boolean }> = ({ count, rail }) => (
+  <span
+    title={`${count} unread ${count === 1 ? 'conversation' : 'conversations'}`}
+    aria-label={`${count} unread ${count === 1 ? 'conversation' : 'conversations'}`}
+    style={{
+      ...(rail ? { position: 'absolute', top: -7, right: -9 } : { marginLeft: 'auto' }),
+      minWidth: rail ? 16 : 20, padding: rail ? '0 4px' : '0 6px', borderRadius: 10,
+      background: '#DC2626', color: '#fff', fontSize: rail ? 10 : 11, fontWeight: 600,
+      lineHeight: rail ? '16px' : '20px', letterSpacing: 0, textAlign: 'center',
+      fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+    }}
+  >
+    {count > 99 ? '99+' : count}
+  </span>
+);
+
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) => {
   const location = useLocation();
 
   const { openTasks } = useNotificationCounts();
   const complianceCars = useComplianceCars();
   const unpaidFineCount = useUnpaidFines()?.length ?? 0;
+  const inboxUnread = useInboxUnread();
 
   /**
    * Which groups are open. Seeded with Daily only; after that the user's own
@@ -807,12 +830,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
   const toggleGroup = (key: string) =>
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  /** Tasks, Cars and Fines carry a live count; everything else is static. */
+  /** Tasks, Cars, Fines and Inbox carry a live count; everything else is static. */
   const withBadge = (items: NavItem[]): NavItem[] =>
     items.map((item) => {
       if (item.path === '/dashboard/tasks') return { ...item, badge: openTasks };
       if (item.path === CARS_PATH) return { ...item, alertCount: complianceCars?.length ?? 0 };
       if (item.path === FINES_PATH) return { ...item, fineCount: unpaidFineCount };
+      if (item.path === INBOX_PATH) return { ...item, unreadCount: inboxUnread };
       return item;
     });
 
@@ -874,6 +898,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
                 <ComplianceTriangle tone="red" size={15} alt={`${item.alertCount} cars need attention`} className="absolute -right-2 -top-2" />
               )}
               {collapsed && !!item.fineCount && <FineCount count={item.fineCount} rail />}
+              {collapsed && !!item.unreadCount && <UnreadCount count={item.unreadCount} rail />}
             </span>
             {!collapsed && item.label}
             {!collapsed && !!item.badge && item.badge > 0 && (
@@ -890,6 +915,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
             )}
             {!collapsed && !!item.alertCount && <ComplianceCount count={item.alertCount} />}
             {!collapsed && !!item.fineCount && <FineCount count={item.fineCount} />}
+            {!collapsed && !!item.unreadCount && <UnreadCount count={item.unreadCount} />}
           </>
         )}
       </NavLink>
@@ -955,6 +981,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
               // Groups start closed, and a closed one would hide the Cars and Fines badges with it.
               const hiddenAlert = !open && group.items.some((item) => item.path === CARS_PATH) ? complianceCars?.length ?? 0 : 0;
               const hiddenFines = !open && group.items.some((item) => item.path === FINES_PATH) ? unpaidFineCount : 0;
+              const hiddenUnread = !open && group.items.some((item) => item.path === INBOX_PATH) ? inboxUnread : 0;
               return (
                 <div key={group.key} style={{ marginTop: 4 }}>
                   <button
@@ -987,6 +1014,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, isMobile, drawerOpen }) =>
                     </span>
                     {hiddenAlert > 0 && <ComplianceCount count={hiddenAlert} />}
                     {hiddenFines > 0 && <FineCount count={hiddenFines} />}
+                    {hiddenUnread > 0 && <UnreadCount count={hiddenUnread} />}
                     <svg
                       width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"
                       style={{

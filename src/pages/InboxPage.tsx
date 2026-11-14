@@ -4,6 +4,7 @@ import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/
 import { supabase } from '../lib/supabase';
 import ChatThread from '../components/inbox/ChatThread';
 import ContactPanel, { type AdminOption } from '../components/inbox/ContactPanel';
+import { ChatIcon, ContactAvatar, PreviewKindIcon, SearchIcon } from '../components/inbox/InboxParts';
 import {
   CHANNEL_COLUMNS,
   CONTACT_COLUMNS,
@@ -12,17 +13,20 @@ import {
   type ChatConversationRow,
   type ConversationFilter,
   type MessageTemplate,
-  channelColor,
-  channelLabel,
   contactLabel,
-  initials,
   isConversationUnread,
-  relativeShort,
+  listTime,
+  previewParts,
   sortConversations,
 } from '../lib/inbox';
 
 // ─── Conversation list row ────────────────────────────────────────────────────
 
+/**
+ * 72px: the contact's avatar with its channel dot, the name and the time, then the
+ * last message on one line (a small icon for a voice note, a photo or a file). Unread
+ * rows are tinted blue with a count; the open one has a 3px bar on its leading edge.
+ */
 const ConversationRow: React.FC<{
   conversation: ChatConversation;
   selected: boolean;
@@ -30,71 +34,59 @@ const ConversationRow: React.FC<{
 }> = ({ conversation, selected, onSelect }) => {
   const name   = contactLabel(conversation);
   const unread = isConversationUnread(conversation);
+  const preview = previewParts(conversation.last_message_preview);
+  const outbound = conversation.last_message_direction === 'outbound';
+  const tone = selected ? 'bg-[#F5F7FA]' : unread ? 'bg-[#F2F8FE] hover:bg-[#EAF3FD]' : 'bg-white hover:bg-[#FAFBFC]';
 
   return (
     <button
       type="button"
       onClick={onSelect}
-      style={{
-        display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%',
-        padding: '11px 14px', border: 'none', cursor: 'pointer', textAlign: 'left',
-        fontFamily: 'inherit', minHeight: 64,
-        background: selected ? 'rgba(75,166,234,0.09)' : '#fff',
-        borderLeft: `3px solid ${selected ? '#4ba6ea' : 'transparent'}`,
-        borderBottom: '1px solid #f5f5f5',
-        transition: 'background 120ms ease',
-      }}
-      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#fafbfc'; }}
-      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}
+      aria-current={selected ? 'true' : undefined}
+      className={`relative flex h-[72px] w-full items-center gap-3 px-4 text-start transition-colors duration-150 focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-[#4ba6ea]/35 ${tone}`}
     >
-      {/* Avatar + channel dot */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#eef2f6', color: '#4b5563', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, overflow: 'hidden' }}>
-          {conversation.contact?.avatar_url
-            ? <img src={conversation.contact.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : initials(name)}
-        </div>
-        <span
-          title={channelLabel(conversation.channel)}
-          style={{ position: 'absolute', right: -1, bottom: -1, width: 12, height: 12, borderRadius: '50%', background: channelColor(conversation.channel), border: '2px solid #fff' }}
-        />
-      </div>
+      {selected && <span aria-hidden="true" className="absolute inset-y-0 start-0 w-[3px] bg-[#4ba6ea]" />}
+      <ContactAvatar conversation={conversation} size={40} ring={selected ? '#F5F7FA' : unread ? '#F2F8FE' : '#fff'} />
 
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: unread ? 600 : 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {name}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-2">
+          <span className={`min-w-0 flex-1 truncate text-[14px] leading-5 ${unread ? 'font-semibold text-[#0f1117]' : 'font-medium text-[#1F2937]'}`}>
+            <bdi dir="auto">{name}</bdi>
           </span>
-          <span style={{ fontSize: 10.5, color: unread ? '#3A74C2' : '#9ca3af', fontWeight: unread ? 600 : 500, flexShrink: 0 }}>
-            {relativeShort(conversation.last_message_at)}
+          <span className={`shrink-0 text-[12px] tabular-nums ${unread ? 'font-medium text-[#2F7FC4]' : 'text-[#9CA3AF]'}`}>
+            {listTime(conversation.last_message_at)}
           </span>
-        </div>
+        </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-          <span style={{
-            flex: 1, minWidth: 0, fontSize: 12, lineHeight: 1.4,
-            color: unread ? '#374151' : '#9ca3af', fontWeight: unread ? 600 : 400,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {conversation.last_message_direction === 'outbound' && (
-              <span style={{ color: '#9ca3af', fontWeight: 400 }}>You: </span>
-            )}
-            {conversation.last_message_preview || 'No messages yet'}
+        <span className="mt-0.5 flex items-center gap-2">
+          <span className={`flex min-w-0 flex-1 items-center gap-1 text-[13px] leading-[18px] ${unread ? 'text-[#4B5563]' : 'text-[#8A94A6]'}`}>
+            {outbound && <span className="shrink-0 text-[#9CA3AF]">You:</span>}
+            {preview.kind && <PreviewKindIcon kind={preview.kind} className="shrink-0 text-[#9CA3AF]" />}
+            <span className="truncate" dir="auto">{preview.text}</span>
           </span>
-
           {unread && (
-            <span style={{ flexShrink: 0, minWidth: 19, height: 19, borderRadius: 10, background: '#4ba6ea', color: '#fff', fontSize: 10.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
+            <span className="grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-[#4ba6ea] px-1.5 text-[11px] font-semibold tabular-nums text-white">
               {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
             </span>
           )}
           {conversation.archived_at && (
-            <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 600, color: '#9ca3af', background: '#f3f4f6', borderRadius: 20, padding: '2px 7px', textTransform: 'uppercase' }}>Archived</span>
+            <span className="shrink-0 rounded-full bg-[#F3F4F6] px-1.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9CA3AF]">Archived</span>
           )}
-        </div>
-      </div>
+        </span>
+      </span>
     </button>
   );
 };
+
+const RowSkeleton: React.FC = () => (
+  <div className="flex h-[72px] items-center gap-3 px-4" aria-hidden="true">
+    <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[#EEF1F5]" />
+    <span className="flex-1 space-y-2">
+      <span className="block h-3 w-1/2 animate-pulse rounded-full bg-[#EEF1F5]" />
+      <span className="block h-2.5 w-4/5 animate-pulse rounded-full bg-[#F2F4F7]" />
+    </span>
+  </div>
+);
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -103,6 +95,8 @@ const FILTERS: Array<{ key: ConversationFilter; label: string }> = [
   { key: 'unread', label: 'Unread' },
   { key: 'mine',   label: 'Assigned to me' },
 ];
+
+type Lightbox = { url: string; kind: 'image' | 'video' };
 
 const InboxPage: React.FC = () => {
   const [profileId, setProfileId]           = useState<string | null>(null);
@@ -116,7 +110,7 @@ const InboxPage: React.FC = () => {
   const [search, setSearch]         = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen]   = useState(false);
-  const [lightbox, setLightbox]     = useState<string | null>(null);
+  const [lightbox, setLightbox]     = useState<Lightbox | null>(null);
 
   // Mirrors for use inside the subscribe-once realtime handler.
   const convosRef   = useRef<ChatConversation[]>([]);
@@ -258,6 +252,36 @@ const InboxPage: React.FC = () => {
     setConversations(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
   }, []);
 
+  /** Flags a conversation unread and closes it, so it isn't read again straight away. */
+  const markUnread = useCallback(async (id: string) => {
+    patchConversation(id, { unread_count: 1 });
+    setSelectedId(null);
+    setPanelOpen(false);
+    const { error: err } = await supabase
+      .from('chat_conversations')
+      .update({ unread_count: 1, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) setError(`Could not mark it unread: ${err.message}`);
+  }, [patchConversation]);
+
+  /** The same write as Assigned to in the contact panel. */
+  const assign = useCallback(async (id: string, assignee: string | null) => {
+    patchConversation(id, { assigned_to_profile_id: assignee });
+    const { error: err } = await supabase
+      .from('chat_conversations')
+      .update({ assigned_to_profile_id: assignee, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (err) setError(`Could not assign it: ${err.message}`);
+  }, [patchConversation]);
+
+  // Escape closes the lightbox.
+  useEffect(() => {
+    if (!lightbox) return undefined;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return conversations.filter(c => {
@@ -280,136 +304,124 @@ const InboxPage: React.FC = () => {
   );
 
   return (
-    <div style={{ height: 'calc(100vh - var(--topbar-h))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', padding: 'clamp(14px, 2.5vw, 28px)', boxSizing: 'border-box' }}>
+    <div className="flex flex-col bg-[var(--surface)] p-[clamp(14px,2.5vw,28px)]" style={{ height: 'calc(100vh - var(--topbar-h))', boxSizing: 'border-box' }}>
       <style>{`
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .inbox-back-btn { display: none; }
+        .inbox-back-btn { display: none !important; }
         .inbox-list { display: flex; }
         .inbox-thread { display: flex; }
         @media (max-width: 860px) {
-          .inbox-back-btn { display: flex !important; }
-          .inbox-list { width: 100% !important; border-right: none !important; }
+          .inbox-back-btn { display: grid !important; }
+          .inbox-list { width: 100% !important; border-inline-end: none !important; }
           .inbox-list[data-hidden="true"] { display: none !important; }
           .inbox-thread[data-hidden="true"] { display: none !important; }
         }
       `}</style>
 
       {/* Header */}
-      <div style={{ marginBottom: 14, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>Operations</span>
+      <div className="mb-3.5 shrink-0">
+        <div className="mb-1.5 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#4ba6ea]" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[#9CA3AF]">Operations</span>
         </div>
-        <h1 style={{ fontSize: 'clamp(21px, 3.5vw, 27px)', fontWeight: 500, color: '#0f1117', letterSpacing: '-0.7px', margin: 0 }}>
+        <h1 className="m-0 flex items-center gap-2.5 text-[clamp(21px,3.5vw,27px)] font-medium tracking-[-0.025em] text-[#0f1117]">
           Inbox
           {unreadTotal > 0 && (
-            <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: '#fff', background: '#4ba6ea', borderRadius: 20, padding: '3px 10px', verticalAlign: 'middle' }}>
-              {unreadTotal} unread
-            </span>
+            <span className="rounded-full bg-[#4ba6ea] px-2.5 py-[3px] text-[12px] font-semibold tracking-normal text-white">{unreadTotal} unread</span>
           )}
         </h1>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: '11px 15px', marginBottom: 12, fontSize: 13, color: '#ef4444', flexShrink: 0 }}>
-          {error}
+        <div role="alert" className="mb-3 flex shrink-0 items-start gap-3 rounded-xl border border-[#EF4444]/20 bg-[#EF4444]/[0.06] px-4 py-2.5 text-[13px] text-[#B91C1C]">
+          <span className="flex-1">{error}</span>
+          <button type="button" className="shrink-0 font-semibold hover:underline" onClick={() => setError(null)}>Dismiss</button>
         </div>
       )}
 
       {/* 3-column shell */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
 
         {/* LEFT — conversation list */}
         <div
-          className="inbox-list"
+          className="inbox-list w-[360px] shrink-0 flex-col border-e border-black/[0.06] bg-white"
           data-hidden={selectedId ? 'true' : 'false'}
-          style={{ width: 320, flexShrink: 0, borderRight: '1px solid #f0f0f0', flexDirection: 'column', minHeight: 0 }}
+          style={{ minHeight: 0 }}
         >
-          <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
-            <div style={{ position: 'relative', marginBottom: 9 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M20 20l-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
+          <div className="shrink-0 space-y-2.5 px-3.5 pb-3 pt-3.5">
+            <label className="relative block">
+              <span className="sr-only">Search conversations</span>
+              <SearchIcon size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
               <input
-                type="text"
+                type="search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search name or number…"
-                style={{ width: '100%', height: 36, paddingLeft: 33, paddingRight: 11, fontSize: 12.5, color: '#0f1117', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                onFocus={e => { e.target.style.borderColor = '#4ba6ea'; }}
-                onBlur={e => { e.target.style.borderColor = '#e5e7eb'; }}
+                placeholder="Search name, number or message"
+                className="h-10 w-full rounded-[10px] border border-transparent bg-[#F5F6F8] pe-3 ps-9 text-[13.5px] text-[#0f1117] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#4ba6ea]/60 focus:bg-white focus:ring-[3px] focus:ring-[#4ba6ea]/15"
               />
-            </div>
+            </label>
 
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div role="radiogroup" aria-label="Show" className="flex rounded-[10px] bg-[#F2F2F2] p-[3px]">
               {FILTERS.map(f => {
                 const active = filter === f.key;
                 return (
                   <button
                     key={f.key}
                     type="button"
+                    role="radio"
+                    aria-checked={active}
                     onClick={() => setFilter(f.key)}
-                    style={{
-                      flex: 1, height: 30, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-                      fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', padding: '0 6px',
-                      border: `1.5px solid ${active ? '#4ba6ea' : '#e5e7eb'}`,
-                      background: active ? 'rgba(75,166,234,0.08)' : '#fff',
-                      color: active ? '#2e8fd4' : '#6b7280',
-                    }}
+                    className={`flex h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[12.5px] font-medium transition-[background,color,box-shadow] duration-150 max-md:h-10 ${active ? 'bg-white text-[#0f1117] shadow-[0_1px_3px_rgba(15,17,23,0.12),0_0_0_0.5px_rgba(15,17,23,0.04)]' : 'text-[#6B7280] hover:text-[#0f1117]'}`}
                   >
                     {f.label}
+                    {f.key === 'unread' && unreadTotal > 0 && (
+                      <span className={`grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10.5px] font-semibold tabular-nums ${active ? 'bg-[#4ba6ea] text-white' : 'bg-[#4ba6ea]/15 text-[#2F7FC4]'}`}>
+                        {unreadTotal > 99 ? '99+' : unreadTotal}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            {loading && Array.from({ length: 7 }).map((_, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, padding: '13px 14px', borderBottom: '1px solid #f5f5f5' }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, paddingTop: 4 }}>
-                  <div style={{ height: 11, width: '55%', borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                  <div style={{ height: 10, width: '80%', borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-                </div>
-              </div>
-            ))}
+          <div className="min-h-0 flex-1 overflow-y-auto border-t border-black/[0.05]" aria-busy={loading}>
+            {loading && Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} />)}
 
             {!loading && visible.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '44px 20px', color: '#9ca3af' }}>
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 10px', display: 'block', color: '#d1d5db' }}>
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>
-                  {conversations.length === 0 ? 'No conversations yet' : 'Nothing matches'}
+              <div className="px-6 py-14 text-center">
+                <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[#F2F5F9] text-[#9CA3AF]"><ChatIcon size={22} /></span>
+                <div className="text-[13.5px] font-semibold text-[#374151]">
+                  {conversations.length === 0 ? 'No conversations yet' : filter === 'unread' && !search.trim() ? "You're all caught up" : 'Nothing matches'}
                 </div>
-                <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
+                <div className="mt-1 text-[12.5px] leading-relaxed text-[#9CA3AF]">
                   {conversations.length === 0
                     ? 'Incoming WhatsApp messages will appear here automatically.'
-                    : 'Try a different search or filter.'}
+                    : filter === 'unread' && !search.trim() ? 'Every conversation has been read.' : 'Try a different search or filter.'}
                 </div>
               </div>
             )}
 
-            {!loading && visible.map(c => (
-              <ConversationRow
-                key={c.id}
-                conversation={c}
-                selected={c.id === selectedId}
-                onSelect={() => { setSelectedId(c.id); setPanelOpen(false); }}
-              />
-            ))}
+            {!loading && (
+              <ul className="divide-y divide-black/[0.04]">
+                {visible.map(c => (
+                  <li key={c.id}>
+                    <ConversationRow
+                      conversation={c}
+                      selected={c.id === selectedId}
+                      onSelect={() => { setSelectedId(c.id); setPanelOpen(false); }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
         {/* CENTER — thread */}
         <div
-          className="inbox-thread"
+          className="inbox-thread min-w-0 flex-1"
           data-hidden={selectedId ? 'false' : 'true'}
-          style={{ flex: 1, minWidth: 0, minHeight: 0 }}
+          style={{ minHeight: 0 }}
         >
           {selected && profileId ? (
             <ChatThread
@@ -417,25 +429,43 @@ const InboxPage: React.FC = () => {
               conversation={selected}
               profileId={profileId}
               templates={templates}
+              admins={admins}
               onPatch={patchConversation}
               onBack={() => setSelectedId(null)}
-              onOpenImage={setLightbox}
+              onOpenMedia={setLightbox}
               onToggleContactPanel={() => setPanelOpen(o => !o)}
+              onAssign={(assignee) => void assign(selected.id, assignee)}
+              onMarkUnread={() => void markUnread(selected.id)}
             />
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#9ca3af', background: 'var(--surface)', padding: 24, textAlign: 'center' }}>
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" style={{ color: '#d1d5db' }}>
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>Select a conversation</div>
-              <div style={{ fontSize: 12.5 }}>Pick a chat on the left to read and reply.</div>
+            <div className="flex flex-1 flex-col items-center justify-center bg-[#F7F8FA] p-8 text-center">
+              <div className="relative mb-5">
+                <span className="absolute -inset-5 rounded-full bg-[#4ba6ea]/[0.07]" aria-hidden="true" />
+                <span className="relative grid h-16 w-16 place-items-center rounded-[20px] bg-white text-[#4ba6ea] shadow-[0_8px_24px_-8px_rgba(47,127,196,0.35)]">
+                  <ChatIcon size={28} strokeWidth={1.7} />
+                </span>
+              </div>
+              <div className="text-[16px] font-semibold tracking-[-0.01em] text-[#0f1117]">Pick a conversation</div>
+              <div className="mt-1.5 max-w-[300px] text-[13px] leading-relaxed text-[#8A94A6]">
+                WhatsApp messages land here as they arrive. Choose one on the left to read and reply.
+              </div>
+              {unreadTotal > 0 && filter !== 'unread' && (
+                <button
+                  type="button"
+                  onClick={() => setFilter('unread')}
+                  className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-semibold text-[#2F7FC4] shadow-[0_1px_3px_rgba(15,17,23,0.1)] ring-1 ring-black/[0.04] transition-colors hover:bg-[#F2F8FE]"
+                >
+                  <span className="h-2 w-2 rounded-full bg-[#4ba6ea]" aria-hidden="true" />
+                  Show {unreadTotal} unread
+                </button>
+              )}
             </div>
           )}
         </div>
 
         {/* RIGHT — contact panel */}
         {selected && panelOpen && (
-          <div style={{ width: 290, flexShrink: 0, borderLeft: '1px solid #f0f0f0', minHeight: 0 }}>
+          <div className="w-[290px] shrink-0 border-s border-black/[0.06]" style={{ minHeight: 0 }}>
             <ContactPanel
               conversation={selected}
               admins={admins}
@@ -446,19 +476,25 @@ const InboxPage: React.FC = () => {
         )}
       </div>
 
-      {/* Image lightbox */}
+      {/* Photo and video lightbox */}
       {lightbox && ReactDOM.createPortal(
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={lightbox.kind === 'video' ? 'Video' : 'Photo'}
           onClick={() => setLightbox(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1400, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 120ms ease', cursor: 'zoom-out' }}
+          className="fixed inset-0 z-[1400] flex cursor-zoom-out items-center justify-center bg-black/85 p-5 backdrop-blur-sm"
         >
-          <img src={lightbox} alt="Full size" onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 10, cursor: 'default' }} />
+          {lightbox.kind === 'video'
+            ? <video src={lightbox.url} controls autoPlay playsInline onClick={e => e.stopPropagation()} className="max-h-[88vh] max-w-full cursor-default rounded-xl bg-black" />
+            : <img src={lightbox.url} alt="" onClick={e => e.stopPropagation()} className="max-h-[88vh] max-w-full cursor-default rounded-xl object-contain" />}
           <button
+            type="button"
             onClick={() => setLightbox(null)}
             aria-label="Close"
-            style={{ position: 'fixed', top: 20, right: 20, width: 44, height: 44, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            className="fixed end-5 top-5 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
           </button>
         </div>,
         document.body,
