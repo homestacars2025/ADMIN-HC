@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { createUser, deleteUser, updateUserPassword } from '../lib/adminUsers';
 import { StaffDetailDrawer } from '../components/staff/StaffDetailDrawer';
@@ -985,7 +986,15 @@ const UsersPage: React.FC = () => {
   const [error,    setError]    = useState<string | null>(null);
   const [search,   setSearch]   = useState('');
   const [editing,      setEditing]      = useState<UserProfile | null>(null);
-  const [creating,     setCreating]     = useState(false);
+  // "Add investor" on the Investors page lands here with ?add=1 and the form open.
+  const [addParams, setAddParams] = useSearchParams();
+  const [creating,     setCreating]     = useState(() => addParams.get('add') === '1');
+  useEffect(() => {
+    if (addParams.get('add') !== '1') return;
+    const next = new URLSearchParams(addParams);
+    next.delete('add');
+    setAddParams(next, { replace: true });
+  }, [addParams, setAddParams]);
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
   const [deleting,     setDeleting]     = useState(false);
   const [toast,        setToast]        = useState<ToastState | null>(null);

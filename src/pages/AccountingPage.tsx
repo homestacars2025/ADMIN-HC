@@ -1725,9 +1725,11 @@ const InvestorSummaryView: React.FC<{
   investorId: string;
   onBack: () => void;
   hideBackButton?: boolean;
-}> = ({ investorId, onBack, hideBackButton = false }) => {
+  /** The month to open on, from a link; this month otherwise. */
+  initialMonth?: string | null;
+}> = ({ investorId, onBack, hideBackButton = false, initialMonth = null }) => {
   const { fmt } = useCurrency();
-  const [monthKey,        setMonthKey]        = useState(currentMonthKey());
+  const [monthKey,        setMonthKey]        = useState(initialMonth ?? currentMonthKey());
   const [txs,             setTxs]             = useState<FinancialTransaction[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [sheetView,       setSheetView]       = useState<{ type: string; label: string } | null>(null);
@@ -2576,6 +2578,7 @@ export const InvestorReportPage: React.FC = () => {
     <div style={{ minHeight: '100vh', background: 'var(--surface)', padding: '44px 40px' }}>
       <InvestorSummaryView
         investorId={investorId}
+        initialMonth={validMonth(searchParams.get('month'))}
         onBack={() => navigate('/dashboard/accounting')}
       />
       <style>{`
