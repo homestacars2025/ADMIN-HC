@@ -245,10 +245,10 @@ export const InvestorCard: React.FC<{
           <div className="text-end">
             <p className="text-[11.5px] text-black/45">Rented now</p>
             <p className="text-[14px] font-semibold tabular-nums text-foreground">
-              {investor.carsRentedNow}<span className="font-normal text-black/40">/{investor.carsActive}</span>
+              {investor.carsRentedNow}<span className="font-normal text-black/40">/{investor.carsTotal}</span>
             </p>
           </div>
-          <GroupUtilizationRing rate={investor.carsActive > 0 ? investor.utilization : null} size={54} />
+          <GroupUtilizationRing rate={investor.carsTotal > 0 ? investor.utilization : null} size={54} />
         </div>
       </div>
 

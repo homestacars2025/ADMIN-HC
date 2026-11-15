@@ -30,8 +30,8 @@ export const GroupCarsDrawer: React.FC<{
     return () => { active = false; };
   }, [group.id, month, attempt]);
 
+  // The query already leaves sold cars out; this keeps it so whatever comes back.
   const activeCars = cars?.filter((car) => car.isActive) ?? [];
-  const inactiveCars = cars?.filter((car) => !car.isActive) ?? [];
 
   return (
     <Sheet open onClose={onClose} ariaLabel={`${name} cars`} maxWidthClass="sm:max-w-[520px]">
@@ -55,7 +55,7 @@ export const GroupCarsDrawer: React.FC<{
           <LoadError message={`Couldn't load the cars: ${error}`} onRetry={() => setAttempt((value) => value + 1)} />
         ) : cars === null ? (
           <div className="flex flex-1 items-center justify-center py-16" role="status" aria-label="Loading cars"><Spinner size={20} /></div>
-        ) : cars.length === 0 ? (
+        ) : activeCars.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 py-12 text-center">
             <StatusImage status="parking" size={96} />
             <p className="text-[14px] font-medium text-foreground">No cars in this group yet</p>
@@ -63,8 +63,7 @@ export const GroupCarsDrawer: React.FC<{
           </div>
         ) : (
           <>
-            <CarList title={`Active · ${activeCars.length}`} cars={activeCars} monthLabel={monthLabel} />
-            {inactiveCars.length > 0 && <CarList title={`Inactive · ${inactiveCars.length}`} cars={inactiveCars} monthLabel={monthLabel} muted />}
+            <CarList title={`In service · ${activeCars.length}`} cars={activeCars} monthLabel={monthLabel} />
           </>
         )}
       </SheetBody>

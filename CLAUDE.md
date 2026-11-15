@@ -22,6 +22,14 @@ Admin dashboard for HomestaCars — a premium car rental company based in Istanb
   - Tiles show the amount as the big value with the count below it, or the count alone where there's no amount. Search sits below the tiles.
   - Sizing: about 140px tall, about 220px wide at most, row about 1100px at most, and two to a row with short tiles on mobile. Never tall empty tiles. Use `FilterTile` and `FilterTileRow`.
 
+## Sold / archived cars — NON-NEGOTIABLE
+- A car with cars.is_active = false is SOLD / ARCHIVED. It is history only.
+- It must NEVER appear in anything current or new: fleet counts, KPIs, dashboards, utilization, investors pages, model groups, availability, booking/car pickers, calendars, tasks, HGS banners, alerts, reports of the current period, or any new feature.
+- Every query that lists or counts cars MUST filter cars.is_active = true, unless the screen is explicitly an archive/history view (car history, an old booking's detail, past financial sheets).
+- Old bookings, ledger rows and financial sheets of sold cars stay visible ONLY inside their historical records, never as active fleet. Where a sold car shows in such a record, mark it with the grey "Sold" chip (`SoldChip`).
+- The DB enforces it too: bookings on inactive cars are rejected (trg_block_inactive_car_booking). Never work around it.
+- Any new code that touches cars must state in the PR/commit how it filters sold cars.
+
 ## Architecture
 - /src/components — reusable UI components
 - /src/pages — dashboard pages

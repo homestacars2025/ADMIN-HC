@@ -121,12 +121,12 @@ const InvestorsPage: React.FC = () => {
               />
               <FilterTile
                 tone="slate" mono bareIcon icon={<StatusImage status="fleet" size={32} />}
-                label="Total cars" value={String(totals.cars)} sub={`${totals.carsActive} active · ${plural(totals.counts.cars, 'investor', 'investors')}`}
+                label="Total cars" value={String(totals.cars)} sub={`in service · ${plural(totals.counts.cars, 'investor', 'investors')}`}
                 active={filter === 'cars'} onClick={() => toggle('cars')}
               />
               <FilterTile
                 tone="green" mono bareIcon icon={<StatusImage status="working" size={32} />}
-                label="Rented now" value={String(totals.rentedNow)} sub={`of ${totals.carsActive} · ${plural(totals.counts.rented, 'investor', 'investors')}`}
+                label="Rented now" value={String(totals.rentedNow)} sub={`of ${totals.cars} · ${plural(totals.counts.rented, 'investor', 'investors')}`}
                 active={filter === 'rented'} onClick={() => toggle('rented')}
               />
               <FilterTile

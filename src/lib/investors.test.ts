@@ -26,17 +26,16 @@ const raw = (overrides: Record<string, unknown> = {}) => ({
   total_investment: 0,
   created_at: '2025-10-01T09:00:00Z',
   cars_total: 3,
-  cars_active: 2,
   model_types: 2,
   cars_rented_now: 1,
   utilization_pct: 50,
   month_in: 1000,
   month_out: 1500,
   model_groups: [
-    { model_group_id: 7, name: 'Corolla', brand: 'Toyota', model: 'Corolla', category: 'Middle', transmission: 'Automatic', fuel: 'Hybrid', image_url: null, count: 2, active: 2,
-      plates: [{ car_id: 1, plate: '34 ABC 123', active: true }, { car_id: 2, plate: '34 XYZ 9', active: true }] },
-    { model_group_id: null, name: null, brand: null, model: null, category: null, transmission: null, fuel: null, image_url: null, count: 1, active: 0,
-      plates: [{ car_id: 3, plate: '34 OLD 1', active: false }] },
+    { model_group_id: 7, name: 'Corolla', brand: 'Toyota', model: 'Corolla', category: 'Middle', transmission: 'Automatic', fuel: 'Hybrid', image_url: null, count: 2,
+      plates: [{ car_id: 1, plate: '34 ABC 123' }, { car_id: 2, plate: '34 XYZ 9' }] },
+    { model_group_id: null, name: null, brand: null, model: null, category: null, transmission: null, fuel: null, image_url: null, count: 1,
+      plates: [{ car_id: 3, plate: '34 NEW 1' }] },
   ],
   ...overrides,
 });
@@ -46,7 +45,7 @@ describe('parseInvestor', () => {
     const investor = parseInvestor(raw());
     expect(investor.commissionRate).toBe(25);
     expect(investor.modelGroups).toHaveLength(2);
-    expect(investor.modelGroups[0].plates[1]).toEqual({ carId: 2, plate: '34 XYZ 9', active: true });
+    expect(investor.modelGroups[0].plates[1]).toEqual({ carId: 2, plate: '34 XYZ 9' });
     expect(investor.modelGroups[1].id).toBeNull();
   });
 
@@ -77,12 +76,12 @@ describe('reading an investor', () => {
 
 describe('tiles', () => {
   const a = parseInvestor(raw());
-  const b = parseInvestor(raw({ id: 'b2', is_active: false, cars_total: 0, cars_active: 0, cars_rented_now: 0, utilization_pct: null, month_in: 0, month_out: 0, model_groups: [] }));
-  const c = parseInvestor(raw({ id: 'c3', cars_active: 6, utilization_pct: 90, month_in: 5000, month_out: 1000 }));
+  const b = parseInvestor(raw({ id: 'b2', is_active: false, cars_total: 0, cars_rented_now: 0, utilization_pct: null, month_in: 0, month_out: 0, model_groups: [] }));
+  const c = parseInvestor(raw({ id: 'c3', cars_total: 6, utilization_pct: 90, month_in: 5000, month_out: 1000 }));
 
-  it('weights utilization by active cars and counts each filter', () => {
+  it('weights utilization by cars and counts each filter', () => {
     const totals = investorTotals([a, b, c]);
-    expect(totals.utilization).toBe(80); // (50×2 + 90×6) / 8
+    expect(totals.utilization).toBe(76.7); // (50×3 + 90×6) / 9
     expect(totals.net).toBe(3500);
     expect(totals.counts).toEqual({ cars: 2, rented: 2, low: 1, in: 2, out: 2, net: 1 });
     expect(totals.activeInvestors).toBe(2);

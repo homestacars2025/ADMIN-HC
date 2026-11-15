@@ -249,7 +249,6 @@ const ModelCard: React.FC<{ group: InvestorModelGroup; onOpenCar: (carId: number
   const label = modelLabel(group);
   const tone = categoryTone(group.category);
   const platesId = useId();
-  const inactive = group.count - group.active;
 
   return (
     <li className="flex min-w-0 flex-col rounded-[18px] border border-subtle bg-surface p-2.5">
@@ -269,8 +268,6 @@ const ModelCard: React.FC<{ group: InvestorModelGroup; onOpenCar: (carId: number
           </div>
           <p className="shrink-0 text-end text-[12.5px] tabular-nums text-black/55">
             <span className="font-semibold text-foreground">{group.count}</span> {group.count === 1 ? 'car' : 'cars'}
-            <span className="text-black/35"> · </span>
-            <span className="text-[#166534]">{group.active} active</span>
           </p>
         </div>
         {(group.transmission || group.fuel) && (
@@ -286,7 +283,7 @@ const ModelCard: React.FC<{ group: InvestorModelGroup; onOpenCar: (carId: number
           onClick={() => setOpen((value) => !value)}
           className="mt-3 flex h-11 w-full items-center justify-between rounded-[12px] bg-black/[0.035] px-3 text-[13px] font-medium text-black/70 transition-colors hover:bg-black/[0.06] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:h-9"
         >
-          <span>{open ? 'Hide plates' : 'Show plates'}{inactive > 0 && <span className="font-normal text-black/40"> · {inactive} inactive</span>}</span>
+          <span>{open ? 'Hide plates' : 'Show plates'}</span>
           <ChevronDown size={15} className={cn('transition-transform', open && 'rotate-180')} />
         </button>
         {open && (
@@ -296,17 +293,11 @@ const ModelCard: React.FC<{ group: InvestorModelGroup; onOpenCar: (carId: number
                 <button
                   type="button"
                   onClick={() => onOpenCar(plate.carId)}
-                  title={plate.active ? 'Open the car' : 'Inactive · open the car'}
-                  className={cn(
-                    'inline-flex h-11 items-center gap-1.5 rounded-full border px-3 font-mono text-[12.5px] font-semibold tabular-nums tracking-[0.02em] transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:h-8',
-                    plate.active
-                      ? 'border-[#22C55E]/30 bg-[#22C55E]/[0.07] text-[#14532D] hover:bg-[#22C55E]/[0.14]'
-                      : 'border-black/[0.08] bg-black/[0.03] text-black/40 line-through decoration-black/25 hover:bg-black/[0.06]',
-                  )}
+                  title="Open the car"
+                  className="inline-flex h-11 items-center gap-1.5 rounded-full border border-[#22C55E]/30 bg-[#22C55E]/[0.07] px-3 font-mono text-[12.5px] font-semibold tabular-nums tracking-[0.02em] text-[#14532D] transition-colors hover:bg-[#22C55E]/[0.14] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:h-8"
                 >
-                  <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', plate.active ? 'bg-[#22C55E]' : 'bg-black/25')} />
+                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#22C55E]" />
                   {plate.plate}
-                  <span className="sr-only">{plate.active ? ', active' : ', inactive'}</span>
                 </button>
               </li>
             ))}
@@ -325,17 +316,17 @@ const MonthTab: React.FC<{ investor: InvestorOverview; month: string; monthLabel
   return (
     <div className="flex flex-col gap-4">
       <section aria-label={`Utilization in ${monthLabel}`} className="flex flex-col items-center gap-5 rounded-[20px] border border-subtle bg-surface p-5 sm:flex-row sm:p-6">
-        <GroupUtilizationRing rate={investor.carsActive > 0 ? investor.utilization : null} size={112} />
+        <GroupUtilizationRing rate={investor.carsTotal > 0 ? investor.utilization : null} size={112} />
         <div className="min-w-0 text-center sm:text-start">
           <p className="text-[12.5px] text-black/45">Utilization · {monthLabel}</p>
           <p className="mt-1 text-[15px] text-foreground">
-            {investor.carsActive > 0
-              ? <>Rented days over the days of <span className="font-semibold tabular-nums">{investor.carsActive}</span> active {investor.carsActive === 1 ? 'car' : 'cars'}.</>
-              : 'No active car to measure this month.'}
+            {investor.carsTotal > 0
+              ? <>Rented days over the days of <span className="font-semibold tabular-nums">{investor.carsTotal}</span> {investor.carsTotal === 1 ? 'car' : 'cars'} in service.</>
+              : 'No car in service to measure this month.'}
           </p>
           <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#22C55E]/[0.1] px-3 py-1.5 text-[13px] text-[#14532D]">
             <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', investor.carsRentedNow > 0 ? 'bg-[#22C55E]' : 'bg-black/25')} />
-            Rented now <span className="font-semibold tabular-nums">{investor.carsRentedNow}/{investor.carsActive}</span>
+            Rented now <span className="font-semibold tabular-nums">{investor.carsRentedNow}/{investor.carsTotal}</span>
           </p>
         </div>
       </section>

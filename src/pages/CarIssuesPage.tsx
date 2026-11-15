@@ -71,7 +71,9 @@ const CarIssuesPage: React.FC = () => {
     Promise.all([fetchIssues(), fetchFineCars()])
       .then(([loaded, carRows]) => {
         if (cancelled) return;
-        setIssues(loaded.issues);
+        // A current board: issues on sold cars (is_active = false) are archive and stay out.
+        const inService = new Set(carRows.filter((car) => !car.inactive).map((car) => car.id));
+        setIssues(loaded.issues.filter((issue) => inService.has(issue.car_id)));
         setStaff(loaded.staff);
         setCars(carRows);
       })

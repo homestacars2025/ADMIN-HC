@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, Check, StickyNote, Tag } from '../../components/media/MediaIcons';
 import { Button } from '../../components/media/MediaUI';
 import { FuelRangeInput } from '../../components/shared/FuelRangeInput';
+import { SoldChip } from '../../components/shared/SoldChip';
 import { CustomerAvatar } from '../../components/shared/PersonAvatar';
 import { formatDays, formatShortRange, friendlyBookingError, rangeDays, type CarChoice } from '../../lib/bookingForm';
 import { checkCustomerBan, formatDate, istanbulDate, type BanMatch } from '../../lib/customers';
@@ -123,6 +124,9 @@ export const ReplacementSheet: React.FC<{
   const originalCar = cars.find((car) => String(car.id) === originalCarId) ?? null;
   const chosenCar = cars.find((car) => String(car.id) === replacementCarId) ?? null;
   const selectedBooking = useMemo(() => carBookings.find((booking) => String(booking.id) === bookingId) ?? null, [carBookings, bookingId]);
+
+  // Sold cars (is_active = false) are archive: never offered as the original car either.
+  const originalChoices = useMemo(() => cars.filter((car) => !car.inactive), [cars]);
 
   // Only active cars can be handed out, and never the car being replaced.
   const replacementCars = useMemo(
@@ -318,11 +322,12 @@ export const ReplacementSheet: React.FC<{
               <SelectedRow action="Change" onAction={() => pickOriginalCar('')}>
                 <span className="flex min-w-0 items-center gap-2">
                   <LicensePlate plate={originalCar.plate_number} />
-                  <span className="truncate">{originalCar.model}{originalCar.inactive ? ' · inactive' : ''}</span>
+                  <span className="truncate">{originalCar.model}</span>
+                  {originalCar.inactive && <SoldChip />}
                 </span>
               </SelectedRow>
             ) : (
-              <CarPicker label="Original car" required cars={cars} value={originalCarId} onChange={pickOriginalCar} />
+              <CarPicker label="Original car" required cars={originalChoices} value={originalCarId} onChange={pickOriginalCar} />
             )}
 
             {originalCar && (

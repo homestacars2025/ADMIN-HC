@@ -117,10 +117,13 @@ export async function fetchPricingTiers(): Promise<PricingTier[]> {
   }));
 }
 
-/** The group's cars with today's status and the month's utilization, fetched side by side. */
+/**
+ * The group's cars with today's status and the month's utilization, fetched side by side.
+ * Cars in service only: a sold car (is_active = false) is archive and never part of a group.
+ */
 export async function fetchGroupCars(groupId: number, month: string): Promise<GroupCar[]> {
   const [cars, availability, utilization] = await Promise.all([
-    supabase.from('cars').select('id, plate_number, is_active').eq('model_group_id', groupId),
+    supabase.from('cars').select('id, plate_number, is_active').eq('model_group_id', groupId).eq('is_active', true),
     supabase.from('car_availability').select('id, status'),
     fetchUtilization(month),
   ]);

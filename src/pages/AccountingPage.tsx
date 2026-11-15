@@ -8,6 +8,7 @@ import StaffAvatar from '../components/shared/StaffAvatar';
 import { CustomerAvatar } from '../components/shared/PersonAvatar';
 import { Button } from '../components/media/MediaUI';
 import { CarThumb } from '../components/shared/CarThumb';
+import { SoldChip } from '../components/shared/SoldChip';
 import { COMPANY_EXPENSE_CATEGORIES, fetchPendingSummary, fetchSuggestedExpenses, type PendingSummary } from '../lib/expenseApprovals';
 import { CashEnvelopesTab } from './accounting/CashEnvelopesTab';
 import { CustomerWalletsTab } from './accounting/CustomerWalletsTab';
@@ -60,6 +61,8 @@ interface CarInfo {
   id: number;
   plate_number: string;
   model_name: string;
+  /** False for a sold car: its sheet is history, marked Sold. */
+  is_active: boolean;
 }
 
 type PanelKey = 'company' | 'personal' | 'buy_sell' | `car:${number}`;
@@ -550,7 +553,9 @@ const SummaryView: React.FC<{ txs: FinancialTransaction[]; loading: boolean; mon
       const delta = t.direction?.toUpperCase() === 'IN' ? (t.amount ?? 0) : -(t.amount ?? 0);
       carNetMap.set(t.car_id!, (carNetMap.get(t.car_id!) ?? 0) + delta);
     });
+  // A ranking of the fleet: carsMap holds cars in service only, so sold cars stay out of it.
   const topCars = Array.from(carNetMap.entries())
+    .filter(([carId]) => carsMap.has(carId))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([carId, net]) => ({
@@ -2236,6 +2241,8 @@ const OverviewTab: React.FC = () => {
 interface SheetCar {
   id: number;
   plate_number: string;
+  /** A sold car's sheet is history: still listed by its lines, marked Sold. */
+  is_active: boolean | null;
   investor_id: string | null;
   model_group: { name: string; image_url: string | null } | { name: string; image_url: string | null }[] | null;
 }
@@ -2282,7 +2289,7 @@ const CarSheetsList: React.FC<{ onExpensesChanged: () => void }> = ({ onExpenses
     setError(null);
     Promise.all([
       supabase.from('financial_transactions').select('*').eq('month_key', monthKey).eq('sheet_type', 'car').order('date', { ascending: false }),
-      supabase.from('cars').select('id, plate_number, investor_id, model_group:model_group_id(name, image_url)'),
+      supabase.from('cars').select('id, plate_number, is_active, investor_id, model_group:model_group_id(name, image_url)'),
       supabase.from('investors').select('id, company_name, profiles!fk_investor_profile(full_name)'),
     ]).then(([txRes, carRes, investorRes]) => {
       if (cancelled) return;
@@ -2319,6 +2326,7 @@ const CarSheetsList: React.FC<{ onExpensesChanged: () => void }> = ({ onExpenses
       return {
         id,
         plate: car?.plate_number ?? '—',
+        sold: car?.is_active === false,
         model: group?.name ?? null,
         image: group?.image_url ?? null,
         investor: car?.investor_id ? investors[String(car.investor_id)] ?? null : null,
@@ -2387,7 +2395,7 @@ const CarSheetsList: React.FC<{ onExpensesChanged: () => void }> = ({ onExpenses
                   <span className="flex min-w-[190px] flex-1 items-center gap-2.5">
                     <CarThumb src={row.image} />
                     <span className="min-w-0">
-                      <LicensePlate plate={row.plate} />
+                      <span className="flex items-center gap-1.5"><LicensePlate plate={row.plate} />{row.sold && <SoldChip />}</span>
                       <span className="mt-1 block truncate text-[12.5px] text-black/55">{[row.model, row.investor].filter(Boolean).join(' · ') || '—'}</span>
                     </span>
                   </span>
@@ -2651,7 +2659,7 @@ export const CarCustomerSheetPage: React.FC = () => {
   const loadData = async () => {
     const [carRes, bookingsRes, ledgerRes] = await Promise.all([
       supabase.from('cars')
-        .select('id, plate_number, model_group:model_group_id(name)')
+        .select('id, plate_number, is_active, model_group:model_group_id(name)')
         .eq('id', carId)
         .single(),
       // Customers appear because they BOOKED this car — regardless of any transactions.
@@ -2667,7 +2675,7 @@ export const CarCustomerSheetPage: React.FC = () => {
     ]);
     const raw = carRes.data as any;
     const mg  = raw?.model_group;
-    setCar({ id: raw?.id ?? carId, plate_number: raw?.plate_number ?? '—', model_name: Array.isArray(mg) ? (mg[0]?.name ?? '—') : (mg?.name ?? '—') });
+    setCar({ id: raw?.id ?? carId, plate_number: raw?.plate_number ?? '—', model_name: Array.isArray(mg) ? (mg[0]?.name ?? '—') : (mg?.name ?? '—'), is_active: raw?.is_active !== false });
 
     setLedger((ledgerRes.data ?? []) as CustomerLedgerEntry[]);
     setBookings((bookingsRes.data ?? []) as unknown as CarBookingRow[]);
@@ -2763,7 +2771,7 @@ export const CarCustomerSheetPage: React.FC = () => {
           Car sheets
         </button>
         <div>
-          <h1 className="font-mono tabular-nums" style={{ fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.6px', margin: 0, lineHeight: 1.1 }}>{car?.plate_number}</h1>
+          <h1 className="flex items-center gap-2 font-mono tabular-nums" style={{ fontSize: 22, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.6px', margin: 0, lineHeight: 1.1 }}>{car?.plate_number}{car && !car.is_active && <SoldChip className="font-sans tracking-normal" />}</h1>
           <p style={{ fontSize: 13, color: '#9ca3af', margin: '3px 0 0' }}>{car?.model_name}</p>
         </div>
       </div>

@@ -204,10 +204,17 @@ export interface CalendarConflict {
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
 
+/** The month's conflicts on cars in service. The RPC reads every car, so sold ones are dropped here. */
 export async function fetchConflicts(month: string): Promise<CalendarConflict[]> {
-  const { data, error } = await supabase.rpc('calendar_conflicts', { p_month: monthStart(month) });
+  const [{ data, error }, active] = await Promise.all([
+    supabase.rpc('calendar_conflicts', { p_month: monthStart(month) }),
+    supabase.from('cars').select('id').eq('is_active', true),
+  ]);
   if (error) throw new Error(error.message);
+  if (active.error) throw new Error(active.error.message);
+  const inService = new Set(((active.data ?? []) as Array<{ id: number }>).map((car) => Number(car.id)));
   return ((data ?? []) as Array<Record<string, unknown>>)
+    .filter((row) => inService.has(Number(row.car_id)))
     .map((row) => ({
       kind: String(row.kind),
       severity: (['high', 'medium', 'low'].includes(String(row.severity)) ? row.severity : 'low') as Severity,

@@ -1,10 +1,9 @@
 import { supabase } from './supabase';
 
-/** One plate of an investor's model group. */
+/** One plate of an investor's model group. Always a car in service: the RPC leaves sold cars out. */
 export interface InvestorPlate {
   carId: number;
   plate: string;
-  active: boolean;
 }
 
 /** An investor's cars of one model. `id` is null for cars with no model group. */
@@ -18,11 +17,13 @@ export interface InvestorModelGroup {
   fuel: string | null;
   imageUrl: string | null;
   count: number;
-  active: number;
   plates: InvestorPlate[];
 }
 
-/** One row of `admin_investors_overview`, figures for the month asked for. */
+/**
+ * One row of `admin_investors_overview`, figures for the month asked for. The RPC counts
+ * only cars in service (cars.is_active): sold cars are archive and never part of a fleet.
+ */
 export interface InvestorOverview {
   id: string;
   companyName: string | null;
@@ -37,10 +38,9 @@ export interface InvestorOverview {
   totalInvestment: number | null;
   createdAt: string;
   carsTotal: number;
-  carsActive: number;
   modelTypes: number;
   carsRentedNow: number;
-  /** Null when the investor has no active car to measure. */
+  /** Null when the investor has no car to measure. */
   utilization: number | null;
   monthIn: number;
   monthOut: number;
@@ -68,8 +68,7 @@ function parseGroup(raw: Json): InvestorModelGroup {
     fuel: text(raw.fuel),
     imageUrl: text(raw.image_url),
     count: num(raw.count),
-    active: num(raw.active),
-    plates: plates.map((plate) => ({ carId: num(plate.car_id), plate: text(plate.plate) ?? '—', active: plate.active === true })),
+    plates: plates.map((plate) => ({ carId: num(plate.car_id), plate: text(plate.plate) ?? '—' })),
   };
 }
 
@@ -89,7 +88,6 @@ export function parseInvestor(raw: Json): InvestorOverview {
     totalInvestment: numOrNull(raw.total_investment),
     createdAt: String(raw.created_at ?? ''),
     carsTotal: num(raw.cars_total),
-    carsActive: num(raw.cars_active),
     modelTypes: num(raw.model_types),
     carsRentedNow: num(raw.cars_rented_now),
     utilization: numOrNull(raw.utilization_pct),
@@ -171,9 +169,8 @@ export interface InvestorTotals {
   investors: number;
   activeInvestors: number;
   cars: number;
-  carsActive: number;
   rentedNow: number;
-  /** The whole fleet's: each investor's rate weighted by their active cars. Null with no active car. */
+  /** The whole fleet's: each investor's rate weighted by their cars. Null with no car. */
   utilization: number | null;
   monthIn: number;
   monthOut: number;
@@ -186,20 +183,19 @@ export function investorTotals(investors: InvestorOverview[]): InvestorTotals {
   let weight = 0;
   const counts = Object.fromEntries(INVESTOR_FILTERS.map((key) => [key, 0])) as Record<InvestorFilter, number>;
   const totals = investors.reduce((sum, investor) => {
-    if (investor.utilization !== null && investor.carsActive > 0) {
-      weighted += investor.utilization * investor.carsActive;
-      weight += investor.carsActive;
+    if (investor.utilization !== null && investor.carsTotal > 0) {
+      weighted += investor.utilization * investor.carsTotal;
+      weight += investor.carsTotal;
     }
     INVESTOR_FILTERS.forEach((key) => { if (matchesInvestorFilter(investor, key)) counts[key] += 1; });
     return {
       activeInvestors: sum.activeInvestors + (investor.isActive ? 1 : 0),
       cars: sum.cars + investor.carsTotal,
-      carsActive: sum.carsActive + investor.carsActive,
       rentedNow: sum.rentedNow + investor.carsRentedNow,
       monthIn: sum.monthIn + investor.monthIn,
       monthOut: sum.monthOut + investor.monthOut,
     };
-  }, { activeInvestors: 0, cars: 0, carsActive: 0, rentedNow: 0, monthIn: 0, monthOut: 0 });
+  }, { activeInvestors: 0, cars: 0, rentedNow: 0, monthIn: 0, monthOut: 0 });
   return {
     investors: investors.length,
     ...totals,

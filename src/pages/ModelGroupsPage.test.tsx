@@ -101,7 +101,9 @@ test('View cars opens the group\'s cars with their plates, status and utilizatio
   await within(drawer).findByText('34ABC101');
   expect(within(drawer).getByText('Working')).toBeInTheDocument();
   expect(within(drawer).getByRole('img', { name: /Utilization 90%/ })).toBeInTheDocument();
-  expect(within(drawer).getByText('Inactive · 1')).toBeInTheDocument();
+  // A sold car (is_active = false) is archive: never listed in the group.
+  expect(within(drawer).getByText('In service · 1')).toBeInTheDocument();
+  expect(within(drawer).queryByText('34KDT102')).not.toBeInTheDocument();
 });
 
 test('Edit opens the drawer, counts unsaved changes and asks before discarding them', async () => {

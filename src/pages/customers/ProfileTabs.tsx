@@ -18,6 +18,7 @@ import {
   type ProfileBooking,
   type ReviewStatus,
 } from '../../lib/customers';
+import { SoldChip } from '../../components/shared/SoldChip';
 import { cn } from '../../lib/media/badgeColor';
 import { formatTry } from '../../lib/payroll';
 import { CarIcon, EmptyNote, Panel, PlateChip, StarIcon, StatusPill } from './ui';
@@ -117,6 +118,7 @@ export const BookingsTab: React.FC<{ bookings: ProfileBooking[] }> = ({ bookings
             <li key={booking.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 border-b border-black/[0.05] py-3 first:pt-0 last:border-b-0 last:pb-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <PlateChip plate={car.plate} />
+                {car.sold && <SoldChip />}
                 <span className="truncate text-[13.5px] font-medium text-foreground">{car.model ?? `Car #${booking.car_id}`}</span>
               </div>
               <div className="justify-self-end"><StatusPill status={booking.status} /></div>

@@ -20,6 +20,7 @@ import {
   ExpiryCell,
 } from './cars/ComplianceAlert';
 import { EditCarSheet } from './cars/EditCarSheet';
+import { SoldCarsArchive } from './cars/SoldCarsArchive';
 import { matchesSpareKey, parseSpareKeyFilter, SPARE_KEY_PARAM, type SpareKeyFilter } from '../lib/carEditor';
 
 // ─── Car Table Types ──────────────────────────────────────────────────────────
@@ -422,6 +423,13 @@ const CarsPage: React.FC = () => {
   // "Fix now" arrives with ?issues=1, and an expiry notification with ?car=<id>.
   const wantsIssues = searchParams.get('issues') === '1';
   const targetCar = Number(searchParams.get('car')) || null;
+  // Sold cars (is_active = false) stay out of the fleet; ?sold=1 opens their archive below it.
+  const showSold = searchParams.get('sold') === '1';
+  const toggleSold = () => {
+    const next = new URLSearchParams(searchParams);
+    if (showSold) next.delete('sold'); else next.set('sold', '1');
+    setSearchParams(next, { replace: true });
+  };
 
   const [editingCarId, setEditingCarId] = useState<number | null>(null);
   const [editFocusDocs, setEditFocusDocs] = useState<ComplianceDoc[]>([]);
@@ -770,6 +778,20 @@ const CarsPage: React.FC = () => {
             <option value="yes">Spare key: Yes</option>
             <option value="no">Spare key: No</option>
           </select>
+          <button
+            type="button"
+            aria-pressed={showSold}
+            onClick={toggleSold}
+            className={cn(
+              'inline-flex h-11 shrink-0 items-center gap-2 rounded-[9px] border px-3 text-[13px] font-medium transition-colors md:h-9',
+              showSold ? 'border-black/25 bg-black/[0.06] text-foreground' : 'border-[#e5e7eb] bg-white text-black/60 hover:border-black/20',
+            )}
+          >
+            <span aria-hidden="true" className={cn('relative h-4 w-7 rounded-full transition-colors', showSold ? 'bg-black/60' : 'bg-black/15')}>
+              <span className={cn('absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-[left]', showSold ? 'left-[14px]' : 'left-0.5')} />
+            </span>
+            Show sold cars (archive)
+          </button>
           {/* Search */}
           <div className="relative min-w-0 flex-1 sm:w-[220px] sm:flex-none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
@@ -1027,6 +1049,8 @@ const CarsPage: React.FC = () => {
             </table>
           </div>
         </div>
+
+        {showSold && <SoldCarsArchive search={tableSearch} />}
       </div>
 
       <style>{`

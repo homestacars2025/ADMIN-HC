@@ -69,8 +69,13 @@ export const FineFormSheet: React.FC<{
   const editing = Boolean(fine);
   const paidAlready = fine?.status === 'paid';
 
-  // Only cars in service can be chosen, but a fine on a retired car still shows it.
-  const choices = useMemo(() => cars.filter((car) => !car.inactive || car.id === fine?.car_id), [cars, fine?.car_id]);
+  // Only cars in service can be chosen, but a fine on a sold car still shows it, marked Sold.
+  const choices = useMemo(
+    () => cars
+      .filter((car) => !car.inactive || car.id === fine?.car_id)
+      .map((car) => (car.inactive ? { ...car, model: `${car.model} · Sold` } : car)),
+    [cars, fine?.car_id],
+  );
 
   const set = <K extends keyof FineFields>(key: K, value: FineFields[K]) => {
     setForm((current) => ({ ...current, [key]: value }));

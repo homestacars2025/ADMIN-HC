@@ -99,6 +99,8 @@ export interface CustomerDirectory {
 
 export interface ProfileCar {
   plate_number: string;
+  /** False for a sold car: the booking is history, marked Sold. */
+  is_active?: boolean | null;
   car_photo_urls: Array<{ url: string }> | null;
   model_group: Joined<{ name: string; image_url: string | null; min_age: number | null }>;
 }
@@ -455,7 +457,7 @@ export async function fetchCustomerProfile(id: string): Promise<CustomerProfile 
     supabase
       .from('bookings')
       .select(`id, booking_number, car_id, start_date, end_date, status, insurance_type, total_amount,
-        is_currently_active, cars(plate_number, car_photo_urls, model_group(name, image_url, min_age))`)
+        is_currently_active, cars(plate_number, is_active, car_photo_urls, model_group(name, image_url, min_age))`)
       .eq('customer_id', id)
       .order('start_date', { ascending: false }),
     supabase
@@ -773,6 +775,7 @@ export function bookingCar(booking: ProfileBooking) {
   const model = one(car?.model_group);
   return {
     plate: car?.plate_number ?? null,
+    sold: car?.is_active === false,
     model: model?.name ?? null,
     minAge: model?.min_age ?? null,
     photo: car?.car_photo_urls?.[0]?.url ?? model?.image_url ?? null,

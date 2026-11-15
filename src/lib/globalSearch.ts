@@ -83,6 +83,8 @@ export async function searchRecords(query: string): Promise<SearchResult[]> {
     supabase
       .from('cars')
       .select('id, plate_number, model_group(name)')
+      // Cars in service only: sold cars are archive and never come up as a current car.
+      .eq('is_active', true)
       .or([`plate_number.ilike.${platePattern}`, modelIds.length ? `model_group_id.in.(${modelIds.join(',')})` : null].filter(Boolean).join(','))
       .limit(LIMIT),
     supabase
