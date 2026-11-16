@@ -12,6 +12,7 @@ const mockFetchCarTransits = jest.fn();
 const mockSaveHgsBarcode = jest.fn();
 const mockFetchStatementBookings = jest.fn();
 const mockRenderStatementPdf = jest.fn();
+const mockFetchHgsFreshness = jest.fn();
 
 jest.mock('../lib/hgs', () => {
   const actual = jest.requireActual('../lib/hgs');
@@ -21,7 +22,13 @@ jest.mock('../lib/hgs', () => {
     fetchCarTransits: (...a: unknown[]) => mockFetchCarTransits(...a),
     saveHgsBarcode: (...a: unknown[]) => mockSaveHgsBarcode(...a),
     fetchStatementBookings: (...a: unknown[]) => mockFetchStatementBookings(...a),
+    fetchHgsFreshness: (...a: unknown[]) => mockFetchHgsFreshness(...a),
   };
+});
+jest.mock('../lib/ledgerActors', () => {
+  const actual = jest.requireActual('../lib/ledgerActors');
+  const people = new Map([['u1', { id: 'u1', fullName: 'Sara Kaya', avatarUrl: null, avatarBg: null, gender: null, role: 'admin' }]]);
+  return { ...actual, useLedgerActors: () => ({ actors: people, loading: false, error: null }) };
 });
 jest.mock('./hgs/HgsStatementPdf', () => ({ renderStatementPdf: (...a: unknown[]) => mockRenderStatementPdf(...a) }));
 
@@ -42,9 +49,18 @@ const DATA = {
   lastSync: new Date(Date.now() - 12 * 60000).toISOString(),
 };
 
+const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3600000).toISOString();
+const FRESHNESS = new Map([
+  [39, { carId: 39, uploadedAt: hoursAgo(2), uploadedBy: 'u1', uploadedByName: 'Sara Kaya', inserted: 12, lastTransitAt: `${month}-03T11:04:00+00:00`, daysSinceUpload: 0, freshness: 'fresh' }],
+  [51, { carId: 51, uploadedAt: hoursAgo(24 * 9), uploadedBy: 'u1', uploadedByName: 'Sara Kaya', inserted: 0, lastTransitAt: `${lastMonth}-10T08:00:00+00:00`, daysSinceUpload: 9, freshness: 'old' }],
+  [57, { carId: 57, uploadedAt: null, uploadedBy: null, uploadedByName: null, inserted: null, lastTransitAt: null, daysSinceUpload: null, freshness: 'never' }],
+]);
+
 const Where: React.FC = () => <span data-testid="where">{useLocation().search}</span>;
 const renderPage = (url = '/dashboard/hgs') => render(<MemoryRouter initialEntries={[url]}><HGSPage /><Where /></MemoryRouter>);
 const plates = () => screen.getAllByText(/^(06FHN975|34HGC631)$/).filter((n) => n.closest('li[class*="rounded-2xl"]')).map((n) => n.textContent);
+
+const carRow = (plate: string) => screen.getAllByText(plate).map((n) => n.closest('li[class*="rounded-2xl"]')).find(Boolean) as HTMLElement;
 
 const mockScrollIntoView = jest.fn();
 beforeAll(() => { Element.prototype.scrollIntoView = mockScrollIntoView; });
@@ -57,6 +73,7 @@ beforeEach(() => {
     { id: 1, day: `${month}-02`, at: `${month}-02T08:00:00+00:00`, entry: 'ORHANLI', exit: 'KURTKÖY SGS', road: 'İSTANBUL-ANKARA OTOYOLU', roadType: 'public', amount: 148.5, bookingId: null, bookingNumber: null, bookingMonth: null, customerId: null, customerName: null },
   ]);
   mockSaveHgsBarcode.mockReset();
+  mockFetchHgsFreshness.mockReset().mockResolvedValue(FRESHNESS);
   mockFetchStatementBookings.mockReset().mockResolvedValue([]);
   mockRenderStatementPdf.mockReset().mockResolvedValue(new Blob(['%PDF'], { type: 'application/pdf' }));
 });
@@ -93,20 +110,30 @@ test('tiles follow the month, and All time', async () => {
 test('the Transits tile filters to cars that used it, and clicking it again clears', async () => {
   renderPage();
   await screen.findByRole('button', { name: /Transits\s*\d/ });
-  expect(plates()).toEqual(['06FHN975', '34HGC631']);
+  await screen.findByRole('button', { name: /Up to date/ });
+  // Oldest update first: 34HGC631's file is 9 days old, 06FHN975's 2 hours.
+  expect(plates()).toEqual(['34HGC631', '06FHN975']);
   const tile = screen.getByRole('button', { name: /Transits\s*\d/ });
   await userEvent.click(tile);
   expect(tile).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByTestId('where')).toHaveTextContent('filter=used');
   expect(plates()).toEqual(['06FHN975']);
   await userEvent.click(tile);
-  expect(plates()).toEqual(['06FHN975', '34HGC631']);
+  expect(plates()).toEqual(['34HGC631', '06FHN975']);
 });
 
 test('sorts and searches', async () => {
   renderPage('/dashboard/hgs?month=all');
   await screen.findByRole('button', { name: /Total spend/ });
+  await screen.findByRole('button', { name: /Up to date/ });
+  // Oldest update first by default: 34HGC631 was 9 days ago, 06FHN975 2 hours ago.
+  expect(screen.getByRole('button', { name: 'Last update' })).toHaveAttribute('aria-pressed', 'true');
   expect(plates()).toEqual(['34HGC631', '06FHN975']);
+  await userEvent.click(screen.getByRole('button', { name: 'Amount' }));
+  expect(screen.getByTestId('where')).toHaveTextContent('sort=amount');
+  expect(plates()).toEqual(['34HGC631', '06FHN975']);
+  await userEvent.click(screen.getByRole('button', { name: 'Last update' }));
+  expect(screen.getByTestId('where')).not.toHaveTextContent('sort=');
   await userEvent.click(screen.getByRole('button', { name: 'Transits' }));
   expect(plates()).toEqual(['06FHN975', '34HGC631']);
   await userEvent.type(screen.getByRole('searchbox'), 'clio');
@@ -144,11 +171,13 @@ test('the banner follows the month, and all time is never', async () => {
 test('the Cars on HGS tile filters to the banner cars, and clicking it again clears', async () => {
   renderPage();
   const tile = await screen.findByRole('button', { name: /Cars on HGS/ });
+  await screen.findByRole('button', { name: /Up to date/ });
   await userEvent.click(tile);
   expect(tile).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByTestId('where')).toHaveTextContent('filter=idle');
   const listed = screen.getAllByText(/^(06FHN975|34HGC631|34MDJ129)$/).filter((n) => n.closest('li[id^="hgs-row-"]')).map((n) => n.textContent);
-  expect(listed).toEqual(['34HGC631', '34MDJ129']);
+  // Never uploaded comes before an old file.
+  expect(listed).toEqual(['34MDJ129', '34HGC631']);
   await userEvent.click(tile);
   expect(screen.getByTestId('where')).not.toHaveTextContent('filter=');
 });
@@ -333,4 +362,51 @@ describe('the PDF statement', () => {
     expect(await sheet.findByRole('alert')).toHaveTextContent('font failed to load');
     expect(sheet.getByRole('button', { name: 'Download PDF' })).toBeEnabled();
   });
+});
+
+test('every car shows its last update: freshness, when, who, what it added, and its last transit', async () => {
+  renderPage();
+  await screen.findByText('06FHN975');
+  const row = carRow('06FHN975');
+  await waitFor(() => expect(within(row).getByText('Up to date')).toBeInTheDocument());
+  expect(within(row).getByText('2h ago')).toHaveAttribute('dateTime', FRESHNESS.get(39)!.uploadedAt);
+  expect(within(row).getByText('Sara Kaya')).toBeInTheDocument();
+  expect(within(row).getByText('+12 new')).toBeInTheDocument();
+  expect(within(row).getByText(/^Last transit: \d+ \w+ \d{4}$/)).toBeInTheDocument();
+
+  fireEvent.focus(within(row).getByText('2h ago'));
+  expect(await screen.findByRole('tooltip')).toHaveTextContent(/\d{4}, \d{2}:\d{2}$/);
+
+  const old = carRow('34HGC631');
+  expect(within(old).getByText('Old')).toBeInTheDocument();
+  expect(within(old).getByText('9 days ago')).toBeInTheDocument();
+  const never = carRow('34MDJ129');
+  expect(within(never).getByText('Never uploaded')).toBeInTheDocument();
+  expect(within(never).getByText('Last transit: —')).toBeInTheDocument();
+});
+
+test('freshness tiles count the cars and filter the list; the banner says how many are behind', async () => {
+  renderPage();
+  const fresh = await screen.findByRole('button', { name: /Up to date/ });
+  expect(fresh).toHaveTextContent('1');
+  expect(screen.getByRole('button', { name: /^Stale/ })).toHaveTextContent('0');
+  expect(screen.getByRole('button', { name: /^Old/ })).toHaveTextContent('1');
+  expect(screen.getByRole('button', { name: /^Never uploaded/ })).toHaveTextContent('1');
+  expect(screen.getByRole('alert')).toHaveTextContent('2 cars need a new portal file: 1 old and 1 never uploaded');
+
+  await userEvent.click(screen.getByRole('button', { name: /^Old/ }));
+  expect(screen.getByTestId('where')).toHaveTextContent('filter=old');
+  expect(plates()).toEqual(['34HGC631']);
+  await userEvent.click(screen.getByRole('button', { name: /^Stale/ }));
+  expect(screen.getByText('No car is stale')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /^Stale/ }));
+  expect(screen.getByTestId('where')).not.toHaveTextContent('filter=');
+});
+
+test('if the update times fail, the page still loads and says so', async () => {
+  mockFetchHgsFreshness.mockRejectedValue(new Error('boom'));
+  renderPage();
+  expect(await screen.findByText("Couldn't load the last update times: boom")).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Total spend/ })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Up to date/ })).not.toBeInTheDocument();
 });

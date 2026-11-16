@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { useMoney } from '../../hooks/useMoney';
 import { Link } from 'react-router-dom';
-import { Button, Sheet, SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Spinner } from '../../components/media/MediaUI';
+import { Button, Sheet, SheetBody, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Spinner, Tooltip } from '../../components/media/MediaUI';
 import { ChevronDown, X } from '../../components/media/MediaIcons';
 import { CarThumb } from '../../components/shared/CarThumb';
 import { ComplianceTriangle, TONE_CLASSES } from '../../components/shared/ComplianceBits';
-import { formatCount, formatDay, formatTime, rangeChip, saveHgsBarcode, type DayRange, type HgsCarInfo, type HgsRoad, type HgsRow, type HgsTransitDetail } from '../../lib/hgs';
+import { ActorAvatar } from '../../components/shared/LedgerActors';
+import {
+  formatCount, formatDay, formatDayTime, formatTime, rangeChip, saveHgsBarcode, syncedAgo,
+  type DayRange, type FreshnessCounts, type HgsCarFreshness, type HgsCarInfo, type HgsFreshness, type HgsRoad, type HgsRow, type HgsTransitDetail,
+} from '../../lib/hgs';
+import type { LedgerActor } from '../../lib/ledgerActors';
 import { cn } from '../../lib/media/badgeColor';
 import { LicensePlate } from '../bookings/ui';
 import { DatesIcon, RangePicker } from './RangePicker';
@@ -18,9 +23,25 @@ const CHIPS_PHONE = 5;
 
 const chipClass = 'flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#92400E]/10 bg-white/85 p-1 pe-2 transition-colors hover:border-[#92400E]/30 hover:bg-white focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/40 md:min-h-0';
 
-/** `when` is "this month", "in October 2026" or "yet", after "no HGS transits". */
-export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; onPick: (car: HgsCarInfo) => void; onMore: () => void }> = ({ cars, when, onPick, onMore }) => {
-  if (cars.length === 0) return null;
+/** "2 stale, 1 old and 3 never uploaded", leaving out what's zero. */
+export function freshnessSentence(counts: FreshnessCounts): string | null {
+  const parts = ([['stale', 'stale'], ['old', 'old'], ['never', 'never uploaded']] as const)
+    .filter(([key]) => counts[key] > 0)
+    .map(([key, label]) => `${formatCount(counts[key])} ${label}`);
+  const total = counts.stale + counts.old + counts.never;
+  if (total === 0) return null;
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  return `${formatCount(total)} ${total === 1 ? 'car needs' : 'cars need'} a new portal file: ${list}`;
+}
+
+/**
+ * `when` is "this month", "in October 2026" or "yet", after "no HGS transits". `freshness`
+ * adds how many cars' portal files are stale, old or never uploaded; the banner shows for
+ * either.
+ */
+export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; freshness?: FreshnessCounts | null; onPick: (car: HgsCarInfo) => void; onMore: () => void }> = ({ cars, when, freshness, onPick, onMore }) => {
+  const behind = freshness ? freshnessSentence(freshness) : null;
+  if (cars.length === 0 && !behind) return null;
   const many = cars.length !== 1;
   const more = (shown: number, className: string) => cars.length > shown && (
     <li className={className}>
@@ -31,10 +52,15 @@ export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; onPi
     <div role="alert" className={cn('mb-4 flex max-w-[1100px] items-start gap-3 rounded-2xl border px-3.5 py-3 sm:px-4', TONE_CLASSES.amber.panel)}>
       <ComplianceTriangle tone="amber" size={44} className="shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="text-[13.5px] font-semibold leading-snug text-[#92400E] sm:text-[14px]">
-          {cars.length} {many ? 'cars have' : 'car has'} no HGS transits {when} — check {many ? 'their' : 'its'} HGS
-        </p>
-        <ul className="mt-2 flex flex-wrap items-center gap-1.5">
+        {cars.length > 0 && (
+          <p className="text-[13.5px] font-semibold leading-snug text-[#92400E] sm:text-[14px]">
+            {cars.length} {many ? 'cars have' : 'car has'} no HGS transits {when} — check {many ? 'their' : 'its'} HGS
+          </p>
+        )}
+        {behind && (
+          <p className={cn('leading-snug text-[#92400E]', cars.length > 0 ? 'mt-0.5 text-[12.5px] sm:text-[13px]' : 'text-[13.5px] font-semibold sm:text-[14px]')}>{behind}</p>
+        )}
+        {cars.length > 0 && <ul className="mt-2 flex flex-wrap items-center gap-1.5">
           {cars.slice(0, CHIPS_DESKTOP).map((car, index) => (
             <li key={car.id} className={cn(index >= CHIPS_PHONE && 'hidden sm:block')}>
               <button type="button" onClick={() => onPick(car)} aria-label={`Show ${car.plate}`} className={chipClass}>
@@ -47,7 +73,7 @@ export const NoTransitsBanner: React.FC<{ cars: HgsCarInfo[]; when: string; onPi
           ))}
           {more(CHIPS_PHONE, 'sm:hidden')}
           {more(CHIPS_DESKTOP, 'hidden sm:block')}
-        </ul>
+        </ul>}
       </div>
     </div>
   );
@@ -114,6 +140,70 @@ export const BarcodeSheet: React.FC<{ car: HgsCarInfo; onClose: () => void; onSa
   );
 };
 
+// ── When the car's portal file was last uploaded ──────────────────────────────
+
+export const FRESHNESS_LABEL: Record<HgsFreshness, string> = {
+  fresh: 'Up to date',
+  stale: 'Stale',
+  old: 'Old',
+  never: 'Never uploaded',
+};
+
+const FRESHNESS_PILL: Record<HgsFreshness, string> = {
+  fresh: 'bg-[#16A34A]/10 text-[#15803D]',
+  stale: 'bg-[#F59E0B]/15 text-[#92400E]',
+  old: 'bg-[#DC2626]/10 text-[#B91C1C]',
+  never: 'bg-black/[0.06] text-black/55',
+};
+
+const FRESHNESS_DOT: Record<HgsFreshness, string> = {
+  fresh: 'bg-[#16A34A]',
+  stale: 'bg-[#F59E0B]',
+  old: 'bg-[#DC2626]',
+  never: 'bg-black/30',
+};
+
+export const FreshnessPill: React.FC<{ level: HgsFreshness }> = ({ level }) => (
+  <span className={cn('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold', FRESHNESS_PILL[level])}>
+    <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', FRESHNESS_DOT[level])} />
+    {FRESHNESS_LABEL[level]}
+  </span>
+);
+
+/** Pill, when and by whom, what it added, and the car's latest transit. */
+export const FreshnessLine: React.FC<{ freshness: HgsCarFreshness; uploader: LedgerActor | null; now: number }> = ({ freshness, uploader, now }) => {
+  const name = freshness.uploadedByName ?? uploader?.fullName ?? null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-[#F1F1F1] px-3 py-2 text-[12px] text-black/55 sm:px-4 sm:ps-[39px]">
+      <FreshnessPill level={freshness.freshness} />
+      {freshness.uploadedAt ? (
+        <>
+          <span className="inline-flex items-center gap-1">
+            <span>Last update</span>
+            <Tooltip content={formatDayTime(freshness.uploadedAt)}>
+              <time dateTime={freshness.uploadedAt} tabIndex={0} className="rounded font-medium text-black/75 underline decoration-black/20 decoration-dotted underline-offset-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#6EA4E7]/35">
+                {syncedAgo(freshness.uploadedAt, now)}
+              </time>
+            </Tooltip>
+          </span>
+          {name && (
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <ActorAvatar actor={uploader} size={20} />
+              <span className="max-w-[180px] truncate text-black/70">{name}</span>
+            </span>
+          )}
+          {freshness.inserted !== null && (
+            <span className="whitespace-nowrap rounded-full bg-[#6EA4E7]/10 px-1.5 py-px text-[11px] font-medium tabular-nums text-[#3A74C2]">+{formatCount(freshness.inserted)} new</span>
+          )}
+        </>
+      ) : (
+        <span>No portal file uploaded for this car yet.</span>
+      )}
+      <span className="whitespace-nowrap text-[11.5px] tabular-nums text-black/40 sm:ms-auto">Last transit: {formatDay(freshness.lastTransitAt)}</span>
+    </div>
+  );
+};
+
 // ── A car ─────────────────────────────────────────────────────────────────────
 
 export interface HistoryState {
@@ -161,7 +251,11 @@ export const HgsCarRow: React.FC<{
   onAddBarcode: (row: HgsRow) => void;
   onRange: (row: HgsRow, range: DayRange | null) => void;
   onStatement: (row: HgsRow) => void;
-}> = ({ row, expanded, history, periodLabel, ownRange, fallback, today, onToggle, onRetry, onAddBarcode, onRange, onStatement }) => {
+  /** Who uploaded the car's last portal file, once the people have loaded. */
+  uploader?: LedgerActor | null;
+  /** For "2h ago", kept ticking by the page. */
+  now?: number;
+}> = ({ row, expanded, history, periodLabel, ownRange, fallback, today, onToggle, onRetry, onAddBarcode, onRange, onStatement, uploader = null, now = Date.now() }) => {
   const { format } = useMoney();
   // A car with no transit opens too, to say so and to reach its barcode.
   const openable = row.transits > 0 || row.carId !== null;
@@ -234,6 +328,7 @@ export const HgsCarRow: React.FC<{
           </RangePicker>
         </span>
       </div>
+      {row.freshness && <FreshnessLine freshness={row.freshness} uploader={uploader} now={now} />}
       {ownRange && (
         <div className="-mt-1.5 flex pb-2.5 pe-3 ps-[35px] sm:ps-[39px]">
           <button

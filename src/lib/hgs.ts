@@ -171,6 +171,64 @@ export async function fetchHgsData(): Promise<HgsData> {
   };
 }
 
+// ── When each car's portal file was last uploaded ────────────────────────────
+
+/** fresh: under 3 days; stale: 3 to 7; old: over 7; never: no file yet. Worked out by the RPC. */
+export const HGS_FRESHNESS = ['fresh', 'stale', 'old', 'never'] as const;
+export type HgsFreshness = typeof HGS_FRESHNESS[number];
+
+export interface HgsCarFreshness {
+  carId: number;
+  uploadedAt: string | null;
+  uploadedBy: string | null;
+  uploadedByName: string | null;
+  /** New rows that upload added. */
+  inserted: number | null;
+  /** The latest transit on the car, any period. */
+  lastTransitAt: string | null;
+  daysSinceUpload: number | null;
+  freshness: HgsFreshness;
+}
+
+export function parseFreshness(raw: Record<string, unknown>): HgsCarFreshness {
+  const uploadedAt = text(raw.last_upload_at);
+  const level = HGS_FRESHNESS.includes(raw.freshness as HgsFreshness) ? raw.freshness as HgsFreshness : uploadedAt ? 'old' : 'never';
+  return {
+    carId: num(raw.car_id),
+    uploadedAt,
+    uploadedBy: text(raw.last_upload_by),
+    uploadedByName: text(raw.last_upload_by_name),
+    inserted: raw.last_upload_inserted == null ? null : num(raw.last_upload_inserted),
+    lastTransitAt: text(raw.last_transit_at),
+    daysSinceUpload: raw.days_since_upload == null ? null : num(raw.days_since_upload),
+    freshness: level,
+  };
+}
+
+/**
+ * One call for every active car (sold ones are left out by the RPC, which also answers
+ * only for finance), by car id.
+ */
+export async function fetchHgsFreshness(): Promise<Map<number, HgsCarFreshness>> {
+  const { data, error } = await supabase.rpc('hgs_cars_freshness');
+  if (error) throw new Error(error.message);
+  return new Map(((data ?? []) as Record<string, unknown>[]).map(parseFreshness).map((row) => [row.carId, row]));
+}
+
+export type FreshnessCounts = Record<HgsFreshness, number>;
+
+export function freshnessCounts(freshness: Iterable<HgsCarFreshness>): FreshnessCounts {
+  const counts: FreshnessCounts = { fresh: 0, stale: 0, old: 0, never: 0 };
+  for (const row of Array.from(freshness)) counts[row.freshness] += 1;
+  return counts;
+}
+
+/** Each row with its car's last upload; a row with no active car gets none. */
+export function withFreshness(rows: HgsRow[], freshness: Map<number, HgsCarFreshness> | null): HgsRow[] {
+  if (!freshness) return rows;
+  return rows.map((row) => ({ ...row, freshness: row.carId !== null ? freshness.get(row.carId) ?? null : null }));
+}
+
 // ── Ranges of days ────────────────────────────────────────────────────────────
 
 const isDay = (value: string | null | undefined): value is string => {
@@ -431,6 +489,8 @@ export interface HgsRow {
   last: string | null;
   /** Of the period's spend, 0 to 1. */
   share: number;
+  /** The car's last portal upload, once `withFreshness` has merged it in. */
+  freshness?: HgsCarFreshness | null;
 }
 
 /** How a row goes in the URL's `car=`: its id, or its plate without spaces when it has no car. */
@@ -483,16 +543,32 @@ function rowsIn(data: Pick<HgsData, 'cars' | 'transits'>, period: HgsWindow): Hg
   return Array.from(rows.values()).map((row) => ({ ...row, share: total > 0 ? Math.max(0, row.amount) / total : 0 }));
 }
 
-export const HGS_SORTS = ['amount', 'transits', 'last'] as const;
+/** `update`, the default, puts the car most in need of a new portal file first. */
+export const HGS_SORTS = ['update', 'amount', 'transits', 'last'] as const;
 export type HgsSort = typeof HGS_SORTS[number];
+export const DEFAULT_HGS_SORT: HgsSort = 'update';
 
-/** Biggest first for every key; the plate breaks a tie, so the order never jumps. */
+/**
+ * Oldest update first: never uploaded, then the longest ago. A row with no update to
+ * show (a car that isn't active, or before the times load) goes last.
+ */
+const updateRank = (row: HgsRow): number => {
+  if (!row.freshness) return Number.POSITIVE_INFINITY;
+  if (!row.freshness.uploadedAt) return Number.NEGATIVE_INFINITY;
+  return Date.parse(row.freshness.uploadedAt) || 0;
+};
+
+/** Biggest first for every other key; the plate breaks a tie, so the order never jumps. */
 export function sortHgsRows(rows: HgsRow[], key: HgsSort): HgsRow[] {
   const value = (row: HgsRow) => (key === 'amount' ? row.amount : key === 'transits' ? row.transits : row.last ? Date.parse(row.last) || 0 : 0);
-  return [...rows].sort((a, b) => {
-    const order = value(b) - value(a);
-    return order || a.plate.localeCompare(b.plate, 'tr');
-  });
+  const compare = (a: HgsRow, b: HgsRow) => {
+    if (key === 'update') {
+      const [ra, rb] = [updateRank(a), updateRank(b)];
+      return ra === rb ? 0 : ra < rb ? -1 : 1;
+    }
+    return value(b) - value(a);
+  };
+  return [...rows].sort((a, b) => compare(a, b) || a.plate.localeCompare(b.plate, 'tr'));
 }
 
 const squeeze = (value: string | null | undefined) => (value ?? '').toLocaleLowerCase('tr').replace(/\s+/g, '');
@@ -502,14 +578,15 @@ export function matchesHgsSearch(row: Pick<HgsRow, 'plate' | 'barcode' | 'model'
   return !wanted || [row.plate, row.barcode, row.model].some((field) => squeeze(field).includes(wanted));
 }
 
-export const HGS_FILTERS = ['used', 'idle'] as const;
+export const HGS_FILTERS = ['used', 'idle', ...HGS_FRESHNESS] as const;
 export type HgsFilter = typeof HGS_FILTERS[number];
 
 /** A row with no transit is always an active car, so `idle` is the banner's list. */
 export function inHgsFilter(row: HgsRow, filter: HgsFilter | 'all'): boolean {
   if (filter === 'used') return row.transits > 0;
   if (filter === 'idle') return row.transits === 0;
-  return true;
+  if (filter === 'all') return true;
+  return row.freshness?.freshness === filter;
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────
@@ -532,6 +609,12 @@ export function formatTime(iso: string | null): string {
   return date && !Number.isNaN(date.getTime()) ? TIME.format(date) : '';
 }
 
+/** "12 Nov 2026, 14:05", Istanbul time, for a tooltip. */
+export function formatDayTime(iso: string | null): string {
+  const day = formatDay(iso);
+  return day === '—' ? '' : `${day}, ${formatTime(iso)}`;
+}
+
 export function formatChange(change: number | null, previousLabel: string): string {
   if (change === null) return `nothing in ${previousLabel}`;
   const rounded = Math.round(change);
@@ -546,7 +629,7 @@ export function syncedAgo(iso: string | null, now: number): string {
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return days === 1 ? '1 day ago' : `${days} days ago`;
 }

@@ -15,11 +15,15 @@ import {
   ALL_TIME,
   carParam,
   carsWithoutTransits,
+  DEFAULT_HGS_SORT,
   fetchCarTransits,
   fetchHgsData,
+  fetchHgsFreshness,
+  freshnessCounts,
   formatChange,
   formatCount,
   HGS_FILTERS,
+  HGS_FRESHNESS,
   HGS_SORTS,
   hgsRows,
   hgsSummary,
@@ -33,8 +37,10 @@ import {
   syncedAgo,
   windowDays,
   windowKey,
+  withFreshness,
   type CarRange,
   type DayRange,
+  type HgsCarFreshness,
   type HgsCarInfo,
   type HgsData,
   type HgsPeriod,
@@ -46,7 +52,8 @@ import { cn } from '../lib/media/badgeColor';
 import { currentMonth, monthLabel, shiftMonth } from '../lib/payroll';
 import { Segmented } from './bookings/ui';
 import { WalletIcon } from './customers/ui';
-import { BarcodeSheet, HgsCarRow, HgsListHeader, NoTransitsBanner, hgsRowId, type HistoryState } from './hgs/HgsParts';
+import { BarcodeSheet, FRESHNESS_LABEL, HgsCarRow, HgsListHeader, NoTransitsBanner, hgsRowId, type HistoryState } from './hgs/HgsParts';
+import { useLedgerActors } from '../lib/ledgerActors';
 import { DatesIcon, RangePicker } from './hgs/RangePicker';
 import { StatementSheet } from './hgs/StatementSheet';
 
@@ -58,9 +65,24 @@ import { StatementSheet } from './hgs/StatementSheet';
  *
  * A range of days (`?from=&to=`) takes the month's place for the whole page, and one car
  * can have its own (`?car=&cfrom=&cto=`), which wins for that car only.
+ *
+ * Each car also shows when its portal file was last uploaded, by whom, and how fresh
+ * that is, from one `hgs_cars_freshness` call merged in by car id. That RPC lists active
+ * cars only, so a sold car gets no update line and no freshness tile counts it.
  */
 
-const SORT_LABELS: Record<HgsSort, string> = { amount: 'Amount', transits: 'Transits', last: 'Last' };
+const SORT_LABELS: Record<HgsSort, string> = { update: 'Last update', amount: 'Amount', transits: 'Transits', last: 'Last' };
+
+const FRESHNESS_TONE = { fresh: 'green', stale: 'amber', old: 'red', never: 'slate' } as const;
+const FRESHNESS_SUB = { fresh: 'Under 3 days', stale: '3 to 7 days', old: 'Over 7 days', never: 'No portal file' } as const;
+const FRESHNESS_EMPTY = { fresh: 'No car is up to date', stale: 'No car is stale', old: 'No car is old', never: 'Every active car has a portal file' } as const;
+
+const ClockIcon: React.FC = () => (
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </svg>
+);
 
 const CalendarIcon: React.FC = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -86,11 +108,13 @@ const HGSPage: React.FC = () => {
     return carValue && range ? { car: carValue, range } : null;
   }, [carValue, carFrom, carTo]);
   const requestedSort = params.get('sort') as HgsSort | null;
-  const sort: HgsSort = requestedSort && HGS_SORTS.includes(requestedSort) ? requestedSort : 'amount';
+  const sort: HgsSort = requestedSort && HGS_SORTS.includes(requestedSort) ? requestedSort : DEFAULT_HGS_SORT;
   const { filter, toggle, clear } = useUrlFilter(HGS_FILTERS);
 
   const [data, setData] = useState<HgsData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [freshness, setFreshness] = useState<Map<number, HgsCarFreshness> | null>(null);
+  const [freshnessError, setFreshnessError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reload, setReload] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -104,6 +128,10 @@ const HGSPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    // The update times come with the page, in parallel; if they fail the rest still shows.
+    fetchHgsFreshness()
+      .then((next) => { if (!cancelled) { setFreshness(next); setFreshnessError(null); } })
+      .catch((failure: unknown) => { if (!cancelled) setFreshnessError(failure instanceof Error ? failure.message : 'Try again.'); });
     fetchHgsData()
       .then((next) => {
         if (cancelled) return;
@@ -146,7 +174,13 @@ const HGSPage: React.FC = () => {
   const idleCars = useMemo(() => (data ? carsWithoutTransits(data, pageWindow) : []), [data, pageWindow]);
   const summary = useMemo(() => (data ? hgsSummary(data, pageWindow, thisMonth) : null), [data, pageWindow, thisMonth]);
   const pageRows = useMemo(() => (data ? hgsRows(data, pageWindow) : []), [data, pageWindow]);
-  const rows = useMemo(() => (data && carRange ? hgsRows(data, pageWindow, carRange) : pageRows), [data, pageWindow, carRange, pageRows]);
+  const rows = useMemo(
+    () => withFreshness(data && carRange ? hgsRows(data, pageWindow, carRange) : pageRows, freshness),
+    [data, pageWindow, carRange, pageRows, freshness],
+  );
+  const freshCounts = useMemo(() => (freshness ? freshnessCounts(freshness.values()) : null), [freshness]);
+  const uploaderIds = useMemo(() => Array.from(freshness?.values() ?? [], (row) => row.uploadedBy), [freshness]);
+  const { actors: uploaders } = useLedgerActors(uploaderIds, uploaderIds.some(Boolean));
   const visible = useMemo(
     () => sortHgsRows(rows.filter((row) => inHgsFilter(row, filter) && matchesHgsSearch(row, query)), sort),
     [rows, filter, query, sort],
@@ -206,7 +240,7 @@ const HGSPage: React.FC = () => {
   // A chip in the banner shows that car's row, open, wherever the list was.
   const showCar = (car: HgsCarInfo) => {
     setQuery('');
-    if (filter === 'used') clear();
+    if (filter !== 'all' && filter !== 'idle') clear();
     setExpanded(`car:${car.id}`);
     setScrollTo(`car:${car.id}`);
   };
@@ -282,7 +316,24 @@ const HGSPage: React.FC = () => {
 
       {error && <LoadError message={`Couldn't load HGS: ${error}`} onRetry={refresh} />}
 
-      {data && <NoTransitsBanner cars={idleCars} when={bannerWhen} onPick={showCar} onMore={() => { if (filter !== 'idle') toggle('idle'); }} />}
+      {data && <NoTransitsBanner cars={idleCars} when={bannerWhen} freshness={freshCounts} onPick={showCar} onMore={() => { if (filter !== 'idle') toggle('idle'); }} />}
+
+      {!freshCounts && !freshnessError && <div className="mb-4"><FilterTileSkeleton split count={4} /></div>}
+      {freshCounts && (
+        <div className="mb-4">
+          <FilterTileRow split label="Filter by last update">
+            {HGS_FRESHNESS.map((level) => (
+              <FilterTile
+                key={level}
+                split mono tone={FRESHNESS_TONE[level]} icon={<ClockIcon />}
+                label={FRESHNESS_LABEL[level]} value={formatCount(freshCounts[level])} sub={FRESHNESS_SUB[level]}
+                active={filter === level} onClick={() => toggle(level)}
+              />
+            ))}
+          </FilterTileRow>
+        </div>
+      )}
+      {freshnessError && <p role="status" className="mb-3 max-w-[1100px] text-[12.5px] text-[#B91C1C]">Couldn't load the last update times: {freshnessError}</p>}
 
       {loading && <FilterTileSkeleton split count={4} />}
       {summary && (
@@ -317,7 +368,7 @@ const HGSPage: React.FC = () => {
         <SearchField value={query} onChange={setQuery} placeholder="Search plate, barcode or model" className="sm:max-w-[340px] sm:flex-1" />
         <div className="flex items-center gap-2 sm:ms-auto">
           <span className="text-[12.5px] text-black/45">Sort</span>
-          <Segmented ariaLabel="Sort cars" value={sort} onChange={(next) => setParam({ sort: next === 'amount' ? null : next })} options={HGS_SORTS.map((key) => ({ value: key, label: SORT_LABELS[key] }))} />
+          <Segmented ariaLabel="Sort cars" value={sort} onChange={(next) => setParam({ sort: next === DEFAULT_HGS_SORT ? null : next })} options={HGS_SORTS.map((key) => ({ value: key, label: SORT_LABELS[key] }))} />
         </div>
       </div>
 
@@ -327,7 +378,7 @@ const HGSPage: React.FC = () => {
         ) : data && visible.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-black/10 px-6 py-12 text-center">
             <p className="text-[14px] font-medium text-black/65">
-              {query ? 'No car matches that search' : filter === 'used' ? `No car passed a toll ${periodLabel}` : filter === 'idle' ? `Every active car has HGS transits ${periodLabel}` : 'No active cars'}
+              {query ? 'No car matches that search' : filter === 'used' ? `No car passed a toll ${periodLabel}` : filter === 'idle' ? `Every active car has HGS transits ${periodLabel}` : filter !== 'all' ? FRESHNESS_EMPTY[filter] : 'No active cars'}
             </p>
             <p className="mt-1 text-[13px] text-black/45">
               {query || filter !== 'all' ? 'Clear the search or the filter to see every car.' : 'Active cars show up here.'}
@@ -352,6 +403,8 @@ const HGSPage: React.FC = () => {
                   onAddBarcode={addBarcode}
                   onRange={setCarRange}
                   onStatement={setStatementFor}
+                  uploader={row.freshness?.uploadedBy ? uploaders.get(row.freshness.uploadedBy) ?? null : null}
+                  now={now}
                 />
               ))}
             </ul>

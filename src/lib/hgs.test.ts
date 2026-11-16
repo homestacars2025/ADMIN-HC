@@ -14,12 +14,15 @@ import {
   formatChange,
   hgsRows,
   hgsSummary,
+  freshnessCounts,
   inHgsFilter,
+  parseFreshness,
   matchesHgsSearch,
   monthChange,
   normalizeBarcode,
   sortHgsRows,
   syncedAgo,
+  withFreshness,
   type HgsCarInfo,
   type HgsTransitLite,
 } from './hgs';
@@ -162,7 +165,7 @@ describe('last sync', () => {
   it('reads in minutes, hours and days', () => {
     expect(syncedAgo('2026-11-04T11:59:40Z', now)).toBe('just now');
     expect(syncedAgo('2026-11-04T11:48:00Z', now)).toBe('12 min ago');
-    expect(syncedAgo('2026-11-04T09:00:00Z', now)).toBe('3 h ago');
+    expect(syncedAgo('2026-11-04T09:00:00Z', now)).toBe('3h ago');
     expect(syncedAgo('2026-11-02T09:00:00Z', now)).toBe('2 days ago');
     expect(syncedAgo(null, now)).toBe('never');
   });
@@ -233,5 +236,36 @@ describe('a range of days', () => {
       ['lte', ['start_date', '2026-11-06']],
       ['gte', ['end_date', '2026-11-01']],
     ]));
+  });
+});
+
+describe('last update per car', () => {
+  const base = { key: '', carId: 0, plate: '', model: null, image: null, barcode: null, transits: 0, privateRoad: 0, amount: 0, last: null, share: 0 };
+  const fresh = (carId: number, uploadedAt: string | null, level: 'fresh' | 'stale' | 'old' | 'never') => ({
+    carId, uploadedAt, uploadedBy: null, uploadedByName: null, inserted: null, lastTransitAt: null, daysSinceUpload: null, freshness: level,
+  });
+
+  it('parses an RPC row, with a level it does not know falling back on the time', () => {
+    expect(parseFreshness({ car_id: '7', plate_number: '34 AB 1', last_upload_at: '2026-11-10T09:00:00Z', last_upload_by: 'u1', last_upload_by_name: 'Sara', last_upload_inserted: 4, last_transit_at: null, days_since_upload: 6, freshness: 'stale' }))
+      .toEqual({ carId: 7, uploadedAt: '2026-11-10T09:00:00Z', uploadedBy: 'u1', uploadedByName: 'Sara', inserted: 4, lastTransitAt: null, daysSinceUpload: 6, freshness: 'stale' });
+    expect(parseFreshness({ car_id: 8, last_upload_at: null, freshness: 'weird' }).freshness).toBe('never');
+  });
+
+  it('merges by car id, counts, filters, and sorts oldest update first with no-update rows last', () => {
+    const map = new Map([
+      [1, fresh(1, '2026-11-15T09:00:00Z', 'fresh')],
+      [2, fresh(2, '2026-11-01T09:00:00Z', 'old')],
+      [3, fresh(3, null, 'never')],
+    ]);
+    const rows = withFreshness([
+      { ...base, key: 'car:1', carId: 1, plate: 'A' },
+      { ...base, key: 'car:2', carId: 2, plate: 'B' },
+      { ...base, key: 'car:3', carId: 3, plate: 'C' },
+      { ...base, key: 'plate:X', carId: null, plate: 'X' },
+    ], map);
+    expect(rows[3].freshness).toBeNull();
+    expect(freshnessCounts(map.values())).toEqual({ fresh: 1, stale: 0, old: 1, never: 1 });
+    expect(rows.filter((row) => inHgsFilter(row, 'old')).map((row) => row.key)).toEqual(['car:2']);
+    expect(sortHgsRows(rows, 'update').map((row) => row.key)).toEqual(['car:3', 'car:2', 'car:1', 'plate:X']);
   });
 });
