@@ -1,4 +1,7 @@
 import {
+  groupByHolder,
+  heldAge,
+  withHolders,
   ageLabel,
   balancesOf,
   canComplete,
@@ -209,5 +212,35 @@ describe('deleting envelopes', () => {
     expect(deleteFailedMessage([{ envelope: { id: 2, ref: 'ENV-2' }, message: 'Admins only' }])).toBe("Couldn't delete ENV-2: Admins only");
     expect(deleteFailedMessage([{ envelope: { id: 2, ref: 'ENV-2' }, message: 'x' }, { envelope: { id: 3, ref: 'ENV-3' }, message: 'y' }])).toBe("Couldn't delete 2 envelopes: ENV-2, ENV-3");
     expect(deleteFailedMessage([])).toBeNull();
+  });
+});
+
+describe('held by staff', () => {
+  const now = Date.parse('2026-11-21T12:00:00Z');
+  const hoursAgo = (hours: number) => new Date(now - hours * 3600000).toISOString();
+  const row = (id: number, hours: number, currency: 'TRY' | 'USD' = 'TRY', amount = 100) => ({
+    id, ref: `ENV-2611-00${id}`, amount, currency, created_at: hoursAgo(hours), booking_number: null, plate: null, customer: null, note: null,
+  });
+
+  it('is amber past a day and red past three', () => {
+    expect(heldAge(hoursAgo(23), now)).toBe('fresh');
+    expect(heldAge(hoursAgo(25), now)).toBe('late');
+    expect(heldAge(hoursAgo(72), now)).toBe('late');
+    expect(heldAge(hoursAgo(73), now)).toBe('overdue');
+  });
+
+  it('groups by holder with a count, a total per currency and the oldest, oldest group first', () => {
+    const held = withHolders(
+      [row(1, 2), row(2, 30, 'USD', 50), row(3, 80), row(4, 5, 'TRY', 250)],
+      [{ id: 1, holder_profile_id: 'a' }, { id: 2, holder_profile_id: 'a' }, { id: 3, holder_profile_id: 'b' }],
+    );
+    expect(held.map((envelope) => envelope.holder_profile_id)).toEqual(['a', 'a', 'b', null]);
+    const groups = groupByHolder(held);
+    expect(groups.map((group) => [group.holderId, group.envelopes.map((envelope) => envelope.id), group.totals])).toEqual([
+      ['b', [3], [{ currency: 'TRY', total: 100 }]],
+      ['a', [2, 1], [{ currency: 'TRY', total: 100 }, { currency: 'USD', total: 50 }]],
+      [null, [4], [{ currency: 'TRY', total: 250 }]],
+    ]);
+    expect(groups[1].oldest).toBe(hoursAgo(30));
   });
 });

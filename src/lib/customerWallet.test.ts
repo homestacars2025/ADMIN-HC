@@ -1,4 +1,5 @@
 import {
+  cashWithHolder,
   balanceLabel,
   balanceToMove,
   buildWallet,
@@ -340,5 +341,37 @@ describe('the net across wallets', () => {
       all: 4, owesTotal: 262_037, creditTotal: 70_000, net: 192_037,
     });
     expect(walletTotals([summary('a', -1000), summary('b', 4000)]).net).toBe(-3000);
+  });
+});
+
+describe('cash still with staff', () => {
+  const envelope = (over: Record<string, unknown> = {}) => ({
+    id: 9, ref: 'ENV-2611-0041', status: 'with_employee' as const, amount: 3000, counted_amount: null, currency: 'TRY' as const,
+    created_at: '2026-11-20T09:00:00Z', created_by: 's1', holder_name: 'Omar Staff', ledger_id: 'p', ...over,
+  });
+  const walletWith = (envelopes: ReturnType<typeof envelope>[], paymentRef = 'ENV-2611-0041'): WalletData => ({
+    customer: { id: 'c1', first_name: 'Omar', last_name: 'Ali' },
+    bookings: [booking({})],
+    lines: [line({ id: 'p', type: 'payment', amount: 3000, direction: 'IN', payment_ref: paymentRef, created_at: '2026-11-20T09:00:00Z' })],
+    replacements: [],
+    plates,
+    envelopes,
+  });
+
+  it('names the holder on an ENV payment whose envelope is still with them', () => {
+    const paid = buildWallet(walletWith([envelope()])).cards[0].lines[0];
+    expect(cashWithHolder(paid)).toBe('Cash with Omar Staff');
+  });
+
+  it('says nothing once the envelope is in a safe, or for a payment that is not an envelope', () => {
+    expect(cashWithHolder(buildWallet(walletWith([envelope({ status: 'in_safe' })])).cards[0].lines[0])).toBeNull();
+    expect(cashWithHolder({ payment_ref: 'MOV-2611-0001', envelope: envelope() })).toBeNull();
+    expect(cashWithHolder({ payment_ref: 'ENV-2611-0041', envelope: null })).toBeNull();
+    expect(cashWithHolder({ payment_ref: 'env-2611-0041', envelope: envelope({ holder_name: null }) })).toBe('Cash with staff');
+  });
+
+  it('finds the envelope by its ref when the line id does not match', () => {
+    const paid = buildWallet(walletWith([envelope({ ledger_id: 'elsewhere' })])).cards[0].lines[0];
+    expect(paid.envelope?.ref).toBe('ENV-2611-0041');
   });
 });

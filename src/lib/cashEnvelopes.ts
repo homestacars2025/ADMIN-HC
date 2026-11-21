@@ -343,3 +343,92 @@ export function waitingForAdmin(
     accounts: totalsByCurrency(balances.filter((row) => held.has(row.account_id)).map((row) => ({ currency: row.currency, amount: row.balance }))),
   };
 }
+
+// ─── Held by staff ────────────────────────────────────────────────────────────
+
+/** An envelope still with the staff member who took the cash, from `my_held_envelopes`. */
+export interface HeldEnvelope {
+  id: number;
+  ref: string;
+  amount: number;
+  currency: Currency;
+  created_at: string;
+  booking_number: string | null;
+  plate: string | null;
+  customer: string | null;
+  /** What the cash was for, as written when it was taken. */
+  note: string | null;
+  /** Who holds it. The RPC doesn't say, so it comes from the envelope itself. */
+  holder_profile_id: string | null;
+}
+
+const blank = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
+/** Every staff member's held envelopes for finance and admins; a staff member gets only their own. */
+export async function fetchHeldEnvelopes(): Promise<Array<Omit<HeldEnvelope, 'holder_profile_id'>>> {
+  const { data, error } = await supabase.rpc('my_held_envelopes');
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    id: Number(row.id),
+    ref: String(row.ref),
+    amount: Number(row.amount),
+    currency: row.currency as Currency,
+    created_at: String(row.created_at),
+    booking_number: blank(row.booking_number),
+    plate: blank(row.plate),
+    customer: blank(row.customer),
+    note: blank(row.note),
+  }));
+}
+
+/** Each held envelope with its holder, by envelope id. */
+export function withHolders(
+  rows: Array<Omit<HeldEnvelope, 'holder_profile_id'>>,
+  envelopes: Array<Pick<Envelope, 'id' | 'holder_profile_id'>>,
+): HeldEnvelope[] {
+  const holders = new Map(envelopes.map((envelope) => [envelope.id, envelope.holder_profile_id]));
+  return rows.map((row) => ({ ...row, holder_profile_id: holders.get(row.id) ?? null }));
+}
+
+const HOUR = 60 * 60 * 1000;
+
+/** Over a day is late, over three days is overdue. */
+export type HeldAge = 'fresh' | 'late' | 'overdue';
+
+export function heldAge(createdAt: string, now: number): HeldAge {
+  const age = now - Date.parse(createdAt);
+  if (age > 72 * HOUR) return 'overdue';
+  if (age > 24 * HOUR) return 'late';
+  return 'fresh';
+}
+
+export interface HolderGroup {
+  holderId: string | null;
+  envelopes: HeldEnvelope[];
+  totals: CurrencyTotal[];
+  /** The oldest envelope's `created_at`. */
+  oldest: string;
+}
+
+/** One group per holder, oldest envelope first inside each and across them. */
+export function groupByHolder(rows: HeldEnvelope[]): HolderGroup[] {
+  const groups = new Map<string, HeldEnvelope[]>();
+  rows.forEach((row) => {
+    const key = row.holder_profile_id ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  });
+  return Array.from(groups.entries())
+    .map(([key, envelopes]) => {
+      const sorted = [...envelopes].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id - b.id);
+      return { holderId: key || null, envelopes: sorted, totals: totalsByCurrency(sorted), oldest: sorted[0].created_at };
+    })
+    .sort((a, b) => a.oldest.localeCompare(b.oldest));
+}
+
+const HELD_AT = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Europe/Istanbul' });
+
+/** "21 Nov 2026, 14:05", Istanbul time. */
+export function formatHeldAt(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '—' : HELD_AT.format(date);
+}

@@ -72,7 +72,7 @@ test('Cancel deletes nothing, and a blank reason goes as null', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Delete ENV-2611-0003' }));
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-  expect(mockRpc).not.toHaveBeenCalled();
+  expect(mockRpc).not.toHaveBeenCalledWith('admin_delete_envelope', expect.anything());
 
   await userEvent.click(screen.getByRole('button', { name: 'Delete ENV-2611-0003' }));
   await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
@@ -90,12 +90,12 @@ test('bulk: any envelope can be picked, and Delete selected loops the RPC', asyn
   await userEvent.click(dialog.getByRole('button', { name: 'Delete' }));
 
   expect(await screen.findByText('2 envelopes deleted')).toBeInTheDocument();
-  expect(mockRpc.mock.calls.map((call) => call[1].p_envelope_id)).toEqual([1, 2]);
+  expect(mockRpc.mock.calls.filter((call) => call[0] === 'admin_delete_envelope').map((call) => call[1].p_envelope_id)).toEqual([1, 2]);
 });
 
 test('a failure in a bulk delete is reported, and that envelope stays selected', async () => {
-  mockRpc.mockImplementation(async (_name: string, args: { p_envelope_id: number }) => (
-    args.p_envelope_id === 3
+  mockRpc.mockImplementation(async (name: string, args: { p_envelope_id: number }) => (
+    name !== 'admin_delete_envelope' ? { data: [], error: null } : args.p_envelope_id === 3
       ? { data: null, error: { message: 'Envelope not found' } }
       : { data: { deleted_envelope: `ENV-2611-000${args.p_envelope_id}`, amount: 100, currency: 'TRY', ledger_rows_deleted: 1 }, error: null }
   ));

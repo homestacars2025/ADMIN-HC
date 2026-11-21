@@ -14,10 +14,12 @@ const parseCount = (text: string): number | null => (/^0+([.,]0*)?$/.test(text.t
 export const ReceiveEnvelopeSheet: React.FC<{
   envelopes: Envelope[];
   accounts: CashAccount[];
+  /** The envelope to start on, from a row's "Receive into safe". */
+  initialRef?: string;
   onClose: () => void;
   onDone: (ref: string) => void;
-}> = ({ envelopes, accounts, onClose, onDone }) => {
-  const [ref, setRef] = useState('');
+}> = ({ envelopes, accounts, initialRef = '', onClose, onDone }) => {
+  const [ref, setRef] = useState(initialRef);
   const [counted, setCounted] = useState<string | null>(null);
   const [accountId, setAccountId] = useState('');
   const [note, setNote] = useState('');

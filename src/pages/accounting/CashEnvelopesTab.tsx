@@ -25,6 +25,7 @@ import {
   ENVELOPE_LABELS,
   fetchAccountBalances,
   fetchEnvelopes,
+  fetchHeldEnvelopes,
   fetchMovements,
   inEnvelopeFilter,
   inMovementFilter,
@@ -34,11 +35,13 @@ import {
   posPending,
   reversalsOf,
   reverseMovement,
-  withStaff,
+  totalsByCurrency,
+  withHolders,
   type AccountBalance,
   type CurrencyTotal,
   type DeleteOutcome,
   type Envelope,
+  type HeldEnvelope,
   type Movement,
   type MovementType,
 } from '../../lib/cashEnvelopes';
@@ -51,10 +54,14 @@ import { MoreIcon, WalletIcon } from '../customers/ui';
 import { AccountsSection } from './AccountsSection';
 import { DeleteEnvelopesDialog, DeleteIconButton, ENVELOPE_STATUS_PILL, EnvelopeDetailSheet } from './EnvelopeDelete';
 import { ReceiveEnvelopeSheet, TransferSheet } from './EnvelopeSheets';
+import { HeldByStaffSection } from './HeldByStaffSection';
 
 const TONES: Record<AccountKind, FilterTileTone> = { safe: 'teal', pos: 'violet', bank: 'green', gateway: 'green', custody: 'neutral', other: 'neutral' };
 
 const ALL = 'all';
+
+/** The "Held by staff" tab is the `held` filter, so the Cash with staff tile and the tab are one state in the URL. */
+const HELD = 'held';
 
 /** The first currency is the big figure on a tile, and any others go below it. */
 function tileFigures(totals: CurrencyTotal[], fallback: string) {
@@ -113,13 +120,17 @@ export const CashEnvelopesTab: React.FC = () => {
   const [balances, setBalances] = useState<AccountBalance[]>([]);
   const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [heldRows, setHeldRows] = useState<Array<Omit<HeldEnvelope, 'holder_profile_id'>>>([]);
+  /** The held list fails alone: the rest of the tab still loads. */
+  const [heldError, setHeldError] = useState<string | null>(null);
   const [people, setPeople] = useState<Record<string, ProfileOption>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [picked, setPicked] = useState<Set<number>>(new Set());
-  const [receiving, setReceiving] = useState(false);
+  /** The receive sheet's starting envelope number; null while it's closed. */
+  const [receiving, setReceiving] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
   const [reversing, setReversing] = useState<Movement | null>(null);
   const [opened, setOpened] = useState<Envelope | null>(null);
@@ -130,14 +141,14 @@ export const CashEnvelopesTab: React.FC = () => {
   const [dates, setDates] = useState<DateRange>(ALL_DATES);
   const [showInternal, setShowInternal] = useState(false);
 
-  const filters = useMemo(() => ['staff', 'pos', ...accounts.map((account) => accountFilter(account.id))], [accounts]);
+  const filters = useMemo(() => [HELD, 'staff', 'pos', ...accounts.map((account) => accountFilter(account.id))], [accounts]);
   const { filter, toggle, clear } = useUrlFilter(filters);
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    Promise.all([fetchCashAccounts(), fetchAccountBalances(), fetchEnvelopes(), fetchMovements()])
-      .then(async ([accountRows, balanceRows, envelopeRows, movementRows]) => {
+    Promise.all([fetchCashAccounts(), fetchAccountBalances(), fetchEnvelopes(), fetchMovements(), fetchHeldEnvelopes().catch((failure: unknown) => (failure instanceof Error ? failure : new Error('Try again.')))])
+      .then(async ([accountRows, balanceRows, envelopeRows, movementRows, held]) => {
         const ids = [...envelopeRows.flatMap((row) => [row.holder_profile_id, row.created_by]), ...movementRows.map((row) => row.created_by)];
         const profiles = await getAvatarProfiles(Array.from(new Set(ids.filter((id): id is string => Boolean(id)))));
         if (cancelled) return;
@@ -145,6 +156,8 @@ export const CashEnvelopesTab: React.FC = () => {
         setBalances(balanceRows);
         setEnvelopes(envelopeRows);
         setMovements(movementRows);
+        setHeldRows(held instanceof Error ? [] : held);
+        setHeldError(held instanceof Error ? held.message : null);
         setPeople(profiles);
         setNow(Date.now());
       })
@@ -155,7 +168,14 @@ export const CashEnvelopesTab: React.FC = () => {
 
   const refresh = useCallback(() => setReload((value) => value + 1), []);
   const names = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
-  const staff = useMemo(() => withStaff(envelopes, now), [envelopes, now]);
+  // Holders come from the envelopes already loaded, matched by id, so the RPC is all the tab asks for.
+  const held = useMemo(() => withHolders(heldRows, envelopes), [heldRows, envelopes]);
+  const staff = useMemo(() => ({
+    count: held.length,
+    totals: totalsByCurrency(held),
+    overdue: held.some((envelope) => isOverdue({ status: 'with_employee', created_at: envelope.created_at }, now)),
+  }), [held, now]);
+  const view = filter === HELD ? 'held' : 'envelopes';
   const pending = useMemo(() => posPending(movements), [movements]);
   const banks = useMemo(() => new Set(accounts.filter((account) => account.kind === 'bank').map((account) => account.id)), [accounts]);
   const reversals = useMemo(() => reversalsOf(movements), [movements]);
@@ -259,7 +279,8 @@ export const CashEnvelopesTab: React.FC = () => {
     </label>
   ) : null);
 
-  const staffFigures = tileFigures(staff.totals, staff.count === 1 ? '1 envelope' : `${staff.count} envelopes`);
+  const envelopeCount = staff.count === 1 ? '1 envelope' : `${staff.count} envelopes`;
+  const staffFigures = tileFigures(staff.totals, envelopeCount);
   const posFigures = tileFigures(pending.totals, pending.next ? `next ${formatDate(pending.next)}` : 'nothing pending');
 
   return (
@@ -289,22 +310,49 @@ export const CashEnvelopesTab: React.FC = () => {
             tone={staff.overdue ? 'red' : 'amber'}
             bareIcon={staff.overdue}
             icon={staff.overdue ? <ComplianceTriangle tone="red" size={32} /> : <WalletIcon size={15} />}
-            label="Envelopes with staff"
-            value={staffFigures.value}
-            sub={staff.totals.length > 1 ? staffFigures.sub : staff.count === 1 ? '1 envelope' : `${staff.count} envelopes`}
-            active={filter === 'staff'}
-            onClick={() => toggle('staff')}
+            label="Cash with staff"
+            value={heldError ? '—' : staffFigures.value}
+            sub={heldError ? "Couldn't load" : staff.totals.length > 1 ? `${staffFigures.sub} · ${envelopeCount}` : envelopeCount}
+            active={filter === HELD}
+            onClick={() => toggle(HELD)}
           />
           <FilterTile tone="neutral" icon={<WalletIcon size={15} />} label="POS pending" value={posFigures.value} sub={posFigures.sub} active={filter === 'pos'} onClick={() => toggle('pos')} />
         </FilterTileRow>
       )}
 
       <div className="mt-4 flex max-w-[1100px] flex-wrap items-center gap-2">
-        <Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setReceiving(true)}>Receive envelope</Button>
+        <Button size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setReceiving('')}>Receive envelope</Button>
         {isAdmin && <Button variant="outline" size="lg" className="!h-11 px-4 md:!h-10" onClick={() => setTransferring(true)}>Transfer</Button>}
         <a href="#cash-accounts" onClick={(event) => { event.preventDefault(); document.getElementById('cash-accounts')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex min-h-[44px] items-center px-2 text-[13px] font-medium text-primary hover:underline md:min-h-[40px]">Manage accounts</a>
       </div>
 
+      <div role="tablist" aria-label="Envelopes view" className="mt-5 flex max-w-[1100px] gap-1 border-b border-subtle">
+        {([['envelopes', 'Envelopes'], ['held', 'Held by staff']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => { if (view !== key) { if (key === 'held') toggle(HELD); else clear(); } }}
+            className={cn(
+              '-mb-px inline-flex min-h-[44px] items-center gap-1.5 border-b-2 px-3 text-[13.5px] font-medium transition-colors md:min-h-[40px]',
+              view === key ? 'border-primary text-foreground' : 'border-transparent text-black/50 hover:text-black/75',
+            )}
+          >
+            {label}
+            {key === 'held' && staff.count > 0 && (
+              <span className={cn('rounded-full px-1.5 text-[11.5px] font-semibold tabular-nums', staff.overdue ? 'bg-[#DC2626]/10 text-[#B91C1C]' : 'bg-[#F59E0B]/[0.16] text-[#92400E]')}>{staff.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {view === 'held' && heldError ? (
+        <div className="mt-4 max-w-[1100px]"><LoadError message={`Couldn't load the envelopes held by staff: ${heldError}`} onRetry={refresh} /></div>
+      ) : view === 'held' ? (
+        <HeldByStaffSection rows={held} people={people} now={now} loading={loading} wide={wide} onReceive={setReceiving} />
+      ) : (
+      <>
       <Section
         title="Envelopes"
         action={(pickedIds.length > 0 || pickedForDelete.length > 0) && (
@@ -466,15 +514,18 @@ export const CashEnvelopesTab: React.FC = () => {
               </ul>
             )}
       </Section>
+      </>
+      )}
 
       {!loading && <AccountsSection accounts={accounts} balances={balances} onChange={setAccounts} />}
 
-      {receiving && (
+      {receiving !== null && (
         <ReceiveEnvelopeSheet
           envelopes={envelopes}
           accounts={accounts}
-          onClose={() => setReceiving(false)}
-          onDone={(ref) => { setReceiving(false); toast.success(`${ref} received.`); refresh(); }}
+          initialRef={receiving}
+          onClose={() => setReceiving(null)}
+          onDone={(ref) => { setReceiving(null); toast.success(`${ref} received.`); refresh(); }}
         />
       )}
       {transferring && (

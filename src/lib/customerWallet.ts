@@ -58,6 +58,18 @@ export interface WalletEnvelope {
   currency: Currency;
   created_at: string;
   created_by: string | null;
+  /** Who has the cash while it's `with_employee`. */
+  holder_name?: string | null;
+}
+
+/**
+ * "Cash with Omar" for a payment line whose envelope (`payment_ref` ENV-…) is still with
+ * the staff member who took it; null once it's in a safe or with the admin.
+ */
+export function cashWithHolder(line: Pick<WalletLine, 'payment_ref'> & { envelope: WalletEnvelope | null }): string | null {
+  if (!line.envelope || line.envelope.status !== 'with_employee') return null;
+  if (!/^ENV-/i.test(line.payment_ref?.trim() ?? '')) return null;
+  return `Cash with ${line.envelope.holder_name?.trim() || 'staff'}`;
 }
 
 export interface WalletReplacement {
@@ -516,6 +528,8 @@ export function buildWallet(data: WalletData): Wallet {
   const withLines = new Set(data.lines.map((line) => line.booking_id));
   const listed = data.bookings.filter((booking) => booking.status !== 'cancelled' || withLines.has(booking.id));
   const envelopeByLine = new Map((data.envelopes ?? []).map(({ ledger_id, ...envelope }) => [ledger_id, envelope]));
+  const envelopeByRef = new Map((data.envelopes ?? []).map(({ ledger_id, ...envelope }) => [envelope.ref.toUpperCase(), envelope]));
+  const envelopeOf = (line: WalletLine) => envelopeByLine.get(line.id) ?? (line.payment_ref ? envelopeByRef.get(line.payment_ref.trim().toUpperCase()) ?? null : null);
   const cards = listed.slice().sort(newestFirst).map((booking): WalletCard => {
     const car = one(booking.cars);
     const own = data.lines.filter((line) => line.booking_id === booking.id);
@@ -533,7 +547,7 @@ export function buildWallet(data: WalletData): Wallet {
           note: kind === 'transfer' ? transferNote(line.description) : null,
           editable: isEditableLine(line),
           hgs: kind === 'hgs' ? hgsLineInfo(line) : null,
-          envelope: envelopeByLine.get(line.id) ?? null,
+          envelope: envelopeOf(line),
         };
       });
     return {
@@ -662,7 +676,7 @@ export async function fetchWalletData(customerId: string): Promise<WalletData | 
     supabase.from('cars').select('id, plate_number'),
     supabase
       .from('money_envelopes')
-      .select('id, ref, status, amount, counted_amount, currency, created_at, created_by, ledger_id')
+      .select('id, ref, status, amount, counted_amount, currency, created_at, created_by, ledger_id, holder:holder_profile_id(full_name)')
       .eq('customer_id', customerId)
       .not('ledger_id', 'is', null),
   ]);
@@ -684,6 +698,7 @@ export async function fetchWalletData(customerId: string): Promise<WalletData | 
       currency: row.currency as Currency,
       created_at: String(row.created_at),
       created_by: (row.created_by as string | null) ?? null,
+      holder_name: (Array.isArray(row.holder) ? row.holder[0] : row.holder as { full_name: string | null } | null)?.full_name ?? null,
       ledger_id: String(row.ledger_id),
     })),
   };

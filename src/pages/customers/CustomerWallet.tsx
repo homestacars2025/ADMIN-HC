@@ -7,6 +7,7 @@ import { useCurrency } from '../../lib/CurrencyContext';
 import { formatInCurrency } from '../../lib/money';
 import { formatDate } from '../../lib/customers';
 import {
+  cashWithHolder,
   balanceLabel,
   balanceToMove,
   defaultTarget,
@@ -190,7 +191,9 @@ const LineRow: React.FC<LineActions & { line: WalletCardLine; nested?: boolean }
         ) : line.envelope ? (
           <span className="inline-flex items-center gap-1.5">
             <span className="font-mono text-[11.5px] font-semibold text-black/60" title="Paid in with this envelope">{line.envelope.ref}</span>
-            <EnvelopeStatusChip status={line.envelope.status} className="!px-1.5 !text-[11px]" />
+            {cashWithHolder(line)
+              ? <span className="max-w-[160px] truncate whitespace-nowrap rounded-full bg-[#F59E0B]/[0.16] px-1.5 py-0.5 text-[11px] font-medium text-[#92400E]" title="Not in a safe yet">{cashWithHolder(line)}</span>
+              : <EnvelopeStatusChip status={line.envelope.status} className="!px-1.5 !text-[11px]" />}
             {onDeleteEnvelope && (
               <button
                 type="button"
